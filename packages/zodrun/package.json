@@ -1,0 +1,21 @@
+{
+  "name": "zodrun",
+  "version": "0.0.1",
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsdown src/index.ts",
+    "dev": "bun src/index.ts",
+    "test": "bun test",
+    "prepare": "bun bundle",
+    "bundle": "bun run build && bun ../../scripts/copyPackageJson.ts",
+    "publish-to-npm": "bun publish --access public --no-git-checks --no-confirm"
+  },
+  "devDependencies": {
+    "zod": "^4.1.13"
+  },
+  "peerDependencies": {
+    "zod": ">=4"
+  }
+}
