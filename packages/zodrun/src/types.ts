@@ -11,7 +11,7 @@ export type ZodrunCommand<
   TRes = void,
   TCommands extends [...AnyZodrunCommand[]] = [],
 > = {
-  command: TName;
+  name: TName;
   args?: z.ZodType<TArgs>;
   options?: z.ZodType<TOpts>;
   handle?: (args: TArgs, options: TOpts) => TRes;
@@ -94,7 +94,7 @@ export type ZodrunProgram<
 };
 
 export type ZodrunCommandResult<TCommand extends AnyZodrunCommand = ZodrunCommand> = {
-  command: TCommand['command'];
+  command: TCommand['name'];
   args: GetArgs<TCommand>;
   options: GetOptions<TCommand>;
   result: GetResults<TCommand>;
@@ -102,7 +102,7 @@ export type ZodrunCommandResult<TCommand extends AnyZodrunCommand = ZodrunComman
 
 export type ZodrunParseResult<TCommand extends AnyZodrunCommand = ZodrunCommand> =
   | {
-      command: TCommand['command'];
+      command: TCommand['name'];
       args?: GetArgs<TCommand>;
       options?: GetOptions<TCommand>;
     }

@@ -8,12 +8,12 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
   function findCommandByName(name: string, commands?: AnyZodrunCommand[]): AnyZodrunCommand | undefined {
     if (!commands) return undefined;
 
-    const foundByName = commands.find((cmd) => cmd.command === name);
+    const foundByName = commands.find((cmd) => cmd.name === name);
     if (foundByName) return foundByName;
 
     for (const cmd of commands) {
-      if (cmd.commands && name.startsWith(`${cmd.command} `)) {
-        const subCommandName = name.slice(cmd.command.length + 1);
+      if (cmd.commands && name.startsWith(`${cmd.name} `)) {
+        const subCommandName = name.slice(cmd.name.length + 1);
         const subCommand = findCommandByName(subCommandName, cmd.commands);
         if (subCommand) return subCommand;
       }
@@ -32,10 +32,10 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
       return createZodrunCommandBuilder({ ...existingCommand, handle }) as any;
     },
     command: <TName extends string, TCommand extends ZodrunCommand<TName, any, any, any>>(
-      command: TName,
+      name: TName,
       builderFn?: (builder: ZodrunCommandBuilder<TName>) => ZodrunCommandBuilder,
     ) => {
-      const initialCommand = { command } as ZodrunCommand<TName>;
+      const initialCommand = { name } as ZodrunCommand<TName>;
       const builder = createZodrunCommandBuilder(initialCommand);
 
       const commandObj = ((builderFn?.(builder as any) as typeof builder)?.[commandSymbol] as TCommand) ?? initialCommand;

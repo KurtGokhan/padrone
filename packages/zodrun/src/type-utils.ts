@@ -14,7 +14,7 @@ type PickCommandByNameSingle<TCommands extends AnyZodrunCommand[], TName extends
   ...infer RestCommands,
 ]
   ? FirstCommand extends AnyZodrunCommand
-    ? FirstCommand['command'] extends TName
+    ? FirstCommand['name'] extends TName
       ? FirstCommand
       : RestCommands extends AnyZodrunCommand[]
         ? PickCommandByNameSingle<RestCommands, TName>
@@ -25,9 +25,9 @@ type PickCommandByNameSingle<TCommands extends AnyZodrunCommand[], TName extends
 export type GetCommandNames<TCommands extends AnyZodrunCommand[]> = TCommands extends [infer FirstCommand, ...infer RestCommands]
   ? FirstCommand extends AnyZodrunCommand
     ?
-        | FirstCommand['command']
+        | FirstCommand['name']
         | (FirstCommand['~types']['commands'] extends AnyZodrunCommand[]
-            ? `${FirstCommand['command']} ${GetCommandNames<FirstCommand['~types']['commands']>}`
+            ? `${FirstCommand['name']} ${GetCommandNames<FirstCommand['~types']['commands']>}`
             : never)
         | (RestCommands extends AnyZodrunCommand[] ? GetCommandNames<RestCommands> : never)
     : never
