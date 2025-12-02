@@ -4,11 +4,13 @@
   "private": true,
   "module": "src/index.ts",
   "scripts": {
+    "start": "bun run src/index.ts",
     "dev": "bun run --watch src/index.ts",
     "build": "bun build src/index.ts --target bun",
     "compile": "bun run build --compile"
   },
   "dependencies": {
-    "zodrun": "workspace:*"
+    "zodrun": "workspace:*",
+    "zod": "^4.1.13"
   }
 }

@@ -21,6 +21,7 @@
       "name": "@zodrun/example",
       "version": "0.0.1",
       "dependencies": {
+        "zod": "^4.1.13",
         "zodrun": "workspace:*",
       },
     },
