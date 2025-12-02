@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { GetCommandNames, IsUnknown, PickCommandByName } from './type-utils';
 
 type UnknownRecord = Record<string, unknown>;
 type EmptyRecord = Record<string, never>;
@@ -10,10 +11,10 @@ export type ZodrunCommand<
   TRes = void,
   TCommands extends [...AnyZodrunCommand[]] = [],
 > = {
-  name: TName;
+  command: TName;
   args?: z.ZodType<TArgs>;
   options?: z.ZodType<TOpts>;
-  run?: (args: TArgs, options: TOpts) => TRes;
+  handle?: (args: TArgs, options: TOpts) => TRes;
 
   commands?: TCommands;
 
@@ -27,7 +28,7 @@ export type ZodrunCommand<
   };
 };
 
-export type AnyZodrunCommand = ZodrunCommand<any, any, any, any, any>;
+export type AnyZodrunCommand = ZodrunCommand<string, any, any, any, [...AnyZodrunCommand[]]>;
 
 export type ZodrunCommandBuilder<
   TName extends string = string,
@@ -70,12 +71,18 @@ export type ZodrunProgram<
 
   run: <const TName extends GetCommandNames<TCommands>, TCommand extends AnyZodrunCommand = PickCommandByName<TCommands, TName>>(
     name: TName,
-    args: NoInfer<GetCommandTypes<TCommand>['args']>,
-    options: NoInfer<GetCommandTypes<TCommand>['options']>,
+    args: NoInfer<GetArgs<TCommand>>,
+    options: NoInfer<GetOptions<TCommand>>,
   ) => ZodrunCommandResult<TCommand>;
   cli: (input?: string) => ZodrunCommandResult<TCommands[number]> | undefined;
 
   parse: (input: string) => ZodrunParseResult<TCommands[number]>;
+
+  // TODO:
+  // interactive: () => Promise<ZodrunCommandResult<TCommands[number]> | undefined>;
+  // repl: () => Promise<ZodrunCommandResult<TCommands[number]>[]>;
+  // tool: () => AISdkTool;
+  // help: (command?: string) => void;
 
   /**
    * Reflection information about the program.
@@ -86,44 +93,23 @@ export type ZodrunProgram<
   };
 };
 
-export type ZodrunCommandResult<TCommand extends AnyZodrunCommand = ZodrunCommand> = GetCommandTypes<TCommand>;
+export type ZodrunCommandResult<TCommand extends AnyZodrunCommand = ZodrunCommand> = {
+  command: TCommand['command'];
+  args: GetArgs<TCommand>;
+  options: GetOptions<TCommand>;
+  result: GetResults<TCommand>;
+};
+
 export type ZodrunParseResult<TCommand extends AnyZodrunCommand = ZodrunCommand> =
   | {
-      name: TCommand['name'];
-      args?: GetCommandTypes<TCommand>['args'];
-      options?: GetCommandTypes<TCommand>['options'];
+      command: TCommand['command'];
+      args?: GetArgs<TCommand>;
+      options?: GetOptions<TCommand>;
     }
   | undefined;
 
-type GetCommandTypes<TCommand extends AnyZodrunCommand> = {
-  name: TCommand['name'];
-  args: IsUnknown<TCommand['~types']['args']> extends true ? void | [] : TCommand['~types']['args'];
-  options: IsUnknown<TCommand['~types']['options']> extends true ? void | EmptyRecord : TCommand['~types']['options'];
-  result: TCommand['run'] extends (...args: any[]) => infer TRes ? TRes : undefined;
-};
-
-type IsUnknown<T> = unknown extends T ? true : false;
-
-type PickCommandByName<TCommands extends AnyZodrunCommand[], TName extends string> = TCommands extends [
-  infer FirstCommand,
-  ...infer RestCommands,
-]
-  ? FirstCommand extends AnyZodrunCommand
-    ? FirstCommand['name'] extends TName
-      ? FirstCommand
-      : RestCommands extends AnyZodrunCommand[]
-        ? PickCommandByName<RestCommands, TName>
-        : never
-    : never
-  : never;
-
-type GetCommandNames<TCommands extends AnyZodrunCommand[]> = TCommands extends [infer FirstCommand, ...infer RestCommands]
-  ? FirstCommand extends AnyZodrunCommand
-    ?
-        | FirstCommand['name']
-        | (FirstCommand['~types']['commands'] extends AnyZodrunCommand[]
-            ? `${FirstCommand['name']} ${GetCommandNames<FirstCommand['~types']['commands']>}`
-            : never)
-        | (RestCommands extends AnyZodrunCommand[] ? GetCommandNames<RestCommands> : never)
-    : never
-  : never;
+type GetArgs<TCommand extends AnyZodrunCommand> =
+  IsUnknown<TCommand['~types']['args']> extends true ? void | [] : TCommand['~types']['args'];
+type GetOptions<TCommand extends AnyZodrunCommand> =
+  IsUnknown<TCommand['~types']['options']> extends true ? void | EmptyRecord : TCommand['~types']['options'];
+type GetResults<TCommand extends AnyZodrunCommand> = TCommand['handle'] extends (...args: any[]) => infer TRes ? TRes : undefined;
