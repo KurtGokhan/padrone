@@ -64,7 +64,18 @@ export function createWeatherProgram() {
                 extendedForecast: mockWeatherData.forecast,
                 unit: options?.unit,
               };
-            }),
+            })
+            .command('extended', (c) =>
+              c
+                .args(z.tuple([z.string().describe('City name')]))
+                .options(z.void())
+                .handle((args, options) => {
+                  return {
+                    city: args[0],
+                    extendedForecast: mockWeatherData.forecast,
+                  };
+                }),
+            ),
         ),
     )
     .command('alerts', (c) =>

@@ -82,7 +82,7 @@ describe('CLI', () => {
     });
 
     it('should parse nested commands', () => {
-      const result = program.parse('forecast extended Berlin --unit celsius' as TODO<'forecast extended'>);
+      const result = program.parse('forecast extended Berlin --unit celsius');
 
       expect(result.command).toBe('forecast extended');
       expect(result.args).toEqual(['Berlin']);
@@ -132,7 +132,7 @@ describe('CLI', () => {
     });
 
     it('should execute nested command via CLI', () => {
-      const result = program.cli('forecast extended Sydney --unit celsius' as TODO<'forecast extended'>);
+      const result = program.cli('forecast extended Sydney --unit celsius');
 
       expect(result).toBeDefined();
       expect(result?.command).toBe('forecast extended');
