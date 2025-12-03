@@ -10,7 +10,7 @@ describe.skip('Types', () => {
   const parsedNested = program.parse('forecast extended London');
   const parsedNested2 = program.parse('forecast extended extended London');
 
-  expectTypeOf<(typeof parsed)['command']>().toEqualTypeOf<'forecast'>();
-  expectTypeOf<(typeof parsedNested)['command']>().toEqualTypeOf<'forecast extended'>();
-  expectTypeOf<(typeof parsedNested2)['command']>().toEqualTypeOf<'forecast extended extended'>();
+  expectTypeOf<(typeof parsed)['command']['fullName']>().toEqualTypeOf<'forecast'>();
+  expectTypeOf<(typeof parsedNested)['command']['fullName']>().toEqualTypeOf<'forecast extended'>();
+  expectTypeOf<(typeof parsedNested2)['command']['fullName']>().toEqualTypeOf<'forecast extended extended'>();
 });

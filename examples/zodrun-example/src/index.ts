@@ -42,7 +42,7 @@ export const program = createZodrun()
         console.log('Goodbye, World!');
       }),
   )
-  .command('noop');
+  .command('noop', (c) => c.handle());
 
 program.run('greet', ['John', 'Jake'], { prefix: 'Mr.' });
 program.run('greet nested', ['John', 'Jake'], { prefix: 'Mr.', suffix: 'Esq.' });
@@ -54,3 +54,7 @@ program.cli('greet nested John Jake --prefix Mr. --suffix Esq2.');
 const api = program.api();
 
 api.greet.nested(['Alice', 'Bob'], { prefix: 'Dr.', suffix: 'PhD' });
+
+try {
+  program.cli();
+} catch {}

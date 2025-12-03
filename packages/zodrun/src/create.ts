@@ -3,6 +3,8 @@ import type { AnyZodrunCommand, AnyZodrunProgram, ZodrunAPI, ZodrunCommand, Zodr
 
 const commandSymbol = Symbol('zodrun_command');
 
+const noop = <TRes>() => undefined as TRes;
+
 export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = ZodrunProgram>(
   existingCommand: AnyZodrunCommand,
 ): TBuilder & { [commandSymbol]: AnyZodrunCommand } {
@@ -63,23 +65,39 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
       }
     }
 
-    return { command: curCommand as any, args: args as any, options: optionsRecord as any };
+    const argsParsed = curCommand.args ? curCommand.args.safeParse(args) : { success: true, data: args, error: undefined };
+    const optionsParsed = curCommand.options
+      ? curCommand.options.safeParse(optionsRecord)
+      : { success: true, data: optionsRecord, error: undefined };
+
+    return {
+      command: curCommand as any,
+      args: argsParsed.data,
+      options: optionsParsed.data as any,
+      argsResult: argsParsed as any,
+      optionsResult: optionsParsed as any,
+    };
   };
 
   const cli: AnyZodrunProgram['cli'] = (input) => {
-    const { command, args, options } = parse(input);
-    if (!command) return undefined;
-    return run(command, args!, options!) as any;
+    const { command, args, options, argsResult, optionsResult } = parse(input);
+    const res = run(command, args, options) as any;
+    return {
+      ...res,
+      argsResult,
+      optionsResult,
+    };
   };
 
   const run: AnyZodrunProgram['run'] = (command, args, options) => {
     const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyZodrunCommand);
-    if (!commandObj) throw new Error(`Command "${command}" not found`);
+    if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
+    if (!commandObj.handler) throw new Error(`Command "${commandObj.fullName}" has no handler`);
 
-    const result = commandObj.handle?.(args as any, options as any);
+    const result = commandObj.handler(args as any, options as any);
 
     return {
-      command: commandObj.fullName,
+      command: commandObj as any,
       args: args as any,
       options: options as any,
       result,
@@ -93,8 +111,8 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     options(options) {
       return createZodrunCommandBuilder({ ...existingCommand, options }) as any;
     },
-    handle(handle) {
-      return createZodrunCommandBuilder({ ...existingCommand, handle }) as any;
+    handle(handle = noop) {
+      return createZodrunCommandBuilder({ ...existingCommand, handler: handle }) as any;
     },
     command: <TName extends string, TCommand extends ZodrunCommand<TName, string, any, any, any, any>>(
       name: TName,

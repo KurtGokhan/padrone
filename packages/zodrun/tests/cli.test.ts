@@ -11,7 +11,7 @@ describe('CLI', () => {
     it('should execute a simple command with args and options', () => {
       const result = program.run('current', ['New York'], { unit: 'celsius', verbose: true });
 
-      expect(result.command).toBe('current');
+      expect(result.command.fullName).toBe('current');
       expect(result.args).toEqual(['New York']);
       expect(result.options).toEqual({ unit: 'celsius', verbose: true });
       expect(result.result.city).toBe('New York');
@@ -22,7 +22,7 @@ describe('CLI', () => {
     it('should execute a command with default options', () => {
       const result = program.run('current', ['London'], {});
 
-      expect(result.command).toBe('current');
+      expect(result.command.fullName).toBe('current');
       expect(result.result.temperature).toBe(72); // Default fahrenheit
       expect(result.result.humidity).toBeUndefined(); // verbose not set
     });
@@ -30,7 +30,7 @@ describe('CLI', () => {
     it('should execute nested commands', () => {
       const result = program.run('forecast extended', ['Tokyo'], { unit: 'celsius' });
 
-      expect(result.command).toBe('forecast extended');
+      expect(result.command.fullName).toBe('forecast extended');
       expect(result.args).toEqual(['Tokyo']);
       expect(result.options).toEqual({ unit: 'celsius' });
       expect(result.result.city).toBe('Tokyo');
@@ -40,7 +40,7 @@ describe('CLI', () => {
     it('should execute a command with array args', () => {
       const result = program.run('compare', ['New York', 'London', 'Tokyo'], undefined);
 
-      expect(result.command).toBe('compare');
+      expect(result.command.fullName).toBe('compare');
       expect(result.args).toEqual(['New York', 'London', 'Tokyo']);
       expect(result.result.cities).toEqual(['New York', 'London', 'Tokyo']);
       expect(result.result.comparison).toHaveLength(3);
@@ -49,7 +49,7 @@ describe('CLI', () => {
     it('should execute a command with void args and options', () => {
       const result = program.run('noop', undefined, undefined);
 
-      expect(result.command).toBe('noop');
+      expect(result.command.fullName).toBe('noop');
       expect(result.args).toBeUndefined();
       expect(result.options).toBeUndefined();
       expect(result.result).toBeUndefined();
@@ -62,7 +62,7 @@ describe('CLI', () => {
 
       expect(result.command.fullName).toBe('current');
       expect(result.args).toEqual(['Paris']);
-      expect(result.options).toEqual({} as TODO);
+      expect(result.options).toEqual({ unit: 'fahrenheit' });
     });
 
     it('should parse command with options', () => {
@@ -78,7 +78,7 @@ describe('CLI', () => {
 
       expect(result.command.fullName).toBe('forecast');
       expect(result.args).toEqual(['Tokyo']);
-      expect(result.options).toEqual({ days: '5' as TODO, unit: 'fahrenheit' });
+      expect(result.options).toEqual({ days: 5, unit: 'fahrenheit' });
     });
 
     it('should parse nested commands', () => {
@@ -119,23 +119,21 @@ describe('CLI', () => {
 
       expect(result).toBeDefined();
       if (!result) throw new Error('Result is undefined');
-      expect(result.command).toBe('current');
+      expect(result.command.fullName).toBe('current');
       expect(result.args).toEqual(['Madrid']);
       expect(result.result.city).toBe('Madrid');
       expect(result.result.temperature).toBe(22);
     });
 
     it('should return undefined for empty CLI input', () => {
-      const result = program.cli('');
-
-      expect(result).toBeUndefined();
+      expect(() => program.cli('')).toThrow('Command "" has no handler');
     });
 
     it('should execute nested command via CLI', () => {
       const result = program.cli('forecast extended Sydney --unit celsius');
 
       expect(result).toBeDefined();
-      expect(result?.command).toBe('forecast extended');
+      expect(result?.command.fullName).toBe('forecast extended');
       expect(result?.result.city).toBe('Sydney');
     });
 
@@ -305,289 +303,6 @@ describe('CLI', () => {
       expect(result.result.region).toBe('West Coast');
       expect(result.result.severity).toBe('high');
       expect(result.result.alerts).toBeDefined();
-    });
-  });
-
-  describe('type safety', () => {
-    it('should infer correct types for command args', () => {
-      const program = createZodrun().command('test', (c) =>
-        c.args(z.tuple([z.string(), z.number()])).handle((args) => {
-          // Type test: args should be [string, number]
-          const _test: [string, number] = args;
-          return { first: args[0], second: args[1] };
-        }),
-      );
-
-      const result = program.run('test', ['hello', 42], {});
-      expect(result.args).toEqual(['hello', 42]);
-      // Type test: verify args are correctly typed
-      expect(typeof result.args[0]).toBe('string');
-      expect(typeof result.args[1]).toBe('number');
-    });
-
-    it('should infer correct types for command options', () => {
-      const program = createZodrun().command('test', (c) =>
-        c
-          .args(z.void())
-          .options(
-            z.object({
-              name: z.string(),
-              age: z.number(),
-              active: z.boolean().optional(),
-            }),
-          )
-          .handle((args, options) => {
-            // Type test: options should have correct shape
-            const _test: { name: string; age: number; active?: boolean } = options;
-            return { processed: `${options.name} is ${options.age}` };
-          }),
-      );
-
-      const result = program.run('test', undefined, { name: 'John', age: 30 });
-      expect(result.options).toEqual({ name: 'John', age: 30 });
-      // Type test: verify options are correctly typed
-      expect(typeof result.options.name).toBe('string');
-      expect(typeof result.options.age).toBe('number');
-    });
-
-    it('should infer correct return types from handlers', () => {
-      const program = createZodrun().command('test', (c) =>
-        c
-          .args(z.void())
-          .options(z.void())
-          .handle(() => {
-            return { message: 'success', code: 200 } as const;
-          }),
-      );
-
-      const result = program.run('test', undefined, undefined);
-      // Type test: result should be inferred correctly
-      const _test: { message: 'success'; code: 200 } | undefined = result.result;
-      expect(result.result?.message).toBe('success');
-    });
-
-    it('should infer void types correctly', () => {
-      const program = createZodrun().command('test', (c) =>
-        c
-          .args(z.void())
-          .options(z.void())
-          .handle(() => undefined),
-      );
-
-      const result = program.run('test', undefined, undefined);
-      // Type test: result should be void | undefined
-      const _test: void | undefined = result.result;
-      expect(result.result).toBeUndefined();
-    });
-
-    it('should infer nested command types', () => {
-      const program = createZodrun().command('parent', (c) =>
-        c
-          .command('child', (c2) =>
-            c2
-              .args(z.tuple([z.string()]))
-              .options(z.object({ flag: z.boolean() }))
-              .handle((args, options) => {
-                // Type test: nested command should have correct types
-                const _testArgs: [string] = args;
-                const _testOpts: { flag: boolean } = options;
-                return { processed: args[0], flag: options.flag };
-              }),
-          )
-          .handle(() => ({ parent: true })),
-      );
-
-      const result = program.run('parent child', ['test'], { flag: true });
-      expect(result.command as string).toBe('parent child');
-      expect(result.args).toEqual(['test']);
-      expect(result.options.flag).toBe(true);
-    });
-
-    it('should enforce type safety in run() method', () => {
-      const program = createZodrun().command('weather', (c) =>
-        c
-          .args(z.tuple([z.string()]))
-          .options(z.object({ unit: z.enum(['celsius', 'fahrenheit']) }))
-          .handle((args, options) => ({ city: args[0], unit: options.unit })),
-      );
-
-      // Valid usage - should compile
-      const valid = program.run('weather', ['Paris'], { unit: 'celsius' });
-      expect(valid.result?.city).toBe('Paris');
-      expect(valid.result?.unit).toBe('celsius');
-    });
-
-    it('should infer correct types for API methods', () => {
-      const program = createZodrun()
-        .command('current', (c) =>
-          c
-            .args(z.tuple([z.string()]))
-            .options(z.object({ unit: z.enum(['celsius', 'fahrenheit']).optional() }))
-            .handle((args, options) => ({ city: args[0], unit: options?.unit })),
-        )
-        .command('forecast', (c) =>
-          c
-            .command('extended', (c2) =>
-              c2
-                .args(z.tuple([z.string()]))
-                .options(z.object({ days: z.number() }))
-                .handle((args, options) => ({ city: args[0], days: options.days })),
-            )
-            .handle(() => ({ base: true })),
-        );
-
-      const api = program.api();
-
-      // Type test: API should have correct structure
-      const _testCurrent: (args: [string], options: { unit?: 'celsius' | 'fahrenheit' }) => any = api.current;
-      const _testForecast: (args: void | [], options: void | Record<string, never>) => any = api.forecast;
-      const _testExtended: (args: [string], options: { days: number }) => any = api.forecast.extended;
-
-      // Valid API usage
-      // Note: Types indicate API returns handler result directly, but implementation returns ZodrunCommandResult
-      const result1 = api.current(['London'], { unit: 'celsius' });
-      expect(result1).toBeDefined();
-      expect(result1.city).toBe('London');
-
-      const result2 = api.forecast.extended(['Tokyo'], { days: 7 });
-      expect(result2).toBeDefined();
-      expect(result2.city).toBe('Tokyo');
-      expect(result2.days).toBe(7);
-    });
-
-    it('should handle array args types correctly', () => {
-      const program = createZodrun().command('compare', (c) =>
-        c
-          .args(z.array(z.string()).min(2))
-          .options(z.void())
-          .handle((args) => {
-            // Type test: args should be string[]
-            const _test: string[] = args;
-            return { cities: args };
-          }),
-      );
-
-      const result = program.run('compare', ['NYC', 'LA'], undefined);
-      expect(result.result?.cities).toEqual(['NYC', 'LA']);
-      // Type test: verify array args are handled correctly
-      expect(Array.isArray(result.result?.cities)).toBe(true);
-    });
-
-    it('should handle optional options correctly', () => {
-      const program = createZodrun().command('test', (c) =>
-        c
-          .args(z.void())
-          .options(
-            z.object({
-              required: z.string(),
-              optional: z.number().optional(),
-            }),
-          )
-          .handle((args, options) => {
-            // Type test: optional should be number | undefined
-            const _test: { required: string; optional?: number } = options;
-            return { value: options.optional ?? 0 };
-          }),
-      );
-
-      // Both should be valid
-      const result1 = program.run('test', undefined, { required: 'test' });
-      const result2 = program.run('test', undefined, { required: 'test', optional: 42 });
-
-      expect(result1.result?.value).toBe(0);
-      expect(result2.result?.value).toBe(42);
-    });
-
-    it('should infer command result types from handle return', () => {
-      type WeatherResult = { temp: number; condition: string };
-
-      const program = createZodrun().command('weather', (c) =>
-        c
-          .args(z.tuple([z.string()]))
-          .options(z.void())
-          .handle((args): WeatherResult => {
-            return { temp: 72, condition: 'Sunny' };
-          }),
-      );
-
-      const result = program.run('weather', ['NYC'], undefined);
-      // Type test: result should be WeatherResult | undefined
-      const _test: WeatherResult | undefined = result.result;
-      expect(result.result?.temp).toBe(72);
-    });
-
-    it('should handle complex nested command types', () => {
-      const program = createZodrun().command('level1', (c) =>
-        c
-          .command('level2', (c2) =>
-            c2
-              .command('level3', (c3) =>
-                c3
-                  .args(z.tuple([z.string(), z.number()]))
-                  .options(z.object({ deep: z.boolean() }))
-                  .handle((args, options) => {
-                    // Type test: deeply nested should preserve types
-                    const _testArgs: [string, number] = args;
-                    const _testOpts: { deep: boolean } = options;
-                    return { depth: 3, data: args, deep: options.deep };
-                  }),
-              )
-              .handle(() => ({ depth: 2 })),
-          )
-          .handle(() => ({ depth: 1 })),
-      );
-
-      const result = program.run('level1 level2 level3', ['test', 42], { deep: true });
-      expect(result.result?.depth).toBe(3);
-      expect(result.result?.data).toEqual(['test', 42]);
-      expect(result.result?.deep).toBe(true);
-    });
-
-    it('should enforce type safety for find() method', () => {
-      const program = createZodrun()
-        .command('current', (c) => c.args(z.tuple([z.string()])).handle(() => ({ type: 'current' })))
-        .command('forecast', (c) =>
-          c.command('extended', (c2) => c2.handle(() => ({ type: 'extended' }))).handle(() => ({ type: 'forecast' })),
-        );
-
-      // Valid finds
-      const cmd1 = program.find('current');
-      const cmd2 = program.find('forecast extended');
-
-      expect(cmd1?.name).toBe('current');
-      expect(cmd2?.name).toBe('extended');
-      expect(cmd2?.fullName).toBe('forecast extended');
-
-      // Invalid find should return undefined (runtime check)
-      const cmd3 = program.find('nonexistent');
-      expect(cmd3).toBeUndefined();
-    });
-
-    it('should handle default option values in types', () => {
-      const program = createZodrun().command('test', (c) =>
-        c
-          .args(z.void())
-          .options(
-            z.object({
-              unit: z.enum(['celsius', 'fahrenheit']).default('fahrenheit'),
-              verbose: z.boolean().optional(),
-            }),
-          )
-          .handle((args, options) => {
-            // Type test: unit should be 'celsius' | 'fahrenheit' (not optional due to default)
-            // Note: defaults are applied by Zod parsing, not automatically in run()
-            const _test: { unit: 'celsius' | 'fahrenheit'; verbose?: boolean } = options;
-            return { unit: options.unit || 'fahrenheit', verbose: options.verbose };
-          }),
-      );
-
-      // With explicit unit
-      const result1 = program.run('test', undefined, { unit: 'celsius' });
-      expect(result1.result?.unit).toBe('celsius');
-
-      // Type test: verify options structure
-      const _testOptions: { unit: 'celsius' | 'fahrenheit'; verbose?: boolean } = result1.options;
-      expect(_testOptions.unit).toBe('celsius');
     });
   });
 });

@@ -30,7 +30,7 @@ export type ZodrunCommand<
   fullName: FullCommandName<TName, TParentName>;
   args?: ZArgs;
   options?: ZOpts;
-  handle?: (args: TArgs, options: TOpts) => TRes;
+  handler?: (args: TArgs, options: TOpts) => TRes;
 
   parent?: AnyZodrunCommand;
   commands?: TCommands;
@@ -73,7 +73,7 @@ export type ZodrunCommandBuilder<
    * Defines the handler function to be executed when the command is run.
    */
   handle: <TRes>(
-    run: (args: z.output<TArgs>, options: z.output<TOpts>) => TRes,
+    handler?: (args: z.output<TArgs>, options: z.output<TOpts>) => TRes,
   ) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
@@ -188,10 +188,7 @@ export type ZodrunProgram<
 
 export type AnyZodrunProgram = ZodrunProgram<string, any, any, any, [...AnyZodrunCommand[]]>;
 
-export type ZodrunCommandResult<TCommand extends AnyZodrunCommand = AnyZodrunCommand> = {
-  command: TCommand['fullName'];
-  args: GetArgs<'out', TCommand>;
-  options: GetOptions<'out', TCommand>;
+export type ZodrunCommandResult<TCommand extends AnyZodrunCommand = AnyZodrunCommand> = ZodrunParseResult<TCommand> & {
   result: GetResults<TCommand>;
 };
 
@@ -199,6 +196,8 @@ export type ZodrunParseResult<TCommand extends AnyZodrunCommand = AnyZodrunComma
   command: TCommand;
   args?: GetArgs<'out', TCommand>;
   options?: GetOptions<'out', TCommand>;
+  argsResult?: z.ZodSafeParseResult<GetArgs<'out', TCommand>>;
+  optionsResult?: z.ZodSafeParseResult<GetOptions<'out', TCommand>>;
 };
 
 export type ZodrunAPI<TCommand extends AnyZodrunCommand> = ZodrunAPICommand<TCommand> & {
@@ -220,4 +219,4 @@ type GetOptions<TDir extends 'in' | 'out', TCommand extends AnyZodrunCommand> = 
   ? NormalizeOptions<TCommand['~types']['optionsInput']>
   : NormalizeOptions<TCommand['~types']['optionsOutput']>;
 
-type GetResults<TCommand extends AnyZodrunCommand> = ReturnType<NonNullable<TCommand['handle']>>;
+type GetResults<TCommand extends AnyZodrunCommand> = ReturnType<NonNullable<TCommand['handler']>>;
