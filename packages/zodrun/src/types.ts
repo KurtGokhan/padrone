@@ -76,9 +76,18 @@ export type ZodrunProgram<
   ) => ZodrunCommandResult<TCommand>;
   cli: (input?: string) => ZodrunCommandResult<TCommands[number]> | undefined;
 
-  parse: (input: string) => ZodrunParseResult<TCommands[number]>;
+  parse: (input?: string) => ZodrunParseResult<TCommands[number]>;
+
+  find: <const TName extends GetCommandNames<TCommands>>(
+    command: TName | (string & {}),
+  ) => IsUnknown<TName> extends false
+    ? TName extends string
+      ? PickCommandByName<TCommands, TName>
+      : TCommands[number] | undefined
+    : TCommands[number] | undefined;
 
   // TODO:
+  // api: () => Record<string, any>;
   // interactive: () => Promise<ZodrunCommandResult<TCommands[number]> | undefined>;
   // repl: () => Promise<ZodrunCommandResult<TCommands[number]>[]>;
   // tool: () => AISdkTool;
@@ -100,13 +109,11 @@ export type ZodrunCommandResult<TCommand extends AnyZodrunCommand = ZodrunComman
   result: GetResults<TCommand>;
 };
 
-export type ZodrunParseResult<TCommand extends AnyZodrunCommand = ZodrunCommand> =
-  | {
-      command: TCommand['name'];
-      args?: GetArgs<TCommand>;
-      options?: GetOptions<TCommand>;
-    }
-  | undefined;
+export type ZodrunParseResult<TCommand extends AnyZodrunCommand = ZodrunCommand> = {
+  command: TCommand['name'];
+  args?: GetArgs<TCommand>;
+  options?: GetOptions<TCommand>;
+};
 
 type GetArgs<TCommand extends AnyZodrunCommand> =
   IsUnknown<TCommand['~types']['args']> extends true ? void | [] : TCommand['~types']['args'];

@@ -27,20 +27,26 @@ export const program = createZodrun()
           )
           .handle((args, options) => {
             const prefix = options?.prefix ? `${options.prefix} ` : '';
+            const suffix = options?.suffix ? ` ${options.suffix}` : '';
             args.forEach((name) => {
-              console.log(`(Nested) Hello, ${prefix}${name}!`);
+              console.log(`(Nested) Hello, ${prefix}${name}${suffix}!`);
             });
           }),
       ),
   )
   .command('farewell', (c) =>
-    c.handle(() => {
-      console.log('Goodbye, World!');
-    }),
+    c
+      .args(z.void())
+      .options(z.void())
+      .handle(() => {
+        console.log('Goodbye, World!');
+      }),
   )
   .command('noop');
 
-program.run('greet', ['John', 'Jake'], { prefix: 'Mr.' });
-program.run('greet nested', ['John', 'Jake'], { prefix: 'Mr.', suffix: 'Esq.' });
-program.run('farewell', undefined, undefined);
-program.run('noop', undefined, undefined);
+// program.run('greet', ['John', 'Jake'], { prefix: 'Mr.' });
+// program.run('greet nested', ['John', 'Jake'], { prefix: 'Mr.', suffix: 'Esq.' });
+// program.run('farewell', undefined, undefined);
+// program.run('noop', undefined, undefined);
+
+program.cli();

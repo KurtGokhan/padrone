@@ -1,3 +1,4 @@
+import { parseCliInputToParts } from './parse';
 import type { AnyZodrunCommand, ZodrunCommand, ZodrunCommandBuilder, ZodrunCommandResult, ZodrunProgram } from './types';
 
 const commandSymbol = Symbol('zodrun_command');
@@ -42,8 +43,54 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
       return createZodrunCommandBuilder({ ...existingCommand, commands: [...(existingCommand.commands || []), commandObj] }) as any;
     },
 
+    parse: (input?: string) => {
+      input ??= typeof process !== 'undefined' ? process.argv.slice(2).join(' ') : undefined;
+      if (!input) return { command: '' };
+
+      const parts = parseCliInputToParts(input);
+
+      const terms = parts.filter((p) => p.type === 'term').map((p) => p.value);
+      const args = parts.filter((p) => p.type === 'arg').map((p) => p.value);
+
+      let curCommand: AnyZodrunCommand | undefined = existingCommand;
+
+      const commandTerms: string[] = [];
+
+      for (let i = 0; i < terms.length; i++) {
+        const term = terms[i] || '';
+        const found = findCommandByName(term, curCommand.commands);
+
+        if (found) {
+          curCommand = found;
+          commandTerms.push(term);
+        } else {
+          args.unshift(...terms.slice(i));
+          break;
+        }
+      }
+
+      if (!curCommand) return { command: '' };
+
+      const opts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
+      const optionsRecord: Record<string, string | boolean> = {};
+
+      for (const opt of opts) {
+        if (opt.type === 'option' || opt.type === 'alias') {
+          optionsRecord[opt.key] = opt.value ?? true;
+        }
+      }
+
+      return {
+        command: commandTerms.join(' '),
+        args,
+        options: optionsRecord,
+      };
+    },
+
     cli(input?: string) {
-      return undefined as any;
+      const { command, args, options } = this.parse(input);
+      if (!command) return undefined;
+      return this.run(command, args!, options!);
     },
     run(command: string, args: unknown, options: unknown) {
       const commandObj = findCommandByName(command, existingCommand.commands);
@@ -59,6 +106,9 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
       };
 
       return ret;
+    },
+    find(command: string) {
+      return findCommandByName(command, existingCommand.commands);
     },
 
     [commandSymbol]: existingCommand,
