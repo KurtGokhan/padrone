@@ -1,125 +1,15 @@
-import { beforeEach, describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { z } from 'zod';
 import { createZodrun } from '../src/index';
 import type { TODO } from '../src/type-utils';
+import { createWeatherProgram } from './common';
 
-// Mock weather data for testing
-const mockWeatherData = {
-  current: { temp: 72, condition: 'Sunny', humidity: 65 },
-  forecast: [
-    { day: 'Monday', high: 75, low: 60, condition: 'Sunny' },
-    { day: 'Tuesday', high: 78, low: 62, condition: 'Partly Cloudy' },
-  ],
-  alerts: ['Heat advisory in effect'],
-};
-
-describe('Weather CLI', () => {
-  function createWeatherProgram() {
-    return createZodrun()
-      .command('current', (c) =>
-        c
-          .args(z.tuple([z.string().describe('City name')]))
-          .options(
-            z.object({
-              unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
-              verbose: z.boolean().optional().describe('Show detailed information'),
-            }),
-          )
-          .handle((args, options) => {
-            const [city] = args;
-            return {
-              city,
-              temperature: options?.unit === 'celsius' ? 22 : 72,
-              condition: mockWeatherData.current.condition,
-              humidity: options?.verbose ? mockWeatherData.current.humidity : undefined,
-            };
-          }),
-      )
-      .command('forecast', (c) =>
-        c
-          .args(z.tuple([z.string().describe('City name')]))
-          .options(
-            z.object({
-              days: z.coerce.number().min(1).max(7).optional().default(3).describe('Number of days to forecast'),
-              unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
-            }),
-          )
-          .handle((args, options) => {
-            const [city] = args;
-            return {
-              city,
-              days: options?.days || 3,
-              forecast: mockWeatherData.forecast.slice(0, options?.days || 3),
-            };
-          })
-          .command('extended', (c) =>
-            c
-              .args(z.tuple([z.string().describe('City name')]))
-              .options(
-                z.object({
-                  unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
-                }),
-              )
-              .handle((args, options) => {
-                const [city] = args;
-                return {
-                  city,
-                  extendedForecast: mockWeatherData.forecast,
-                  unit: options?.unit,
-                };
-              }),
-          ),
-      )
-      .command('alerts', (c) =>
-        c
-          .args(z.void())
-          .options(
-            z.object({
-              region: z.string().optional().describe('Region to check alerts for'),
-              severity: z.enum(['low', 'medium', 'high']).optional().describe('Filter by severity'),
-              ascending: z.boolean().optional().describe('Sort alerts in ascending order'),
-            }),
-          )
-          .handle((args, options) => {
-            return {
-              region: options?.region || 'all',
-              alerts: mockWeatherData.alerts,
-              severity: options?.severity,
-            };
-          }),
-      )
-      .command('compare', (c) =>
-        c
-          .args(z.array(z.string()).min(2).describe('Cities to compare'))
-          .options(z.void())
-          .handle((args, options) => {
-            return {
-              cities: args,
-              comparison: args.map((city) => ({
-                city,
-                temp: 72,
-                condition: 'Sunny',
-              })),
-            };
-          }),
-      )
-      .command('noop', (c) =>
-        c
-          .args(z.void())
-          .options(z.void())
-          .handle(() => undefined),
-      );
-  }
-
-  let weatherProgram: ReturnType<typeof createWeatherProgram>;
-
-  beforeEach(() => {
-    weatherProgram = createWeatherProgram();
-  });
+describe('CLI', () => {
+  const program = createWeatherProgram();
 
   describe('programmatic execution', () => {
     it('should execute a simple command with args and options', () => {
-      const result = weatherProgram.run('current', ['New York'], { unit: 'celsius', verbose: true });
+      const result = program.run('current', ['New York'], { unit: 'celsius', verbose: true });
 
       expect(result.command).toBe('current');
       expect(result.args).toEqual(['New York']);
@@ -130,7 +20,7 @@ describe('Weather CLI', () => {
     });
 
     it('should execute a command with default options', () => {
-      const result = weatherProgram.run('current', ['London'], {});
+      const result = program.run('current', ['London'], {});
 
       expect(result.command).toBe('current');
       expect(result.result.temperature).toBe(72); // Default fahrenheit
@@ -138,7 +28,7 @@ describe('Weather CLI', () => {
     });
 
     it('should execute nested commands', () => {
-      const result = weatherProgram.run('forecast extended', ['Tokyo'], { unit: 'celsius' });
+      const result = program.run('forecast extended', ['Tokyo'], { unit: 'celsius' });
 
       expect(result.command).toBe('forecast extended');
       expect(result.args).toEqual(['Tokyo']);
@@ -148,7 +38,7 @@ describe('Weather CLI', () => {
     });
 
     it('should execute a command with array args', () => {
-      const result = weatherProgram.run('compare', ['New York', 'London', 'Tokyo'], undefined);
+      const result = program.run('compare', ['New York', 'London', 'Tokyo'], undefined);
 
       expect(result.command).toBe('compare');
       expect(result.args).toEqual(['New York', 'London', 'Tokyo']);
@@ -157,7 +47,7 @@ describe('Weather CLI', () => {
     });
 
     it('should execute a command with void args and options', () => {
-      const result = weatherProgram.run('noop', undefined, undefined);
+      const result = program.run('noop', undefined, undefined);
 
       expect(result.command).toBe('noop');
       expect(result.args).toBeUndefined();
@@ -168,7 +58,7 @@ describe('Weather CLI', () => {
 
   describe('CLI parsing', () => {
     it('should parse simple command with args', () => {
-      const result = weatherProgram.parse('current Paris');
+      const result = program.parse('current Paris');
 
       expect(result.command).toBe('current');
       expect(result.args).toEqual(['Paris']);
@@ -176,7 +66,7 @@ describe('Weather CLI', () => {
     });
 
     it('should parse command with options', () => {
-      const result = weatherProgram.parse('current London --unit celsius --verbose');
+      const result = program.parse('current London --unit celsius --verbose');
 
       expect(result.command).toBe('current');
       expect(result.args).toEqual(['London']);
@@ -184,7 +74,7 @@ describe('Weather CLI', () => {
     });
 
     it('should parse command with option values', () => {
-      const result = weatherProgram.parse('forecast Tokyo --days=5 --unit fahrenheit');
+      const result = program.parse('forecast Tokyo --days=5 --unit fahrenheit');
 
       expect(result.command).toBe('forecast');
       expect(result.args).toEqual(['Tokyo']);
@@ -192,7 +82,7 @@ describe('Weather CLI', () => {
     });
 
     it('should parse nested commands', () => {
-      const result = weatherProgram.parse('forecast extended Berlin --unit celsius' as TODO<'forecast extended'>);
+      const result = program.parse('forecast extended Berlin --unit celsius' as TODO<'forecast extended'>);
 
       expect(result.command).toBe('forecast extended');
       expect(result.args).toEqual(['Berlin']);
@@ -200,7 +90,7 @@ describe('Weather CLI', () => {
     });
 
     it('should parse command with multiple args', () => {
-      const result = weatherProgram.parse('compare New York London Tokyo');
+      const result = program.parse('compare New York London Tokyo');
 
       expect(result.command).toBe('compare');
       // Note: Parser splits on spaces, so "New York" becomes ["New", "York"]
@@ -208,14 +98,14 @@ describe('Weather CLI', () => {
     });
 
     it('should parse command with complex options', () => {
-      const result = weatherProgram.parse('alerts --region "West Coast" --severity high');
+      const result = program.parse('alerts --region "West Coast" --severity high');
 
       expect(result.command).toBe('alerts');
       expect(result.options).toEqual({ region: '"West', severity: 'high' }); // Note: quotes are parsed as part of the value
     });
 
     it('should handle empty input', () => {
-      const result = weatherProgram.parse('');
+      const result = program.parse('');
 
       expect(result.command).toBe('' as TODO);
       expect(result.args).toBeUndefined();
@@ -225,7 +115,7 @@ describe('Weather CLI', () => {
 
   describe('CLI execution', () => {
     it('should execute command via CLI string', () => {
-      const result = weatherProgram.cli('current Madrid --unit celsius');
+      const result = program.cli('current Madrid --unit celsius');
 
       expect(result).toBeDefined();
       if (!result) throw new Error('Result is undefined');
@@ -236,13 +126,13 @@ describe('Weather CLI', () => {
     });
 
     it('should return undefined for empty CLI input', () => {
-      const result = weatherProgram.cli('');
+      const result = program.cli('');
 
       expect(result).toBeUndefined();
     });
 
     it('should execute nested command via CLI', () => {
-      const result = weatherProgram.cli('forecast extended Sydney --unit celsius' as TODO<'forecast extended'>);
+      const result = program.cli('forecast extended Sydney --unit celsius' as TODO<'forecast extended'>);
 
       expect(result).toBeDefined();
       expect(result?.command).toBe('forecast extended');
@@ -251,21 +141,21 @@ describe('Weather CLI', () => {
 
     it('should throw error for non-existent command', () => {
       expect(() => {
-        weatherProgram.run('nonexistent' as any, [], {});
+        program.run('nonexistent' as any, [], {});
       }).toThrow('Command "nonexistent" not found');
     });
   });
 
   describe('command finding', () => {
     it('should find a top-level command', () => {
-      const command = weatherProgram.find('current');
+      const command = program.find('current');
 
       expect(command).toBeDefined();
       expect(command?.name).toBe('current');
     });
 
     it('should find a nested command', () => {
-      const command = weatherProgram.find('forecast extended');
+      const command = program.find('forecast extended');
 
       expect(command).toBeDefined();
       expect(command?.name).toBe('extended');
@@ -273,7 +163,7 @@ describe('Weather CLI', () => {
     });
 
     it('should return undefined for non-existent command', () => {
-      const command = weatherProgram.find('nonexistent');
+      const command = program.find('nonexistent');
 
       expect(command).toBeUndefined();
     });
@@ -281,7 +171,7 @@ describe('Weather CLI', () => {
 
   describe('API generation', () => {
     it('should generate type-safe API for top-level commands', () => {
-      const api = weatherProgram.api();
+      const api = program.api();
 
       expect(api.current).toBeDefined();
       expect(typeof api.current).toBe('function');
@@ -293,7 +183,7 @@ describe('Weather CLI', () => {
     });
 
     it('should generate nested API structure', () => {
-      const api = weatherProgram.api();
+      const api = program.api();
 
       expect(api.forecast).toBeDefined();
       expect(typeof api.forecast).toBe('function');
@@ -307,7 +197,7 @@ describe('Weather CLI', () => {
     });
 
     it('should generate API for all commands', () => {
-      const api = weatherProgram.api();
+      const api = program.api();
 
       expect(api.current).toBeDefined();
       expect(api.forecast).toBeDefined();
@@ -317,7 +207,7 @@ describe('Weather CLI', () => {
     });
 
     it('should execute commands through API', () => {
-      const api = weatherProgram.api();
+      const api = program.api();
 
       const compareResult = api.compare(['NYC', 'LA'], undefined);
       // API returns ZodrunCommandResult, so access .result property
@@ -354,20 +244,20 @@ describe('Weather CLI', () => {
 
     it('should handle command names with spaces in parsing', () => {
       // Note: This tests the parsing behavior - spaces typically separate commands
-      const result = weatherProgram.parse('forecast extended');
+      const result = program.parse('forecast extended');
 
       expect(result.command).toBe('forecast extended');
     });
 
     it('should handle options without values', () => {
-      const result = weatherProgram.parse('alerts --ascending');
+      const result = program.parse('alerts --ascending');
 
       expect(result.command).toBe('alerts');
       expect(result.options?.ascending).toBe(true);
     });
 
     it('should handle multiple boolean options', () => {
-      const result = weatherProgram.parse('current Paris --verbose --unit celsius');
+      const result = program.parse('current Paris --verbose --unit celsius');
 
       expect(result.command).toBe('current');
       expect(result.options?.verbose).toBe(true);
@@ -378,7 +268,7 @@ describe('Weather CLI', () => {
   describe('real-world weather CLI scenarios', () => {
     it('should handle checking current weather for multiple cities sequentially', () => {
       const cities = ['New York', 'London', 'Tokyo'];
-      const results = cities.map((city) => weatherProgram.run('current', [city], { unit: 'celsius' }));
+      const results = cities.map((city) => program.run('current', [city], { unit: 'celsius' }));
 
       expect(results).toHaveLength(3);
       results.forEach((result, i) => {
@@ -388,7 +278,7 @@ describe('Weather CLI', () => {
     });
 
     it('should handle getting forecast with custom days', () => {
-      const result = weatherProgram.run('forecast', ['Miami'], { days: 5, unit: 'fahrenheit' });
+      const result = program.run('forecast', ['Miami'], { days: 5, unit: 'fahrenheit' });
 
       expect(result.result.days).toBe(5);
       expect(result.result.forecast).toHaveLength(2); // Mock data only has 2 days
@@ -396,7 +286,7 @@ describe('Weather CLI', () => {
 
     it('should handle comparing weather across multiple cities', () => {
       const cities = ['Seattle', 'Portland', 'Vancouver'];
-      const result = weatherProgram.run('compare', cities, undefined);
+      const result = program.run('compare', cities, undefined);
 
       expect(result.result?.comparison).toHaveLength(3);
       result.result?.comparison.forEach((comp: any, i: number) => {
@@ -407,7 +297,7 @@ describe('Weather CLI', () => {
     });
 
     it('should handle checking alerts with filters', () => {
-      const result = weatherProgram.run('alerts', undefined, {
+      const result = program.run('alerts', undefined, {
         region: 'West Coast',
         severity: 'high',
       });

@@ -27,7 +27,7 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
   };
 
   const parse: AnyZodrunProgram['parse'] = (input) => {
-    input ??= typeof process !== 'undefined' ? process.argv.slice(2).join(' ') : undefined;
+    input ??= typeof process !== 'undefined' ? (process.argv.slice(2).join(' ') as any) : undefined;
     if (!input) return { command: '' };
 
     const parts = parseCliInputToParts(input);
