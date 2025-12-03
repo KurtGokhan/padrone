@@ -44,12 +44,12 @@ export const program = createZodrun()
   )
   .command('noop');
 
-// program.run('greet', ['John', 'Jake'], { prefix: 'Mr.' });
-// program.run('greet nested', ['John', 'Jake'], { prefix: 'Mr.', suffix: 'Esq.' });
-// program.run('farewell', undefined, undefined);
-// program.run('noop', undefined, undefined);
+program.run('greet', ['John', 'Jake'], { prefix: 'Mr.' });
+program.run('greet nested', ['John', 'Jake'], { prefix: 'Mr.', suffix: 'Esq.' });
+program.run('farewell', undefined, undefined);
+program.run('noop', undefined, undefined);
 
-// program.cli();
+program.cli('greet nested John Jake --prefix Mr. --suffix Esq2.');
 
 const { greet } = program.api();
 

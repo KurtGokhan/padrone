@@ -1,11 +1,11 @@
 import { parseCliInputToParts } from './parse';
-import type { AnyZodrunCommand, ZodrunCommand, ZodrunCommandBuilder, ZodrunCommandResult, ZodrunProgram } from './types';
+import type { AnyZodrunCommand, AnyZodrunProgram, ZodrunCommand, ZodrunCommandBuilder, ZodrunProgram } from './types';
 
 const commandSymbol = Symbol('zodrun_command');
 
 export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = ZodrunProgram>(
   existingCommand: AnyZodrunCommand,
-): TBuilder & { [commandSymbol]: ZodrunCommand } {
+): TBuilder & { [commandSymbol]: AnyZodrunCommand } {
   function findCommandByName(name: string, commands?: AnyZodrunCommand[]): AnyZodrunCommand | undefined {
     if (!commands) return undefined;
 
@@ -22,6 +22,74 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     return undefined;
   }
 
+  const find: AnyZodrunProgram['find'] = (command) => {
+    return findCommandByName(command, existingCommand.commands) as ReturnType<AnyZodrunProgram['find']>;
+  };
+
+  const parse: AnyZodrunProgram['parse'] = (input) => {
+    input ??= typeof process !== 'undefined' ? process.argv.slice(2).join(' ') : undefined;
+    if (!input) return { command: '' };
+
+    const parts = parseCliInputToParts(input);
+
+    const terms = parts.filter((p) => p.type === 'term').map((p) => p.value);
+    const args = parts.filter((p) => p.type === 'arg').map((p) => p.value);
+
+    let curCommand: AnyZodrunCommand | undefined = existingCommand;
+
+    const commandTerms: string[] = [];
+
+    for (let i = 0; i < terms.length; i++) {
+      const term = terms[i] || '';
+      const found = findCommandByName(term, curCommand.commands);
+
+      if (found) {
+        curCommand = found;
+        commandTerms.push(term);
+      } else {
+        args.unshift(...terms.slice(i));
+        break;
+      }
+    }
+
+    if (!curCommand) return { command: '' };
+
+    const opts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
+    const optionsRecord: Record<string, string | boolean> = {};
+
+    for (const opt of opts) {
+      if (opt.type === 'option' || opt.type === 'alias') {
+        optionsRecord[opt.key] = opt.value ?? true;
+      }
+    }
+
+    return {
+      command: commandTerms.join(' '),
+      args: args as any,
+      options: optionsRecord as any,
+    };
+  };
+
+  const cli: AnyZodrunProgram['cli'] = (input) => {
+    const { command, args, options } = parse(input);
+    if (!command) return undefined;
+    return run(command, args!, options!) as any;
+  };
+
+  const run: AnyZodrunProgram['run'] = (command, args, options) => {
+    const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyZodrunCommand);
+    if (!commandObj) throw new Error(`Command "${command}" not found`);
+
+    const result = commandObj.handle?.(args as any, options as any);
+
+    return {
+      command: commandObj.fullName,
+      args: args as any,
+      options: options as any,
+      result,
+    };
+  };
+
   return {
     args(args) {
       return createZodrunCommandBuilder({ ...existingCommand, args }) as any;
@@ -32,82 +100,39 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     handle(handle) {
       return createZodrunCommandBuilder({ ...existingCommand, handle }) as any;
     },
-    command: <TName extends string, TCommand extends ZodrunCommand<TName, any, any, any>>(
+    command: <TName extends string, TCommand extends ZodrunCommand<TName, string, any, any, any, any>>(
       name: TName,
       builderFn?: (builder: ZodrunCommandBuilder<TName>) => ZodrunCommandBuilder,
     ) => {
-      const initialCommand = { name } as ZodrunCommand<TName>;
+      const initialCommand = {
+        name,
+        fullName: existingCommand.fullName ? `${existingCommand.fullName} ${name}` : name,
+        parent: existingCommand,
+        '~types': {} as any,
+      } satisfies ZodrunCommand<TName, any>;
       const builder = createZodrunCommandBuilder(initialCommand);
 
       const commandObj = ((builderFn?.(builder as any) as typeof builder)?.[commandSymbol] as TCommand) ?? initialCommand;
       return createZodrunCommandBuilder({ ...existingCommand, commands: [...(existingCommand.commands || []), commandObj] }) as any;
     },
 
-    parse: (input?: string) => {
-      input ??= typeof process !== 'undefined' ? process.argv.slice(2).join(' ') : undefined;
-      if (!input) return { command: '' };
-
-      const parts = parseCliInputToParts(input);
-
-      const terms = parts.filter((p) => p.type === 'term').map((p) => p.value);
-      const args = parts.filter((p) => p.type === 'arg').map((p) => p.value);
-
-      let curCommand: AnyZodrunCommand | undefined = existingCommand;
-
-      const commandTerms: string[] = [];
-
-      for (let i = 0; i < terms.length; i++) {
-        const term = terms[i] || '';
-        const found = findCommandByName(term, curCommand.commands);
-
-        if (found) {
-          curCommand = found;
-          commandTerms.push(term);
-        } else {
-          args.unshift(...terms.slice(i));
-          break;
-        }
-      }
-
-      if (!curCommand) return { command: '' };
-
-      const opts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
-      const optionsRecord: Record<string, string | boolean> = {};
-
-      for (const opt of opts) {
-        if (opt.type === 'option' || opt.type === 'alias') {
-          optionsRecord[opt.key] = opt.value ?? true;
-        }
-      }
-
-      return {
-        command: commandTerms.join(' '),
-        args,
-        options: optionsRecord,
-      };
-    },
-
-    cli(input?: string) {
-      const { command, args, options } = this.parse(input);
-      if (!command) return undefined;
-      return this.run(command, args!, options!);
-    },
+    run,
+    find,
+    parse,
+    cli,
 
     api() {
       const apiObj: Record<string, any> = {};
 
-      const run = this.run.bind(this) as any;
-
-      function buildApi(command: AnyZodrunCommand, obj: Record<string, any>, namePrefix = '') {
+      function buildApi(command: AnyZodrunCommand, obj: Record<string, any>) {
         if (!command.commands) return obj;
 
         for (const cmd of command.commands) {
           function runCommand(args: any, options: any) {
-            return run(fullName, args, options);
+            return run(cmd, args, options).result;
           }
 
-          const fullName = namePrefix ? `${namePrefix} ${cmd.name}` : cmd.name;
-          buildApi(cmd, runCommand, fullName);
+          buildApi(cmd, runCommand);
           obj[cmd.name] = runCommand;
         }
       }
@@ -115,25 +140,16 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
       return apiObj;
     },
 
-    run(command: string, args: unknown, options: unknown) {
-      const commandObj = findCommandByName(command, existingCommand.commands);
-      if (!commandObj) throw new Error(`Command "${command}" not found`);
-
-      const result = commandObj.handle?.(args as any, options as any) as any;
-
-      const ret: ZodrunCommandResult = {
-        command,
-        args: args as any,
-        options: options as any,
-        result,
-      };
-
-      return ret;
+    interactive() {
+      return Promise.resolve(undefined);
     },
-    find(command: string) {
-      return findCommandByName(command, existingCommand.commands);
+
+    repl() {
+      return Promise.resolve([]);
     },
+
+    '~types': {} as any,
 
     [commandSymbol]: existingCommand,
-  } as TBuilder & { [commandSymbol]: ZodrunCommand };
+  } satisfies AnyZodrunProgram & { [commandSymbol]: AnyZodrunCommand } as unknown as TBuilder & { [commandSymbol]: AnyZodrunCommand };
 }

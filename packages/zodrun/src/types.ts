@@ -1,109 +1,142 @@
 import { z } from 'zod';
-import type { GetCommandNames, IsUnknown, PickCommandByName } from './type-utils';
+import type {
+  FullCommandName,
+  GetCommandNames,
+  IsUnknown,
+  PickCommandByName,
+  PickCommandByPossibleCommands,
+  PossibleCommands,
+} from './type-utils';
 
 type UnknownRecord = Record<string, unknown>;
 type EmptyRecord = Record<string, never>;
 
+type DefaultArgs = unknown[] | void;
+type DefaultOpts = UnknownRecord | void;
+type ZArgs = z.ZodType<any>;
+type ZOpts = z.ZodType<any>;
+type ZDefaultArgs = z.ZodType<DefaultArgs>;
+type ZDefaultOpts = z.ZodType<DefaultOpts>;
+
 export type ZodrunCommand<
   TName extends string = string,
-  TArgs extends unknown[] | void = unknown[] | void,
-  TOpts extends UnknownRecord | void = UnknownRecord | void,
+  TParentName extends string = '',
+  TArgs extends ZArgs = ZDefaultArgs,
+  TOpts extends ZOpts = ZDefaultOpts,
   TRes = void,
   TCommands extends [...AnyZodrunCommand[]] = [],
 > = {
   name: TName;
-  args?: z.ZodType<TArgs>;
-  options?: z.ZodType<TOpts>;
+  fullName: FullCommandName<TName, TParentName>;
+  args?: ZArgs;
+  options?: ZOpts;
   handle?: (args: TArgs, options: TOpts) => TRes;
 
+  parent?: AnyZodrunCommand;
   commands?: TCommands;
 
   /** @deprecated Internal use only */
   '~types': {
     name: TName;
-    args: TArgs;
-    options: TOpts;
+    parentName: TParentName;
+    fullName: FullCommandName<TName, TParentName>;
+    argsInput: z.input<TArgs>;
+    argsOutput: z.output<TArgs>;
+    optionsInput: z.input<TOpts>;
+    optionsOutput: z.output<TOpts>;
     result: TRes;
     commands: TCommands;
   };
 };
 
-export type AnyZodrunCommand = ZodrunCommand<string, any, any, any, [...AnyZodrunCommand[]]>;
+export type AnyZodrunCommand = ZodrunCommand<string, any, any, any, any, [...AnyZodrunCommand[]]>;
 
 export type ZodrunCommandBuilder<
   TName extends string = string,
-  TArgs extends unknown[] | void = unknown[] | void,
-  TOpts extends UnknownRecord | void = UnknownRecord | void,
+  TParentName extends string = '',
+  TArgs extends ZArgs = ZDefaultArgs,
+  TOpts extends ZOpts = ZDefaultOpts,
   TRes = void,
   TCommands extends [...AnyZodrunCommand[]] = [],
 > = {
   /**
    * Defines the positional arguments schema for the command.
    */
-  args: <TArgs extends unknown[] | void>(args: z.ZodType<TArgs>) => ZodrunCommandBuilder<TName, TArgs, TOpts, TRes, TCommands>;
+  args: <TArgs extends ZArgs = z.ZodVoid>(args?: TArgs) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
    * Defines the options schema for the command.
    */
-  options: <TOpts extends UnknownRecord | void>(options: z.ZodType<TOpts>) => ZodrunCommandBuilder<TName, TArgs, TOpts, TRes, TCommands>;
+  options: <TOpts extends ZOpts = z.ZodVoid>(options?: TOpts) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
    * Defines the handler function to be executed when the command is run.
    */
-  handle: <TRes>(run: (args: TArgs, options: TOpts) => TRes) => ZodrunCommandBuilder<TName, TArgs, TOpts, TRes, TCommands>;
+  handle: <TRes>(
+    run: (args: z.output<TArgs>, options: z.output<TOpts>) => TRes,
+  ) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
    * Creates a nested command within the current command with the given name and builder function.
    */
-  command: <TNameNested extends string, TBuilder extends ZodrunCommandBuilder<TNameNested, any, any, any, any>>(
+  command: <
+    TNameNested extends string,
+    TBuilder extends ZodrunCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, any, any>,
+  >(
     name: TNameNested,
-    builderFn?: (builder: ZodrunCommandBuilder<TNameNested>) => TBuilder,
-  ) => ZodrunCommandBuilder<TName, TArgs, TOpts, TRes, [...TCommands, TBuilder['~types']['command']]>;
+    builderFn?: (builder: ZodrunCommandBuilder<TNameNested, FullCommandName<TName, TParentName>>) => TBuilder,
+  ) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, [...TCommands, TBuilder['~types']['command']]>;
 
   /** @deprecated Internal use only */
   '~types': {
     name: TName;
+    parentName: TParentName;
+    fullName: FullCommandName<TName, TParentName>;
     args: TArgs;
     options: TOpts;
     result: TRes;
     commands: TCommands;
-    command: ZodrunCommand<TName, TArgs, TOpts, TRes, TCommands>;
+    command: ZodrunCommand<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
   };
 };
 
 export type ZodrunProgram<
   TName extends string = string,
-  TArgs extends unknown[] | void = unknown[] | void,
-  TOpts extends UnknownRecord | void = UnknownRecord | void,
+  TArgs extends ZArgs = ZDefaultArgs,
+  TOpts extends ZOpts = ZDefaultOpts,
   TRes = void,
   TCommands extends [...AnyZodrunCommand[]] = [],
-> = Omit<ZodrunCommandBuilder<TName, TArgs, TOpts, TRes, TCommands>, 'command'> & {
+> = Omit<ZodrunCommandBuilder<TName, '', TArgs, TOpts, TRes, TCommands>, 'command'> & {
   /**
    * Creates a command within the program with the given name and builder function.
    */
-  command: <TNameNested extends string, TBuilder extends ZodrunCommandBuilder<TNameNested, any, any, any, any>>(
+  command: <TNameNested extends string, TBuilder extends ZodrunCommandBuilder<TNameNested, '', any, any, any, any>>(
     name: TNameNested,
-    builderFn?: (builder: ZodrunCommandBuilder<TNameNested>) => TBuilder,
+    builderFn?: (builder: ZodrunCommandBuilder<TNameNested, ''>) => TBuilder,
   ) => ZodrunProgram<TName, TArgs, TOpts, TRes, [...TCommands, TBuilder['~types']['command']]>;
 
   /**
    * Runs a command programmatically by name with provided args and options.
    */
-  run: <const TName extends GetCommandNames<TCommands>, TCommand extends AnyZodrunCommand = PickCommandByName<TCommands, TName>>(
-    name: TName,
-    args: NoInfer<GetArgs<TCommand>>,
-    options: NoInfer<GetOptions<TCommand>>,
-  ) => ZodrunCommandResult<TCommand>;
+  run: <const TCommand extends GetCommandNames<TCommands> | TCommands[number]>(
+    name: TCommand,
+    args: NoInfer<GetArgs<'in', PickCommandByName<TCommands, TCommand>>>,
+    options: NoInfer<GetOptions<'in', PickCommandByName<TCommands, TCommand>>>,
+  ) => ZodrunCommandResult<PickCommandByName<TCommands, TCommand>>;
 
   /**
    * Runs the program as a CLI application, parsing `process.argv` or provided input.
    */
-  cli: (input?: string) => ZodrunCommandResult<TCommands[number]> | undefined;
+  cli: <const TCommand extends PossibleCommands<TCommands>>(
+    input?: TCommand,
+  ) => ZodrunCommandResult<PickCommandByPossibleCommands<TCommands, TCommand>>;
 
   /**
    * Parses CLI input (or the provided input string) into command, args, and options without executing anything.
    */
-  parse: (input?: string) => ZodrunParseResult<TCommands[number]>;
+  parse: <const TCommand extends PossibleCommands<TCommands>>(
+    input?: TCommand,
+  ) => ZodrunParseResult<PickCommandByPossibleCommands<TCommands, TCommand>>;
 
   /**
    * Finds a command by name, returning `undefined` if not found.
@@ -153,17 +186,19 @@ export type ZodrunProgram<
   };
 };
 
-export type ZodrunCommandResult<TCommand extends AnyZodrunCommand = ZodrunCommand> = {
-  command: TCommand['name'];
-  args: GetArgs<TCommand>;
-  options: GetOptions<TCommand>;
+export type AnyZodrunProgram = ZodrunProgram<string, any, any, any, [...AnyZodrunCommand[]]>;
+
+export type ZodrunCommandResult<TCommand extends AnyZodrunCommand = AnyZodrunCommand> = {
+  command: TCommand['fullName'];
+  args: GetArgs<'out', TCommand>;
+  options: GetOptions<'out', TCommand>;
   result: GetResults<TCommand>;
 };
 
-export type ZodrunParseResult<TCommand extends AnyZodrunCommand = ZodrunCommand> = {
-  command: TCommand['name'];
-  args?: GetArgs<TCommand>;
-  options?: GetOptions<TCommand>;
+export type ZodrunParseResult<TCommand extends AnyZodrunCommand = AnyZodrunCommand> = {
+  command: TCommand['fullName'];
+  args?: GetArgs<'out', TCommand>;
+  options?: GetOptions<'out', TCommand>;
 };
 
 export type ZodrunAPI<TCommands extends [...AnyZodrunCommand[]] = [...AnyZodrunCommand[]]> = {
@@ -172,12 +207,18 @@ export type ZodrunAPI<TCommands extends [...AnyZodrunCommand[]] = [...AnyZodrunC
 };
 
 export type ZodrunAPICommand<TCommand extends AnyZodrunCommand> = (
-  args: GetArgs<TCommand>,
-  options: GetOptions<TCommand>,
+  args: GetArgs<'in', TCommand>,
+  options: GetOptions<'in', TCommand>,
 ) => GetResults<TCommand>;
 
-type GetArgs<TCommand extends AnyZodrunCommand> =
-  IsUnknown<TCommand['~types']['args']> extends true ? void | [] : TCommand['~types']['args'];
-type GetOptions<TCommand extends AnyZodrunCommand> =
-  IsUnknown<TCommand['~types']['options']> extends true ? void | EmptyRecord : TCommand['~types']['options'];
-type GetResults<TCommand extends AnyZodrunCommand> = TCommand['handle'] extends (...args: any[]) => infer TRes ? TRes : undefined;
+type NormalizeArgs<TArgs> = IsUnknown<TArgs> extends true ? void | [] : TArgs;
+type GetArgs<TDir extends 'in' | 'out', TCommand extends AnyZodrunCommand> = TDir extends 'in'
+  ? NormalizeArgs<TCommand['~types']['argsInput']>
+  : NormalizeArgs<TCommand['~types']['argsOutput']>;
+
+type NormalizeOptions<TOptions> = IsUnknown<TOptions> extends true ? void | EmptyRecord : TOptions;
+type GetOptions<TDir extends 'in' | 'out', TCommand extends AnyZodrunCommand> = TDir extends 'in'
+  ? NormalizeOptions<TCommand['~types']['optionsInput']>
+  : NormalizeOptions<TCommand['~types']['optionsOutput']>;
+
+type GetResults<TCommand extends AnyZodrunCommand> = ReturnType<NonNullable<TCommand['handle']>>;
