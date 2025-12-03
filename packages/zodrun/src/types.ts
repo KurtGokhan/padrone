@@ -37,10 +37,24 @@ export type ZodrunCommandBuilder<
   TRes = void,
   TCommands extends [...AnyZodrunCommand[]] = [],
 > = {
+  /**
+   * Defines the positional arguments schema for the command.
+   */
   args: <TArgs extends unknown[] | void>(args: z.ZodType<TArgs>) => ZodrunCommandBuilder<TName, TArgs, TOpts, TRes, TCommands>;
+
+  /**
+   * Defines the options schema for the command.
+   */
   options: <TOpts extends UnknownRecord | void>(options: z.ZodType<TOpts>) => ZodrunCommandBuilder<TName, TArgs, TOpts, TRes, TCommands>;
+
+  /**
+   * Defines the handler function to be executed when the command is run.
+   */
   handle: <TRes>(run: (args: TArgs, options: TOpts) => TRes) => ZodrunCommandBuilder<TName, TArgs, TOpts, TRes, TCommands>;
 
+  /**
+   * Creates a nested command within the current command with the given name and builder function.
+   */
   command: <TNameNested extends string, TBuilder extends ZodrunCommandBuilder<TNameNested, any, any, any, any>>(
     name: TNameNested,
     builderFn?: (builder: ZodrunCommandBuilder<TNameNested>) => TBuilder,
@@ -64,20 +78,36 @@ export type ZodrunProgram<
   TRes = void,
   TCommands extends [...AnyZodrunCommand[]] = [],
 > = Omit<ZodrunCommandBuilder<TName, TArgs, TOpts, TRes, TCommands>, 'command'> & {
+  /**
+   * Creates a command within the program with the given name and builder function.
+   */
   command: <TNameNested extends string, TBuilder extends ZodrunCommandBuilder<TNameNested, any, any, any, any>>(
     name: TNameNested,
     builderFn?: (builder: ZodrunCommandBuilder<TNameNested>) => TBuilder,
   ) => ZodrunProgram<TName, TArgs, TOpts, TRes, [...TCommands, TBuilder['~types']['command']]>;
 
+  /**
+   * Runs a command programmatically by name with provided args and options.
+   */
   run: <const TName extends GetCommandNames<TCommands>, TCommand extends AnyZodrunCommand = PickCommandByName<TCommands, TName>>(
     name: TName,
     args: NoInfer<GetArgs<TCommand>>,
     options: NoInfer<GetOptions<TCommand>>,
   ) => ZodrunCommandResult<TCommand>;
+
+  /**
+   * Runs the program as a CLI application, parsing `process.argv` or provided input.
+   */
   cli: (input?: string) => ZodrunCommandResult<TCommands[number]> | undefined;
 
+  /**
+   * Parses CLI input (or the provided input string) into command, args, and options without executing anything.
+   */
   parse: (input?: string) => ZodrunParseResult<TCommands[number]>;
 
+  /**
+   * Finds a command by name, returning `undefined` if not found.
+   */
   find: <const TName extends GetCommandNames<TCommands>>(
     command: TName | (string & {}),
   ) => IsUnknown<TName> extends false
@@ -86,17 +116,37 @@ export type ZodrunProgram<
       : TCommands[number] | undefined
     : TCommands[number] | undefined;
 
+  /**
+   * Generates a type-safe API for invoking commands programmatically.
+   */
   api: () => ZodrunAPI<TCommands>;
 
   // TODO:
-  // interactive: () => Promise<ZodrunCommandResult<TCommands[number]> | undefined>;
-  // repl: () => Promise<ZodrunCommandResult<TCommands[number]>[]>;
+
+  /**
+   * Starts an interactive prompt to run commands.
+   */
+  interactive: () => Promise<ZodrunCommandResult<TCommands[number]> | undefined>;
+
+  /**
+   * Starts a REPL (Read-Eval-Print Loop) for running commands interactively.
+   */
+  repl: () => Promise<ZodrunCommandResult<TCommands[number]>[]>;
+
+  /**
+   * Returns a tool definition that can be passed to AI SDK.
+   */
   // tool: () => AISdkTool;
-  // help: (command?: string) => void;
+
+  /**
+   * Returns the help information for the program or a specific command.
+   */
+  // help: (command?: string) => string;
 
   /**
    * Reflection information about the program.
    * Avoid using this in application code, unless you know what you're doing.
+   * @deprecated Internal use only
    */
   '~types': {
     commands: TCommands;

@@ -51,6 +51,6 @@ export const program = createZodrun()
 
 // program.cli();
 
-const api = program.api();
+const { greet } = program.api();
 
-api.greet.nested(['Alice', 'Bob'], { prefix: 'Dr.', suffix: 'PhD' });
+greet.nested(['Alice', 'Bob'], { prefix: 'Dr.', suffix: 'PhD' });
