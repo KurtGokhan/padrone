@@ -92,6 +92,29 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
       if (!command) return undefined;
       return this.run(command, args!, options!);
     },
+
+    api() {
+      const apiObj: Record<string, any> = {};
+
+      const run = this.run.bind(this) as any;
+
+      function buildApi(command: AnyZodrunCommand, obj: Record<string, any>, namePrefix = '') {
+        if (!command.commands) return obj;
+
+        for (const cmd of command.commands) {
+          function runCommand(args: any, options: any) {
+            return run(fullName, args, options);
+          }
+
+          const fullName = namePrefix ? `${namePrefix} ${cmd.name}` : cmd.name;
+          buildApi(cmd, runCommand, fullName);
+          obj[cmd.name] = runCommand;
+        }
+      }
+      buildApi(existingCommand, apiObj);
+      return apiObj;
+    },
+
     run(command: string, args: unknown, options: unknown) {
       const commandObj = findCommandByName(command, existingCommand.commands);
       if (!commandObj) throw new Error(`Command "${command}" not found`);

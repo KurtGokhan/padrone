@@ -86,8 +86,9 @@ export type ZodrunProgram<
       : TCommands[number] | undefined
     : TCommands[number] | undefined;
 
+  api: () => ZodrunAPI<TCommands>;
+
   // TODO:
-  // api: () => Record<string, any>;
   // interactive: () => Promise<ZodrunCommandResult<TCommands[number]> | undefined>;
   // repl: () => Promise<ZodrunCommandResult<TCommands[number]>[]>;
   // tool: () => AISdkTool;
@@ -114,6 +115,16 @@ export type ZodrunParseResult<TCommand extends AnyZodrunCommand = ZodrunCommand>
   args?: GetArgs<TCommand>;
   options?: GetOptions<TCommand>;
 };
+
+export type ZodrunAPI<TCommands extends [...AnyZodrunCommand[]] = [...AnyZodrunCommand[]]> = {
+  [K in TCommands[number]['name']]: ZodrunAPICommand<PickCommandByName<TCommands, K>> &
+    ZodrunAPI<PickCommandByName<TCommands, K>['~types']['commands']>;
+};
+
+export type ZodrunAPICommand<TCommand extends AnyZodrunCommand> = (
+  args: GetArgs<TCommand>,
+  options: GetOptions<TCommand>,
+) => GetResults<TCommand>;
 
 type GetArgs<TCommand extends AnyZodrunCommand> =
   IsUnknown<TCommand['~types']['args']> extends true ? void | [] : TCommand['~types']['args'];

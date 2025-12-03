@@ -49,4 +49,8 @@ export const program = createZodrun()
 // program.run('farewell', undefined, undefined);
 // program.run('noop', undefined, undefined);
 
-program.cli();
+// program.cli();
+
+const api = program.api();
+
+api.greet.nested(['Alice', 'Bob'], { prefix: 'Dr.', suffix: 'PhD' });
