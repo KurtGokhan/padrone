@@ -51,6 +51,6 @@ program.run('noop', undefined, undefined);
 
 program.cli('greet nested John Jake --prefix Mr. --suffix Esq2.');
 
-const { greet } = program.api();
+const api = program.api();
 
-greet.nested(['Alice', 'Bob'], { prefix: 'Dr.', suffix: 'PhD' });
+api.greet.nested(['Alice', 'Bob'], { prefix: 'Dr.', suffix: 'PhD' });

@@ -152,7 +152,7 @@ export type ZodrunProgram<
   /**
    * Generates a type-safe API for invoking commands programmatically.
    */
-  api: () => ZodrunAPI<TCommands>;
+  api: () => ZodrunAPI<ZodrunCommand<'', '', TArgs, TOpts, TRes, TCommands>>;
 
   // TODO:
 
@@ -196,14 +196,13 @@ export type ZodrunCommandResult<TCommand extends AnyZodrunCommand = AnyZodrunCom
 };
 
 export type ZodrunParseResult<TCommand extends AnyZodrunCommand = AnyZodrunCommand> = {
-  command: TCommand['fullName'];
+  command: TCommand;
   args?: GetArgs<'out', TCommand>;
   options?: GetOptions<'out', TCommand>;
 };
 
-export type ZodrunAPI<TCommands extends [...AnyZodrunCommand[]] = [...AnyZodrunCommand[]]> = {
-  [K in TCommands[number]['name']]: ZodrunAPICommand<PickCommandByName<TCommands, K>> &
-    ZodrunAPI<PickCommandByName<TCommands, K>['~types']['commands']>;
+export type ZodrunAPI<TCommand extends AnyZodrunCommand> = ZodrunAPICommand<TCommand> & {
+  [K in TCommand['~types']['commands'][number]['name']]: ZodrunAPI<PickCommandByName<TCommand['~types']['commands'], K>>;
 };
 
 export type ZodrunAPICommand<TCommand extends AnyZodrunCommand> = (

@@ -60,7 +60,7 @@ describe('CLI', () => {
     it('should parse simple command with args', () => {
       const result = program.parse('current Paris');
 
-      expect(result.command).toBe('current');
+      expect(result.command.fullName).toBe('current');
       expect(result.args).toEqual(['Paris']);
       expect(result.options).toEqual({} as TODO);
     });
@@ -68,7 +68,7 @@ describe('CLI', () => {
     it('should parse command with options', () => {
       const result = program.parse('current London --unit celsius --verbose');
 
-      expect(result.command).toBe('current');
+      expect(result.command.fullName).toBe('current');
       expect(result.args).toEqual(['London']);
       expect(result.options).toEqual({ unit: 'celsius', verbose: true });
     });
@@ -76,7 +76,7 @@ describe('CLI', () => {
     it('should parse command with option values', () => {
       const result = program.parse('forecast Tokyo --days=5 --unit fahrenheit');
 
-      expect(result.command).toBe('forecast');
+      expect(result.command.fullName).toBe('forecast');
       expect(result.args).toEqual(['Tokyo']);
       expect(result.options).toEqual({ days: '5' as TODO, unit: 'fahrenheit' });
     });
@@ -84,7 +84,7 @@ describe('CLI', () => {
     it('should parse nested commands', () => {
       const result = program.parse('forecast extended Berlin --unit celsius');
 
-      expect(result.command).toBe('forecast extended');
+      expect(result.command.fullName).toBe('forecast extended');
       expect(result.args).toEqual(['Berlin']);
       expect(result.options).toEqual({ unit: 'celsius' });
     });
@@ -92,7 +92,7 @@ describe('CLI', () => {
     it('should parse command with multiple args', () => {
       const result = program.parse('compare New York London Tokyo');
 
-      expect(result.command).toBe('compare');
+      expect(result.command.fullName).toBe('compare');
       // Note: Parser splits on spaces, so "New York" becomes ["New", "York"]
       expect(result.args).toEqual(['New', 'York', 'London', 'Tokyo']);
     });
@@ -100,14 +100,14 @@ describe('CLI', () => {
     it('should parse command with complex options', () => {
       const result = program.parse('alerts --region "West Coast" --severity high');
 
-      expect(result.command).toBe('alerts');
+      expect(result.command.fullName).toBe('alerts');
       expect(result.options).toEqual({ region: '"West', severity: 'high' }); // Note: quotes are parsed as part of the value
     });
 
     it('should handle empty input', () => {
       const result = program.parse('');
 
-      expect(result.command).toBe('' as TODO);
+      expect(result.command.fullName).toBe('' as TODO);
       expect(result.args).toBeUndefined();
       expect(result.options).toBeUndefined();
     });
@@ -246,20 +246,20 @@ describe('CLI', () => {
       // Note: This tests the parsing behavior - spaces typically separate commands
       const result = program.parse('forecast extended');
 
-      expect(result.command).toBe('forecast extended');
+      expect(result.command.fullName).toBe('forecast extended');
     });
 
     it('should handle options without values', () => {
       const result = program.parse('alerts --ascending');
 
-      expect(result.command).toBe('alerts');
+      expect(result.command.fullName).toBe('alerts');
       expect(result.options?.ascending).toBe(true);
     });
 
     it('should handle multiple boolean options', () => {
       const result = program.parse('current Paris --verbose --unit celsius');
 
-      expect(result.command).toBe('current');
+      expect(result.command.fullName).toBe('current');
       expect(result.options?.verbose).toBe(true);
       expect(result.options?.unit).toBe('celsius');
     });

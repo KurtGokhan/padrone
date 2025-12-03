@@ -1,5 +1,5 @@
 import { parseCliInputToParts } from './parse';
-import type { AnyZodrunCommand, AnyZodrunProgram, ZodrunCommand, ZodrunCommandBuilder, ZodrunProgram } from './types';
+import type { AnyZodrunCommand, AnyZodrunProgram, ZodrunAPI, ZodrunCommand, ZodrunCommandBuilder, ZodrunProgram } from './types';
 
 const commandSymbol = Symbol('zodrun_command');
 
@@ -28,7 +28,7 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
 
   const parse: AnyZodrunProgram['parse'] = (input) => {
     input ??= typeof process !== 'undefined' ? (process.argv.slice(2).join(' ') as any) : undefined;
-    if (!input) return { command: '' };
+    if (!input) return { command: existingCommand as any };
 
     const parts = parseCliInputToParts(input);
 
@@ -52,7 +52,7 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
       }
     }
 
-    if (!curCommand) return { command: '' };
+    if (!curCommand) return { command: existingCommand as any };
 
     const opts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
     const optionsRecord: Record<string, string | boolean> = {};
@@ -63,11 +63,7 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
       }
     }
 
-    return {
-      command: commandTerms.join(' '),
-      args: args as any,
-      options: optionsRecord as any,
-    };
+    return { command: curCommand as any, args: args as any, options: optionsRecord as any };
   };
 
   const cli: AnyZodrunProgram['cli'] = (input) => {
@@ -122,22 +118,14 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     cli,
 
     api() {
-      const apiObj: Record<string, any> = {};
-
-      function buildApi(command: AnyZodrunCommand, obj: Record<string, any>) {
-        if (!command.commands) return obj;
-
-        for (const cmd of command.commands) {
-          function runCommand(args: any, options: any) {
-            return run(cmd, args, options).result;
-          }
-
-          buildApi(cmd, runCommand);
-          obj[cmd.name] = runCommand;
-        }
+      function buildApi(command: AnyZodrunCommand) {
+        const runCommand = ((args, options) => run(command, args, options).result) as ZodrunAPI<AnyZodrunCommand>;
+        if (!command.commands) return runCommand;
+        for (const cmd of command.commands) runCommand[cmd.name] = buildApi(cmd);
+        return runCommand;
       }
-      buildApi(existingCommand, apiObj);
-      return apiObj;
+
+      return buildApi(existingCommand);
     },
 
     interactive() {
