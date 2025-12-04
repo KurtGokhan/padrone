@@ -119,7 +119,7 @@ function createHtmlFormatter(): Formatter {
     deprecated: (text) => `<del style="color: #999;">${escapeHtml(text)}</del>`,
     newline: () => '<br>',
     join: (parts) => parts.filter(Boolean).join(' '),
-    indent: (level, content) => '  '.repeat(level) + content,
+    indent: (level, content) => '&nbsp;&nbsp;'.repeat(level) + content,
   };
 }
 

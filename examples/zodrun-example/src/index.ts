@@ -68,14 +68,8 @@ try {
   await program.cli();
 } catch {}
 
-// console.log('\n\n---- HELP ----\n');
-// console.log(await program.help());
+console.log('\n\n---- HELP ----\n');
+console.log(await program.help());
 
-// console.log('\n\n---- HELP (greet) (disable colors) ----\n');
-// console.log(await program.help('greet', { format: 'text' }));
-
-// console.log('\n\n---- HELP (greet) ----\n');
-// console.log(await program.help('greet'));
-
-console.log('\n\n---- HELP (greet) (json) ----\n');
-console.log(await program.help('greet', { format: 'markdown' }));
+console.log('\n\n---- HELP (greet) ----\n');
+console.log(await program.help('greet'));
