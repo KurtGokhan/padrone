@@ -28,4 +28,9 @@ describe('help', () => {
     const help = await program.help('forecast extended', { colorize: false });
     expect(help).toMatchSnapshot();
   });
+
+  it('should generate help for a command with meta object', async () => {
+    const help = await program.help('cities', { colorize: false });
+    expect(help).toMatchSnapshot();
+  });
 });

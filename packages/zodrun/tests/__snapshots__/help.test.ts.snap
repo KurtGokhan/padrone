@@ -9,6 +9,7 @@ Commands:
   alerts    
   compare   
   noop      
+  cities    
 
 Run "<root> [command] --help" for more information on a command.
 "
@@ -23,6 +24,7 @@ Commands:
   alerts    
   compare   
   noop      
+  cities    
 
 Run "<root> [command] --help" for more information on a command.
 "
@@ -65,5 +67,13 @@ Arguments:
 
 Options:
   --unit <string> (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+"
+`;
+
+exports[`help should generate help for a command with meta object 1`] = `
+"Usage: cities [options]
+
+Options:
+  --verbose, -v <boolean> (optional)  Show detailed information
 "
 `;

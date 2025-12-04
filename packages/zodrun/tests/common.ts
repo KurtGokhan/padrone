@@ -116,6 +116,21 @@ export function createWeatherProgram() {
         .args(z.void())
         .options(z.void())
         .handle(() => undefined),
+    )
+    .command('cities', (c) =>
+      c
+        .options(
+          z.object({
+            verbose: z.boolean().optional(),
+          }),
+          {
+            verbose: {
+              alias: 'v',
+              description: 'Show detailed information',
+            },
+          },
+        )
+        .handle(),
     );
 }
 

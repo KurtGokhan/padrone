@@ -1,5 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { HelpOptions } from './help';
+import type { ZodrunOptionsMeta } from './options';
 import type {
   FlattenCommands,
   FullCommandName,
@@ -32,6 +33,7 @@ export type ZodrunCommand<
   fullName: FullCommandName<TName, TParentName>;
   args?: ZArgs;
   options?: ZOpts;
+  meta?: GetOptionsMeta<TOpts>;
   handler?: (args: TArgs, options: TOpts) => TRes;
 
   parent?: AnyZodrunCommand;
@@ -73,6 +75,7 @@ export type ZodrunCommandBuilder<
    */
   options: <TOpts extends ZOpts = StandardSchemaV1<void>>(
     options?: TOpts,
+    meta?: GetOptionsMeta<TOpts>,
   ) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
@@ -231,3 +234,10 @@ type GetOptions<TDir extends 'in' | 'out', TCommand extends AnyZodrunCommand> = 
   : NormalizeOptions<TCommand['~types']['optionsOutput']>;
 
 type GetResults<TCommand extends AnyZodrunCommand> = ReturnType<NonNullable<TCommand['handler']>>;
+
+type GetOptionsMeta<TOpts extends ZOpts> =
+  NonNullable<StandardSchemaV1.InferInput<TOpts>> extends infer T extends object
+    ? {
+        [K in keyof T]?: ZodrunOptionsMeta;
+      }
+    : never;

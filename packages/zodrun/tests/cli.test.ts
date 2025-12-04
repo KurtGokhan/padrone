@@ -446,7 +446,7 @@ describe('CLI', () => {
                 .meta({ alias: ['h'] }),
             }),
           )
-          .handle(() => undefined),
+          .handle(),
       );
 
       const helpText = await program.help('test');
@@ -474,7 +474,35 @@ describe('CLI', () => {
                 verbose: options?.verbose || false,
               })),
           )
-          .handle(() => undefined),
+          .handle(),
+      );
+
+      const result = await program.parse('parent child -v');
+
+      expect(result.command.fullName).toBe('parent child');
+      expect(result.options?.verbose).toBe(true);
+    });
+
+    it('should work with meta object', async () => {
+      const program = createZodrun().command('parent', (c) =>
+        c
+          .command('child', (c2) =>
+            c2
+              .options(
+                z.object({
+                  verbose: z.boolean().optional(),
+                }),
+                {
+                  verbose: {
+                    alias: ['v'],
+                  },
+                },
+              )
+              .handle((_args, options) => ({
+                verbose: options?.verbose || false,
+              })),
+          )
+          .handle(),
       );
 
       const result = await program.parse('parent child -v');

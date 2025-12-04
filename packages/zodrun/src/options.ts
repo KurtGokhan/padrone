@@ -7,8 +7,21 @@ export interface ZodrunOptionsMeta {
   examples?: import('zod/v4/core').$input[];
 }
 
-export async function extractAliasesFromSchema(schema: StandardSchemaV1) {
+export async function extractAliasesFromSchema(schema: StandardSchemaV1, meta?: Record<string, ZodrunOptionsMeta | undefined>) {
   const aliases: Record<string, string> = {};
+
+  if (meta) {
+    for (const [key, value] of Object.entries(meta)) {
+      if (!value?.alias) continue;
+      const list = typeof value.alias === 'string' ? [value.alias] : value.alias;
+      if (!list) continue;
+
+      for (const aliasKey of list) {
+        if (typeof aliasKey !== 'string' || !aliasKey || aliasKey === key) continue;
+        aliases[aliasKey] = key;
+      }
+    }
+  }
 
   if (!schema['~standard'].vendor.includes('zod')) return aliases;
 

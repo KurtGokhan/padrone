@@ -59,24 +59,17 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     if (!curCommand) return { command: existingCommand as any };
 
     const opts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
-    const optionsRecord: Record<string, string | boolean> = {};
+    const optionsRecord: Record<string, unknown> = {};
 
     for (const opt of opts) {
-      if (opt.type === 'option') {
-        optionsRecord[opt.key] = opt.value ?? true;
-      } else if (opt.type === 'alias') {
-        // Store alias key as-is; the augmented schema will handle transformation
-        optionsRecord[opt.key] = opt.value ?? true;
-      }
+      if (opt.type === 'option') optionsRecord[opt.key] = opt.value ?? true;
+      else if (opt.type === 'alias') optionsRecord[opt.key] = opt.value ?? true;
     }
 
-    // Preprocess optionsRecord to resolve aliases from schema metadata before validation
     let preprocessedOptions = optionsRecord;
     if (curCommand.options) {
-      const aliases = await extractAliasesFromSchema(curCommand.options);
-      if (Object.keys(aliases).length > 0) {
-        preprocessedOptions = preprocessAliases(optionsRecord, aliases) as Record<string, string | boolean>;
-      }
+      const aliases = await extractAliasesFromSchema(curCommand.options, curCommand.meta);
+      if (Object.keys(aliases).length > 0) preprocessedOptions = preprocessAliases(optionsRecord, aliases);
     }
 
     let optionsParsed = curCommand.options ? curCommand.options['~standard'].validate(preprocessedOptions) : { value: preprocessedOptions };
@@ -123,8 +116,8 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     args(args) {
       return createZodrunCommandBuilder({ ...existingCommand, args }) as any;
     },
-    options(options) {
-      return createZodrunCommandBuilder({ ...existingCommand, options }) as any;
+    options(options, meta) {
+      return createZodrunCommandBuilder({ ...existingCommand, options, meta }) as any;
     },
     handle(handle = noop) {
       return createZodrunCommandBuilder({ ...existingCommand, handler: handle }) as any;

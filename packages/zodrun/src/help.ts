@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { createColorizer } from './colorizer';
-import { extractAliasesFromSchema } from './options';
+import { extractAliasesFromSchema, type ZodrunOptionsMeta } from './options';
 import type { AnyZodrunCommand } from './types';
 
 type ArgInfo = {
@@ -82,7 +82,7 @@ async function extractArgsInfo(argsSchema: StandardSchemaV1) {
   return result;
 }
 
-async function extractOptionsInfo(optionsSchema: StandardSchemaV1) {
+async function extractOptionsInfo(optionsSchema: StandardSchemaV1, meta?: Record<string, ZodrunOptionsMeta | undefined>) {
   const result: OptionInfo[] = [];
   if (!optionsSchema) return result;
 
@@ -99,10 +99,11 @@ async function extractOptionsInfo(optionsSchema: StandardSchemaV1) {
       for (const [key, prop] of Object.entries(properties)) {
         const isOptional = !required.includes(key);
         const enumValues = prop.enum as string[] | undefined;
+        const optMeta = meta?.[key];
 
         result.push({
           name: key,
-          description: prop.description,
+          description: optMeta?.description ?? prop.description,
           optional: isOptional,
           default: prop.default,
           type: prop.type as string,
@@ -191,10 +192,10 @@ export async function generateHelp(
 
   // Options
   if (cmd.options) {
-    const optionsInfo = await extractOptionsInfo(cmd.options);
+    const optionsInfo = await extractOptionsInfo(cmd.options, cmd.meta);
     const optMap: Record<string, OptionInfo> = Object.fromEntries(optionsInfo.map((opt) => [opt.name, opt]));
 
-    const aliases = await extractAliasesFromSchema(cmd.options);
+    const aliases = await extractAliasesFromSchema(cmd.options, cmd.meta);
     for (const [alias, name] of Object.entries(aliases)) {
       const opt = optMap[name];
       if (!opt) continue;
