@@ -12,10 +12,18 @@
     "bundle": "bun run build && bun ../../scripts/copyPackageJson.ts",
     "publish-to-npm": "bun publish --access public --no-git-checks --no-confirm"
   },
+  "dependencies": {
+    "@standard-schema/spec": "^1.0.0"
+  },
   "devDependencies": {
     "zod": "^4.1.13"
   },
   "peerDependencies": {
     "zod": "^3.25.0 || ^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
+    }
   }
 }

@@ -1,4 +1,3 @@
-import { safeParse } from 'zod/v4/core';
 import { generateHelp } from './help';
 import { extractAliasesFromSchema, preprocessAliases } from './options';
 import { parseCliInputToParts } from './parse';
@@ -31,7 +30,7 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     return findCommandByName(command, existingCommand.commands) as ReturnType<AnyZodrunProgram['find']>;
   };
 
-  const parse: AnyZodrunProgram['parse'] = (input) => {
+  const parse: AnyZodrunProgram['parse'] = async (input) => {
     input ??= typeof process !== 'undefined' ? (process.argv.slice(2).join(' ') as any) : undefined;
     if (!input) return { command: existingCommand as any };
 
@@ -71,32 +70,32 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
       }
     }
 
-    const argsParsed = curCommand.args ? safeParse(curCommand.args, args) : { success: true, data: args, error: undefined };
-
     // Preprocess optionsRecord to resolve aliases from schema metadata before validation
     let preprocessedOptions = optionsRecord;
     if (curCommand.options) {
-      const aliases = extractAliasesFromSchema(curCommand.options);
+      const aliases = await extractAliasesFromSchema(curCommand.options);
       if (Object.keys(aliases).length > 0) {
         preprocessedOptions = preprocessAliases(optionsRecord, aliases) as Record<string, string | boolean>;
       }
     }
 
-    const optionsParsed = curCommand.options
-      ? safeParse(curCommand.options, preprocessedOptions)
-      : { success: true, data: preprocessedOptions, error: undefined };
+    let optionsParsed = curCommand.options ? curCommand.options['~standard'].validate(preprocessedOptions) : { value: preprocessedOptions };
+    if (optionsParsed instanceof Promise) optionsParsed = await optionsParsed;
+
+    let argsParsed = curCommand.args ? curCommand.args['~standard'].validate(args) : { value: args };
+    if (argsParsed instanceof Promise) argsParsed = await argsParsed;
 
     return {
       command: curCommand as any,
-      args: argsParsed.data as any,
-      options: optionsParsed.data as any,
+      args: argsParsed.issues ? undefined : (argsParsed.value as any),
+      options: optionsParsed.issues ? undefined : (optionsParsed.value as any),
       argsResult: argsParsed as any,
       optionsResult: optionsParsed as any,
     };
   };
 
-  const cli: AnyZodrunProgram['cli'] = (input) => {
-    const { command, args, options, argsResult, optionsResult } = parse(input);
+  const cli: AnyZodrunProgram['cli'] = async (input) => {
+    const { command, args, options, argsResult, optionsResult } = await parse(input);
     const res = run(command, args, options) as any;
     return {
       ...res,

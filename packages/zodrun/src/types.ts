@@ -1,5 +1,4 @@
-import type z4 from 'zod/v4';
-import type z from 'zod/v4/core';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { HelpOptions } from './help';
 import type {
   FlattenCommands,
@@ -16,10 +15,10 @@ type EmptyRecord = Record<string, never>;
 
 type DefaultArgs = unknown[] | void;
 type DefaultOpts = UnknownRecord | void;
-type ZArgs = z.$ZodType;
-type ZOpts = z.$ZodType;
-type ZDefaultArgs = z.$ZodType<DefaultArgs>;
-type ZDefaultOpts = z.$ZodType<DefaultOpts>;
+type ZArgs = StandardSchemaV1;
+type ZOpts = StandardSchemaV1;
+type ZDefaultArgs = StandardSchemaV1<DefaultArgs>;
+type ZDefaultOpts = StandardSchemaV1<DefaultOpts>;
 
 export type ZodrunCommand<
   TName extends string = string,
@@ -43,10 +42,10 @@ export type ZodrunCommand<
     name: TName;
     parentName: TParentName;
     fullName: FullCommandName<TName, TParentName>;
-    argsInput: z.input<TArgs>;
-    argsOutput: z.output<TArgs>;
-    optionsInput: z.input<TOpts>;
-    optionsOutput: z.output<TOpts>;
+    argsInput: StandardSchemaV1.InferInput<TArgs>;
+    argsOutput: StandardSchemaV1.InferOutput<TArgs>;
+    optionsInput: StandardSchemaV1.InferInput<TOpts>;
+    optionsOutput: StandardSchemaV1.InferOutput<TOpts>;
     result: TRes;
     commands: TCommands;
   };
@@ -65,18 +64,22 @@ export type ZodrunCommandBuilder<
   /**
    * Defines the positional arguments schema for the command.
    */
-  args: <TArgs extends ZArgs = z.$ZodVoid>(args?: TArgs) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
+  args: <TArgs extends ZArgs = StandardSchemaV1<void>>(
+    args?: TArgs,
+  ) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
    * Defines the options schema for the command.
    */
-  options: <TOpts extends ZOpts = z.$ZodVoid>(options?: TOpts) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
+  options: <TOpts extends ZOpts = StandardSchemaV1<void>>(
+    options?: TOpts,
+  ) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
    * Defines the handler function to be executed when the command is run.
    */
   handle: <TRes>(
-    handler?: (args: z.output<TArgs>, options: z.output<TOpts>) => TRes,
+    handler?: (args: StandardSchemaV1.InferOutput<TArgs>, options: StandardSchemaV1.InferOutput<TOpts>) => TRes,
   ) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
@@ -133,14 +136,14 @@ export type ZodrunProgram<
    */
   cli: <const TCommand extends PossibleCommands<[TCmd]>>(
     input?: TCommand,
-  ) => ZodrunCommandResult<PickCommandByPossibleCommands<[TCmd], TCommand>>;
+  ) => Promise<ZodrunCommandResult<PickCommandByPossibleCommands<[TCmd], TCommand>>>;
 
   /**
    * Parses CLI input (or the provided input string) into command, args, and options without executing anything.
    */
   parse: <const TCommand extends PossibleCommands<[TCmd]>>(
     input?: TCommand,
-  ) => ZodrunParseResult<PickCommandByPossibleCommands<[TCmd], TCommand>>;
+  ) => Promise<ZodrunParseResult<PickCommandByPossibleCommands<[TCmd], TCommand>>>;
 
   /**
    * Finds a command by name, returning `undefined` if not found.
@@ -178,7 +181,10 @@ export type ZodrunProgram<
   /**
    * Returns the help information for the program or a specific command.
    */
-  help: <const TCommand extends GetCommandNames<[TCmd]> | FlattenCommands<[TCmd]>>(command?: TCommand, options?: HelpOptions) => string;
+  help: <const TCommand extends GetCommandNames<[TCmd]> | FlattenCommands<[TCmd]>>(
+    command?: TCommand,
+    options?: HelpOptions,
+  ) => Promise<string>;
 
   /**
    * Reflection information about the program.
@@ -201,8 +207,8 @@ export type ZodrunParseResult<TCommand extends AnyZodrunCommand = AnyZodrunComma
   command: TCommand;
   args?: GetArgs<'out', TCommand>;
   options?: GetOptions<'out', TCommand>;
-  argsResult?: z4.ZodSafeParseResult<GetArgs<'out', TCommand>>;
-  optionsResult?: z4.ZodSafeParseResult<GetOptions<'out', TCommand>>;
+  argsResult?: StandardSchemaV1.Result<GetArgs<'out', TCommand>>;
+  optionsResult?: StandardSchemaV1.Result<GetOptions<'out', TCommand>>;
 };
 
 export type ZodrunAPI<TCommand extends AnyZodrunCommand> = ZodrunAPICommand<TCommand> & {

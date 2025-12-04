@@ -1,6 +1,4 @@
-import { toJSONSchema } from 'zod/v4';
-import type z from 'zod/v4/core';
-import { $ZodVoid } from 'zod/v4/core';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { createColorizer } from './colorizer';
 import { extractAliasesFromSchema } from './options';
 import type { AnyZodrunCommand } from './types';
@@ -23,14 +21,13 @@ type OptionInfo = {
   aliases?: string[];
 };
 
-function extractArgsInfo(argsSchema: z.$ZodType): ArgInfo[] {
+async function extractArgsInfo(argsSchema: StandardSchemaV1) {
   const result: ArgInfo[] = [];
-
-  if (!argsSchema || argsSchema instanceof $ZodVoid) {
-    return result;
-  }
+  if (!argsSchema) return result;
 
   try {
+    const { toJSONSchema, $ZodType } = (await import('zod/v4/core').catch(() => null!)) || {};
+    if (!$ZodType || !(argsSchema instanceof $ZodType)) return result;
     const jsonSchema = toJSONSchema(argsSchema);
 
     // Handle tuple: z.tuple([z.string(), z.number(), ...])
@@ -85,14 +82,13 @@ function extractArgsInfo(argsSchema: z.$ZodType): ArgInfo[] {
   return result;
 }
 
-function extractOptionsInfo(optionsSchema: z.$ZodType): OptionInfo[] {
+async function extractOptionsInfo(optionsSchema: StandardSchemaV1) {
   const result: OptionInfo[] = [];
-
-  if (!optionsSchema || optionsSchema instanceof $ZodVoid) {
-    return result;
-  }
+  if (!optionsSchema) return result;
 
   try {
+    const { toJSONSchema, $ZodType } = (await import('zod/v4/core').catch(() => null!)) || {};
+    if (!$ZodType || !(optionsSchema instanceof $ZodType)) return result;
     const jsonSchema = toJSONSchema(optionsSchema);
 
     // Handle object: z.object({ key: z.string(), ... })
@@ -125,12 +121,12 @@ export type HelpOptions = {
   colorize?: boolean | 'auto';
 };
 
-export function generateHelp(
+export async function generateHelp(
   targetCommand: AnyZodrunCommand,
   findCommandByName: (name: string, commands?: AnyZodrunCommand[]) => AnyZodrunCommand | undefined,
   command?: string | AnyZodrunCommand,
   options?: HelpOptions,
-): string {
+) {
   let cmd: AnyZodrunCommand | undefined;
 
   if (command) {
@@ -178,7 +174,7 @@ export function generateHelp(
 
   // Arguments
   if (cmd.args) {
-    const argsInfo = extractArgsInfo(cmd.args);
+    const argsInfo = await extractArgsInfo(cmd.args);
     if (argsInfo.length > 0) {
       lines.push(colorize.label('Arguments:'));
       for (const arg of argsInfo) {
@@ -195,10 +191,10 @@ export function generateHelp(
 
   // Options
   if (cmd.options) {
-    const optionsInfo = extractOptionsInfo(cmd.options);
+    const optionsInfo = await extractOptionsInfo(cmd.options);
     const optMap: Record<string, OptionInfo> = Object.fromEntries(optionsInfo.map((opt) => [opt.name, opt]));
 
-    const aliases = extractAliasesFromSchema(cmd.options);
+    const aliases = await extractAliasesFromSchema(cmd.options);
     for (const [alias, name] of Object.entries(aliases)) {
       const opt = optMap[name];
       if (!opt) continue;

@@ -1,15 +1,19 @@
-import { preprocess } from 'zod/v4';
-import { type $input, $ZodObject, $ZodType, $ZodVoid, globalRegistry } from 'zod/v4/core';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 
 export interface ZodrunOptionsMeta {
   description?: string;
   deprecated?: boolean;
   alias?: string[] | string;
-  examples?: $input[];
+  examples?: import('zod/v4/core').$input[];
 }
 
-export function extractAliasesFromSchema(schema: $ZodType): Record<string, string> {
+export async function extractAliasesFromSchema(schema: StandardSchemaV1) {
   const aliases: Record<string, string> = {};
+
+  if (!schema['~standard'].vendor.includes('zod')) return aliases;
+
+  const { $ZodObject, $ZodType, $ZodVoid, globalRegistry } = (await import('zod/v4/core').catch(() => null!)) || {};
+  if (!$ZodObject) return aliases;
 
   if (schema instanceof $ZodVoid || !(schema instanceof $ZodObject)) return aliases;
 
@@ -46,15 +50,4 @@ export function preprocessAliases(data: Record<string, unknown>, aliases: Record
   }
 
   return result;
-}
-
-export function augmentSchemaWithOptionsSpec(schema: $ZodType): $ZodType {
-  const aliases = extractAliasesFromSchema(schema);
-  if (Object.keys(aliases).length === 0) return schema;
-  if (schema instanceof $ZodVoid || !(schema instanceof $ZodObject)) return schema;
-
-  return preprocess((data) => {
-    if (typeof data !== 'object' || data === null) return data;
-    return preprocessAliases(data as Record<string, unknown>, aliases);
-  }, schema);
 }

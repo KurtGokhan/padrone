@@ -57,55 +57,55 @@ describe('CLI', () => {
   });
 
   describe('CLI parsing', () => {
-    it('should parse simple command with args', () => {
-      const result = program.parse('current Paris');
+    it('should parse simple command with args', async () => {
+      const result = await program.parse('current Paris');
 
       expect(result.command.fullName).toBe('current');
       expect(result.args).toEqual(['Paris']);
       expect(result.options).toEqual({ unit: 'fahrenheit' });
     });
 
-    it('should parse command with options', () => {
-      const result = program.parse('current London --unit celsius --verbose');
+    it('should parse command with options', async () => {
+      const result = await program.parse('current London --unit celsius --verbose');
 
       expect(result.command.fullName).toBe('current');
       expect(result.args).toEqual(['London']);
       expect(result.options).toEqual({ unit: 'celsius', verbose: true });
     });
 
-    it('should parse command with option values', () => {
-      const result = program.parse('forecast Tokyo --days=5 --unit fahrenheit');
+    it('should parse command with option values', async () => {
+      const result = await program.parse('forecast Tokyo --days=5 --unit fahrenheit');
 
       expect(result.command.fullName).toBe('forecast');
       expect(result.args).toEqual(['Tokyo']);
       expect(result.options).toEqual({ days: 5, unit: 'fahrenheit' });
     });
 
-    it('should parse nested commands', () => {
-      const result = program.parse('forecast extended Berlin --unit celsius');
+    it('should parse nested commands', async () => {
+      const result = await program.parse('forecast extended Berlin --unit celsius');
 
       expect(result.command.fullName).toBe('forecast extended');
       expect(result.args).toEqual(['Berlin']);
       expect(result.options).toEqual({ unit: 'celsius' });
     });
 
-    it('should parse command with multiple args', () => {
-      const result = program.parse('compare New York London Tokyo');
+    it('should parse command with multiple args', async () => {
+      const result = await program.parse('compare New York London Tokyo');
 
       expect(result.command.fullName).toBe('compare');
       // Note: Parser splits on spaces, so "New York" becomes ["New", "York"]
       expect(result.args).toEqual(['New', 'York', 'London', 'Tokyo']);
     });
 
-    it('should parse command with complex options', () => {
-      const result = program.parse('alerts --region "West Coast" --severity high');
+    it('should parse command with complex options', async () => {
+      const result = await program.parse('alerts --region "West Coast" --severity high');
 
       expect(result.command.fullName).toBe('alerts');
       expect(result.options).toEqual({ region: '"West', severity: 'high' }); // Note: quotes are parsed as part of the value
     });
 
-    it('should handle empty input', () => {
-      const result = program.parse('');
+    it('should handle empty input', async () => {
+      const result = await program.parse('');
 
       expect(result.command.fullName).toBe('' as TODO);
       expect(result.args).toBeUndefined();
@@ -114,8 +114,8 @@ describe('CLI', () => {
   });
 
   describe('CLI execution', () => {
-    it('should execute command via CLI string', () => {
-      const result = program.cli('current Madrid --unit celsius');
+    it('should execute command via CLI string', async () => {
+      const result = await program.cli('current Madrid --unit celsius');
 
       expect(result).toBeDefined();
       if (!result) throw new Error('Result is undefined');
@@ -125,12 +125,12 @@ describe('CLI', () => {
       expect(result.result.temperature).toBe(22);
     });
 
-    it('should return undefined for empty CLI input', () => {
+    it('should return undefined for empty CLI input', async () => {
       expect(() => program.cli('')).toThrow('Command "" has no handler');
     });
 
-    it('should execute nested command via CLI', () => {
-      const result = program.cli('forecast extended Sydney --unit celsius');
+    it('should execute nested command via CLI', async () => {
+      const result = await program.cli('forecast extended Sydney --unit celsius');
 
       expect(result).toBeDefined();
       expect(result?.command.fullName).toBe('forecast extended');
@@ -240,22 +240,22 @@ describe('CLI', () => {
       expect(result.result.depth).toBe(3);
     });
 
-    it('should handle command names with spaces in parsing', () => {
+    it('should handle command names with spaces in parsing', async () => {
       // Note: This tests the parsing behavior - spaces typically separate commands
-      const result = program.parse('forecast extended');
+      const result = await program.parse('forecast extended');
 
       expect(result.command.fullName).toBe('forecast extended');
     });
 
-    it('should handle options without values', () => {
-      const result = program.parse('alerts --ascending');
+    it('should handle options without values', async () => {
+      const result = await program.parse('alerts --ascending');
 
       expect(result.command.fullName).toBe('alerts');
       expect(result.options?.ascending).toBe(true);
     });
 
-    it('should handle multiple boolean options', () => {
-      const result = program.parse('current Paris --verbose --unit celsius');
+    it('should handle multiple boolean options', async () => {
+      const result = await program.parse('current Paris --verbose --unit celsius');
 
       expect(result.command.fullName).toBe('current');
       expect(result.options?.verbose).toBe(true);
@@ -307,7 +307,7 @@ describe('CLI', () => {
   });
 
   describe('alias functionality', () => {
-    it('should resolve aliases to full option names when parsing', () => {
+    it('should resolve aliases to full option names when parsing', async () => {
       const program = createZodrun().command('test', (c) =>
         c
           .options(
@@ -328,14 +328,14 @@ describe('CLI', () => {
           })),
       );
 
-      const result = program.parse('test -v -h');
+      const result = await program.parse('test -v -h');
 
       expect(result.command.fullName).toBe('test');
       expect(result.options?.verbose).toBe(true);
       expect(result.options?.help).toBe(true);
     });
 
-    it('should resolve aliases with values', () => {
+    it('should resolve aliases with values', async () => {
       const program = createZodrun().command('test', (c) =>
         c
           .options(
@@ -353,13 +353,13 @@ describe('CLI', () => {
           .handle((_args, options) => options),
       );
 
-      const result = program.parse('test -u celsius -c=5');
+      const result = await program.parse('test -u celsius -c=5');
 
       expect(result.options?.unit).toBe('celsius');
       expect(result.options?.count).toBe(5);
     });
 
-    it('should execute commands with aliases via CLI', () => {
+    it('should execute commands with aliases via CLI', async () => {
       const program = createZodrun().command('test', (c) =>
         c
           .options(
@@ -375,13 +375,13 @@ describe('CLI', () => {
           })),
       );
 
-      const result = program.cli('test -v');
+      const result = await program.cli('test -v');
 
       expect(result?.options?.verbose).toBe(true);
       expect(result?.result.verbose).toBe(true);
     });
 
-    it('should handle aliases mixed with full option names', () => {
+    it('should handle aliases mixed with full option names', async () => {
       const program = createZodrun().command('test', (c) =>
         c
           .options(
@@ -403,14 +403,14 @@ describe('CLI', () => {
           .handle((_args, options) => options),
       );
 
-      const result = program.parse('test -v --help -o=file.txt');
+      const result = await program.parse('test -v --help -o=file.txt');
 
       expect(result.options?.verbose).toBe(true);
       expect(result.options?.help).toBe(true);
       expect(result.options?.output).toBe('file.txt');
     });
 
-    it('should handle undefined aliases gracefully', () => {
+    it('should handle undefined aliases gracefully', async () => {
       const program = createZodrun().command('test', (c) =>
         c
           .options(
@@ -423,13 +423,13 @@ describe('CLI', () => {
       );
 
       // No aliases defined, -v should work as 'v' key if it's in the schema
-      const result = program.parse('test -v');
+      const result = await program.parse('test -v');
 
       expect(result.options?.v).toBe(true);
       expect(result.options?.verbose).toBeUndefined();
     });
 
-    it('should display aliases in help text', () => {
+    it('should display aliases in help text', async () => {
       const program = createZodrun().command('test', (c) =>
         c
           .options(
@@ -449,7 +449,7 @@ describe('CLI', () => {
           .handle(() => undefined),
       );
 
-      const helpText = program.help('test');
+      const helpText = await program.help('test');
 
       expect(helpText).toContain('--verbose');
       expect(helpText).toContain('--help');
@@ -457,7 +457,7 @@ describe('CLI', () => {
       expect(helpText).toContain('-h');
     });
 
-    it('should work with nested commands', () => {
+    it('should work with nested commands', async () => {
       const program = createZodrun().command('parent', (c) =>
         c
           .command('child', (c2) =>
@@ -477,13 +477,13 @@ describe('CLI', () => {
           .handle(() => undefined),
       );
 
-      const result = program.parse('parent child -v');
+      const result = await program.parse('parent child -v');
 
       expect(result.command.fullName).toBe('parent child');
       expect(result.options?.verbose).toBe(true);
     });
 
-    it('should handle multiple aliases for the same option', () => {
+    it('should handle multiple aliases for the same option', async () => {
       const program = createZodrun().command('test', (c) =>
         c
           .options(
@@ -497,7 +497,7 @@ describe('CLI', () => {
           .handle((_args, options) => options),
       );
 
-      const result = program.parse('test -v');
+      const result = await program.parse('test -v');
 
       expect(result.options?.verbose).toBe(true);
     });
