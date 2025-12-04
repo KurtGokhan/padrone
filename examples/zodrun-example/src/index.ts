@@ -7,7 +7,7 @@ export const program = createZodrun()
       .args(z.array(z.string()).describe('Names to greet'))
       .options(
         z.object({
-          prefix: z.string().optional().describe('prefix to use in greeting'),
+          prefix: z.string().optional().describe('prefix to use in greeting').meta({ alias: 'p' }),
         }),
       )
       .handle((args, options) => {
@@ -21,7 +21,7 @@ export const program = createZodrun()
           .args(z.array(z.string()).describe('Names to greet in nested command'))
           .options(
             z.object({
-              prefix: z.string().optional().describe('prefix to use in greeting'),
+              prefix: z.string().optional().describe('prefix to use in greeting').meta({ alias: 'p' }),
               suffix: z.string().optional().describe('suffix to use in greeting'),
             }),
           )
@@ -49,7 +49,7 @@ program.run('greet nested', ['John', 'Jake'], { prefix: 'Mr.', suffix: 'Esq.' })
 program.run('farewell', undefined, undefined);
 program.run('noop', undefined, undefined);
 
-program.cli('greet nested John Jake --prefix Mr. --suffix Esq2.');
+program.cli('greet nested John Jake -p Mr. --suffix Esq2.');
 
 const api = program.api();
 

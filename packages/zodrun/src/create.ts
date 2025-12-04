@@ -1,4 +1,5 @@
 import { generateHelp } from './help';
+import { extractAliasesFromSchema, preprocessAliases } from './options';
 import { parseCliInputToParts } from './parse';
 import type { AnyZodrunCommand, AnyZodrunProgram, ZodrunAPI, ZodrunCommand, ZodrunCommandBuilder, ZodrunProgram } from './types';
 
@@ -61,15 +62,28 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     const optionsRecord: Record<string, string | boolean> = {};
 
     for (const opt of opts) {
-      if (opt.type === 'option' || opt.type === 'alias') {
+      if (opt.type === 'option') {
+        optionsRecord[opt.key] = opt.value ?? true;
+      } else if (opt.type === 'alias') {
+        // Store alias key as-is; the augmented schema will handle transformation
         optionsRecord[opt.key] = opt.value ?? true;
       }
     }
 
     const argsParsed = curCommand.args ? curCommand.args.safeParse(args) : { success: true, data: args, error: undefined };
+
+    // Preprocess optionsRecord to resolve aliases from schema metadata before validation
+    let preprocessedOptions = optionsRecord;
+    if (curCommand.options) {
+      const aliases = extractAliasesFromSchema(curCommand.options);
+      if (Object.keys(aliases).length > 0) {
+        preprocessedOptions = preprocessAliases(optionsRecord, aliases) as Record<string, string | boolean>;
+      }
+    }
+
     const optionsParsed = curCommand.options
-      ? curCommand.options.safeParse(optionsRecord)
-      : { success: true, data: optionsRecord, error: undefined };
+      ? curCommand.options.safeParse(preprocessedOptions)
+      : { success: true, data: preprocessedOptions, error: undefined };
 
     return {
       command: curCommand as any,

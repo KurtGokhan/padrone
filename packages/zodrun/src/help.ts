@@ -1,5 +1,6 @@
 import { toJSONSchema, z } from 'zod';
 import { createColorizer } from './colorizer';
+import { extractAliasesFromSchema } from './options';
 import type { AnyZodrunCommand } from './types';
 
 type ArgInfo = {
@@ -17,6 +18,7 @@ type OptionInfo = {
   default?: unknown;
   type?: string;
   enum?: string[];
+  aliases?: string[];
 };
 
 function extractArgsInfo(argsSchema: z.ZodType<any>): ArgInfo[] {
@@ -192,17 +194,29 @@ export function generateHelp(
   // Options
   if (cmd.options) {
     const optionsInfo = extractOptionsInfo(cmd.options);
+    const optMap: Record<string, OptionInfo> = Object.fromEntries(optionsInfo.map((opt) => [opt.name, opt]));
+
+    const aliases = extractAliasesFromSchema(cmd.options);
+    for (const [alias, name] of Object.entries(aliases)) {
+      const opt = optMap[name];
+      if (!opt) continue;
+      opt.aliases = [...(opt.aliases || []), alias];
+    }
+
     if (optionsInfo.length > 0) {
       lines.push(colorize.label('Options:'));
       const maxNameLength = Math.max(...optionsInfo.map((opt) => opt.name.length));
       for (const opt of optionsInfo) {
+        const optionName = `--${opt.name}`;
+        const aliasNames = opt.aliases && opt.aliases.length > 0 ? opt.aliases.map((a) => `-${a}`).join(', ') : '';
+        const fullOptionName = aliasNames ? `${optionName}, ${aliasNames}` : optionName;
         const padding = ' '.repeat(Math.max(0, maxNameLength - opt.name.length + 2));
         const typeInfo = opt.type ? ` ${colorize.type(`<${opt.type}>`)}` : '';
         const optional = opt.optional ? colorize.meta(' (optional)') : '';
         const defaultVal = opt.default !== undefined ? colorize.meta(` (default: ${String(opt.default)})`) : '';
         const enumVals = opt.enum ? colorize.meta(` (choices: ${opt.enum.join(', ')})`) : '';
         const description = opt.description ? colorize.description(opt.description) : '';
-        lines.push(`  ${colorize.option(`--${opt.name}`)}${typeInfo}${optional}${defaultVal}${enumVals}${padding}${description}`);
+        lines.push(`  ${colorize.option(fullOptionName)}${typeInfo}${optional}${defaultVal}${enumVals}${padding}${description}`);
       }
       lines.push('');
     }

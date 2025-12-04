@@ -305,4 +305,201 @@ describe('CLI', () => {
       expect(result.result.alerts).toBeDefined();
     });
   });
+
+  describe('alias functionality', () => {
+    it('should resolve aliases to full option names when parsing', () => {
+      const program = createZodrun().command('test', (c) =>
+        c
+          .options(
+            z.object({
+              verbose: z
+                .boolean()
+                .optional()
+                .meta({ alias: ['v'] }),
+              help: z
+                .boolean()
+                .optional()
+                .meta({ alias: ['h'] }),
+            }),
+          )
+          .handle((args, options) => ({
+            verbose: options?.verbose,
+            help: options?.help,
+          })),
+      );
+
+      const result = program.parse('test -v -h');
+
+      expect(result.command.fullName).toBe('test');
+      expect(result.options?.verbose).toBe(true);
+      expect(result.options?.help).toBe(true);
+    });
+
+    it('should resolve aliases with values', () => {
+      const program = createZodrun().command('test', (c) =>
+        c
+          .options(
+            z.object({
+              unit: z
+                .string()
+                .optional()
+                .meta({ alias: ['u'] }),
+              count: z.coerce
+                .number()
+                .optional()
+                .meta({ alias: ['c'] }),
+            }),
+          )
+          .handle((args, options) => options),
+      );
+
+      const result = program.parse('test -u celsius -c=5');
+
+      expect(result.options?.unit).toBe('celsius');
+      expect(result.options?.count).toBe(5);
+    });
+
+    it('should execute commands with aliases via CLI', () => {
+      const program = createZodrun().command('test', (c) =>
+        c
+          .options(
+            z.object({
+              verbose: z
+                .boolean()
+                .optional()
+                .meta({ alias: ['v'] }),
+            }),
+          )
+          .handle((args, options) => ({
+            verbose: options?.verbose || false,
+          })),
+      );
+
+      const result = program.cli('test -v');
+
+      expect(result?.options?.verbose).toBe(true);
+      expect(result?.result.verbose).toBe(true);
+    });
+
+    it('should handle aliases mixed with full option names', () => {
+      const program = createZodrun().command('test', (c) =>
+        c
+          .options(
+            z.object({
+              verbose: z
+                .boolean()
+                .optional()
+                .meta({ alias: ['v'] }),
+              help: z
+                .boolean()
+                .optional()
+                .meta({ alias: ['h'] }),
+              output: z
+                .string()
+                .optional()
+                .meta({ alias: ['o'] }),
+            }),
+          )
+          .handle((args, options) => options),
+      );
+
+      const result = program.parse('test -v --help -o=file.txt');
+
+      expect(result.options?.verbose).toBe(true);
+      expect(result.options?.help).toBe(true);
+      expect(result.options?.output).toBe('file.txt');
+    });
+
+    it('should handle undefined aliases gracefully', () => {
+      const program = createZodrun().command('test', (c) =>
+        c
+          .options(
+            z.object({
+              verbose: z.boolean().optional(),
+              v: z.boolean().optional(), // Include 'v' in schema to test without alias
+            }),
+          )
+          .handle((args, options) => options),
+      );
+
+      // No aliases defined, -v should work as 'v' key if it's in the schema
+      const result = program.parse('test -v');
+
+      expect(result.options?.v).toBe(true);
+      expect(result.options?.verbose).toBeUndefined();
+    });
+
+    it('should display aliases in help text', () => {
+      const program = createZodrun().command('test', (c) =>
+        c
+          .options(
+            z.object({
+              verbose: z
+                .boolean()
+                .optional()
+                .describe('Enable verbose output')
+                .meta({ alias: ['v'] }),
+              help: z
+                .boolean()
+                .optional()
+                .describe('Show help information')
+                .meta({ alias: ['h'] }),
+            }),
+          )
+          .handle(() => undefined),
+      );
+
+      const helpText = program.help('test');
+
+      expect(helpText).toContain('--verbose');
+      expect(helpText).toContain('--help');
+      expect(helpText).toContain('-v');
+      expect(helpText).toContain('-h');
+    });
+
+    it('should work with nested commands', () => {
+      const program = createZodrun().command('parent', (c) =>
+        c
+          .command('child', (c2) =>
+            c2
+              .options(
+                z.object({
+                  verbose: z
+                    .boolean()
+                    .optional()
+                    .meta({ alias: ['v'] }),
+                }),
+              )
+              .handle((args, options) => ({
+                verbose: options?.verbose || false,
+              })),
+          )
+          .handle(() => undefined),
+      );
+
+      const result = program.parse('parent child -v');
+
+      expect(result.command.fullName).toBe('parent child');
+      expect(result.options?.verbose).toBe(true);
+    });
+
+    it('should handle multiple aliases for the same option', () => {
+      const program = createZodrun().command('test', (c) =>
+        c
+          .options(
+            z.object({
+              verbose: z
+                .boolean()
+                .optional()
+                .meta({ alias: ['v', 'verbose'] }),
+            }),
+          )
+          .handle((args, options) => options),
+      );
+
+      const result = program.parse('test -v');
+
+      expect(result.options?.verbose).toBe(true);
+    });
+  });
 });
