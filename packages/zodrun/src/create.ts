@@ -1,3 +1,4 @@
+import { generateHelp } from './help';
 import { parseCliInputToParts } from './parse';
 import type { AnyZodrunCommand, AnyZodrunProgram, ZodrunAPI, ZodrunCommand, ZodrunCommandBuilder, ZodrunProgram } from './types';
 
@@ -154,8 +155,8 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
       return Promise.resolve([]);
     },
 
-    help(command) {
-      return '';
+    help(command, options) {
+      return generateHelp(existingCommand, findCommandByName, command, options);
     },
 
     '~types': {} as any,

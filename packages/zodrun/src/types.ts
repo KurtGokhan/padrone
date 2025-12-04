@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { HelpOptions } from './help';
 import type {
   FlattenCommands,
   FullCommandName,
@@ -176,7 +177,7 @@ export type ZodrunProgram<
   /**
    * Returns the help information for the program or a specific command.
    */
-  help: <const TCommand extends GetCommandNames<[TCmd]> | FlattenCommands<[TCmd]>>(command?: TCommand) => string;
+  help: <const TCommand extends GetCommandNames<[TCmd]> | FlattenCommands<[TCmd]>>(command?: TCommand, options?: HelpOptions) => string;
 
   /**
    * Reflection information about the program.

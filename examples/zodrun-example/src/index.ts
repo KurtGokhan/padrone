@@ -58,3 +58,12 @@ api.greet.nested(['Alice', 'Bob'], { prefix: 'Dr.', suffix: 'PhD' });
 try {
   program.cli();
 } catch {}
+
+console.log('\n\n---- HELP ----\n');
+console.log(program.help());
+
+console.log('\n\n---- HELP (greet) (disable colors) ----\n');
+console.log(program.help('greet', { colorize: false }));
+
+console.log('\n\n---- HELP (greet) ----\n');
+console.log(program.help('greet'));

@@ -1,0 +1,69 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`help should generate help for the program 1`] = `
+"Usage: <root> [command]
+
+Commands:
+  current   
+  forecast  
+  alerts    
+  compare   
+  noop      
+
+Run "<root> [command] --help" for more information on a command.
+"
+`;
+
+exports[`help should generate help for the top level command 1`] = `
+"Usage: <root> [command]
+
+Commands:
+  current   
+  forecast  
+  alerts    
+  compare   
+  noop      
+
+Run "<root> [command] --help" for more information on a command.
+"
+`;
+
+exports[`help should generate help for a command 1`] = `
+"Usage: current [args...] [options]
+
+Arguments:
+  args...
+
+Options:
+  --unit <string> (default: fahrenheit) (choices: celsius, fahrenheit)     Temperature unit
+  --verbose <boolean> (optional)  Show detailed information
+"
+`;
+
+exports[`help should generate help for a command with enabled colors 1`] = `
+"Usage: \x1B[36m\x1B[1mcurrent\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
+
+\x1B[1mArguments:\x1B[0m
+  \x1B[32margs...\x1B[0m
+
+\x1B[1mOptions:\x1B[0m
+  \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m\x1B[90m (default: fahrenheit)\x1B[0m\x1B[90m (choices: celsius, fahrenheit)\x1B[0m     \x1B[2mTemperature unit\x1B[0m
+  \x1B[32m--verbose\x1B[0m \x1B[33m<boolean>\x1B[0m\x1B[90m (optional)\x1B[0m  \x1B[2mShow detailed information\x1B[0m
+"
+`;
+
+exports[`help should generate help for a command with nested commands 1`] = `
+"Usage: forecast extended [command] [args...] [options]
+
+Commands:
+  extended  
+
+Run "forecast extended [command] --help" for more information on a command.
+
+Arguments:
+  args...
+
+Options:
+  --unit <string> (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+"
+`;
