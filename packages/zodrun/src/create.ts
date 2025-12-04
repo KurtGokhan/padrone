@@ -154,6 +154,10 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
       return Promise.resolve([]);
     },
 
+    help(command) {
+      return '';
+    },
+
     '~types': {} as any,
 
     [commandSymbol]: existingCommand,

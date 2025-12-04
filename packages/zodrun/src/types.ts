@@ -176,7 +176,7 @@ export type ZodrunProgram<
   /**
    * Returns the help information for the program or a specific command.
    */
-  // help: (command?: string) => string;
+  help: <const TCommand extends GetCommandNames<[TCmd]> | FlattenCommands<[TCmd]>>(command?: TCommand) => string;
 
   /**
    * Reflection information about the program.
