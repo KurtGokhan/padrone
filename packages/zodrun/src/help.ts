@@ -1,136 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { createColorizer } from './colorizer';
+import { createFormatter, type HelpFormat } from './formatters';
 import { extractAliasesFromSchema, type ZodrunOptionsMeta } from './options';
 import type { AnyZodrunCommand } from './types';
-
-export type HelpFormat = 'text' | 'ansi' | 'console' | 'markdown' | 'html' | 'json';
-
-type Formatter = {
-  command: (text: string) => string;
-  option: (text: string) => string;
-  type: (text: string) => string;
-  description: (text: string) => string;
-  label: (text: string) => string;
-  meta: (text: string) => string;
-  example: (text: string) => string;
-  exampleValue: (text: string) => string;
-  deprecated: (text: string) => string;
-  newline: () => string;
-  join: (parts: string[]) => string;
-};
-
-function createTextFormatter(): Formatter {
-  return {
-    command: (text) => text,
-    option: (text) => text,
-    type: (text) => text,
-    description: (text) => text,
-    label: (text) => text,
-    meta: (text) => text,
-    example: (text) => text,
-    exampleValue: (text) => text,
-    deprecated: (text) => text,
-    newline: () => '\n',
-    join: (parts) => parts.filter(Boolean).join(' '),
-  };
-}
-
-function createAnsiFormatter(): Formatter {
-  const colorizer = createColorizer();
-  return {
-    command: colorizer.command,
-    option: colorizer.option,
-    type: colorizer.type,
-    description: colorizer.description,
-    label: colorizer.label,
-    meta: colorizer.meta,
-    example: colorizer.example,
-    exampleValue: colorizer.exampleValue,
-    deprecated: colorizer.deprecated,
-    newline: () => '\n',
-    join: (parts) => parts.filter(Boolean).join(' '),
-  };
-}
-
-function createConsoleFormatter(): Formatter {
-  const colors = {
-    reset: '\x1b[0m',
-    bold: '\x1b[1m',
-    dim: '\x1b[2m',
-    italic: '\x1b[3m',
-    underline: '\x1b[4m',
-    strikethrough: '\x1b[9m',
-    cyan: '\x1b[36m',
-    green: '\x1b[32m',
-    yellow: '\x1b[33m',
-    gray: '\x1b[90m',
-  };
-  return {
-    command: (text) => `${colors.cyan}${colors.bold}${text}${colors.reset}`,
-    option: (text) => `${colors.green}${text}${colors.reset}`,
-    type: (text) => `${colors.yellow}${text}${colors.reset}`,
-    description: (text) => `${colors.dim}${text}${colors.reset}`,
-    label: (text) => `${colors.bold}${text}${colors.reset}`,
-    meta: (text) => `${colors.gray}${text}${colors.reset}`,
-    example: (text) => `${colors.underline}${text}${colors.reset}`,
-    exampleValue: (text) => `${colors.italic}${text}${colors.reset}`,
-    deprecated: (text) => `${colors.strikethrough}${colors.gray}${text}${colors.reset}`,
-    newline: () => '\n',
-    join: (parts) => parts.filter(Boolean).join(' '),
-  };
-}
-
-function createMarkdownFormatter(): Formatter {
-  return {
-    command: (text) => `**${text}**`,
-    option: (text) => `\`${text}\``,
-    type: (text) => `\`${text}\``,
-    description: (text) => text,
-    label: (text) => `### ${text}`,
-    meta: (text) => `*${text}*`,
-    example: (text) => `**${text}**`,
-    exampleValue: (text) => `\`${text}\``,
-    deprecated: (text) => `~~${text}~~`,
-    newline: () => '\n',
-    join: (parts) => parts.filter(Boolean).join(' '),
-  };
-}
-
-function createHtmlFormatter(): Formatter {
-  return {
-    command: (text) => `<strong style="color: #00bcd4;">${escapeHtml(text)}</strong>`,
-    option: (text) => `<code style="color: #4caf50;">${escapeHtml(text)}</code>`,
-    type: (text) => `<code style="color: #ff9800;">${escapeHtml(text)}</code>`,
-    description: (text) => `<span style="color: #666;">${escapeHtml(text)}</span>`,
-    label: (text) => `<h3>${escapeHtml(text)}</h3>`,
-    meta: (text) => `<span style="color: #999;">${escapeHtml(text)}</span>`,
-    example: (text) => `<strong style="text-decoration: underline;">${escapeHtml(text)}</strong>`,
-    exampleValue: (text) => `<em>${escapeHtml(text)}</em>`,
-    deprecated: (text) => `<del style="color: #999;">${escapeHtml(text)}</del>`,
-    newline: () => '<br>',
-    join: (parts) => parts.filter(Boolean).join(' '),
-  };
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-}
-
-function shouldUseAnsi(): boolean {
-  if (typeof process === 'undefined') return false;
-  if (process.env.NO_COLOR) return false;
-  if (process.env.CI) return false;
-  if (process.stdout && typeof process.stdout.isTTY === 'boolean') return process.stdout.isTTY;
-  return false;
-}
-
-function createFormatter(format: HelpFormat | 'auto'): Formatter {
-  if (format === 'ansi' || (format === 'auto' && shouldUseAnsi())) return createAnsiFormatter();
-  if (format === 'console') return createConsoleFormatter();
-  if (format === 'markdown') return createMarkdownFormatter();
-  if (format === 'html') return createHtmlFormatter();
-  return createTextFormatter();
-}
 
 type ArgInfo = {
   name: string;
@@ -414,7 +285,7 @@ export async function generateHelp(
     const maxNameLength = Math.max(...cmd.commands.map((c) => c.name.length));
     for (const subCmd of cmd.commands) {
       const padding = ' '.repeat(Math.max(0, maxNameLength - subCmd.name.length + 2));
-      lines.push(`  ${formatter.command(subCmd.name)}${padding}`);
+      lines.push(formatter.indent(1, formatter.command(subCmd.name) + padding));
     }
     lines.push('');
     lines.push(formatter.meta(`Run "${commandName} [command] --help" for more information on a command.`));
@@ -427,11 +298,12 @@ export async function generateHelp(
     if (argsInfo.length > 0) {
       lines.push(formatter.label('Arguments:'));
       for (const arg of argsInfo) {
-        const optional = arg.optional ? formatter.meta(' (optional)') : '';
-        const defaultVal = arg.default !== undefined ? formatter.meta(` (default: ${String(arg.default)})`) : '';
-        lines.push(`  ${formatter.option(arg.name)}${optional}${defaultVal}`);
+        const parts = [formatter.option(arg.name)];
+        if (arg.optional) parts.push(formatter.meta('(optional)'));
+        if (arg.default !== undefined) parts.push(formatter.meta(`(default: ${String(arg.default)})`));
+        lines.push(formatter.indent(1, formatter.join(parts)));
         if (arg.description) {
-          lines.push(`    ${formatter.description(arg.description)}`);
+          lines.push(formatter.indent(2, formatter.description(arg.description)));
         }
       }
       lines.push('');
@@ -460,25 +332,25 @@ export async function generateHelp(
         const aliasNames = opt.aliases && opt.aliases.length > 0 ? opt.aliases.map((a) => `-${a}`).join(', ') : '';
         const fullOptionName = aliasNames ? `${optionName}, ${aliasNames}` : optionName;
         const padding = ' '.repeat(Math.max(0, maxNameLength - opt.name.length + 2));
-        const typeInfo = opt.type ? ` ${formatter.type(`<${opt.type}>`)}` : '';
-        const optional = opt.optional && !opt.deprecated ? formatter.meta(' (optional)') : '';
-        const defaultVal = opt.default !== undefined ? formatter.meta(` (default: ${String(opt.default)})`) : '';
-        const enumVals = opt.enum ? formatter.meta(` (choices: ${opt.enum.join(', ')})`) : '';
-
         const isDeprecated = !!opt.deprecated;
-        const deprecatedMessage = isDeprecated
-          ? typeof opt.deprecated === 'string'
-            ? formatter.meta(` (deprecated: ${opt.deprecated})`)
-            : formatter.meta(' (deprecated)')
-          : '';
-
         const formattedOptionName = isDeprecated ? formatter.deprecated(fullOptionName) : formatter.option(fullOptionName);
+
+        const parts = [formattedOptionName];
+        if (opt.type) parts.push(formatter.type(`<${opt.type}>`));
+        if (opt.optional && !opt.deprecated) parts.push(formatter.meta('(optional)'));
+        if (opt.default !== undefined) parts.push(formatter.meta(`(default: ${String(opt.default)})`));
+        if (opt.enum) parts.push(formatter.meta(`(choices: ${opt.enum.join(', ')})`));
+        if (isDeprecated) {
+          parts.push(
+            typeof opt.deprecated === 'string' ? formatter.meta(`(deprecated: ${opt.deprecated})`) : formatter.meta('(deprecated)'),
+          );
+        }
         const description = opt.description ? formatter.description(opt.description) : '';
-        lines.push(`  ${formattedOptionName}${typeInfo}${optional}${defaultVal}${enumVals}${deprecatedMessage}${padding}${description}`);
+        lines.push(formatter.indent(1, formatter.join(parts) + padding + description));
 
         if (opt.examples?.length) {
           const exampleValue = opt.examples.map((example) => (typeof example === 'string' ? example : JSON.stringify(example))).join(', ');
-          lines.push(`      ${formatter.example('Example:')} ${formatter.exampleValue(exampleValue)}`);
+          lines.push(formatter.indent(3, formatter.join([formatter.example('Example:'), formatter.exampleValue(exampleValue)])));
         }
       }
       lines.push('');
