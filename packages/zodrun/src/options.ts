@@ -24,7 +24,8 @@ export async function extractAliasesFromSchema(schema: StandardSchemaV1, meta?: 
     }
   }
 
-  if (!schema['~standard'].vendor.includes('zod')) return aliases;
+  const vendor = schema['~standard'].vendor;
+  if (!vendor.includes('zod')) return aliases;
 
   const { $ZodObject, $ZodType, $ZodVoid, globalRegistry } = (await import('zod/v4/core').catch(() => null!)) || {};
   if (!$ZodObject) return aliases;

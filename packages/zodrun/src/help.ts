@@ -24,14 +24,17 @@ type OptionInfo = {
   examples?: unknown[];
 };
 
-async function extractArgsInfo(argsSchema: StandardSchemaV1) {
+async function extractArgsInfo(schema: StandardSchemaV1) {
   const result: ArgInfo[] = [];
-  if (!argsSchema) return result;
+  if (!schema) return result;
+
+  const vendor = schema['~standard'].vendor;
+  if (!vendor.includes('zod')) return result;
 
   try {
     const { toJSONSchema, $ZodType } = (await import('zod/v4/core').catch(() => null!)) || {};
-    if (!$ZodType || !(argsSchema instanceof $ZodType)) return result;
-    const jsonSchema = toJSONSchema(argsSchema);
+    if (!$ZodType || !(schema instanceof $ZodType)) return result;
+    const jsonSchema = toJSONSchema(schema);
 
     // Handle tuple: z.tuple([z.string(), z.number(), ...])
     if (jsonSchema.type === 'array' && Array.isArray(jsonSchema.items)) {
@@ -85,14 +88,17 @@ async function extractArgsInfo(argsSchema: StandardSchemaV1) {
   return result;
 }
 
-async function extractOptionsInfo(optionsSchema: StandardSchemaV1, meta?: Record<string, ZodrunOptionsMeta | undefined>) {
+async function extractOptionsInfo(schema: StandardSchemaV1, meta?: Record<string, ZodrunOptionsMeta | undefined>) {
   const result: OptionInfo[] = [];
-  if (!optionsSchema) return result;
+  if (!schema) return result;
+
+  const vendor = schema['~standard'].vendor;
+  if (!vendor.includes('zod')) return result;
 
   try {
     const { toJSONSchema, $ZodType } = (await import('zod/v4/core').catch(() => null!)) || {};
-    if (!$ZodType || !(optionsSchema instanceof $ZodType)) return result;
-    const jsonSchema = toJSONSchema(optionsSchema);
+    if (!$ZodType || !(schema instanceof $ZodType)) return result;
+    const jsonSchema = toJSONSchema(schema);
 
     // Handle object: z.object({ key: z.string(), ... })
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
