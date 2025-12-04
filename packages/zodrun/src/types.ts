@@ -1,4 +1,5 @@
-import { z } from 'zod';
+import type z4 from 'zod/v4';
+import type z from 'zod/v4/core';
 import type { HelpOptions } from './help';
 import type {
   FlattenCommands,
@@ -15,10 +16,10 @@ type EmptyRecord = Record<string, never>;
 
 type DefaultArgs = unknown[] | void;
 type DefaultOpts = UnknownRecord | void;
-type ZArgs = z.ZodType<any>;
-type ZOpts = z.ZodType<any>;
-type ZDefaultArgs = z.ZodType<DefaultArgs>;
-type ZDefaultOpts = z.ZodType<DefaultOpts>;
+type ZArgs = z.$ZodType;
+type ZOpts = z.$ZodType;
+type ZDefaultArgs = z.$ZodType<DefaultArgs>;
+type ZDefaultOpts = z.$ZodType<DefaultOpts>;
 
 export type ZodrunCommand<
   TName extends string = string,
@@ -64,12 +65,12 @@ export type ZodrunCommandBuilder<
   /**
    * Defines the positional arguments schema for the command.
    */
-  args: <TArgs extends ZArgs = z.ZodVoid>(args?: TArgs) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
+  args: <TArgs extends ZArgs = z.$ZodVoid>(args?: TArgs) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
    * Defines the options schema for the command.
    */
-  options: <TOpts extends ZOpts = z.ZodVoid>(options?: TOpts) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
+  options: <TOpts extends ZOpts = z.$ZodVoid>(options?: TOpts) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
    * Defines the handler function to be executed when the command is run.
@@ -200,8 +201,8 @@ export type ZodrunParseResult<TCommand extends AnyZodrunCommand = AnyZodrunComma
   command: TCommand;
   args?: GetArgs<'out', TCommand>;
   options?: GetOptions<'out', TCommand>;
-  argsResult?: z.ZodSafeParseResult<GetArgs<'out', TCommand>>;
-  optionsResult?: z.ZodSafeParseResult<GetOptions<'out', TCommand>>;
+  argsResult?: z4.ZodSafeParseResult<GetArgs<'out', TCommand>>;
+  optionsResult?: z4.ZodSafeParseResult<GetOptions<'out', TCommand>>;
 };
 
 export type ZodrunAPI<TCommand extends AnyZodrunCommand> = ZodrunAPICommand<TCommand> & {

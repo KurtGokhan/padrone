@@ -1,3 +1,4 @@
+import { safeParse } from 'zod/v4/core';
 import { generateHelp } from './help';
 import { extractAliasesFromSchema, preprocessAliases } from './options';
 import { parseCliInputToParts } from './parse';
@@ -70,7 +71,7 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
       }
     }
 
-    const argsParsed = curCommand.args ? curCommand.args.safeParse(args) : { success: true, data: args, error: undefined };
+    const argsParsed = curCommand.args ? safeParse(curCommand.args, args) : { success: true, data: args, error: undefined };
 
     // Preprocess optionsRecord to resolve aliases from schema metadata before validation
     let preprocessedOptions = optionsRecord;
@@ -82,12 +83,12 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     }
 
     const optionsParsed = curCommand.options
-      ? curCommand.options.safeParse(preprocessedOptions)
+      ? safeParse(curCommand.options, preprocessedOptions)
       : { success: true, data: preprocessedOptions, error: undefined };
 
     return {
       command: curCommand as any,
-      args: argsParsed.data,
+      args: argsParsed.data as any,
       options: optionsParsed.data as any,
       argsResult: argsParsed as any,
       optionsResult: optionsParsed as any,

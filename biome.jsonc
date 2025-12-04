@@ -75,9 +75,23 @@
         "noArrayIndexKey": "off"
       },
       "style": {
-        "useImportType": "off",
         "noParameterAssign": "off",
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "off",
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "patterns": [
+              {
+                "group": ["zod/v3", "zod/v4"],
+                "importNamePattern": "z",
+                "message": "Use `import z from 'zod/v4'` instead"
+              }
+            ],
+            "paths": {
+              "zod": "Import from 'zod/v4' instead to make the version explicit"
+            }
+          }
+        }
       },
       "a11y": "off"
     }

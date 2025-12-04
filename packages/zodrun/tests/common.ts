@@ -1,4 +1,4 @@
-import z from 'zod';
+import z from 'zod/v4';
 import { createZodrun } from '../src';
 
 // Mock weather data for testing
@@ -69,7 +69,7 @@ export function createWeatherProgram() {
               c
                 .args(z.tuple([z.string().describe('City name')]))
                 .options(z.void())
-                .handle((args, options) => {
+                .handle((args, _options) => {
                   return {
                     city: args[0],
                     extendedForecast: mockWeatherData.forecast,
@@ -88,7 +88,7 @@ export function createWeatherProgram() {
             ascending: z.boolean().optional().describe('Sort alerts in ascending order'),
           }),
         )
-        .handle((args, options) => {
+        .handle((_args, options) => {
           return {
             region: options?.region || 'all',
             alerts: mockWeatherData.alerts,
@@ -100,7 +100,7 @@ export function createWeatherProgram() {
       c
         .args(z.array(z.string()).min(2).describe('Cities to compare'))
         .options(z.void())
-        .handle((args, options) => {
+        .handle((args, _options) => {
           return {
             cities: args,
             comparison: args.map((city) => ({

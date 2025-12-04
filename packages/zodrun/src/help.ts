@@ -1,4 +1,6 @@
-import { toJSONSchema, z } from 'zod';
+import { toJSONSchema } from 'zod/v4';
+import type z from 'zod/v4/core';
+import { $ZodVoid } from 'zod/v4/core';
 import { createColorizer } from './colorizer';
 import { extractAliasesFromSchema } from './options';
 import type { AnyZodrunCommand } from './types';
@@ -21,10 +23,10 @@ type OptionInfo = {
   aliases?: string[];
 };
 
-function extractArgsInfo(argsSchema: z.ZodType<any>): ArgInfo[] {
+function extractArgsInfo(argsSchema: z.$ZodType): ArgInfo[] {
   const result: ArgInfo[] = [];
 
-  if (!argsSchema || argsSchema instanceof z.ZodVoid) {
+  if (!argsSchema || argsSchema instanceof $ZodVoid) {
     return result;
   }
 
@@ -83,10 +85,10 @@ function extractArgsInfo(argsSchema: z.ZodType<any>): ArgInfo[] {
   return result;
 }
 
-function extractOptionsInfo(optionsSchema: z.ZodType<any>): OptionInfo[] {
+function extractOptionsInfo(optionsSchema: z.$ZodType): OptionInfo[] {
   const result: OptionInfo[] = [];
 
-  if (!optionsSchema || optionsSchema instanceof z.ZodVoid) {
+  if (!optionsSchema || optionsSchema instanceof $ZodVoid) {
     return result;
   }
 

@@ -1,23 +1,24 @@
-import z from 'zod/v4';
+import { preprocess } from 'zod/v4';
+import { type $input, $ZodObject, $ZodType, $ZodVoid, globalRegistry } from 'zod/v4/core';
 
 export interface ZodrunOptionsMeta {
   description?: string;
   deprecated?: boolean;
   alias?: string[] | string;
-  examples?: z.$input[];
+  examples?: $input[];
 }
 
-export function extractAliasesFromSchema(schema: z.ZodType): Record<string, string> {
+export function extractAliasesFromSchema(schema: $ZodType): Record<string, string> {
   const aliases: Record<string, string> = {};
 
-  if (schema instanceof z.ZodVoid || !(schema instanceof z.ZodObject)) return aliases;
+  if (schema instanceof $ZodVoid || !(schema instanceof $ZodObject)) return aliases;
 
-  const shape = schema.shape;
+  const shape = schema._zod.def.shape;
   if (!shape) return aliases;
 
   for (const [propertyName, propertySchema] of Object.entries(shape)) {
-    if (!propertySchema || !(propertySchema instanceof z.ZodType)) continue;
-    const meta = propertySchema.meta();
+    if (!propertySchema || !(propertySchema instanceof $ZodType)) continue;
+    const meta = globalRegistry.get(propertySchema);
 
     if (!meta?.alias) continue;
     const list = typeof meta.alias === 'string' ? [meta.alias] : meta.alias;
@@ -47,12 +48,12 @@ export function preprocessAliases(data: Record<string, unknown>, aliases: Record
   return result;
 }
 
-export function augmentSchemaWithOptionsSpec(schema: z.ZodType): z.ZodType {
+export function augmentSchemaWithOptionsSpec(schema: $ZodType): $ZodType {
   const aliases = extractAliasesFromSchema(schema);
   if (Object.keys(aliases).length === 0) return schema;
-  if (schema instanceof z.ZodVoid || !(schema instanceof z.ZodObject)) return schema;
+  if (schema instanceof $ZodVoid || !(schema instanceof $ZodObject)) return schema;
 
-  return z.preprocess((data) => {
+  return preprocess((data) => {
     if (typeof data !== 'object' || data === null) return data;
     return preprocessAliases(data as Record<string, unknown>, aliases);
   }, schema);

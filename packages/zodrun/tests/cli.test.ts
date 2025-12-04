@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { z } from 'zod';
+import z from 'zod/v4';
 import { createZodrun } from '../src/index';
 import type { TODO } from '../src/type-utils';
 import { createWeatherProgram } from './common';
@@ -322,7 +322,7 @@ describe('CLI', () => {
                 .meta({ alias: ['h'] }),
             }),
           )
-          .handle((args, options) => ({
+          .handle((_args, options) => ({
             verbose: options?.verbose,
             help: options?.help,
           })),
@@ -350,7 +350,7 @@ describe('CLI', () => {
                 .meta({ alias: ['c'] }),
             }),
           )
-          .handle((args, options) => options),
+          .handle((_args, options) => options),
       );
 
       const result = program.parse('test -u celsius -c=5');
@@ -370,7 +370,7 @@ describe('CLI', () => {
                 .meta({ alias: ['v'] }),
             }),
           )
-          .handle((args, options) => ({
+          .handle((_args, options) => ({
             verbose: options?.verbose || false,
           })),
       );
@@ -400,7 +400,7 @@ describe('CLI', () => {
                 .meta({ alias: ['o'] }),
             }),
           )
-          .handle((args, options) => options),
+          .handle((_args, options) => options),
       );
 
       const result = program.parse('test -v --help -o=file.txt');
@@ -419,7 +419,7 @@ describe('CLI', () => {
               v: z.boolean().optional(), // Include 'v' in schema to test without alias
             }),
           )
-          .handle((args, options) => options),
+          .handle((_args, options) => options),
       );
 
       // No aliases defined, -v should work as 'v' key if it's in the schema
@@ -470,7 +470,7 @@ describe('CLI', () => {
                     .meta({ alias: ['v'] }),
                 }),
               )
-              .handle((args, options) => ({
+              .handle((_args, options) => ({
                 verbose: options?.verbose || false,
               })),
           )
@@ -494,7 +494,7 @@ describe('CLI', () => {
                 .meta({ alias: ['v', 'verbose'] }),
             }),
           )
-          .handle((args, options) => options),
+          .handle((_args, options) => options),
       );
 
       const result = program.parse('test -v');
