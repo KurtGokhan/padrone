@@ -7,7 +7,16 @@ export const program = createZodrun()
       .args(z.array(z.string()).describe('Names to greet'))
       .options(
         z.object({
-          prefix: z.string().optional().describe('prefix to use in greeting').meta({ alias: 'p' }),
+          prefix: z
+            .string()
+            .optional()
+            .describe('prefix to use in greeting')
+            .meta({ alias: 'p', examples: ['Mr.', 'Dr.'] }),
+          title: z
+            .string()
+            .optional()
+            .describe('title to use in greeting')
+            .meta({ deprecated: 'Use prefix instead' as any }),
         }),
       )
       .handle((args, options) => {
@@ -56,14 +65,14 @@ const api = program.api();
 api.greet.nested(['Alice', 'Bob'], { prefix: 'Dr.', suffix: 'PhD' });
 
 try {
-  program.cli();
+  await program.cli();
 } catch {}
 
 console.log('\n\n---- HELP ----\n');
-console.log(program.help());
+console.log(await program.help());
 
 console.log('\n\n---- HELP (greet) (disable colors) ----\n');
-console.log(program.help('greet', { colorize: false }));
+console.log(await program.help('greet', { colorize: false }));
 
 console.log('\n\n---- HELP (greet) ----\n');
-console.log(program.help('greet'));
+console.log(await program.help('greet'));

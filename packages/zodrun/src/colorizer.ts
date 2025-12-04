@@ -3,6 +3,9 @@ const colors = {
   reset: '\x1b[0m',
   bold: '\x1b[1m',
   dim: '\x1b[2m',
+  italic: '\x1b[3m',
+  underline: '\x1b[4m',
+  strikethrough: '\x1b[9m',
   cyan: '\x1b[36m',
   green: '\x1b[32m',
   yellow: '\x1b[33m',
@@ -40,6 +43,9 @@ export type Colorizer = {
   description: (text: string) => string;
   label: (text: string) => string;
   meta: (text: string) => string;
+  example: (text: string) => string;
+  exampleValue: (text: string) => string;
+  deprecated: (text: string) => string;
 };
 
 export function createColorizer(colorize: boolean | 'auto' = 'auto'): Colorizer {
@@ -52,5 +58,8 @@ export function createColorizer(colorize: boolean | 'auto' = 'auto'): Colorizer 
     description: (text: string) => (useColors ? `${colors.dim}${text}${colors.reset}` : text),
     label: (text: string) => (useColors ? `${colors.bold}${text}${colors.reset}` : text),
     meta: (text: string) => (useColors ? `${colors.gray}${text}${colors.reset}` : text),
+    example: (text: string) => (useColors ? `${colors.underline}${text}${colors.reset}` : text),
+    exampleValue: (text: string) => (useColors ? `${colors.italic}${text}${colors.reset}` : text),
+    deprecated: (text: string) => (useColors ? `${colors.strikethrough}${colors.gray}${text}${colors.reset}` : text),
   };
 }

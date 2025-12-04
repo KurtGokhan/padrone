@@ -19,6 +19,9 @@ type OptionInfo = {
   type?: string;
   enum?: string[];
   aliases?: string[];
+  deprecated?: boolean | string;
+  hidden?: boolean;
+  examples?: unknown[];
 };
 
 async function extractArgsInfo(argsSchema: StandardSchemaV1) {
@@ -108,6 +111,9 @@ async function extractOptionsInfo(optionsSchema: StandardSchemaV1, meta?: Record
           default: prop.default,
           type: prop.type as string,
           enum: enumValues,
+          deprecated: optMeta?.deprecated ?? prop?.deprecated,
+          hidden: optMeta?.hidden ?? prop?.hidden,
+          examples: optMeta?.examples ?? prop?.examples,
         });
       }
     }
@@ -202,20 +208,36 @@ export async function generateHelp(
       opt.aliases = [...(opt.aliases || []), alias];
     }
 
-    if (optionsInfo.length > 0) {
+    const visibleOptions = optionsInfo.filter((opt) => !opt.hidden);
+
+    if (visibleOptions.length > 0) {
       lines.push(colorize.label('Options:'));
-      const maxNameLength = Math.max(...optionsInfo.map((opt) => opt.name.length));
-      for (const opt of optionsInfo) {
+      const maxNameLength = Math.max(...visibleOptions.map((opt) => opt.name.length));
+      for (const opt of visibleOptions) {
         const optionName = `--${opt.name}`;
         const aliasNames = opt.aliases && opt.aliases.length > 0 ? opt.aliases.map((a) => `-${a}`).join(', ') : '';
         const fullOptionName = aliasNames ? `${optionName}, ${aliasNames}` : optionName;
         const padding = ' '.repeat(Math.max(0, maxNameLength - opt.name.length + 2));
         const typeInfo = opt.type ? ` ${colorize.type(`<${opt.type}>`)}` : '';
-        const optional = opt.optional ? colorize.meta(' (optional)') : '';
+        const optional = opt.optional && !opt.deprecated ? colorize.meta(' (optional)') : '';
         const defaultVal = opt.default !== undefined ? colorize.meta(` (default: ${String(opt.default)})`) : '';
         const enumVals = opt.enum ? colorize.meta(` (choices: ${opt.enum.join(', ')})`) : '';
+
+        const isDeprecated = !!opt.deprecated;
+        const deprecatedMessage = isDeprecated
+          ? typeof opt.deprecated === 'string'
+            ? colorize.meta(` (deprecated: ${opt.deprecated})`)
+            : colorize.meta(' (deprecated)')
+          : '';
+
+        const formattedOptionName = isDeprecated ? colorize.deprecated(fullOptionName) : colorize.option(fullOptionName);
         const description = opt.description ? colorize.description(opt.description) : '';
-        lines.push(`  ${colorize.option(fullOptionName)}${typeInfo}${optional}${defaultVal}${enumVals}${padding}${description}`);
+        lines.push(`  ${formattedOptionName}${typeInfo}${optional}${defaultVal}${enumVals}${deprecatedMessage}${padding}${description}`);
+
+        if (opt.examples?.length) {
+          const exampleValue = opt.examples.map((example) => (typeof example === 'string' ? example : JSON.stringify(example))).join(', ');
+          lines.push(`      ${colorize.example('Example:')} ${colorize.exampleValue(exampleValue)}`);
+        }
       }
       lines.push('');
     }

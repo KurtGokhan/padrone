@@ -4,12 +4,15 @@ exports[`help should generate help for the program 1`] = `
 "Usage: <root> [command]
 
 Commands:
-  current   
-  forecast  
-  alerts    
-  compare   
-  noop      
-  cities    
+  current          
+  forecast         
+  alerts           
+  compare          
+  noop             
+  cities           
+  deprecated-test  
+  hidden-test      
+  examples-test    
 
 Run "<root> [command] --help" for more information on a command.
 "
@@ -19,12 +22,15 @@ exports[`help should generate help for the top level command 1`] = `
 "Usage: <root> [command]
 
 Commands:
-  current   
-  forecast  
-  alerts    
-  compare   
-  noop      
-  cities    
+  current          
+  forecast         
+  alerts           
+  compare          
+  noop             
+  cities           
+  deprecated-test  
+  hidden-test      
+  examples-test    
 
 Run "<root> [command] --help" for more information on a command.
 "
@@ -75,5 +81,73 @@ exports[`help should generate help for a command with meta object 1`] = `
 
 Options:
   --verbose, -v <boolean> (optional)  Show detailed information
+"
+`;
+
+exports[`help should generate help for a command with deprecated options 1`] = `
+"Usage: deprecated-test [options]
+
+Options:
+  --oldOption <string> (deprecated)              This option is deprecated
+  --newOption <string> (optional)              This is the new option
+  --deprecatedWithMessage <boolean> (deprecated: Use newOption instead)  This option is deprecated with a message
+"
+`;
+
+exports[`help should generate help for a command with deprecated options and colors 1`] = `
+"Usage: \x1B[36m\x1B[1mdeprecated-test\x1B[0m \x1B[90m[options]\x1B[0m
+
+\x1B[1mOptions:\x1B[0m
+  \x1B[9m\x1B[90m--oldOption\x1B[0m \x1B[33m<string>\x1B[0m\x1B[90m (deprecated)\x1B[0m              \x1B[2mThis option is deprecated\x1B[0m
+  \x1B[32m--newOption\x1B[0m \x1B[33m<string>\x1B[0m\x1B[90m (optional)\x1B[0m              \x1B[2mThis is the new option\x1B[0m
+  \x1B[9m\x1B[90m--deprecatedWithMessage\x1B[0m \x1B[33m<boolean>\x1B[0m\x1B[90m (deprecated: Use newOption instead)\x1B[0m  \x1B[2mThis option is deprecated with a message\x1B[0m
+"
+`;
+
+exports[`help should generate help for a command with hidden options 1`] = `
+"Usage: hidden-test [options]
+
+Options:
+  --visibleOption <string> (optional)   This option is visible in help
+  --anotherVisible <boolean> (optional)  This option is also visible
+"
+`;
+
+exports[`help should generate help for a command with hidden options and colors 1`] = `
+"Usage: \x1B[36m\x1B[1mhidden-test\x1B[0m \x1B[90m[options]\x1B[0m
+
+\x1B[1mOptions:\x1B[0m
+  \x1B[32m--visibleOption\x1B[0m \x1B[33m<string>\x1B[0m\x1B[90m (optional)\x1B[0m   \x1B[2mThis option is visible in help\x1B[0m
+  \x1B[32m--anotherVisible\x1B[0m \x1B[33m<boolean>\x1B[0m\x1B[90m (optional)\x1B[0m  \x1B[2mThis option is also visible\x1B[0m
+"
+`;
+
+exports[`help should generate help for a command with examples 1`] = `
+"Usage: examples-test [options]
+
+Options:
+  --output <string> (optional)   Specify the output file path
+      Example: output.txt, ./dist/result.json
+  --format <string> (optional) (choices: json, yaml, xml)   Choose the output format
+      Example: json, yaml
+  --verbose <boolean> (optional)  Show detailed information
+      Example: true
+  --config <string> (optional)   Path to configuration file
+      Example: ./config.json, ~/.config/app.json
+"
+`;
+
+exports[`help should generate help for a command with examples and colors 1`] = `
+"Usage: \x1B[36m\x1B[1mexamples-test\x1B[0m \x1B[90m[options]\x1B[0m
+
+\x1B[1mOptions:\x1B[0m
+  \x1B[32m--output\x1B[0m \x1B[33m<string>\x1B[0m\x1B[90m (optional)\x1B[0m   \x1B[2mSpecify the output file path\x1B[0m
+      \x1B[4mExample:\x1B[0m \x1B[3moutput.txt, ./dist/result.json\x1B[0m
+  \x1B[32m--format\x1B[0m \x1B[33m<string>\x1B[0m\x1B[90m (optional)\x1B[0m\x1B[90m (choices: json, yaml, xml)\x1B[0m   \x1B[2mChoose the output format\x1B[0m
+      \x1B[4mExample:\x1B[0m \x1B[3mjson, yaml\x1B[0m
+  \x1B[32m--verbose\x1B[0m \x1B[33m<boolean>\x1B[0m\x1B[90m (optional)\x1B[0m  \x1B[2mShow detailed information\x1B[0m
+      \x1B[4mExample:\x1B[0m \x1B[3mtrue\x1B[0m
+  \x1B[32m--config\x1B[0m \x1B[33m<string>\x1B[0m\x1B[90m (optional)\x1B[0m   \x1B[2mPath to configuration file\x1B[0m
+      \x1B[4mExample:\x1B[0m \x1B[3m./config.json, ~/.config/app.json\x1B[0m
 "
 `;

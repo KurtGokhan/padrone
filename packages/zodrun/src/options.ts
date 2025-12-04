@@ -2,9 +2,10 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 
 export interface ZodrunOptionsMeta {
   description?: string;
-  deprecated?: boolean;
   alias?: string[] | string;
-  examples?: import('zod/v4/core').$input[];
+  deprecated?: boolean | string;
+  hidden?: boolean;
+  examples?: unknown[];
 }
 
 export async function extractAliasesFromSchema(schema: StandardSchemaV1, meta?: Record<string, ZodrunOptionsMeta | undefined>) {

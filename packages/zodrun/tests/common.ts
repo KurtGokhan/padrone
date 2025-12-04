@@ -131,6 +131,83 @@ export function createWeatherProgram() {
           },
         )
         .handle(),
+    )
+    .command('deprecated-test', (c) =>
+      c
+        .options(
+          z.object({
+            oldOption: z.string().optional().describe('Old option'),
+            newOption: z.string().optional().describe('New option'),
+            deprecatedWithMessage: z.boolean().optional().describe('Deprecated option with message'),
+          }),
+          {
+            oldOption: {
+              deprecated: true,
+              description: 'This option is deprecated',
+            },
+            newOption: {
+              description: 'This is the new option',
+            },
+            deprecatedWithMessage: {
+              deprecated: 'Use newOption instead',
+              description: 'This option is deprecated with a message',
+            },
+          },
+        )
+        .handle(),
+    )
+    .command('hidden-test', (c) =>
+      c
+        .options(
+          z.object({
+            visibleOption: z.string().optional().describe('This option should be visible'),
+            hiddenOption: z.string().optional().describe('This option should be hidden'),
+            anotherVisible: z.boolean().optional().describe('Another visible option'),
+          }),
+          {
+            visibleOption: {
+              description: 'This option is visible in help',
+            },
+            hiddenOption: {
+              hidden: true,
+              description: 'This option should not appear in help',
+            },
+            anotherVisible: {
+              description: 'This option is also visible',
+            },
+          },
+        )
+        .handle(),
+    )
+    .command('examples-test', (c) =>
+      c
+        .options(
+          z.object({
+            output: z.string().optional().describe('Output file path'),
+            format: z.enum(['json', 'yaml', 'xml']).optional().describe('Output format'),
+            verbose: z.boolean().optional().describe('Enable verbose output'),
+            config: z.string().optional().describe('Configuration file'),
+          }),
+          {
+            output: {
+              description: 'Specify the output file path',
+              examples: ['output.txt', './dist/result.json'],
+            },
+            format: {
+              description: 'Choose the output format',
+              examples: ['json', 'yaml'],
+            },
+            verbose: {
+              description: 'Show detailed information',
+              examples: [true],
+            },
+            config: {
+              description: 'Path to configuration file',
+              examples: ['./config.json', '~/.config/app.json'],
+            },
+          },
+        )
+        .handle(),
     );
 }
 

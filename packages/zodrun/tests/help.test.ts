@@ -33,4 +33,34 @@ describe('help', () => {
     const help = await program.help('cities', { colorize: false });
     expect(help).toMatchSnapshot();
   });
+
+  it('should generate help for a command with deprecated options', async () => {
+    const help = await program.help('deprecated-test', { colorize: false });
+    expect(help).toMatchSnapshot();
+  });
+
+  it('should generate help for a command with deprecated options and colors', async () => {
+    const help = await program.help('deprecated-test', { colorize: true });
+    expect(help).toMatchSnapshot();
+  });
+
+  it('should generate help for a command with hidden options', async () => {
+    const help = await program.help('hidden-test', { colorize: false });
+    expect(help).toMatchSnapshot();
+  });
+
+  it('should generate help for a command with hidden options and colors', async () => {
+    const help = await program.help('hidden-test', { colorize: true });
+    expect(help).toMatchSnapshot();
+  });
+
+  it('should generate help for a command with examples', async () => {
+    const help = await program.help('examples-test', { colorize: false });
+    expect(help).toMatchSnapshot();
+  });
+
+  it('should generate help for a command with examples and colors', async () => {
+    const help = await program.help('examples-test', { colorize: true });
+    expect(help).toMatchSnapshot();
+  });
 });

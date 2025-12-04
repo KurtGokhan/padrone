@@ -16,6 +16,17 @@ describe.skip('Types', async () => {
 
   type TNames = Extract<Parameters<typeof program.run>[0], string>;
   expectTypeOf<TNames>().toEqualTypeOf<
-    '' | 'current' | 'forecast' | 'forecast extended' | 'forecast extended extended' | 'alerts' | 'compare' | 'noop'
+    | ''
+    | 'current'
+    | 'forecast'
+    | 'forecast extended'
+    | 'forecast extended extended'
+    | 'alerts'
+    | 'compare'
+    | 'noop'
+    | 'cities'
+    | 'deprecated-test'
+    | 'hidden-test'
+    | 'examples-test'
   >();
 });
