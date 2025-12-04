@@ -8,12 +8,11 @@ export type TODO<TCast = any, _TReason = unknown> = TCast;
 
 type SafeString = string & {};
 export type IsUnknown<T> = unknown extends T ? true : false;
-export type IsNever<T> = [T] extends [never] ? true : false;
+type IsNever<T> = [T] extends [never] ? true : false;
 
-export type SplitString<
-  TName extends string,
-  TSplitBy extends string = ' ',
-> = TName extends `${infer FirstPart}${TSplitBy}${infer RestParts}` ? [FirstPart, ...SplitString<RestParts, TSplitBy>] : [TName];
+type SplitString<TName extends string, TSplitBy extends string = ' '> = TName extends `${infer FirstPart}${TSplitBy}${infer RestParts}`
+  ? [FirstPart, ...SplitString<RestParts, TSplitBy>]
+  : [TName];
 
 export type JoinString<TParts extends string[], TJoinBy extends string = ' '> = TParts extends [
   infer FirstPart extends string,
@@ -42,39 +41,20 @@ export type FullCommandName<TName extends string, TParentName extends string = '
 export type PickCommandByName<
   TCommands extends AnyZodrunCommand[],
   TName extends string | AnyZodrunCommand,
-> = TName extends AnyZodrunCommand
-  ? TName
-  : string extends TName
-    ? TCommands[number]
-    : TName extends `${infer FirstPart} ${infer RestParts}`
-      ? PickCommandByName<PickCommandByNameSingle<TCommands, FirstPart>['~types']['commands'], RestParts>
-      : TName extends string
-        ? PickCommandByNameSingle<TCommands, TName>
-        : never;
+> = TName extends AnyZodrunCommand ? TName : Extract<FlattenCommands<TCommands>, { fullName: TName }>;
 
-type PickCommandByNameSingle<TCommands extends AnyZodrunCommand[], TName extends string> = TCommands extends [
-  infer FirstCommand,
-  ...infer RestCommands,
-]
-  ? FirstCommand extends AnyZodrunCommand
-    ? FirstCommand['name'] extends TName
-      ? FirstCommand
-      : RestCommands extends AnyZodrunCommand[]
-        ? PickCommandByNameSingle<RestCommands, TName>
-        : never
-    : never
-  : never;
-
-export type GetCommandNames<TCommands extends AnyZodrunCommand[]> = TCommands extends [infer FirstCommand, ...infer RestCommands]
+export type FlattenCommands<TCommands extends AnyZodrunCommand[]> = TCommands extends [infer FirstCommand, ...infer RestCommands]
   ? FirstCommand extends AnyZodrunCommand
     ?
-        | (RestCommands extends AnyZodrunCommand[] ? GetCommandNames<RestCommands> : never)
-        | GetCommandNames<FirstCommand['~types']['commands']>
-        | FirstCommand['fullName']
+        | (RestCommands extends AnyZodrunCommand[] ? FlattenCommands<RestCommands> : never)
+        | FlattenCommands<FirstCommand['~types']['commands']>
+        | FirstCommand
     : RestCommands extends AnyZodrunCommand[]
-      ? GetCommandNames<RestCommands>
+      ? FlattenCommands<RestCommands>
       : never
-  : TCommands[number]['fullName'];
+  : TCommands[number];
+
+export type GetCommandNames<TCommands extends AnyZodrunCommand[]> = FlattenCommands<TCommands>['fullName'];
 
 /**
  * Find all the commands that are prefixed with a command name.

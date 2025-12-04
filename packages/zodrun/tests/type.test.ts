@@ -13,4 +13,9 @@ describe.skip('Types', () => {
   expectTypeOf<(typeof parsed)['command']['fullName']>().toEqualTypeOf<'forecast'>();
   expectTypeOf<(typeof parsedNested)['command']['fullName']>().toEqualTypeOf<'forecast extended'>();
   expectTypeOf<(typeof parsedNested2)['command']['fullName']>().toEqualTypeOf<'forecast extended extended'>();
+
+  type TNames = Extract<Parameters<typeof program.run>[0], string>;
+  expectTypeOf<TNames>().toEqualTypeOf<
+    '' | 'current' | 'forecast' | 'forecast extended' | 'forecast extended extended' | 'alerts' | 'compare' | 'noop'
+  >();
 });

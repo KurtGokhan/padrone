@@ -23,7 +23,7 @@
     "start": "bun --workspace=zodrun start",
     "docs": "bun --workspace=zodrun-docs start",
     "test": "bun test",
-    "typecheck": "tsgo",
+    "types": "tsgo",
     "lint": "biome lint",
     "format": "biome format",
     "check": "biome check",

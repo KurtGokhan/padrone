@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type {
+  FlattenCommands,
   FullCommandName,
   GetCommandNames,
   IsUnknown,
@@ -106,6 +107,7 @@ export type ZodrunProgram<
   TOpts extends ZOpts = ZDefaultOpts,
   TRes = void,
   TCommands extends [...AnyZodrunCommand[]] = [],
+  TCmd extends ZodrunCommand<'', '', TArgs, TOpts, TRes, TCommands> = ZodrunCommand<'', '', TArgs, TOpts, TRes, TCommands>,
 > = Omit<ZodrunCommandBuilder<TName, '', TArgs, TOpts, TRes, TCommands>, 'command'> & {
   /**
    * Creates a command within the program with the given name and builder function.
@@ -118,53 +120,53 @@ export type ZodrunProgram<
   /**
    * Runs a command programmatically by name with provided args and options.
    */
-  run: <const TCommand extends GetCommandNames<TCommands> | TCommands[number]>(
+  run: <const TCommand extends GetCommandNames<[TCmd]> | FlattenCommands<[TCmd]>>(
     name: TCommand,
-    args: NoInfer<GetArgs<'in', PickCommandByName<TCommands, TCommand>>>,
-    options: NoInfer<GetOptions<'in', PickCommandByName<TCommands, TCommand>>>,
-  ) => ZodrunCommandResult<PickCommandByName<TCommands, TCommand>>;
+    args: NoInfer<GetArgs<'in', PickCommandByName<[TCmd], TCommand>>>,
+    options: NoInfer<GetOptions<'in', PickCommandByName<[TCmd], TCommand>>>,
+  ) => ZodrunCommandResult<PickCommandByName<[TCmd], TCommand>>;
 
   /**
    * Runs the program as a CLI application, parsing `process.argv` or provided input.
    */
-  cli: <const TCommand extends PossibleCommands<TCommands>>(
+  cli: <const TCommand extends PossibleCommands<[TCmd]>>(
     input?: TCommand,
-  ) => ZodrunCommandResult<PickCommandByPossibleCommands<TCommands, TCommand>>;
+  ) => ZodrunCommandResult<PickCommandByPossibleCommands<[TCmd], TCommand>>;
 
   /**
    * Parses CLI input (or the provided input string) into command, args, and options without executing anything.
    */
-  parse: <const TCommand extends PossibleCommands<TCommands>>(
+  parse: <const TCommand extends PossibleCommands<[TCmd]>>(
     input?: TCommand,
-  ) => ZodrunParseResult<PickCommandByPossibleCommands<TCommands, TCommand>>;
+  ) => ZodrunParseResult<PickCommandByPossibleCommands<[TCmd], TCommand>>;
 
   /**
    * Finds a command by name, returning `undefined` if not found.
    */
-  find: <const TName extends GetCommandNames<TCommands>>(
+  find: <const TName extends GetCommandNames<[TCmd]>>(
     command: TName | (string & {}),
   ) => IsUnknown<TName> extends false
     ? TName extends string
-      ? PickCommandByName<TCommands, TName>
-      : TCommands[number] | undefined
-    : TCommands[number] | undefined;
+      ? PickCommandByName<[TCmd], TName>
+      : FlattenCommands<[TCmd]> | undefined
+    : FlattenCommands<[TCmd]> | undefined;
 
   /**
    * Generates a type-safe API for invoking commands programmatically.
    */
-  api: () => ZodrunAPI<ZodrunCommand<'', '', TArgs, TOpts, TRes, TCommands>>;
+  api: () => ZodrunAPI<TCmd>;
 
   // TODO:
 
   /**
    * Starts an interactive prompt to run commands.
    */
-  interactive: () => Promise<ZodrunCommandResult<TCommands[number]> | undefined>;
+  interactive: () => Promise<ZodrunCommandResult<FlattenCommands<[TCmd]>> | undefined>;
 
   /**
    * Starts a REPL (Read-Eval-Print Loop) for running commands interactively.
    */
-  repl: () => Promise<ZodrunCommandResult<TCommands[number]>[]>;
+  repl: () => Promise<ZodrunCommandResult<FlattenCommands<[TCmd]>>[]>;
 
   /**
    * Returns a tool definition that can be passed to AI SDK.
@@ -182,6 +184,7 @@ export type ZodrunProgram<
    * @deprecated Internal use only
    */
   '~types': {
+    command: TCmd;
     commands: TCommands;
   };
 };
@@ -201,7 +204,7 @@ export type ZodrunParseResult<TCommand extends AnyZodrunCommand = AnyZodrunComma
 };
 
 export type ZodrunAPI<TCommand extends AnyZodrunCommand> = ZodrunAPICommand<TCommand> & {
-  [K in TCommand['~types']['commands'][number]['name']]: ZodrunAPI<PickCommandByName<TCommand['~types']['commands'], K>>;
+  [K in TCommand['~types']['commands'][number] as K['name']]: ZodrunAPI<K>;
 };
 
 export type ZodrunAPICommand<TCommand extends AnyZodrunCommand> = (
