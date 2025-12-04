@@ -72,7 +72,7 @@ console.log('\n\n---- HELP ----\n');
 console.log(await program.help());
 
 console.log('\n\n---- HELP (greet) (disable colors) ----\n');
-console.log(await program.help('greet', { colorize: false }));
+console.log(await program.help('greet', { format: 'text' }));
 
 console.log('\n\n---- HELP (greet) ----\n');
 console.log(await program.help('greet'));
