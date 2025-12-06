@@ -16,12 +16,17 @@
     "@standard-schema/spec": "^1.0.0"
   },
   "devDependencies": {
+    "ai": "^6.0.0-beta.131",
     "zod": "^4.1.13"
   },
   "peerDependencies": {
+    "ai": "5 || 6",
     "zod": "^3.25.0 || ^4.0.0"
   },
   "peerDependenciesMeta": {
+    "ai": {
+      "optional": true
+    },
     "zod": {
       "optional": true
     }

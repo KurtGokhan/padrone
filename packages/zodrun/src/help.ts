@@ -131,7 +131,6 @@ async function extractOptionsInfo(schema: StandardSchemaV1, meta?: Record<string
 }
 
 export type HelpOptions = {
-  colorize?: boolean | 'auto';
   format?: HelpFormat | 'auto';
 };
 

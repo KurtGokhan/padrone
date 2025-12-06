@@ -8,6 +8,7 @@ export type TODO<TCast = any, _TReason = unknown> = TCast;
 
 type SafeString = string & {};
 export type IsUnknown<T> = unknown extends T ? true : false;
+type IsAny<T> = any extends T ? true : false;
 type IsNever<T> = [T] extends [never] ? true : false;
 
 type SplitString<TName extends string, TSplitBy extends string = ' '> = TName extends `${infer FirstPart}${TSplitBy}${infer RestParts}`
@@ -87,10 +88,12 @@ export type PossibleCommands<TCommands extends AnyZodrunCommand[]> = GetCommandN
 export type PickCommandByPossibleCommands<
   TCommands extends AnyZodrunCommand[],
   TCommand extends PossibleCommands<TCommands>,
-> = TCommand extends GetCommandNames<TCommands>
-  ? PickCommandByName<TCommands, TCommand>
-  : SplitLastSpace<TCommand> extends [infer Prefix extends string, infer Rest]
-    ? IsNever<Rest> extends true
-      ? PickCommandByName<TCommands, Prefix>
-      : PickCommandByPossibleCommands<TCommands, Prefix>
-    : never;
+> = IsAny<TCommand> extends true
+  ? TCommands[number]
+  : TCommand extends GetCommandNames<TCommands>
+    ? PickCommandByName<TCommands, TCommand>
+    : SplitLastSpace<TCommand> extends [infer Prefix extends string, infer Rest]
+      ? IsNever<Rest> extends true
+        ? PickCommandByName<TCommands, Prefix>
+        : PickCommandByPossibleCommands<TCommands, Prefix>
+      : never;

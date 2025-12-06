@@ -1,3 +1,4 @@
+import type { Schema } from 'ai';
 import { generateHelp } from './help';
 import { extractAliasesFromSchema, preprocessAliases } from './options';
 import { parseCliInputToParts } from './parse';
@@ -112,6 +113,32 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     };
   };
 
+  const tool: AnyZodrunProgram['tool'] = async () => {
+    return {
+      type: 'function',
+      name: existingCommand.name,
+      description: await generateHelp(existingCommand, findCommandByName, undefined, { format: 'text' }),
+      inputSchema: {
+        [Symbol.for('vercel.ai.schema') as keyof Schema & symbol]: true,
+        jsonSchema: { type: 'string' },
+        _type: undefined as unknown,
+        validate: (value) => {
+          if (typeof value === 'string') return { success: true, value };
+          return { success: false, error: new Error('Expected a string') };
+        },
+      } satisfies Schema as Schema,
+      title: existingCommand.description,
+      needsApproval: async (input) => {
+        const { command, options, args } = await parse(input);
+        if (typeof command.needsApproval === 'function') return command.needsApproval(args, options);
+        return !!command.needsApproval;
+      },
+      execute: async (input) => {
+        return (await cli(input)).result;
+      },
+    };
+  };
+
   return {
     args(args) {
       return createZodrunCommandBuilder({ ...existingCommand, args }) as any;
@@ -142,6 +169,7 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     find,
     parse,
     cli,
+    tool,
 
     api() {
       function buildApi(command: AnyZodrunCommand) {
@@ -152,14 +180,6 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
       }
 
       return buildApi(existingCommand);
-    },
-
-    interactive() {
-      return Promise.resolve(undefined);
-    },
-
-    repl() {
-      return Promise.resolve([]);
     },
 
     help(command, options) {

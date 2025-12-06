@@ -1,4 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { Tool } from 'ai';
 import type { HelpOptions } from './help';
 import type { ZodrunOptionsMeta } from './options';
 import type {
@@ -31,6 +32,8 @@ export type ZodrunCommand<
 > = {
   name: TName;
   fullName: FullCommandName<TName, TParentName>;
+  description?: string;
+  needsApproval?: boolean | ((args: TArgs, options: TOpts) => Promise<boolean> | boolean);
   args?: ZArgs;
   options?: ZOpts;
   meta?: GetOptionsMeta<TOpts>;
@@ -164,22 +167,22 @@ export type ZodrunProgram<
    */
   api: () => ZodrunAPI<TCmd>;
 
-  // TODO:
+  // TODO: implement interactive and repl methods
 
   /**
    * Starts an interactive prompt to run commands.
    */
-  interactive: () => Promise<ZodrunCommandResult<FlattenCommands<[TCmd]>> | undefined>;
+  // interactive: () => Promise<ZodrunCommandResult<FlattenCommands<[TCmd]>> | undefined>;
 
   /**
    * Starts a REPL (Read-Eval-Print Loop) for running commands interactively.
    */
-  repl: () => Promise<ZodrunCommandResult<FlattenCommands<[TCmd]>>[]>;
+  // repl: () => Promise<ZodrunCommandResult<FlattenCommands<[TCmd]>>[]>;
 
   /**
    * Returns a tool definition that can be passed to AI SDK.
    */
-  // tool: () => AISdkTool;
+  tool: () => Promise<Tool>;
 
   /**
    * Returns the help information for the program or a specific command.
