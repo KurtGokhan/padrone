@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Tool } from 'ai';
 import type { HelpOptions } from './help';
-import type { ZodrunOptionsMeta } from './options';
+import type { PadroneOptionsMeta } from './options';
 import type {
   FlattenCommands,
   FullCommandName,
@@ -22,13 +22,13 @@ type ZOpts = StandardSchemaV1;
 type ZDefaultArgs = StandardSchemaV1<DefaultArgs>;
 type ZDefaultOpts = StandardSchemaV1<DefaultOpts>;
 
-export type ZodrunCommand<
+export type PadroneCommand<
   TName extends string = string,
   TParentName extends string = '',
   TArgs extends ZArgs = ZDefaultArgs,
   TOpts extends ZOpts = ZDefaultOpts,
   TRes = void,
-  TCommands extends [...AnyZodrunCommand[]] = [],
+  TCommands extends [...AnyPadroneCommand[]] = [],
 > = {
   name: TName;
   fullName: FullCommandName<TName, TParentName>;
@@ -39,7 +39,7 @@ export type ZodrunCommand<
   meta?: GetOptionsMeta<TOpts>;
   handler?: (args: TArgs, options: TOpts) => TRes;
 
-  parent?: AnyZodrunCommand;
+  parent?: AnyPadroneCommand;
   commands?: TCommands;
 
   /** @deprecated Internal use only */
@@ -56,22 +56,22 @@ export type ZodrunCommand<
   };
 };
 
-export type AnyZodrunCommand = ZodrunCommand<string, any, any, any, any, [...AnyZodrunCommand[]]>;
+export type AnyPadroneCommand = PadroneCommand<string, any, any, any, any, [...AnyPadroneCommand[]]>;
 
-export type ZodrunCommandBuilder<
+export type PadroneCommandBuilder<
   TName extends string = string,
   TParentName extends string = '',
   TArgs extends ZArgs = ZDefaultArgs,
   TOpts extends ZOpts = ZDefaultOpts,
   TRes = void,
-  TCommands extends [...AnyZodrunCommand[]] = [],
+  TCommands extends [...AnyPadroneCommand[]] = [],
 > = {
   /**
    * Defines the positional arguments schema for the command.
    */
   args: <TArgs extends ZArgs = StandardSchemaV1<void>>(
     args?: TArgs,
-  ) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
+  ) => PadroneCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
    * Defines the options schema for the command.
@@ -79,25 +79,25 @@ export type ZodrunCommandBuilder<
   options: <TOpts extends ZOpts = StandardSchemaV1<void>>(
     options?: TOpts,
     meta?: GetOptionsMeta<TOpts>,
-  ) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
+  ) => PadroneCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
    * Defines the handler function to be executed when the command is run.
    */
   handle: <TRes>(
     handler?: (args: StandardSchemaV1.InferOutput<TArgs>, options: StandardSchemaV1.InferOutput<TOpts>) => TRes,
-  ) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
+  ) => PadroneCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
    * Creates a nested command within the current command with the given name and builder function.
    */
   command: <
     TNameNested extends string,
-    TBuilder extends ZodrunCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, any, any>,
+    TBuilder extends PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, any, any>,
   >(
     name: TNameNested,
-    builderFn?: (builder: ZodrunCommandBuilder<TNameNested, FullCommandName<TName, TParentName>>) => TBuilder,
-  ) => ZodrunCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, [...TCommands, TBuilder['~types']['command']]>;
+    builderFn?: (builder: PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>>) => TBuilder,
+  ) => PadroneCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, [...TCommands, TBuilder['~types']['command']]>;
 
   /** @deprecated Internal use only */
   '~types': {
@@ -108,25 +108,25 @@ export type ZodrunCommandBuilder<
     options: TOpts;
     result: TRes;
     commands: TCommands;
-    command: ZodrunCommand<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
+    command: PadroneCommand<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
   };
 };
 
-export type ZodrunProgram<
+export type PadroneProgram<
   TName extends string = string,
   TArgs extends ZArgs = ZDefaultArgs,
   TOpts extends ZOpts = ZDefaultOpts,
   TRes = void,
-  TCommands extends [...AnyZodrunCommand[]] = [],
-  TCmd extends ZodrunCommand<'', '', TArgs, TOpts, TRes, TCommands> = ZodrunCommand<'', '', TArgs, TOpts, TRes, TCommands>,
-> = Omit<ZodrunCommandBuilder<TName, '', TArgs, TOpts, TRes, TCommands>, 'command'> & {
+  TCommands extends [...AnyPadroneCommand[]] = [],
+  TCmd extends PadroneCommand<'', '', TArgs, TOpts, TRes, TCommands> = PadroneCommand<'', '', TArgs, TOpts, TRes, TCommands>,
+> = Omit<PadroneCommandBuilder<TName, '', TArgs, TOpts, TRes, TCommands>, 'command'> & {
   /**
    * Creates a command within the program with the given name and builder function.
    */
-  command: <TNameNested extends string, TBuilder extends ZodrunCommandBuilder<TNameNested, '', any, any, any, any>>(
+  command: <TNameNested extends string, TBuilder extends PadroneCommandBuilder<TNameNested, '', any, any, any, any>>(
     name: TNameNested,
-    builderFn?: (builder: ZodrunCommandBuilder<TNameNested, ''>) => TBuilder,
-  ) => ZodrunProgram<TName, TArgs, TOpts, TRes, [...TCommands, TBuilder['~types']['command']]>;
+    builderFn?: (builder: PadroneCommandBuilder<TNameNested, ''>) => TBuilder,
+  ) => PadroneProgram<TName, TArgs, TOpts, TRes, [...TCommands, TBuilder['~types']['command']]>;
 
   /**
    * Runs a command programmatically by name with provided args and options.
@@ -135,21 +135,21 @@ export type ZodrunProgram<
     name: TCommand,
     args: NoInfer<GetArgs<'in', PickCommandByName<[TCmd], TCommand>>>,
     options: NoInfer<GetOptions<'in', PickCommandByName<[TCmd], TCommand>>>,
-  ) => ZodrunCommandResult<PickCommandByName<[TCmd], TCommand>>;
+  ) => PadroneCommandResult<PickCommandByName<[TCmd], TCommand>>;
 
   /**
    * Runs the program as a CLI application, parsing `process.argv` or provided input.
    */
   cli: <const TCommand extends PossibleCommands<[TCmd]>>(
     input?: TCommand,
-  ) => Promise<ZodrunCommandResult<PickCommandByPossibleCommands<[TCmd], TCommand>>>;
+  ) => Promise<PadroneCommandResult<PickCommandByPossibleCommands<[TCmd], TCommand>>>;
 
   /**
    * Parses CLI input (or the provided input string) into command, args, and options without executing anything.
    */
   parse: <const TCommand extends PossibleCommands<[TCmd]>>(
     input?: TCommand,
-  ) => Promise<ZodrunParseResult<PickCommandByPossibleCommands<[TCmd], TCommand>>>;
+  ) => Promise<PadroneParseResult<PickCommandByPossibleCommands<[TCmd], TCommand>>>;
 
   /**
    * Finds a command by name, returning `undefined` if not found.
@@ -165,19 +165,19 @@ export type ZodrunProgram<
   /**
    * Generates a type-safe API for invoking commands programmatically.
    */
-  api: () => ZodrunAPI<TCmd>;
+  api: () => PadroneAPI<TCmd>;
 
   // TODO: implement interactive and repl methods
 
   /**
    * Starts an interactive prompt to run commands.
    */
-  // interactive: () => Promise<ZodrunCommandResult<FlattenCommands<[TCmd]>> | undefined>;
+  // interactive: () => Promise<PadroneCommandResult<FlattenCommands<[TCmd]>> | undefined>;
 
   /**
    * Starts a REPL (Read-Eval-Print Loop) for running commands interactively.
    */
-  // repl: () => Promise<ZodrunCommandResult<FlattenCommands<[TCmd]>>[]>;
+  // repl: () => Promise<PadroneCommandResult<FlattenCommands<[TCmd]>>[]>;
 
   /**
    * Returns a tool definition that can be passed to AI SDK.
@@ -203,13 +203,13 @@ export type ZodrunProgram<
   };
 };
 
-export type AnyZodrunProgram = ZodrunProgram<string, any, any, any, [...AnyZodrunCommand[]]>;
+export type AnyPadroneProgram = PadroneProgram<string, any, any, any, [...AnyPadroneCommand[]]>;
 
-export type ZodrunCommandResult<TCommand extends AnyZodrunCommand = AnyZodrunCommand> = ZodrunParseResult<TCommand> & {
+export type PadroneCommandResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> = PadroneParseResult<TCommand> & {
   result: GetResults<TCommand>;
 };
 
-export type ZodrunParseResult<TCommand extends AnyZodrunCommand = AnyZodrunCommand> = {
+export type PadroneParseResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> = {
   command: TCommand;
   args?: GetArgs<'out', TCommand>;
   options?: GetOptions<'out', TCommand>;
@@ -217,30 +217,30 @@ export type ZodrunParseResult<TCommand extends AnyZodrunCommand = AnyZodrunComma
   optionsResult?: StandardSchemaV1.Result<GetOptions<'out', TCommand>>;
 };
 
-export type ZodrunAPI<TCommand extends AnyZodrunCommand> = ZodrunAPICommand<TCommand> & {
-  [K in TCommand['~types']['commands'][number] as K['name']]: ZodrunAPI<K>;
+export type PadroneAPI<TCommand extends AnyPadroneCommand> = PadroneAPICommand<TCommand> & {
+  [K in TCommand['~types']['commands'][number] as K['name']]: PadroneAPI<K>;
 };
 
-export type ZodrunAPICommand<TCommand extends AnyZodrunCommand> = (
+export type PadroneAPICommand<TCommand extends AnyPadroneCommand> = (
   args: GetArgs<'in', TCommand>,
   options: GetOptions<'in', TCommand>,
 ) => GetResults<TCommand>;
 
 type NormalizeArgs<TArgs> = IsUnknown<TArgs> extends true ? void | [] : TArgs;
-type GetArgs<TDir extends 'in' | 'out', TCommand extends AnyZodrunCommand> = TDir extends 'in'
+type GetArgs<TDir extends 'in' | 'out', TCommand extends AnyPadroneCommand> = TDir extends 'in'
   ? NormalizeArgs<TCommand['~types']['argsInput']>
   : NormalizeArgs<TCommand['~types']['argsOutput']>;
 
 type NormalizeOptions<TOptions> = IsUnknown<TOptions> extends true ? void | EmptyRecord : TOptions;
-type GetOptions<TDir extends 'in' | 'out', TCommand extends AnyZodrunCommand> = TDir extends 'in'
+type GetOptions<TDir extends 'in' | 'out', TCommand extends AnyPadroneCommand> = TDir extends 'in'
   ? NormalizeOptions<TCommand['~types']['optionsInput']>
   : NormalizeOptions<TCommand['~types']['optionsOutput']>;
 
-type GetResults<TCommand extends AnyZodrunCommand> = ReturnType<NonNullable<TCommand['handler']>>;
+type GetResults<TCommand extends AnyPadroneCommand> = ReturnType<NonNullable<TCommand['handler']>>;
 
 type GetOptionsMeta<TOpts extends ZOpts> =
   NonNullable<StandardSchemaV1.InferInput<TOpts>> extends infer T extends object
     ? {
-        [K in keyof T]?: ZodrunOptionsMeta;
+        [K in keyof T]?: PadroneOptionsMeta;
       }
     : never;

@@ -2,16 +2,16 @@ import type { Schema } from 'ai';
 import { generateHelp } from './help';
 import { extractAliasesFromSchema, preprocessAliases } from './options';
 import { parseCliInputToParts } from './parse';
-import type { AnyZodrunCommand, AnyZodrunProgram, ZodrunAPI, ZodrunCommand, ZodrunCommandBuilder, ZodrunProgram } from './types';
+import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneCommandBuilder, PadroneProgram } from './types';
 
-const commandSymbol = Symbol('zodrun_command');
+const commandSymbol = Symbol('padrone_command');
 
 const noop = <TRes>() => undefined as TRes;
 
-export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = ZodrunProgram>(
-  existingCommand: AnyZodrunCommand,
-): TBuilder & { [commandSymbol]: AnyZodrunCommand } {
-  function findCommandByName(name: string, commands?: AnyZodrunCommand[]): AnyZodrunCommand | undefined {
+export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = PadroneProgram>(
+  existingCommand: AnyPadroneCommand,
+): TBuilder & { [commandSymbol]: AnyPadroneCommand } {
+  function findCommandByName(name: string, commands?: AnyPadroneCommand[]): AnyPadroneCommand | undefined {
     if (!commands) return undefined;
 
     const foundByName = commands.find((cmd) => cmd.name === name);
@@ -27,11 +27,11 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     return undefined;
   }
 
-  const find: AnyZodrunProgram['find'] = (command) => {
-    return findCommandByName(command, existingCommand.commands) as ReturnType<AnyZodrunProgram['find']>;
+  const find: AnyPadroneProgram['find'] = (command) => {
+    return findCommandByName(command, existingCommand.commands) as ReturnType<AnyPadroneProgram['find']>;
   };
 
-  const parse: AnyZodrunProgram['parse'] = async (input) => {
+  const parse: AnyPadroneProgram['parse'] = async (input) => {
     input ??= typeof process !== 'undefined' ? (process.argv.slice(2).join(' ') as any) : undefined;
     if (!input) return { command: existingCommand as any };
 
@@ -40,7 +40,7 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     const terms = parts.filter((p) => p.type === 'term').map((p) => p.value);
     const args = parts.filter((p) => p.type === 'arg').map((p) => p.value);
 
-    let curCommand: AnyZodrunCommand | undefined = existingCommand;
+    let curCommand: AnyPadroneCommand | undefined = existingCommand;
 
     const commandTerms: string[] = [];
 
@@ -88,7 +88,7 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     };
   };
 
-  const cli: AnyZodrunProgram['cli'] = async (input) => {
+  const cli: AnyPadroneProgram['cli'] = async (input) => {
     const { command, args, options, argsResult, optionsResult } = await parse(input);
     const res = run(command, args, options) as any;
     return {
@@ -98,8 +98,8 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     };
   };
 
-  const run: AnyZodrunProgram['run'] = (command, args, options) => {
-    const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyZodrunCommand);
+  const run: AnyPadroneProgram['run'] = (command, args, options) => {
+    const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyPadroneCommand);
     if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
     if (!commandObj.handler) throw new Error(`Command "${commandObj.fullName}" has no handler`);
 
@@ -113,7 +113,7 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     };
   };
 
-  const tool: AnyZodrunProgram['tool'] = async () => {
+  const tool: AnyPadroneProgram['tool'] = async () => {
     return {
       type: 'function',
       name: existingCommand.name,
@@ -141,28 +141,28 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
 
   return {
     args(args) {
-      return createZodrunCommandBuilder({ ...existingCommand, args }) as any;
+      return createPadroneCommandBuilder({ ...existingCommand, args }) as any;
     },
     options(options, meta) {
-      return createZodrunCommandBuilder({ ...existingCommand, options, meta }) as any;
+      return createPadroneCommandBuilder({ ...existingCommand, options, meta }) as any;
     },
     handle(handle = noop) {
-      return createZodrunCommandBuilder({ ...existingCommand, handler: handle }) as any;
+      return createPadroneCommandBuilder({ ...existingCommand, handler: handle }) as any;
     },
-    command: <TName extends string, TCommand extends ZodrunCommand<TName, string, any, any, any, any>>(
+    command: <TName extends string, TCommand extends PadroneCommand<TName, string, any, any, any, any>>(
       name: TName,
-      builderFn?: (builder: ZodrunCommandBuilder<TName>) => ZodrunCommandBuilder,
+      builderFn?: (builder: PadroneCommandBuilder<TName>) => PadroneCommandBuilder,
     ) => {
       const initialCommand = {
         name,
         fullName: existingCommand.fullName ? `${existingCommand.fullName} ${name}` : name,
         parent: existingCommand,
         '~types': {} as any,
-      } satisfies ZodrunCommand<TName, any>;
-      const builder = createZodrunCommandBuilder(initialCommand);
+      } satisfies PadroneCommand<TName, any>;
+      const builder = createPadroneCommandBuilder(initialCommand);
 
       const commandObj = ((builderFn?.(builder as any) as typeof builder)?.[commandSymbol] as TCommand) ?? initialCommand;
-      return createZodrunCommandBuilder({ ...existingCommand, commands: [...(existingCommand.commands || []), commandObj] }) as any;
+      return createPadroneCommandBuilder({ ...existingCommand, commands: [...(existingCommand.commands || []), commandObj] }) as any;
     },
 
     run,
@@ -172,8 +172,8 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     tool,
 
     api() {
-      function buildApi(command: AnyZodrunCommand) {
-        const runCommand = ((args, options) => run(command, args, options).result) as ZodrunAPI<AnyZodrunCommand>;
+      function buildApi(command: AnyPadroneCommand) {
+        const runCommand = ((args, options) => run(command, args, options).result) as PadroneAPI<AnyPadroneCommand>;
         if (!command.commands) return runCommand;
         for (const cmd of command.commands) runCommand[cmd.name] = buildApi(cmd);
         return runCommand;
@@ -189,5 +189,5 @@ export function createZodrunCommandBuilder<TBuilder extends ZodrunProgram = Zodr
     '~types': {} as any,
 
     [commandSymbol]: existingCommand,
-  } satisfies AnyZodrunProgram & { [commandSymbol]: AnyZodrunCommand } as unknown as TBuilder & { [commandSymbol]: AnyZodrunCommand };
+  } satisfies AnyPadroneProgram & { [commandSymbol]: AnyPadroneCommand } as unknown as TBuilder & { [commandSymbol]: AnyPadroneCommand };
 }

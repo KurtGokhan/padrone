@@ -1,5 +1,5 @@
 import z from 'zod/v4';
-import { createZodrun } from '../src';
+import { createPadrone } from '../src';
 
 // Mock weather data for testing
 const mockWeatherData = {
@@ -12,7 +12,7 @@ const mockWeatherData = {
 };
 
 export function createWeatherProgram() {
-  return createZodrun()
+  return createPadrone()
     .command('current', (c) =>
       c
         .args(z.tuple([z.string().describe('City name')]))

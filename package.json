@@ -1,13 +1,13 @@
 {
-  "name": "@zodrun/root",
+  "name": "@padrone/root",
   "version": "0.0.1",
   "type": "module",
   "private": true,
   "description": "Create interactive CLI apps with Zod schemas",
-  "homepage": "https://gkurt.com/zodrun/",
+  "homepage": "https://gkurt.com/padrone/",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/KurtGokhan/zodrun.git"
+    "url": "git+ssh://git@github.com/KurtGokhan/padrone.git"
   },
   "license": "MIT",
   "author": {
@@ -20,8 +20,8 @@
     "examples/*"
   ],
   "scripts": {
-    "start": "bun --workspace=zodrun start",
-    "docs": "bun --workspace=zodrun-docs start",
+    "start": "bun --workspace=padrone start",
+    "docs": "bun --workspace=padrone-docs start",
     "test": "bun test",
     "types": "tsgo",
     "lint": "biome lint",

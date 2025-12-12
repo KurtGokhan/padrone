@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 
-export interface ZodrunOptionsMeta {
+export interface PadroneOptionsMeta {
   description?: string;
   alias?: string[] | string;
   deprecated?: boolean | string;
@@ -8,7 +8,7 @@ export interface ZodrunOptionsMeta {
   examples?: unknown[];
 }
 
-export async function extractAliasesFromSchema(schema: StandardSchemaV1, meta?: Record<string, ZodrunOptionsMeta | undefined>) {
+export async function extractAliasesFromSchema(schema: StandardSchemaV1, meta?: Record<string, PadroneOptionsMeta | undefined>) {
   const aliases: Record<string, string> = {};
 
   if (meta) {

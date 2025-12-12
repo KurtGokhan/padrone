@@ -1,5 +1,5 @@
 {
-  "name": "@zodrun/example",
+  "name": "@padrone/example",
   "version": "0.0.1",
   "private": true,
   "module": "src/index.ts",
@@ -10,7 +10,7 @@
     "compile": "bun run build --compile"
   },
   "dependencies": {
-    "zodrun": "workspace:*",
+    "padrone": "workspace:*",
     "zod": "^4.1.13"
   }
 }

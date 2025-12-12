@@ -6,11 +6,11 @@
     },
     {
       "name": "📦 Lib",
-      "path": "../packages/zodrun"
+      "path": "../packages/padrone"
     },
     {
       "name": "⚡ Example",
-      "path": "../examples/zodrun-example"
+      "path": "../examples/padrone-example"
     }
   ],
   "settings": {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import z from 'zod/v4';
-import { createZodrun } from '../src/index';
+import { createPadrone } from '../src/index';
 import type { TODO } from '../src/type-utils';
 import { createWeatherProgram } from './common';
 
@@ -175,7 +175,7 @@ describe('CLI', () => {
       expect(typeof api.current).toBe('function');
 
       const result = api.current(['Berlin'], { unit: 'celsius', verbose: true });
-      // API returns ZodrunCommandResult, so access .result property
+      // API returns PadroneCommandResult, so access .result property
       expect(result.city).toBe('Berlin');
       expect(result.temperature).toBe(22);
     });
@@ -189,7 +189,7 @@ describe('CLI', () => {
       expect(typeof api.forecast.extended).toBe('function');
 
       const result = api.forecast.extended(['Paris'], { unit: 'celsius' });
-      // API returns ZodrunCommandResult, so access .result property
+      // API returns PadroneCommandResult, so access .result property
       expect(result.city).toBe('Paris');
       expect(result.extendedForecast).toBeDefined();
     });
@@ -208,7 +208,7 @@ describe('CLI', () => {
       const api = program.api();
 
       const compareResult = api.compare(['NYC', 'LA'], undefined);
-      // API returns ZodrunCommandResult, so access .result property
+      // API returns PadroneCommandResult, so access .result property
       expect(compareResult.cities).toEqual(['NYC', 'LA']);
 
       const alertsResult = api.alerts(undefined, { region: 'California', severity: 'high' });
@@ -218,21 +218,21 @@ describe('CLI', () => {
 
   describe('edge cases', () => {
     it('should handle command with no args schema', () => {
-      const program = createZodrun().command('test', (c) => c.handle(() => ({ message: 'success' })));
+      const program = createPadrone().command('test', (c) => c.handle(() => ({ message: 'success' })));
 
       const result = program.run('test', undefined, undefined);
       expect(result.result?.message).toBe('success');
     });
 
     it('should handle command with no options schema', () => {
-      const program = createZodrun().command('test', (c) => c.args(z.tuple([z.string()])).handle((args) => ({ city: args[0] })));
+      const program = createPadrone().command('test', (c) => c.args(z.tuple([z.string()])).handle((args) => ({ city: args[0] })));
 
       const result = program.run('test', ['City'], undefined);
       expect(result.result.city).toBe('City');
     });
 
     it('should handle deeply nested commands', () => {
-      const program = createZodrun().command('level1', (c) =>
+      const program = createPadrone().command('level1', (c) =>
         c.command('level2', (c2) => c2.command('level3', (c3) => c3.handle(() => ({ depth: 3 })))).handle(() => ({ depth: 1 })),
       );
 
@@ -308,7 +308,7 @@ describe('CLI', () => {
 
   describe('alias functionality', () => {
     it('should resolve aliases to full option names when parsing', async () => {
-      const program = createZodrun().command('test', (c) =>
+      const program = createPadrone().command('test', (c) =>
         c
           .options(
             z.object({
@@ -336,7 +336,7 @@ describe('CLI', () => {
     });
 
     it('should resolve aliases with values', async () => {
-      const program = createZodrun().command('test', (c) =>
+      const program = createPadrone().command('test', (c) =>
         c
           .options(
             z.object({
@@ -360,7 +360,7 @@ describe('CLI', () => {
     });
 
     it('should execute commands with aliases via CLI', async () => {
-      const program = createZodrun().command('test', (c) =>
+      const program = createPadrone().command('test', (c) =>
         c
           .options(
             z.object({
@@ -382,7 +382,7 @@ describe('CLI', () => {
     });
 
     it('should handle aliases mixed with full option names', async () => {
-      const program = createZodrun().command('test', (c) =>
+      const program = createPadrone().command('test', (c) =>
         c
           .options(
             z.object({
@@ -411,7 +411,7 @@ describe('CLI', () => {
     });
 
     it('should handle undefined aliases gracefully', async () => {
-      const program = createZodrun().command('test', (c) =>
+      const program = createPadrone().command('test', (c) =>
         c
           .options(
             z.object({
@@ -430,7 +430,7 @@ describe('CLI', () => {
     });
 
     it('should display aliases in help text', async () => {
-      const program = createZodrun().command('test', (c) =>
+      const program = createPadrone().command('test', (c) =>
         c
           .options(
             z.object({
@@ -458,7 +458,7 @@ describe('CLI', () => {
     });
 
     it('should work with nested commands', async () => {
-      const program = createZodrun().command('parent', (c) =>
+      const program = createPadrone().command('parent', (c) =>
         c
           .command('child', (c2) =>
             c2
@@ -484,7 +484,7 @@ describe('CLI', () => {
     });
 
     it('should work with meta object', async () => {
-      const program = createZodrun().command('parent', (c) =>
+      const program = createPadrone().command('parent', (c) =>
         c
           .command('child', (c2) =>
             c2
@@ -512,7 +512,7 @@ describe('CLI', () => {
     });
 
     it('should handle multiple aliases for the same option', async () => {
-      const program = createZodrun().command('test', (c) =>
+      const program = createPadrone().command('test', (c) =>
         c
           .options(
             z.object({

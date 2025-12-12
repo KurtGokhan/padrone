@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { createFormatter, type HelpArgumentInfo, type HelpFormat, type HelpInfo, type HelpOptionInfo } from './formatters';
-import { extractAliasesFromSchema, type ZodrunOptionsMeta } from './options';
-import type { AnyZodrunCommand } from './types';
+import { extractAliasesFromSchema, type PadroneOptionsMeta } from './options';
+import type { AnyPadroneCommand } from './types';
 
 async function extractArgsInfo(schema: StandardSchemaV1) {
   const result: HelpArgumentInfo[] = [];
@@ -67,7 +67,7 @@ async function extractArgsInfo(schema: StandardSchemaV1) {
   return result;
 }
 
-async function extractOptionsInfo(schema: StandardSchemaV1, meta?: Record<string, ZodrunOptionsMeta | undefined>) {
+async function extractOptionsInfo(schema: StandardSchemaV1, meta?: Record<string, PadroneOptionsMeta | undefined>) {
   const result: HelpOptionInfo[] = [];
   if (!schema) return result;
 
@@ -123,7 +123,7 @@ export type HelpOptions = {
  * Builds a comprehensive HelpInfo structure from a command.
  * This is the single source of truth that all formatters use.
  */
-async function getHelpInfo(cmd: AnyZodrunCommand): Promise<HelpInfo> {
+async function getHelpInfo(cmd: AnyPadroneCommand): Promise<HelpInfo> {
   const commandName = cmd.fullName || '<root>';
 
   const helpInfo: HelpInfo = {
@@ -181,13 +181,13 @@ async function getHelpInfo(cmd: AnyZodrunCommand): Promise<HelpInfo> {
 // ============================================================================
 
 export async function generateHelp(
-  targetCommand: AnyZodrunCommand,
-  findCommandByName: (name: string, commands?: AnyZodrunCommand[]) => AnyZodrunCommand | undefined,
-  command?: string | AnyZodrunCommand,
+  targetCommand: AnyPadroneCommand,
+  findCommandByName: (name: string, commands?: AnyPadroneCommand[]) => AnyPadroneCommand | undefined,
+  command?: string | AnyPadroneCommand,
   options?: HelpOptions,
 ): Promise<string> {
   // Resolve the target command
-  let cmd: AnyZodrunCommand | undefined;
+  let cmd: AnyPadroneCommand | undefined;
 
   if (command) {
     if (typeof command === 'string') {

@@ -1,4 +1,4 @@
-import type { AnyZodrunCommand } from './types';
+import type { AnyPadroneCommand } from './types';
 
 /**
  * Use this type instead of `any` when you intend to fix it later
@@ -40,22 +40,22 @@ export type FullCommandName<TName extends string, TParentName extends string = '
   : `${TParentName} ${TName}`;
 
 export type PickCommandByName<
-  TCommands extends AnyZodrunCommand[],
-  TName extends string | AnyZodrunCommand,
-> = TName extends AnyZodrunCommand ? TName : Extract<FlattenCommands<TCommands>, { fullName: TName }>;
+  TCommands extends AnyPadroneCommand[],
+  TName extends string | AnyPadroneCommand,
+> = TName extends AnyPadroneCommand ? TName : Extract<FlattenCommands<TCommands>, { fullName: TName }>;
 
-export type FlattenCommands<TCommands extends AnyZodrunCommand[]> = TCommands extends [infer FirstCommand, ...infer RestCommands]
-  ? FirstCommand extends AnyZodrunCommand
+export type FlattenCommands<TCommands extends AnyPadroneCommand[]> = TCommands extends [infer FirstCommand, ...infer RestCommands]
+  ? FirstCommand extends AnyPadroneCommand
     ?
-        | (RestCommands extends AnyZodrunCommand[] ? FlattenCommands<RestCommands> : never)
+        | (RestCommands extends AnyPadroneCommand[] ? FlattenCommands<RestCommands> : never)
         | FlattenCommands<FirstCommand['~types']['commands']>
         | FirstCommand
-    : RestCommands extends AnyZodrunCommand[]
+    : RestCommands extends AnyPadroneCommand[]
       ? FlattenCommands<RestCommands>
       : never
   : TCommands[number];
 
-export type GetCommandNames<TCommands extends AnyZodrunCommand[]> = FlattenCommands<TCommands>['fullName'];
+export type GetCommandNames<TCommands extends AnyPadroneCommand[]> = FlattenCommands<TCommands>['fullName'];
 
 /**
  * Find all the commands that are prefixed with a command name.
@@ -65,7 +65,7 @@ export type GetCommandNames<TCommands extends AnyZodrunCommand[]> = FlattenComma
  * and it would cause `level1 level2` to not show up in the autocomplete.
  * By excluding those cases, we can ensure autocomplete works correctly.
  */
-type PrefixedCommands<TCommands extends AnyZodrunCommand[]> =
+type PrefixedCommands<TCommands extends AnyPadroneCommand[]> =
   GetCommandNames<TCommands> extends infer CommandNames
     ? CommandNames extends string
       ? AnyPartExtends<GetCommandNames<TCommands>, `${CommandNames} ${string}`> extends true
@@ -78,7 +78,7 @@ type PrefixedCommands<TCommands extends AnyZodrunCommand[]> =
  * The possible commands are the commands that can be parsed by the program.
  * This includes the string that are exact matches to a command name, and strings that are prefixed with a command name.
  */
-export type PossibleCommands<TCommands extends AnyZodrunCommand[]> = GetCommandNames<TCommands> | PrefixedCommands<TCommands> | SafeString;
+export type PossibleCommands<TCommands extends AnyPadroneCommand[]> = GetCommandNames<TCommands> | PrefixedCommands<TCommands> | SafeString;
 
 /**
  * Match a string to a command by the possible commands.
@@ -86,7 +86,7 @@ export type PossibleCommands<TCommands extends AnyZodrunCommand[]> = GetCommandN
  * This is needed to avoid matching the top-level command when there are nested commands.
  */
 export type PickCommandByPossibleCommands<
-  TCommands extends AnyZodrunCommand[],
+  TCommands extends AnyPadroneCommand[],
   TCommand extends PossibleCommands<TCommands>,
 > = IsAny<TCommand> extends true
   ? TCommands[number]
