@@ -31,7 +31,7 @@ export type PadroneCommand<
   TCommands extends [...AnyPadroneCommand[]] = [],
 > = {
   name: TName;
-  fullName: FullCommandName<TName, TParentName>;
+  path: FullCommandName<TName, TParentName>;
   description?: string;
   needsApproval?: boolean | ((args: TArgs, options: TOpts) => Promise<boolean> | boolean);
   args?: ZArgs;
@@ -46,7 +46,7 @@ export type PadroneCommand<
   '~types': {
     name: TName;
     parentName: TParentName;
-    fullName: FullCommandName<TName, TParentName>;
+    path: FullCommandName<TName, TParentName>;
     argsInput: StandardSchemaV1.InferInput<TArgs>;
     argsOutput: StandardSchemaV1.InferOutput<TArgs>;
     optionsInput: StandardSchemaV1.InferInput<TOpts>;
@@ -103,7 +103,7 @@ export type PadroneCommandBuilder<
   '~types': {
     name: TName;
     parentName: TParentName;
-    fullName: FullCommandName<TName, TParentName>;
+    path: FullCommandName<TName, TParentName>;
     args: TArgs;
     options: TOpts;
     result: TRes;

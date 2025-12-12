@@ -1,7 +1,7 @@
 import { createPadrone } from 'padrone';
 import z from 'zod/v4';
 
-export const program = createPadrone()
+export const program = createPadrone('example')
   .command('greet', (c) =>
     c
       .args(z.array(z.string()).describe('Names to greet'))

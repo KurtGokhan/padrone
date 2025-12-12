@@ -12,7 +12,7 @@ const mockWeatherData = {
 };
 
 export function createWeatherProgram() {
-  return createPadrone()
+  return createPadrone('padrone-test')
     .command('current', (c) =>
       c
         .args(z.tuple([z.string().describe('City name')]))

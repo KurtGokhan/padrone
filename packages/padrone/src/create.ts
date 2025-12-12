@@ -101,7 +101,7 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
   const run: AnyPadroneProgram['run'] = (command, args, options) => {
     const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyPadroneCommand);
     if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
-    if (!commandObj.handler) throw new Error(`Command "${commandObj.fullName}" has no handler`);
+    if (!commandObj.handler) throw new Error(`Command "${commandObj.path}" has no handler`);
 
     const result = commandObj.handler(args as any, options as any);
 
@@ -117,7 +117,7 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     return {
       type: 'function',
       name: existingCommand.name,
-      description: await generateHelp(existingCommand, findCommandByName, undefined, { format: 'text' }),
+      description: await generateHelp(existingCommand, undefined, { format: 'text' }),
       inputSchema: {
         [Symbol.for('vercel.ai.schema') as keyof Schema & symbol]: true,
         jsonSchema: { type: 'string' },
@@ -155,7 +155,7 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     ) => {
       const initialCommand = {
         name,
-        fullName: existingCommand.fullName ? `${existingCommand.fullName} ${name}` : name,
+        path: existingCommand.path ? `${existingCommand.path} ${name}` : name,
         parent: existingCommand,
         '~types': {} as any,
       } satisfies PadroneCommand<TName, any>;
@@ -183,7 +183,13 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     },
 
     help(command, options) {
-      return generateHelp(existingCommand, findCommandByName, command, options);
+      const commandObj = !command
+        ? existingCommand
+        : typeof command === 'string'
+          ? findCommandByName(command, existingCommand.commands)
+          : (command as AnyPadroneCommand);
+      if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
+      return generateHelp(existingCommand, commandObj, options);
     },
 
     '~types': {} as any,

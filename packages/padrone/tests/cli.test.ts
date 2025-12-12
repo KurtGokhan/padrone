@@ -11,7 +11,7 @@ describe('CLI', () => {
     it('should execute a simple command with args and options', () => {
       const result = program.run('current', ['New York'], { unit: 'celsius', verbose: true });
 
-      expect(result.command.fullName).toBe('current');
+      expect(result.command.path).toBe('current');
       expect(result.args).toEqual(['New York']);
       expect(result.options).toEqual({ unit: 'celsius', verbose: true });
       expect(result.result.city).toBe('New York');
@@ -22,7 +22,7 @@ describe('CLI', () => {
     it('should execute a command with default options', () => {
       const result = program.run('current', ['London'], {});
 
-      expect(result.command.fullName).toBe('current');
+      expect(result.command.path).toBe('current');
       expect(result.result.temperature).toBe(72); // Default fahrenheit
       expect(result.result.humidity).toBeUndefined(); // verbose not set
     });
@@ -30,7 +30,7 @@ describe('CLI', () => {
     it('should execute nested commands', () => {
       const result = program.run('forecast extended', ['Tokyo'], { unit: 'celsius' });
 
-      expect(result.command.fullName).toBe('forecast extended');
+      expect(result.command.path).toBe('forecast extended');
       expect(result.args).toEqual(['Tokyo']);
       expect(result.options).toEqual({ unit: 'celsius' });
       expect(result.result.city).toBe('Tokyo');
@@ -40,7 +40,7 @@ describe('CLI', () => {
     it('should execute a command with array args', () => {
       const result = program.run('compare', ['New York', 'London', 'Tokyo'], undefined);
 
-      expect(result.command.fullName).toBe('compare');
+      expect(result.command.path).toBe('compare');
       expect(result.args).toEqual(['New York', 'London', 'Tokyo']);
       expect(result.result.cities).toEqual(['New York', 'London', 'Tokyo']);
       expect(result.result.comparison).toHaveLength(3);
@@ -49,7 +49,7 @@ describe('CLI', () => {
     it('should execute a command with void args and options', () => {
       const result = program.run('noop', undefined, undefined);
 
-      expect(result.command.fullName).toBe('noop');
+      expect(result.command.path).toBe('noop');
       expect(result.args).toBeUndefined();
       expect(result.options).toBeUndefined();
       expect(result.result).toBeUndefined();
@@ -60,7 +60,7 @@ describe('CLI', () => {
     it('should parse simple command with args', async () => {
       const result = await program.parse('current Paris');
 
-      expect(result.command.fullName).toBe('current');
+      expect(result.command.path).toBe('current');
       expect(result.args).toEqual(['Paris']);
       expect(result.options).toEqual({ unit: 'fahrenheit' });
     });
@@ -68,7 +68,7 @@ describe('CLI', () => {
     it('should parse command with options', async () => {
       const result = await program.parse('current London --unit celsius --verbose');
 
-      expect(result.command.fullName).toBe('current');
+      expect(result.command.path).toBe('current');
       expect(result.args).toEqual(['London']);
       expect(result.options).toEqual({ unit: 'celsius', verbose: true });
     });
@@ -76,7 +76,7 @@ describe('CLI', () => {
     it('should parse command with option values', async () => {
       const result = await program.parse('forecast Tokyo --days=5 --unit fahrenheit');
 
-      expect(result.command.fullName).toBe('forecast');
+      expect(result.command.path).toBe('forecast');
       expect(result.args).toEqual(['Tokyo']);
       expect(result.options).toEqual({ days: 5, unit: 'fahrenheit' });
     });
@@ -84,7 +84,7 @@ describe('CLI', () => {
     it('should parse nested commands', async () => {
       const result = await program.parse('forecast extended Berlin --unit celsius');
 
-      expect(result.command.fullName).toBe('forecast extended');
+      expect(result.command.path).toBe('forecast extended');
       expect(result.args).toEqual(['Berlin']);
       expect(result.options).toEqual({ unit: 'celsius' });
     });
@@ -92,7 +92,7 @@ describe('CLI', () => {
     it('should parse command with multiple args', async () => {
       const result = await program.parse('compare New York London Tokyo');
 
-      expect(result.command.fullName).toBe('compare');
+      expect(result.command.path).toBe('compare');
       // Note: Parser splits on spaces, so "New York" becomes ["New", "York"]
       expect(result.args).toEqual(['New', 'York', 'London', 'Tokyo']);
     });
@@ -100,14 +100,14 @@ describe('CLI', () => {
     it('should parse command with complex options', async () => {
       const result = await program.parse('alerts --region "West Coast" --severity high');
 
-      expect(result.command.fullName).toBe('alerts');
+      expect(result.command.path).toBe('alerts');
       expect(result.options).toEqual({ region: '"West', severity: 'high' }); // Note: quotes are parsed as part of the value
     });
 
     it('should handle empty input', async () => {
       const result = await program.parse('');
 
-      expect(result.command.fullName).toBe('' as TODO);
+      expect(result.command.path).toBe('' as TODO);
       expect(result.args).toBeUndefined();
       expect(result.options).toBeUndefined();
     });
@@ -119,7 +119,7 @@ describe('CLI', () => {
 
       expect(result).toBeDefined();
       if (!result) throw new Error('Result is undefined');
-      expect(result.command.fullName).toBe('current');
+      expect(result.command.path).toBe('current');
       expect(result.args).toEqual(['Madrid']);
       expect(result.result.city).toBe('Madrid');
       expect(result.result.temperature).toBe(22);
@@ -133,7 +133,7 @@ describe('CLI', () => {
       const result = await program.cli('forecast extended Sydney --unit celsius');
 
       expect(result).toBeDefined();
-      expect(result?.command.fullName).toBe('forecast extended');
+      expect(result?.command.path).toBe('forecast extended');
       expect(result?.result.city).toBe('Sydney');
     });
 
@@ -157,7 +157,7 @@ describe('CLI', () => {
 
       expect(command).toBeDefined();
       expect(command?.name).toBe('extended');
-      expect(command?.fullName).toBe('forecast extended');
+      expect(command?.path).toBe('forecast extended');
     });
 
     it('should return undefined for non-existent command', () => {
@@ -218,21 +218,23 @@ describe('CLI', () => {
 
   describe('edge cases', () => {
     it('should handle command with no args schema', () => {
-      const program = createPadrone().command('test', (c) => c.handle(() => ({ message: 'success' })));
+      const program = createPadrone('padrone-test').command('test', (c) => c.handle(() => ({ message: 'success' })));
 
       const result = program.run('test', undefined, undefined);
       expect(result.result?.message).toBe('success');
     });
 
     it('should handle command with no options schema', () => {
-      const program = createPadrone().command('test', (c) => c.args(z.tuple([z.string()])).handle((args) => ({ city: args[0] })));
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c.args(z.tuple([z.string()])).handle((args) => ({ city: args[0] })),
+      );
 
       const result = program.run('test', ['City'], undefined);
       expect(result.result.city).toBe('City');
     });
 
     it('should handle deeply nested commands', () => {
-      const program = createPadrone().command('level1', (c) =>
+      const program = createPadrone('padrone-test').command('level1', (c) =>
         c.command('level2', (c2) => c2.command('level3', (c3) => c3.handle(() => ({ depth: 3 })))).handle(() => ({ depth: 1 })),
       );
 
@@ -244,20 +246,20 @@ describe('CLI', () => {
       // Note: This tests the parsing behavior - spaces typically separate commands
       const result = await program.parse('forecast extended');
 
-      expect(result.command.fullName).toBe('forecast extended');
+      expect(result.command.path).toBe('forecast extended');
     });
 
     it('should handle options without values', async () => {
       const result = await program.parse('alerts --ascending');
 
-      expect(result.command.fullName).toBe('alerts');
+      expect(result.command.path).toBe('alerts');
       expect(result.options?.ascending).toBe(true);
     });
 
     it('should handle multiple boolean options', async () => {
       const result = await program.parse('current Paris --verbose --unit celsius');
 
-      expect(result.command.fullName).toBe('current');
+      expect(result.command.path).toBe('current');
       expect(result.options?.verbose).toBe(true);
       expect(result.options?.unit).toBe('celsius');
     });
@@ -308,7 +310,7 @@ describe('CLI', () => {
 
   describe('alias functionality', () => {
     it('should resolve aliases to full option names when parsing', async () => {
-      const program = createPadrone().command('test', (c) =>
+      const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .options(
             z.object({
@@ -330,13 +332,13 @@ describe('CLI', () => {
 
       const result = await program.parse('test -v -h');
 
-      expect(result.command.fullName).toBe('test');
+      expect(result.command.path).toBe('test');
       expect(result.options?.verbose).toBe(true);
       expect(result.options?.help).toBe(true);
     });
 
     it('should resolve aliases with values', async () => {
-      const program = createPadrone().command('test', (c) =>
+      const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .options(
             z.object({
@@ -360,7 +362,7 @@ describe('CLI', () => {
     });
 
     it('should execute commands with aliases via CLI', async () => {
-      const program = createPadrone().command('test', (c) =>
+      const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .options(
             z.object({
@@ -382,7 +384,7 @@ describe('CLI', () => {
     });
 
     it('should handle aliases mixed with full option names', async () => {
-      const program = createPadrone().command('test', (c) =>
+      const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .options(
             z.object({
@@ -411,7 +413,7 @@ describe('CLI', () => {
     });
 
     it('should handle undefined aliases gracefully', async () => {
-      const program = createPadrone().command('test', (c) =>
+      const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .options(
             z.object({
@@ -430,7 +432,7 @@ describe('CLI', () => {
     });
 
     it('should display aliases in help text', async () => {
-      const program = createPadrone().command('test', (c) =>
+      const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .options(
             z.object({
@@ -458,7 +460,7 @@ describe('CLI', () => {
     });
 
     it('should work with nested commands', async () => {
-      const program = createPadrone().command('parent', (c) =>
+      const program = createPadrone('padrone-test').command('parent', (c) =>
         c
           .command('child', (c2) =>
             c2
@@ -479,12 +481,12 @@ describe('CLI', () => {
 
       const result = await program.parse('parent child -v');
 
-      expect(result.command.fullName).toBe('parent child');
+      expect(result.command.path).toBe('parent child');
       expect(result.options?.verbose).toBe(true);
     });
 
     it('should work with meta object', async () => {
-      const program = createPadrone().command('parent', (c) =>
+      const program = createPadrone('padrone-test').command('parent', (c) =>
         c
           .command('child', (c2) =>
             c2
@@ -507,12 +509,12 @@ describe('CLI', () => {
 
       const result = await program.parse('parent child -v');
 
-      expect(result.command.fullName).toBe('parent child');
+      expect(result.command.path).toBe('parent child');
       expect(result.options?.verbose).toBe(true);
     });
 
     it('should handle multiple aliases for the same option', async () => {
-      const program = createPadrone().command('test', (c) =>
+      const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .options(
             z.object({

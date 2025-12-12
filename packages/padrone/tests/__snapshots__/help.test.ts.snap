@@ -1,7 +1,7 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
 exports[`help should generate help for the program 1`] = `
-"Usage: <root> [command]
+"Usage: padrone-test [command]
 
 Commands:
   current          
@@ -14,12 +14,12 @@ Commands:
   hidden-test      
   examples-test    
 
-Run "<root> [command] --help" for more information on a command.
+Run "padrone-test [command] --help" for more information on a command.
 "
 `;
 
 exports[`help should generate help for the top level command 1`] = `
-"Usage: <root> [command]
+"Usage: padrone-test [command]
 
 Commands:
   current          
@@ -32,12 +32,12 @@ Commands:
   hidden-test      
   examples-test    
 
-Run "<root> [command] --help" for more information on a command.
+Run "padrone-test [command] --help" for more information on a command.
 "
 `;
 
 exports[`help should generate help for a command 1`] = `
-"Usage: current [args...] [options]
+"Usage: padrone-test current [args...] [options]
 
 Arguments:
   args...
@@ -49,7 +49,7 @@ Options:
 `;
 
 exports[`help should generate help for a command with enabled colors 1`] = `
-"Usage: \x1B[36m\x1B[1mcurrent\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
+"Usage: \x1B[36m\x1B[1mpadrone-test current\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mArguments:\x1B[0m
   \x1B[32margs...\x1B[0m
@@ -61,7 +61,7 @@ exports[`help should generate help for a command with enabled colors 1`] = `
 `;
 
 exports[`help should generate help for a command with nested commands 1`] = `
-"Usage: forecast extended [command] [args...] [options]
+"Usage: padrone-test forecast extended [command] [args...] [options]
 
 Commands:
   extended  
@@ -77,7 +77,7 @@ Options:
 `;
 
 exports[`help should generate help for a command with meta object 1`] = `
-"Usage: cities [options]
+"Usage: padrone-test cities [options]
 
 Options:
   --verbose, -v <boolean> (optional)  Show detailed information
@@ -85,7 +85,7 @@ Options:
 `;
 
 exports[`help should generate help for a command with deprecated options 1`] = `
-"Usage: deprecated-test [options]
+"Usage: padrone-test deprecated-test [options]
 
 Options:
   --oldOption <string> (deprecated)              This option is deprecated
@@ -95,7 +95,7 @@ Options:
 `;
 
 exports[`help should generate help for a command with deprecated options and colors 1`] = `
-"Usage: \x1B[36m\x1B[1mdeprecated-test\x1B[0m \x1B[90m[options]\x1B[0m
+"Usage: \x1B[36m\x1B[1mpadrone-test deprecated-test\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
   \x1B[9m\x1B[90m--oldOption\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(deprecated)\x1B[0m              \x1B[2mThis option is deprecated\x1B[0m
@@ -105,7 +105,7 @@ exports[`help should generate help for a command with deprecated options and col
 `;
 
 exports[`help should generate help for a command with hidden options 1`] = `
-"Usage: hidden-test [options]
+"Usage: padrone-test hidden-test [options]
 
 Options:
   --visibleOption <string> (optional)   This option is visible in help
@@ -114,7 +114,7 @@ Options:
 `;
 
 exports[`help should generate help for a command with hidden options and colors 1`] = `
-"Usage: \x1B[36m\x1B[1mhidden-test\x1B[0m \x1B[90m[options]\x1B[0m
+"Usage: \x1B[36m\x1B[1mpadrone-test hidden-test\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
   \x1B[32m--visibleOption\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m   \x1B[2mThis option is visible in help\x1B[0m
@@ -123,7 +123,7 @@ exports[`help should generate help for a command with hidden options and colors 
 `;
 
 exports[`help should generate help for a command with examples 1`] = `
-"Usage: examples-test [options]
+"Usage: padrone-test examples-test [options]
 
 Options:
   --output <string> (optional)   Specify the output file path
@@ -138,7 +138,7 @@ Options:
 `;
 
 exports[`help should generate help for a command with examples and colors 1`] = `
-"Usage: \x1B[36m\x1B[1mexamples-test\x1B[0m \x1B[90m[options]\x1B[0m
+"Usage: \x1B[36m\x1B[1mpadrone-test examples-test\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
   \x1B[32m--output\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m   \x1B[2mSpecify the output file path\x1B[0m
@@ -153,7 +153,7 @@ exports[`help should generate help for a command with examples and colors 1`] = 
 `;
 
 exports[`help should generate help in console format 1`] = `
-"Usage: \x1B[36m\x1B[1mcurrent\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
+"Usage: \x1B[36m\x1B[1mpadrone-test current\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mArguments:\x1B[0m
   \x1B[32margs...\x1B[0m
@@ -165,7 +165,7 @@ exports[`help should generate help in console format 1`] = `
 `;
 
 exports[`help should generate help in markdown format 1`] = `
-"Usage: **current** *[args...]* *[options]*
+"Usage: **padrone-test current** *[args...]* *[options]*
 
 
 
@@ -184,12 +184,12 @@ exports[`help should generate help in markdown format 1`] = `
 "
 `;
 
-exports[`help should generate help in html format 1`] = `"<div style="font-family: monospace; line-height: 1.6;"><strong>Usage:</strong> <strong style="color: #00bcd4;">current</strong> <span style="color: #999;">[args...]</span> <span style="color: #999;">[options]</span><br><br><h3>Arguments:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">args...</code><br><br><h3>Options:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">--unit</code> <code style="color: #ff9800;">&lt;string&gt;</code> <span style="color: #999;">(default: fahrenheit)</span> <span style="color: #999;">(choices: celsius, fahrenheit)</span>     <span style="color: #666;">Temperature unit</span><br>&nbsp;&nbsp;<code style="color: #4caf50;">--verbose</code> <code style="color: #ff9800;">&lt;boolean&gt;</code> <span style="color: #999;">(optional)</span>  <span style="color: #666;">Show detailed information</span><br></div>"`;
+exports[`help should generate help in html format 1`] = `"<div style="font-family: monospace; line-height: 1.6;"><strong>Usage:</strong> <strong style="color: #00bcd4;">padrone-test current</strong> <span style="color: #999;">[args...]</span> <span style="color: #999;">[options]</span><br><br><h3>Arguments:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">args...</code><br><br><h3>Options:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">--unit</code> <code style="color: #ff9800;">&lt;string&gt;</code> <span style="color: #999;">(default: fahrenheit)</span> <span style="color: #999;">(choices: celsius, fahrenheit)</span>     <span style="color: #666;">Temperature unit</span><br>&nbsp;&nbsp;<code style="color: #4caf50;">--verbose</code> <code style="color: #ff9800;">&lt;boolean&gt;</code> <span style="color: #999;">(optional)</span>  <span style="color: #666;">Show detailed information</span><br></div>"`;
 
 exports[`help should generate help in json format 1`] = `
 "{
   "name": "current",
-  "usage": "current [args...] [options]",
+  "usage": "padrone-test current [args...] [options]",
   "arguments": [
     {
       "name": "args...",

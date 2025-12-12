@@ -10,9 +10,9 @@ describe.skip('Types', async () => {
   const parsedNested = await program.parse('forecast extended London');
   const parsedNested2 = await program.parse('forecast extended extended London');
 
-  expectTypeOf<(typeof parsed)['command']['fullName']>().toEqualTypeOf<'forecast'>();
-  expectTypeOf<(typeof parsedNested)['command']['fullName']>().toEqualTypeOf<'forecast extended'>();
-  expectTypeOf<(typeof parsedNested2)['command']['fullName']>().toEqualTypeOf<'forecast extended extended'>();
+  expectTypeOf<(typeof parsed)['command']['path']>().toEqualTypeOf<'forecast'>();
+  expectTypeOf<(typeof parsedNested)['command']['path']>().toEqualTypeOf<'forecast extended'>();
+  expectTypeOf<(typeof parsedNested2)['command']['path']>().toEqualTypeOf<'forecast extended extended'>();
 
   type TNames = Extract<Parameters<typeof program.run>[0], string>;
   expectTypeOf<TNames>().toEqualTypeOf<

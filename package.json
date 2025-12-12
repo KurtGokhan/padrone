@@ -20,8 +20,9 @@
     "examples/*"
   ],
   "scripts": {
-    "start": "bun --workspace=padrone start",
-    "docs": "bun --workspace=padrone-docs start",
+    "example": "bun --filter=@padrone/example start",
+    "start": "bun --filter=padrone start",
+    "docs": "bun --filter=padrone-docs start",
     "test": "bun test",
     "types": "tsgo",
     "lint": "biome lint",

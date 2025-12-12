@@ -124,13 +124,14 @@ export type HelpOptions = {
  * This is the single source of truth that all formatters use.
  */
 async function getHelpInfo(cmd: AnyPadroneCommand): Promise<HelpInfo> {
-  const commandName = cmd.fullName || '<root>';
+  const rootCmd = getRootCommand(cmd);
+  const commandName = cmd.path || cmd.name || 'program';
 
   const helpInfo: HelpInfo = {
     name: commandName,
     description: cmd.description,
     usage: {
-      command: commandName,
+      command: rootCmd === cmd ? commandName : `${rootCmd.name} ${commandName}`,
       hasSubcommands: !!(cmd.commands && cmd.commands.length > 0),
       hasArguments: !!cmd.args,
       hasOptions: !!cmd.options,
@@ -181,34 +182,17 @@ async function getHelpInfo(cmd: AnyPadroneCommand): Promise<HelpInfo> {
 // ============================================================================
 
 export async function generateHelp(
-  targetCommand: AnyPadroneCommand,
-  findCommandByName: (name: string, commands?: AnyPadroneCommand[]) => AnyPadroneCommand | undefined,
-  command?: string | AnyPadroneCommand,
+  rootCommand: AnyPadroneCommand,
+  commandObj: AnyPadroneCommand = rootCommand,
   options?: HelpOptions,
 ): Promise<string> {
-  // Resolve the target command
-  let cmd: AnyPadroneCommand | undefined;
-
-  if (command) {
-    if (typeof command === 'string') {
-      cmd = findCommandByName(command, targetCommand.commands);
-    } else {
-      cmd = command;
-    }
-  } else {
-    cmd = targetCommand;
-  }
-
-  if (!cmd) {
-    return `Command "${command ?? ''}" not found`;
-  }
-
-  // Build the comprehensive help info structure
-  const helpInfo = await getHelpInfo(cmd);
-
-  const format = options?.format ?? 'auto';
-
-  // Use the formatter to produce the final output
-  const formatter = createFormatter(format);
+  const helpInfo = await getHelpInfo(commandObj);
+  const formatter = createFormatter(options?.format ?? 'auto');
   return formatter.format(helpInfo);
+}
+
+function getRootCommand(cmd: AnyPadroneCommand): AnyPadroneCommand {
+  let current = cmd;
+  while (current.parent) current = current.parent;
+  return current;
 }

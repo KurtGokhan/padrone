@@ -42,7 +42,7 @@ export type FullCommandName<TName extends string, TParentName extends string = '
 export type PickCommandByName<
   TCommands extends AnyPadroneCommand[],
   TName extends string | AnyPadroneCommand,
-> = TName extends AnyPadroneCommand ? TName : Extract<FlattenCommands<TCommands>, { fullName: TName }>;
+> = TName extends AnyPadroneCommand ? TName : Extract<FlattenCommands<TCommands>, { path: TName }>;
 
 export type FlattenCommands<TCommands extends AnyPadroneCommand[]> = TCommands extends [infer FirstCommand, ...infer RestCommands]
   ? FirstCommand extends AnyPadroneCommand
@@ -55,7 +55,7 @@ export type FlattenCommands<TCommands extends AnyPadroneCommand[]> = TCommands e
       : never
   : TCommands[number];
 
-export type GetCommandNames<TCommands extends AnyPadroneCommand[]> = FlattenCommands<TCommands>['fullName'];
+export type GetCommandNames<TCommands extends AnyPadroneCommand[]> = FlattenCommands<TCommands>['path'];
 
 /**
  * Find all the commands that are prefixed with a command name.
