@@ -182,7 +182,7 @@ export type PadroneProgram<
   /**
    * Returns a tool definition that can be passed to AI SDK.
    */
-  tool: () => Promise<Tool>;
+  tool: () => Promise<Tool<{ command: string }>>;
 
   /**
    * Returns the help information for the program or a specific command.

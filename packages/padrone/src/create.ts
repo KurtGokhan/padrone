@@ -120,24 +120,31 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     return {
       type: 'function',
       name: existingCommand.name,
-      description: await generateHelp(existingCommand, undefined, { format: 'text', detailLevel: 'full' }),
+      description: await generateHelp(existingCommand, undefined, { format: 'text', detail: 'full' }),
+      strict: true,
+      inputExamples: [{ input: { command: '<command> [args...] [options...]' } }],
       inputSchema: {
         [Symbol.for('vercel.ai.schema') as keyof Schema & symbol]: true,
-        jsonSchema: { type: 'string' },
-        _type: undefined as unknown,
-        validate: (value) => {
-          if (typeof value === 'string') return { success: true, value };
-          return { success: false, error: new Error('Expected a string as the command.') };
+        jsonSchema: {
+          type: 'object',
+          properties: { command: { type: 'string' } },
+          additionalProperties: false,
         },
-      } satisfies Schema as Schema,
+        _type: undefined as unknown as { command: string },
+        validate: (value) => {
+          const command = (value as any)?.command;
+          if (typeof command === 'string') return { success: true, value: { command } };
+          return { success: false, error: new Error('Expected an object with command property as string.') };
+        },
+      } satisfies Schema<{ command: string }> as Schema<{ command: string }>,
       title: existingCommand.description,
       needsApproval: async (input) => {
-        const { command, options, args } = await parse(input);
+        const { command, options, args } = await parse(input.command);
         if (typeof command.needsApproval === 'function') return command.needsApproval(args, options);
         return !!command.needsApproval;
       },
       execute: async (input) => {
-        return (await cli(input)).result;
+        return (await cli(input.command)).result;
       },
     };
   };

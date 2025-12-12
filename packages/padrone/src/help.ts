@@ -113,7 +113,7 @@ async function extractOptionsInfo(schema: StandardSchemaV1, meta?: Record<string
 export type HelpOptions = {
   format?: HelpFormat | 'auto';
   /** Future: Control the level of detail in the output */
-  detailLevel?: 'minimal' | 'standard' | 'full';
+  detail?: 'minimal' | 'standard' | 'full';
 };
 
 // ============================================================================

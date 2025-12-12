@@ -22,6 +22,7 @@
       "name": "@padrone/example",
       "version": "0.0.1",
       "dependencies": {
+        "ai": "^6.0.0-beta.149",
         "padrone": "workspace:*",
         "zod": "^4.1.13",
       },

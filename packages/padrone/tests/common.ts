@@ -15,7 +15,7 @@ export function createWeatherProgram() {
   return createPadrone('padrone-test')
     .command('current', (c) =>
       c
-        .args(z.tuple([z.string().describe('City name')]))
+        .args(z.tuple([z.string()]).describe('City name'))
         .options(
           z.object({
             unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
