@@ -2,6 +2,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { createFormatter, type HelpArgumentInfo, type HelpFormat, type HelpInfo, type HelpOptionInfo } from './formatters';
 import { extractAliasesFromSchema, type PadroneOptionsMeta } from './options';
 import type { AnyPadroneCommand } from './types';
+import { getRootCommand } from './utils';
 
 async function extractArgsInfo(schema: StandardSchemaV1) {
   const result: HelpArgumentInfo[] = [];
@@ -112,7 +113,7 @@ async function extractOptionsInfo(schema: StandardSchemaV1, meta?: Record<string
 export type HelpOptions = {
   format?: HelpFormat | 'auto';
   /** Future: Control the level of detail in the output */
-  // detailLevel?: 'minimal' | 'standard' | 'full';
+  detailLevel?: 'minimal' | 'standard' | 'full';
 };
 
 // ============================================================================
@@ -189,10 +190,4 @@ export async function generateHelp(
   const helpInfo = await getHelpInfo(commandObj);
   const formatter = createFormatter(options?.format ?? 'auto');
   return formatter.format(helpInfo);
-}
-
-function getRootCommand(cmd: AnyPadroneCommand): AnyPadroneCommand {
-  let current = cmd;
-  while (current.parent) current = current.parent;
-  return current;
 }

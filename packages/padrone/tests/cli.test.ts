@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import z from 'zod/v4';
+import * as z from 'zod/v4';
 import { createPadrone } from '../src/index';
 import type { TODO } from '../src/type-utils';
 import { createWeatherProgram } from './common';

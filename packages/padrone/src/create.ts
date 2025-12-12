@@ -44,6 +44,9 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
 
     const commandTerms: string[] = [];
 
+    // If the first term is the program name, skip it
+    if (terms[0] === existingCommand.name) terms.shift();
+
     for (let i = 0; i < terms.length; i++) {
       const term = terms[i] || '';
       const found = findCommandByName(term, curCommand.commands);
@@ -117,14 +120,14 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     return {
       type: 'function',
       name: existingCommand.name,
-      description: await generateHelp(existingCommand, undefined, { format: 'text' }),
+      description: await generateHelp(existingCommand, undefined, { format: 'text', detailLevel: 'full' }),
       inputSchema: {
         [Symbol.for('vercel.ai.schema') as keyof Schema & symbol]: true,
         jsonSchema: { type: 'string' },
         _type: undefined as unknown,
         validate: (value) => {
           if (typeof value === 'string') return { success: true, value };
-          return { success: false, error: new Error('Expected a string') };
+          return { success: false, error: new Error('Expected a string as the command.') };
         },
       } satisfies Schema as Schema,
       title: existingCommand.description,

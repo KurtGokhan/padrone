@@ -83,8 +83,8 @@
             "patterns": [
               {
                 "group": ["zod/v3", "zod/v4"],
-                "importNamePattern": "z",
-                "message": "Use `import z from 'zod/v4'` instead"
+                "importNamePattern": "z|default",
+                "message": "Use `import * as z from 'zod/v4'` instead"
               }
             ],
             "paths": {
