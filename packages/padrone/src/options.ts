@@ -1,4 +1,4 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
 
 export interface PadroneOptionsMeta {
   description?: string;
@@ -8,9 +8,10 @@ export interface PadroneOptionsMeta {
   examples?: unknown[];
 }
 
-export async function extractAliasesFromSchema(schema: StandardSchemaV1, meta?: Record<string, PadroneOptionsMeta | undefined>) {
+export function extractAliasesFromSchema(schema: StandardJSONSchemaV1, meta?: Record<string, PadroneOptionsMeta | undefined>) {
   const aliases: Record<string, string> = {};
 
+  // Extract aliases from meta object (explicit parameter)
   if (meta) {
     for (const [key, value] of Object.entries(meta)) {
       if (!value?.alias) continue;
@@ -24,29 +25,28 @@ export async function extractAliasesFromSchema(schema: StandardSchemaV1, meta?: 
     }
   }
 
-  const vendor = schema['~standard'].vendor;
-  if (!vendor.includes('zod')) return aliases;
+  // Extract aliases from JSON schema properties (e.g., Zod's .meta({ alias: [...] }))
+  try {
+    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+    if (jsonSchema.type === 'object' && jsonSchema.properties) {
+      for (const [propertyName, propertySchema] of Object.entries(jsonSchema.properties as Record<string, any>)) {
+        const propAlias = propertySchema?.alias;
+        if (!propAlias) continue;
 
-  const { $ZodObject, $ZodType, $ZodVoid, globalRegistry } = (await import('zod/v4/core').catch(() => null!)) || {};
-  if (!$ZodObject) return aliases;
+        const list = typeof propAlias === 'string' ? [propAlias] : propAlias;
+        if (!Array.isArray(list)) continue;
 
-  if (schema instanceof $ZodVoid || !(schema instanceof $ZodObject)) return aliases;
-
-  const shape = schema._zod.def.shape;
-  if (!shape) return aliases;
-
-  for (const [propertyName, propertySchema] of Object.entries(shape)) {
-    if (!propertySchema || !(propertySchema instanceof $ZodType)) continue;
-    const meta = globalRegistry.get(propertySchema);
-
-    if (!meta?.alias) continue;
-    const list = typeof meta.alias === 'string' ? [meta.alias] : meta.alias;
-    if (!list) continue;
-
-    for (const aliasKey of list) {
-      if (typeof aliasKey !== 'string' || !aliasKey || aliasKey === propertyName) continue;
-      aliases[aliasKey] = propertyName;
+        for (const aliasKey of list) {
+          if (typeof aliasKey !== 'string' || !aliasKey || aliasKey === propertyName) continue;
+          // Don't override if already set from meta
+          if (!(aliasKey in aliases)) {
+            aliases[aliasKey] = propertyName;
+          }
+        }
+      }
     }
+  } catch {
+    // Ignore errors from JSON schema generation
   }
 
   return aliases;

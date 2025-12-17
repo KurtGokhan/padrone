@@ -1,10 +1,10 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
 import { createFormatter, type HelpArgumentInfo, type HelpFormat, type HelpInfo, type HelpOptionInfo } from './formatters';
 import { extractAliasesFromSchema, type PadroneOptionsMeta } from './options';
 import type { AnyPadroneCommand } from './types';
 import { getRootCommand } from './utils';
 
-async function extractArgsInfo(schema: StandardSchemaV1) {
+function extractArgsInfo(schema: StandardJSONSchemaV1) {
   const result: HelpArgumentInfo[] = [];
   if (!schema) return result;
 
@@ -12,9 +12,7 @@ async function extractArgsInfo(schema: StandardSchemaV1) {
   if (!vendor.includes('zod')) return result;
 
   try {
-    const { toJSONSchema, $ZodType } = (await import('zod/v4/core').catch(() => null!)) || {};
-    if (!$ZodType || !(schema instanceof $ZodType)) return result;
-    const jsonSchema = toJSONSchema(schema);
+    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
 
     // Handle tuple: z.tuple([z.string(), z.number(), ...])
     if (jsonSchema.type === 'array' && Array.isArray(jsonSchema.items)) {
@@ -68,7 +66,7 @@ async function extractArgsInfo(schema: StandardSchemaV1) {
   return result;
 }
 
-async function extractOptionsInfo(schema: StandardSchemaV1, meta?: Record<string, PadroneOptionsMeta | undefined>) {
+function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: Record<string, PadroneOptionsMeta | undefined>) {
   const result: HelpOptionInfo[] = [];
   if (!schema) return result;
 
@@ -76,9 +74,7 @@ async function extractOptionsInfo(schema: StandardSchemaV1, meta?: Record<string
   if (!vendor.includes('zod')) return result;
 
   try {
-    const { toJSONSchema, $ZodType } = (await import('zod/v4/core').catch(() => null!)) || {};
-    if (!$ZodType || !(schema instanceof $ZodType)) return result;
-    const jsonSchema = toJSONSchema(schema);
+    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
 
     // Handle object: z.object({ key: z.string(), ... })
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
@@ -124,7 +120,7 @@ export type HelpOptions = {
  * Builds a comprehensive HelpInfo structure from a command.
  * This is the single source of truth that all formatters use.
  */
-async function getHelpInfo(cmd: AnyPadroneCommand): Promise<HelpInfo> {
+function getHelpInfo(cmd: AnyPadroneCommand): HelpInfo {
   const rootCmd = getRootCommand(cmd);
   const commandName = cmd.path || cmd.name || 'program';
 
@@ -149,7 +145,7 @@ async function getHelpInfo(cmd: AnyPadroneCommand): Promise<HelpInfo> {
 
   // Build arguments info
   if (cmd.args) {
-    const argsInfo = await extractArgsInfo(cmd.args);
+    const argsInfo = extractArgsInfo(cmd.args);
     if (argsInfo.length > 0) {
       helpInfo.arguments = argsInfo;
     }
@@ -157,11 +153,11 @@ async function getHelpInfo(cmd: AnyPadroneCommand): Promise<HelpInfo> {
 
   // Build options info with aliases
   if (cmd.options) {
-    const optionsInfo = await extractOptionsInfo(cmd.options, cmd.meta);
+    const optionsInfo = extractOptionsInfo(cmd.options, cmd.meta);
     const optMap: Record<string, HelpOptionInfo> = Object.fromEntries(optionsInfo.map((opt) => [opt.name, opt]));
 
     // Merge aliases into options
-    const aliases = await extractAliasesFromSchema(cmd.options, cmd.meta);
+    const aliases = extractAliasesFromSchema(cmd.options, cmd.meta);
     for (const [alias, name] of Object.entries(aliases)) {
       const opt = optMap[name];
       if (!opt) continue;
@@ -182,12 +178,8 @@ async function getHelpInfo(cmd: AnyPadroneCommand): Promise<HelpInfo> {
 // Main Entry Point
 // ============================================================================
 
-export async function generateHelp(
-  rootCommand: AnyPadroneCommand,
-  commandObj: AnyPadroneCommand = rootCommand,
-  options?: HelpOptions,
-): Promise<string> {
-  const helpInfo = await getHelpInfo(commandObj);
+export function generateHelp(rootCommand: AnyPadroneCommand, commandObj: AnyPadroneCommand = rootCommand, options?: HelpOptions): string {
+  const helpInfo = getHelpInfo(commandObj);
   const formatter = createFormatter(options?.format ?? 'auto');
   return formatter.format(helpInfo);
 }

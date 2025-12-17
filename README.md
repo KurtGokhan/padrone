@@ -70,7 +70,7 @@ const program = createPadrone('myapp')
   );
 
 // Run from CLI arguments
-await program.cli();
+program.cli();
 ```
 
 ### Running your CLI
@@ -98,7 +98,7 @@ Hello, Mr. Jane!
 program.run('greet', ['John', 'Jane'], { prefix: 'Dr.' });
 
 // Parse CLI input without executing
-const parsed = await program.parse('greet John --prefix Mr.');
+const parsed = program.parse('greet John --prefix Mr.');
 console.log(parsed.args);    // ['John']
 console.log(parsed.options); // { prefix: 'Mr.' }
 ```
@@ -139,7 +139,7 @@ const program = createPadrone('weather')
   );
 
 // Run nested command
-await program.cli('forecast extended London');
+program.cli('forecast extended London');
 ```
 
 ### Option Aliases and Metadata
@@ -195,7 +195,7 @@ const result = await streamText({
   model: yourModel,
   prompt: "What's the weather in London?",
   tools: {
-    weather: await weatherCli.tool(),
+    weather: weatherCli.tool(),
   },
 });
 ```
@@ -205,7 +205,7 @@ const result = await streamText({
 Padrone automatically generates help text from your Zod schemas:
 
 ```typescript
-console.log(await program.help());
+console.log(program.help());
 ```
 
 Example output:

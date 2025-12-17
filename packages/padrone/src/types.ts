@@ -1,4 +1,4 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec';
 import type { Tool } from 'ai';
 import type { HelpOptions } from './help';
 import type { PadroneOptionsMeta } from './options';
@@ -17,10 +17,17 @@ type EmptyRecord = Record<string, never>;
 
 type DefaultArgs = unknown[] | void;
 type DefaultOpts = UnknownRecord | void;
-type ZArgs = StandardSchemaV1;
-type ZOpts = StandardSchemaV1;
-type ZDefaultArgs = StandardSchemaV1<DefaultArgs>;
-type ZDefaultOpts = StandardSchemaV1<DefaultOpts>;
+
+/**
+ * A schema that supports both validation (StandardSchemaV1) and JSON schema generation (StandardJSONSchemaV1).
+ * This is the type required for command arguments and options in Padrone.
+ */
+export type PadroneSchema<Input = unknown, Output = Input> = StandardSchemaV1<Input, Output> & StandardJSONSchemaV1<Input, Output>;
+
+type ZArgs = PadroneSchema;
+type ZOpts = PadroneSchema;
+type ZDefaultArgs = PadroneSchema<DefaultArgs>;
+type ZDefaultOpts = PadroneSchema<DefaultOpts>;
 
 export type PadroneCommand<
   TName extends string = string,
@@ -69,14 +76,14 @@ export type PadroneCommandBuilder<
   /**
    * Defines the positional arguments schema for the command.
    */
-  args: <TArgs extends ZArgs = StandardSchemaV1<void>>(
+  args: <TArgs extends ZArgs = PadroneSchema<void>>(
     args?: TArgs,
   ) => PadroneCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 
   /**
    * Defines the options schema for the command.
    */
-  options: <TOpts extends ZOpts = StandardSchemaV1<void>>(
+  options: <TOpts extends ZOpts = PadroneSchema<void>>(
     options?: TOpts,
     meta?: GetOptionsMeta<TOpts>,
   ) => PadroneCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
@@ -142,14 +149,14 @@ export type PadroneProgram<
    */
   cli: <const TCommand extends PossibleCommands<[TCmd]>>(
     input?: TCommand,
-  ) => Promise<PadroneCommandResult<PickCommandByPossibleCommands<[TCmd], TCommand>>>;
+  ) => PadroneCommandResult<PickCommandByPossibleCommands<[TCmd], TCommand>>;
 
   /**
    * Parses CLI input (or the provided input string) into command, args, and options without executing anything.
    */
   parse: <const TCommand extends PossibleCommands<[TCmd]>>(
     input?: TCommand,
-  ) => Promise<PadroneParseResult<PickCommandByPossibleCommands<[TCmd], TCommand>>>;
+  ) => PadroneParseResult<PickCommandByPossibleCommands<[TCmd], TCommand>>;
 
   /**
    * Finds a command by name, returning `undefined` if not found.
@@ -182,15 +189,12 @@ export type PadroneProgram<
   /**
    * Returns a tool definition that can be passed to AI SDK.
    */
-  tool: () => Promise<Tool<{ command: string }>>;
+  tool: () => Tool<{ command: string }>;
 
   /**
    * Returns the help information for the program or a specific command.
    */
-  help: <const TCommand extends GetCommandNames<[TCmd]> | FlattenCommands<[TCmd]>>(
-    command?: TCommand,
-    options?: HelpOptions,
-  ) => Promise<string>;
+  help: <const TCommand extends GetCommandNames<[TCmd]> | FlattenCommands<[TCmd]>>(command?: TCommand, options?: HelpOptions) => string;
 
   /**
    * Reflection information about the program.

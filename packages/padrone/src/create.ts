@@ -31,7 +31,7 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     return findCommandByName(command, existingCommand.commands) as ReturnType<AnyPadroneProgram['find']>;
   };
 
-  const parse: AnyPadroneProgram['parse'] = async (input) => {
+  const parse: AnyPadroneProgram['parse'] = (input) => {
     input ??= typeof process !== 'undefined' ? (process.argv.slice(2).join(' ') as any) : undefined;
     if (!input) return { command: existingCommand as any };
 
@@ -72,15 +72,23 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
 
     let preprocessedOptions = optionsRecord;
     if (curCommand.options) {
-      const aliases = await extractAliasesFromSchema(curCommand.options, curCommand.meta);
+      const aliases = extractAliasesFromSchema(curCommand.options, curCommand.meta);
       if (Object.keys(aliases).length > 0) preprocessedOptions = preprocessAliases(optionsRecord, aliases);
     }
 
-    let optionsParsed = curCommand.options ? curCommand.options['~standard'].validate(preprocessedOptions) : { value: preprocessedOptions };
-    if (optionsParsed instanceof Promise) optionsParsed = await optionsParsed;
+    const optionsParsed = curCommand.options
+      ? curCommand.options['~standard'].validate(preprocessedOptions)
+      : { value: preprocessedOptions };
 
-    let argsParsed = curCommand.args ? curCommand.args['~standard'].validate(args) : { value: args };
-    if (argsParsed instanceof Promise) argsParsed = await argsParsed;
+    if (optionsParsed instanceof Promise) {
+      throw new Error('Async validation is not supported. Schema validate() must return a synchronous result.');
+    }
+
+    const argsParsed = curCommand.args ? curCommand.args['~standard'].validate(args) : { value: args };
+
+    if (argsParsed instanceof Promise) {
+      throw new Error('Async validation is not supported. Schema validate() must return a synchronous result.');
+    }
 
     return {
       command: curCommand as any,
@@ -91,8 +99,8 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     };
   };
 
-  const cli: AnyPadroneProgram['cli'] = async (input) => {
-    const { command, args, options, argsResult, optionsResult } = await parse(input);
+  const cli: AnyPadroneProgram['cli'] = (input) => {
+    const { command, args, options, argsResult, optionsResult } = parse(input);
     const res = run(command, args, options) as any;
     return {
       ...res,
@@ -116,11 +124,11 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     };
   };
 
-  const tool: AnyPadroneProgram['tool'] = async () => {
+  const tool: AnyPadroneProgram['tool'] = () => {
     return {
       type: 'function',
       name: existingCommand.name,
-      description: await generateHelp(existingCommand, undefined, { format: 'text', detail: 'full' }),
+      description: generateHelp(existingCommand, undefined, { format: 'text', detail: 'full' }),
       strict: true,
       inputExamples: [{ input: { command: '<command> [args...] [options...]' } }],
       inputSchema: {
@@ -138,13 +146,13 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
         },
       } satisfies Schema<{ command: string }> as Schema<{ command: string }>,
       title: existingCommand.description,
-      needsApproval: async (input) => {
-        const { command, options, args } = await parse(input.command);
+      needsApproval: (input) => {
+        const { command, options, args } = parse(input.command);
         if (typeof command.needsApproval === 'function') return command.needsApproval(args, options);
         return !!command.needsApproval;
       },
-      execute: async (input) => {
-        return (await cli(input.command)).result;
+      execute: (input) => {
+        return cli(input.command).result;
       },
     };
   };

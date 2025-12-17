@@ -44,7 +44,7 @@ Arguments:
     City name
 
 Options:
-  --unit <string> (default: fahrenheit) (choices: celsius, fahrenheit)     Temperature unit
+  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)     Temperature unit
   --verbose <boolean> (optional)  Show detailed information
 "
 `;
@@ -57,7 +57,7 @@ exports[`help should generate help for a command with enabled colors 1`] = `
     \x1B[2mCity name\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
-  \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(default: fahrenheit)\x1B[0m \x1B[90m(choices: celsius, fahrenheit)\x1B[0m     \x1B[2mTemperature unit\x1B[0m
+  \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: fahrenheit)\x1B[0m \x1B[90m(choices: celsius, fahrenheit)\x1B[0m     \x1B[2mTemperature unit\x1B[0m
   \x1B[32m--verbose\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mShow detailed information\x1B[0m
 "
 `;
@@ -74,7 +74,7 @@ Arguments:
   args...
 
 Options:
-  --unit <string> (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
 "
 `;
 
@@ -162,7 +162,7 @@ exports[`help should generate help in console format 1`] = `
     \x1B[2mCity name\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
-  \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(default: fahrenheit)\x1B[0m \x1B[90m(choices: celsius, fahrenheit)\x1B[0m     \x1B[2mTemperature unit\x1B[0m
+  \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: fahrenheit)\x1B[0m \x1B[90m(choices: celsius, fahrenheit)\x1B[0m     \x1B[2mTemperature unit\x1B[0m
   \x1B[32m--verbose\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mShow detailed information\x1B[0m
 "
 `;
@@ -182,14 +182,14 @@ exports[`help should generate help in markdown format 1`] = `
 
 ### Options:
 
-  \`--unit\` \`<string>\` *(default: fahrenheit)* *(choices: celsius, fahrenheit)*     Temperature unit
+  \`--unit\` \`<string>\` *(optional)* *(default: fahrenheit)* *(choices: celsius, fahrenheit)*     Temperature unit
 
   \`--verbose\` \`<boolean>\` *(optional)*  Show detailed information
 
 "
 `;
 
-exports[`help should generate help in html format 1`] = `"<div style="font-family: monospace; line-height: 1.6;"><strong>Usage:</strong> <strong style="color: #00bcd4;">padrone-test current</strong> <span style="color: #999;">[args...]</span> <span style="color: #999;">[options]</span><br><br><h3>Arguments:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">args...</code><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #666;">City name</span><br><br><h3>Options:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">--unit</code> <code style="color: #ff9800;">&lt;string&gt;</code> <span style="color: #999;">(default: fahrenheit)</span> <span style="color: #999;">(choices: celsius, fahrenheit)</span>     <span style="color: #666;">Temperature unit</span><br>&nbsp;&nbsp;<code style="color: #4caf50;">--verbose</code> <code style="color: #ff9800;">&lt;boolean&gt;</code> <span style="color: #999;">(optional)</span>  <span style="color: #666;">Show detailed information</span><br></div>"`;
+exports[`help should generate help in html format 1`] = `"<div style="font-family: monospace; line-height: 1.6;"><strong>Usage:</strong> <strong style="color: #00bcd4;">padrone-test current</strong> <span style="color: #999;">[args...]</span> <span style="color: #999;">[options]</span><br><br><h3>Arguments:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">args...</code><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #666;">City name</span><br><br><h3>Options:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">--unit</code> <code style="color: #ff9800;">&lt;string&gt;</code> <span style="color: #999;">(optional)</span> <span style="color: #999;">(default: fahrenheit)</span> <span style="color: #999;">(choices: celsius, fahrenheit)</span>     <span style="color: #666;">Temperature unit</span><br>&nbsp;&nbsp;<code style="color: #4caf50;">--verbose</code> <code style="color: #ff9800;">&lt;boolean&gt;</code> <span style="color: #999;">(optional)</span>  <span style="color: #666;">Show detailed information</span><br></div>"`;
 
 exports[`help should generate help in json format 1`] = `
 "{
@@ -206,7 +206,7 @@ exports[`help should generate help in json format 1`] = `
   "options": [
     {
       "name": "unit",
-      "optional": false,
+      "optional": true,
       "description": "Temperature unit",
       "default": "fahrenheit",
       "type": "string",
