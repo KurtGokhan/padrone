@@ -2,7 +2,7 @@
   <img src="media/padrone.svg" alt="Padrone Logo" width="200" height="200" />
 </p>
 
-<h1 align="center">Padrone</h1>
+<!-- <h1 align="center">Padrone</h1> -->
 
 <p align="center">
   <strong>Create type-safe, interactive CLI apps with Zod schemas</strong>
@@ -175,7 +175,7 @@ const program = createPadrone('app')
 
 ## 🤖 AI SDK Integration
 
-Padrone provides first-class support for the [Vercel AI SDK](https://sdk.vercel.ai/), making it easy to expose your CLI as an AI tool:
+Padrone provides first-class support for the [Vercel AI SDK](https://ai-sdk.dev/), making it easy to expose your CLI as an AI tool:
 
 ```typescript
 import { streamText } from 'ai';

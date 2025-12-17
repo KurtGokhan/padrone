@@ -7,7 +7,6 @@ copyFileSync(rootFile('../README.md'), './dist/README.md');
 copyFileSync(rootFile('../LICENSE'), './dist/LICENSE');
 
 const content = readFileSync('./package.json', 'utf-8');
-// biome-ignore lint/correctness/noUnusedVariables: Ignored unused vars are intentional
 const { scripts, devDependencies, private: _, overrides, volta, 'lint-staged': __, workspaces, ...parsed }: any = JSON.parse(content);
 
 function replacePath(path: string) {
