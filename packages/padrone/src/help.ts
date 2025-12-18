@@ -119,8 +119,10 @@ export type HelpOptions = {
 /**
  * Builds a comprehensive HelpInfo structure from a command.
  * This is the single source of truth that all formatters use.
+ * @param cmd - The command to build help info for
+ * @param detail - The level of detail ('minimal', 'standard', or 'full')
  */
-function getHelpInfo(cmd: AnyPadroneCommand): HelpInfo {
+function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'standard'): HelpInfo {
   const rootCmd = getRootCommand(cmd);
   const commandName = cmd.path || cmd.name || 'program';
 
@@ -141,6 +143,11 @@ function getHelpInfo(cmd: AnyPadroneCommand): HelpInfo {
       name: c.name,
       description: c.description,
     }));
+
+    // In 'full' detail mode, recursively build help for all nested commands
+    if (detail === 'full') {
+      helpInfo.nestedCommands = cmd.commands.map((c) => getHelpInfo(c, 'full'));
+    }
   }
 
   // Build arguments info
@@ -179,7 +186,7 @@ function getHelpInfo(cmd: AnyPadroneCommand): HelpInfo {
 // ============================================================================
 
 export function generateHelp(rootCommand: AnyPadroneCommand, commandObj: AnyPadroneCommand = rootCommand, options?: HelpOptions): string {
-  const helpInfo = getHelpInfo(commandObj);
+  const helpInfo = getHelpInfo(commandObj, options?.detail);
   const formatter = createFormatter(options?.format ?? 'auto');
   return formatter.format(helpInfo);
 }

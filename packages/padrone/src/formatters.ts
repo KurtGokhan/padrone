@@ -63,6 +63,8 @@ export type HelpInfo = {
   arguments?: HelpArgumentInfo[];
   /** Options/flags (only visible ones, hidden filtered out) */
   options?: HelpOptionInfo[];
+  /** Full help info for nested commands (used in 'full' detail mode) */
+  nestedCommands?: HelpInfo[];
 };
 
 // ============================================================================
@@ -370,6 +372,16 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
         lines.push('');
       }
 
+      // Nested commands section (full detail mode)
+      if (info.nestedCommands?.length) {
+        lines.push(styler.label('Subcommand Details:'));
+        lines.push('');
+        for (const nestedCmd of info.nestedCommands) {
+          lines.push(styler.meta('─'.repeat(60)));
+          lines.push(this.format(nestedCmd));
+        }
+      }
+
       const result = lines.join(newline);
       return wrapDocument ? wrapDocument(result) : result;
     },
@@ -381,61 +393,69 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
 // ============================================================================
 
 function createJsonFormatter(): Formatter {
+  function getJson(info: HelpInfo) {
+    const json: Record<string, unknown> = {
+      name: info.name,
+      usage: [
+        info.usage.command,
+        info.usage.hasSubcommands ? '[command]' : null,
+        info.usage.hasArguments ? '[args...]' : null,
+        info.usage.hasOptions ? '[options]' : null,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    };
+
+    if (info.description) json.description = info.description;
+
+    if (info.subcommands?.length) {
+      json.commands = info.subcommands.map((c) => {
+        const cmd: Record<string, unknown> = { name: c.name };
+        if (c.description) cmd.description = c.description;
+        return cmd;
+      });
+    }
+
+    if (info.arguments?.length) {
+      json.arguments = info.arguments.map((arg) => {
+        const argJson: Record<string, unknown> = {
+          name: arg.name,
+          optional: arg.optional,
+        };
+        if (arg.description) argJson.description = arg.description;
+        if (arg.default !== undefined) argJson.default = arg.default;
+        if (arg.type) argJson.type = arg.type;
+        return argJson;
+      });
+    }
+
+    if (info.options?.length) {
+      json.options = info.options.map((opt) => {
+        const optJson: Record<string, unknown> = {
+          name: opt.name,
+          optional: opt.optional,
+        };
+        if (opt.aliases && opt.aliases.length > 0) optJson.aliases = opt.aliases;
+        if (opt.description) optJson.description = opt.description;
+        if (opt.default !== undefined) optJson.default = opt.default;
+        if (opt.type) optJson.type = opt.type;
+        if (opt.enum) optJson.enum = opt.enum;
+        if (opt.deprecated !== undefined) optJson.deprecated = opt.deprecated;
+        if (opt.examples && opt.examples.length > 0) optJson.examples = opt.examples;
+        return optJson;
+      });
+    }
+
+    if (info.nestedCommands?.length) {
+      json.nestedCommands = info.nestedCommands.map(getJson);
+    }
+
+    return json;
+  }
+
   return {
     format(info: HelpInfo): string {
-      const json: Record<string, unknown> = {
-        name: info.name,
-        usage: [
-          info.usage.command,
-          info.usage.hasSubcommands ? '[command]' : null,
-          info.usage.hasArguments ? '[args...]' : null,
-          info.usage.hasOptions ? '[options]' : null,
-        ]
-          .filter(Boolean)
-          .join(' '),
-      };
-
-      if (info.description) json.description = info.description;
-
-      if (info.subcommands?.length) {
-        json.commands = info.subcommands.map((c) => {
-          const cmd: Record<string, unknown> = { name: c.name };
-          if (c.description) cmd.description = c.description;
-          return cmd;
-        });
-      }
-
-      if (info.arguments?.length) {
-        json.arguments = info.arguments.map((arg) => {
-          const argJson: Record<string, unknown> = {
-            name: arg.name,
-            optional: arg.optional,
-          };
-          if (arg.description) argJson.description = arg.description;
-          if (arg.default !== undefined) argJson.default = arg.default;
-          if (arg.type) argJson.type = arg.type;
-          return argJson;
-        });
-      }
-
-      if (info.options?.length) {
-        json.options = info.options.map((opt) => {
-          const optJson: Record<string, unknown> = {
-            name: opt.name,
-            optional: opt.optional,
-          };
-          if (opt.aliases && opt.aliases.length > 0) optJson.aliases = opt.aliases;
-          if (opt.description) optJson.description = opt.description;
-          if (opt.default !== undefined) optJson.default = opt.default;
-          if (opt.type) optJson.type = opt.type;
-          if (opt.enum) optJson.enum = opt.enum;
-          if (opt.deprecated !== undefined) optJson.deprecated = opt.deprecated;
-          if (opt.examples && opt.examples.length > 0) optJson.examples = opt.examples;
-          return optJson;
-        });
-      }
-
-      return JSON.stringify(json, null, 2);
+      return JSON.stringify(getJson(info), null, 2);
     },
   };
 }

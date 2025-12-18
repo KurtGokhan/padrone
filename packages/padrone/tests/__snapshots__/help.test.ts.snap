@@ -224,3 +224,774 @@ exports[`help should generate help in json format 1`] = `
   ]
 }"
 `;
+
+exports[`help with full detail mode should generate full help with all nested commands in text format 1`] = `
+"Usage: padrone-test [command]
+
+Commands:
+  current          
+  forecast         
+  alerts           
+  compare          
+  noop             
+  cities           
+  deprecated-test  
+  hidden-test      
+  examples-test    
+
+Run "padrone-test [command] --help" for more information on a command.
+
+Subcommand Details:
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test current [args...] [options]
+
+Arguments:
+  args...
+    City name
+
+Options:
+  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)     Temperature unit
+  --verbose <boolean> (optional)  Show detailed information
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test forecast [command] [args...] [options]
+
+Commands:
+  extended  
+
+Run "forecast [command] --help" for more information on a command.
+
+Arguments:
+  args...
+
+Options:
+  --days <number> (optional) (default: 3)  Number of days to forecast
+  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+
+Subcommand Details:
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test forecast extended [command] [args...] [options]
+
+Commands:
+  extended  
+
+Run "forecast extended [command] --help" for more information on a command.
+
+Arguments:
+  args...
+
+Options:
+  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+
+Subcommand Details:
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test forecast extended extended [args...] [options]
+
+Arguments:
+  args...
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test alerts [args...] [options]
+
+Options:
+  --region <string> (optional)     Region to check alerts for
+  --severity <string> (optional) (choices: low, medium, high)   Filter by severity
+  --ascending <boolean> (optional)  Sort alerts in ascending order
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test compare [args...] [options]
+
+Arguments:
+  args[2..∞]
+    Cities to compare
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test noop [args...] [options]
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test cities [options]
+
+Options:
+  --verbose, -v <boolean> (optional)  Show detailed information
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test deprecated-test [options]
+
+Options:
+  --oldOption <string> (deprecated)              This option is deprecated
+  --newOption <string> (optional)              This is the new option
+  --deprecatedWithMessage <boolean> (deprecated: Use newOption instead)  This option is deprecated with a message
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test hidden-test [options]
+
+Options:
+  --visibleOption <string> (optional)   This option is visible in help
+  --anotherVisible <boolean> (optional)  This option is also visible
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test examples-test [options]
+
+Options:
+  --output <string> (optional)   Specify the output file path
+      Example: output.txt, ./dist/result.json
+  --format <string> (optional) (choices: json, yaml, xml)   Choose the output format
+      Example: json, yaml
+  --verbose <boolean> (optional)  Show detailed information
+      Example: true
+  --config <string> (optional)   Path to configuration file
+      Example: ./config.json, ~/.config/app.json
+"
+`;
+
+exports[`help with full detail mode should generate full help with all nested commands in json format 1`] = `
+"{
+  "name": "padrone-test",
+  "usage": "padrone-test [command]",
+  "commands": [
+    {
+      "name": "current"
+    },
+    {
+      "name": "forecast"
+    },
+    {
+      "name": "alerts"
+    },
+    {
+      "name": "compare"
+    },
+    {
+      "name": "noop"
+    },
+    {
+      "name": "cities"
+    },
+    {
+      "name": "deprecated-test"
+    },
+    {
+      "name": "hidden-test"
+    },
+    {
+      "name": "examples-test"
+    }
+  ],
+  "nestedCommands": [
+    {
+      "name": "current",
+      "usage": "padrone-test current [args...] [options]",
+      "arguments": [
+        {
+          "name": "args...",
+          "optional": false,
+          "description": "City name",
+          "type": "array<any>"
+        }
+      ],
+      "options": [
+        {
+          "name": "unit",
+          "optional": true,
+          "description": "Temperature unit",
+          "default": "fahrenheit",
+          "type": "string",
+          "enum": [
+            "celsius",
+            "fahrenheit"
+          ]
+        },
+        {
+          "name": "verbose",
+          "optional": true,
+          "description": "Show detailed information",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "forecast",
+      "usage": "padrone-test forecast [command] [args...] [options]",
+      "commands": [
+        {
+          "name": "extended"
+        }
+      ],
+      "arguments": [
+        {
+          "name": "args...",
+          "optional": false,
+          "type": "array<any>"
+        }
+      ],
+      "options": [
+        {
+          "name": "days",
+          "optional": true,
+          "description": "Number of days to forecast",
+          "default": 3,
+          "type": "number"
+        },
+        {
+          "name": "unit",
+          "optional": true,
+          "description": "Temperature unit",
+          "default": "fahrenheit",
+          "type": "string",
+          "enum": [
+            "celsius",
+            "fahrenheit"
+          ]
+        }
+      ],
+      "nestedCommands": [
+        {
+          "name": "forecast extended",
+          "usage": "padrone-test forecast extended [command] [args...] [options]",
+          "commands": [
+            {
+              "name": "extended"
+            }
+          ],
+          "arguments": [
+            {
+              "name": "args...",
+              "optional": false,
+              "type": "array<any>"
+            }
+          ],
+          "options": [
+            {
+              "name": "unit",
+              "optional": true,
+              "description": "Temperature unit",
+              "default": "fahrenheit",
+              "type": "string",
+              "enum": [
+                "celsius",
+                "fahrenheit"
+              ]
+            }
+          ],
+          "nestedCommands": [
+            {
+              "name": "forecast extended extended",
+              "usage": "padrone-test forecast extended extended [args...] [options]",
+              "arguments": [
+                {
+                  "name": "args...",
+                  "optional": false,
+                  "type": "array<any>"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "alerts",
+      "usage": "padrone-test alerts [args...] [options]",
+      "options": [
+        {
+          "name": "region",
+          "optional": true,
+          "description": "Region to check alerts for",
+          "type": "string"
+        },
+        {
+          "name": "severity",
+          "optional": true,
+          "description": "Filter by severity",
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        {
+          "name": "ascending",
+          "optional": true,
+          "description": "Sort alerts in ascending order",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "compare",
+      "usage": "padrone-test compare [args...] [options]",
+      "arguments": [
+        {
+          "name": "args[2..∞]",
+          "optional": false,
+          "description": "Cities to compare",
+          "type": "array<string>"
+        }
+      ]
+    },
+    {
+      "name": "noop",
+      "usage": "padrone-test noop [args...] [options]"
+    },
+    {
+      "name": "cities",
+      "usage": "padrone-test cities [options]",
+      "options": [
+        {
+          "name": "verbose",
+          "optional": true,
+          "aliases": [
+            "v"
+          ],
+          "description": "Show detailed information",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "deprecated-test",
+      "usage": "padrone-test deprecated-test [options]",
+      "options": [
+        {
+          "name": "oldOption",
+          "optional": true,
+          "description": "This option is deprecated",
+          "type": "string",
+          "deprecated": true
+        },
+        {
+          "name": "newOption",
+          "optional": true,
+          "description": "This is the new option",
+          "type": "string"
+        },
+        {
+          "name": "deprecatedWithMessage",
+          "optional": true,
+          "description": "This option is deprecated with a message",
+          "type": "boolean",
+          "deprecated": "Use newOption instead"
+        }
+      ]
+    },
+    {
+      "name": "hidden-test",
+      "usage": "padrone-test hidden-test [options]",
+      "options": [
+        {
+          "name": "visibleOption",
+          "optional": true,
+          "description": "This option is visible in help",
+          "type": "string"
+        },
+        {
+          "name": "anotherVisible",
+          "optional": true,
+          "description": "This option is also visible",
+          "type": "boolean"
+        }
+      ]
+    },
+    {
+      "name": "examples-test",
+      "usage": "padrone-test examples-test [options]",
+      "options": [
+        {
+          "name": "output",
+          "optional": true,
+          "description": "Specify the output file path",
+          "type": "string",
+          "examples": [
+            "output.txt",
+            "./dist/result.json"
+          ]
+        },
+        {
+          "name": "format",
+          "optional": true,
+          "description": "Choose the output format",
+          "type": "string",
+          "enum": [
+            "json",
+            "yaml",
+            "xml"
+          ],
+          "examples": [
+            "json",
+            "yaml"
+          ]
+        },
+        {
+          "name": "verbose",
+          "optional": true,
+          "description": "Show detailed information",
+          "type": "boolean",
+          "examples": [
+            true
+          ]
+        },
+        {
+          "name": "config",
+          "optional": true,
+          "description": "Path to configuration file",
+          "type": "string",
+          "examples": [
+            "./config.json",
+            "~/.config/app.json"
+          ]
+        }
+      ]
+    }
+  ]
+}"
+`;
+
+exports[`help with full detail mode should generate full help with all nested commands in markdown format 1`] = `
+"Usage: **padrone-test** *[command]*
+
+
+
+### Commands:
+
+  **current**          
+
+  **forecast**         
+
+  **alerts**           
+
+  **compare**          
+
+  **noop**             
+
+  **cities**           
+
+  **deprecated-test**  
+
+  **hidden-test**      
+
+  **examples-test**    
+
+
+
+*Run "padrone-test [command] --help" for more information on a command.*
+
+
+
+### Subcommand Details:
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test current** *[args...]* *[options]*
+
+
+
+### Arguments:
+
+  \`args...\`
+
+    City name
+
+
+
+### Options:
+
+  \`--unit\` \`<string>\` *(optional)* *(default: fahrenheit)* *(choices: celsius, fahrenheit)*     Temperature unit
+
+  \`--verbose\` \`<boolean>\` *(optional)*  Show detailed information
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test forecast** *[command]* *[args...]* *[options]*
+
+
+
+### Commands:
+
+  **extended**  
+
+
+
+*Run "forecast [command] --help" for more information on a command.*
+
+
+
+### Arguments:
+
+  \`args...\`
+
+
+
+### Options:
+
+  \`--days\` \`<number>\` *(optional)* *(default: 3)*  Number of days to forecast
+
+  \`--unit\` \`<string>\` *(optional)* *(default: fahrenheit)* *(choices: celsius, fahrenheit)*  Temperature unit
+
+
+
+### Subcommand Details:
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test forecast extended** *[command]* *[args...]* *[options]*
+
+
+
+### Commands:
+
+  **extended**  
+
+
+
+*Run "forecast extended [command] --help" for more information on a command.*
+
+
+
+### Arguments:
+
+  \`args...\`
+
+
+
+### Options:
+
+  \`--unit\` \`<string>\` *(optional)* *(default: fahrenheit)* *(choices: celsius, fahrenheit)*  Temperature unit
+
+
+
+### Subcommand Details:
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test forecast extended extended** *[args...]* *[options]*
+
+
+
+### Arguments:
+
+  \`args...\`
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test alerts** *[args...]* *[options]*
+
+
+
+### Options:
+
+  \`--region\` \`<string>\` *(optional)*     Region to check alerts for
+
+  \`--severity\` \`<string>\` *(optional)* *(choices: low, medium, high)*   Filter by severity
+
+  \`--ascending\` \`<boolean>\` *(optional)*  Sort alerts in ascending order
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test compare** *[args...]* *[options]*
+
+
+
+### Arguments:
+
+  \`args[2..∞]\`
+
+    Cities to compare
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test noop** *[args...]* *[options]*
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test cities** *[options]*
+
+
+
+### Options:
+
+  \`--verbose, -v\` \`<boolean>\` *(optional)*  Show detailed information
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test deprecated-test** *[options]*
+
+
+
+### Options:
+
+  ~~--oldOption~~ \`<string>\` *(deprecated)*              This option is deprecated
+
+  \`--newOption\` \`<string>\` *(optional)*              This is the new option
+
+  ~~--deprecatedWithMessage~~ \`<boolean>\` *(deprecated: Use newOption instead)*  This option is deprecated with a message
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test hidden-test** *[options]*
+
+
+
+### Options:
+
+  \`--visibleOption\` \`<string>\` *(optional)*   This option is visible in help
+
+  \`--anotherVisible\` \`<boolean>\` *(optional)*  This option is also visible
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test examples-test** *[options]*
+
+
+
+### Options:
+
+  \`--output\` \`<string>\` *(optional)*   Specify the output file path
+
+    **Example:** \`output.txt, ./dist/result.json\`
+
+  \`--format\` \`<string>\` *(optional)* *(choices: json, yaml, xml)*   Choose the output format
+
+    **Example:** \`json, yaml\`
+
+  \`--verbose\` \`<boolean>\` *(optional)*  Show detailed information
+
+    **Example:** \`true\`
+
+  \`--config\` \`<string>\` *(optional)*   Path to configuration file
+
+    **Example:** \`./config.json, ~/.config/app.json\`
+
+"
+`;
+
+exports[`help with full detail mode should generate full help for a specific command with subcommands 1`] = `
+"Usage: padrone-test forecast [command] [args...] [options]
+
+Commands:
+  extended  
+
+Run "forecast [command] --help" for more information on a command.
+
+Arguments:
+  args...
+
+Options:
+  --days <number> (optional) (default: 3)  Number of days to forecast
+  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+
+Subcommand Details:
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test forecast extended [command] [args...] [options]
+
+Commands:
+  extended  
+
+Run "forecast extended [command] --help" for more information on a command.
+
+Arguments:
+  args...
+
+Options:
+  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+
+Subcommand Details:
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test forecast extended extended [args...] [options]
+
+Arguments:
+  args...
+"
+`;
+
+exports[`help with full detail mode should generate full help for deeply nested commands 1`] = `
+"Usage: padrone-test forecast extended [command] [args...] [options]
+
+Commands:
+  extended  
+
+Run "forecast extended [command] --help" for more information on a command.
+
+Arguments:
+  args...
+
+Options:
+  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+
+Subcommand Details:
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test forecast extended extended [args...] [options]
+
+Arguments:
+  args...
+"
+`;
+
+exports[`help with full detail mode should work with ansi format in full detail mode 1`] = `
+"Usage: \x1B[36m\x1B[1mpadrone-test forecast\x1B[0m \x1B[90m[command]\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
+
+\x1B[1mCommands:\x1B[0m
+  \x1B[36m\x1B[1mextended\x1B[0m  
+
+\x1B[90mRun "forecast [command] --help" for more information on a command.\x1B[0m
+
+\x1B[1mArguments:\x1B[0m
+  \x1B[32margs...\x1B[0m
+
+\x1B[1mOptions:\x1B[0m
+  \x1B[32m--days\x1B[0m \x1B[33m<number>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: 3)\x1B[0m  \x1B[2mNumber of days to forecast\x1B[0m
+  \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: fahrenheit)\x1B[0m \x1B[90m(choices: celsius, fahrenheit)\x1B[0m  \x1B[2mTemperature unit\x1B[0m
+
+\x1B[1mSubcommand Details:\x1B[0m
+
+\x1B[90m────────────────────────────────────────────────────────────\x1B[0m
+Usage: \x1B[36m\x1B[1mpadrone-test forecast extended\x1B[0m \x1B[90m[command]\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
+
+\x1B[1mCommands:\x1B[0m
+  \x1B[36m\x1B[1mextended\x1B[0m  
+
+\x1B[90mRun "forecast extended [command] --help" for more information on a command.\x1B[0m
+
+\x1B[1mArguments:\x1B[0m
+  \x1B[32margs...\x1B[0m
+
+\x1B[1mOptions:\x1B[0m
+  \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: fahrenheit)\x1B[0m \x1B[90m(choices: celsius, fahrenheit)\x1B[0m  \x1B[2mTemperature unit\x1B[0m
+
+\x1B[1mSubcommand Details:\x1B[0m
+
+\x1B[90m────────────────────────────────────────────────────────────\x1B[0m
+Usage: \x1B[36m\x1B[1mpadrone-test forecast extended extended\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
+
+\x1B[1mArguments:\x1B[0m
+  \x1B[32margs...\x1B[0m
+"
+`;
