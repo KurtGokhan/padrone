@@ -532,4 +532,89 @@ describe('CLI', () => {
       expect(result.options?.verbose).toBe(true);
     });
   });
+
+  describe('stringify', () => {
+    it('should stringify a simple command with args', () => {
+      const result = program.stringify('current', ['New York'], undefined);
+
+      expect(result).toBe('current "New York"');
+    });
+
+    it('should stringify a command with args and options', () => {
+      const result = program.stringify('current', ['London'], { unit: 'celsius', verbose: true });
+
+      expect(result).toBe('current London --unit=celsius --verbose');
+    });
+
+    it('should stringify a nested command', () => {
+      const result = program.stringify('forecast extended', ['Tokyo'], { unit: 'fahrenheit' });
+
+      expect(result).toBe('forecast extended Tokyo --unit=fahrenheit');
+    });
+
+    it('should stringify a command with multiple args', () => {
+      const result = program.stringify('compare', ['NYC', 'LA', 'Chicago'], undefined);
+
+      expect(result).toBe('compare NYC LA Chicago');
+    });
+
+    it('should stringify args with spaces using quotes', () => {
+      const result = program.stringify('compare', ['New York', 'Los Angeles'], undefined);
+
+      expect(result).toBe('compare "New York" "Los Angeles"');
+    });
+
+    it('should stringify options with string values containing spaces', () => {
+      const result = program.stringify('alerts', undefined, { region: 'West Coast', severity: 'high' });
+
+      expect(result).toBe('alerts --region="West Coast" --severity=high');
+    });
+
+    it('should stringify false boolean options with no- prefix', () => {
+      const result = program.stringify('alerts', undefined, { ascending: false });
+
+      expect(result).toBe('alerts --no-ascending');
+    });
+
+    it('should stringify numeric options', () => {
+      const result = program.stringify('forecast', ['Berlin'], { days: 5, unit: 'celsius' });
+
+      expect(result).toBe('forecast Berlin --days=5 --unit=celsius');
+    });
+
+    it('should omit undefined options', () => {
+      const result = program.stringify('current', ['Paris'], { unit: 'celsius', verbose: undefined });
+
+      expect(result).toBe('current Paris --unit=celsius');
+    });
+
+    it('should handle command with no args and no options', () => {
+      const result = program.stringify('noop', undefined, undefined);
+
+      expect(result).toBe('noop');
+    });
+
+    it('should throw error for non-existent command', () => {
+      expect(() => {
+        program.stringify('nonexistent' as any, [], {});
+      }).toThrow('Command "nonexistent" not found');
+    });
+
+    it('should handle empty args array', () => {
+      const result = program.stringify('compare', [], undefined);
+
+      expect(result).toBe('compare');
+    });
+
+    it('should roundtrip: stringify then parse produces same result', () => {
+      const original = { command: 'current' as const, args: ['Tokyo'] as [string], options: { unit: 'celsius' as const, verbose: true } };
+      const stringified = program.stringify(original.command, original.args, original.options);
+      const parsed = program.parse(stringified);
+
+      expect(parsed.command.path).toBe(original.command);
+      expect(parsed.args).toEqual(original.args);
+      expect((parsed.options as typeof original.options)?.unit).toBe(original.options.unit);
+      expect((parsed.options as typeof original.options)?.verbose).toBe(original.options.verbose);
+    });
+  });
 });

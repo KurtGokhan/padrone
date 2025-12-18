@@ -159,6 +159,15 @@ export type PadroneProgram<
   ) => PadroneParseResult<PickCommandByPossibleCommands<[TCmd], TCommand>>;
 
   /**
+   * Parses CLI input (or the provided input string) into command, args, and options without executing anything.
+   */
+  stringify: <const TCommand extends GetCommandNames<TCommands> = ''>(
+    command?: TCommand,
+    args?: GetArgs<'out', PickCommandByPossibleCommands<[TCmd], TCommand>>,
+    options?: GetOptions<'out', PickCommandByPossibleCommands<[TCmd], TCommand>>,
+  ) => string;
+
+  /**
    * Finds a command by name, returning `undefined` if not found.
    */
   find: <const TName extends GetCommandNames<[TCmd]>>(

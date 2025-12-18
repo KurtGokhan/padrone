@@ -99,6 +99,42 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     };
   };
 
+  const stringify: AnyPadroneProgram['stringify'] = (command = '' as any, args, options) => {
+    const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyPadroneCommand);
+    if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
+
+    const parts: string[] = [];
+
+    if (commandObj.path) parts.push(commandObj.path);
+
+    if (args != null && Array.isArray(args)) {
+      for (const arg of args as unknown[]) {
+        if (arg === undefined || arg === null) continue;
+        const argStr = String(arg);
+        if (argStr.includes(' ')) parts.push(`"${argStr}"`);
+        else parts.push(argStr);
+      }
+    }
+
+    if (options && typeof options === 'object') {
+      for (const [key, value] of Object.entries(options)) {
+        if (value === undefined) continue;
+
+        if (typeof value === 'boolean') {
+          if (value) parts.push(`--${key}`);
+          else parts.push(`--no-${key}`);
+        } else if (typeof value === 'string') {
+          if (value.includes(' ')) parts.push(`--${key}="${value}"`);
+          else parts.push(`--${key}=${value}`);
+        } else {
+          parts.push(`--${key}=${value}`);
+        }
+      }
+    }
+
+    return parts.join(' ');
+  };
+
   const cli: AnyPadroneProgram['cli'] = (input) => {
     const { command, args, options, argsResult, optionsResult } = parse(input);
     const res = run(command, args, options) as any;
@@ -186,6 +222,7 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     run,
     find,
     parse,
+    stringify,
     cli,
     tool,
 
