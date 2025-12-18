@@ -96,6 +96,10 @@ function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: Record<string, 
           deprecated: optMeta?.deprecated ?? prop?.deprecated,
           hidden: optMeta?.hidden ?? prop?.hidden,
           examples: optMeta?.examples ?? prop?.examples,
+          env: optMeta?.env ?? prop?.env,
+          variadic: optMeta?.variadic ?? prop?.variadic,
+          negatable: optMeta?.negatable ?? prop?.negatable,
+          configKey: optMeta?.configKey ?? prop?.configKey,
         });
       }
     }

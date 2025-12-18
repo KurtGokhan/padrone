@@ -31,6 +31,14 @@ export type HelpOptionInfo = {
   deprecated?: boolean | string;
   hidden?: boolean;
   examples?: unknown[];
+  /** Environment variable(s) this option can be set from */
+  env?: string | string[];
+  /** Whether this option can be specified multiple times (variadic) */
+  variadic?: boolean;
+  /** Whether this option can be negated with --no-<option> */
+  negatable?: boolean;
+  /** Config file key that maps to this option */
+  configKey?: string;
 };
 
 /**
@@ -320,6 +328,8 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
       if (opt.optional && !opt.deprecated) parts.push(styler.meta('(optional)'));
       if (opt.default !== undefined) parts.push(styler.meta(`(default: ${String(opt.default)})`));
       if (opt.enum) parts.push(styler.meta(`(choices: ${opt.enum.join(', ')})`));
+      if (opt.variadic) parts.push(styler.meta('(repeatable)'));
+      if (opt.negatable) parts.push(styler.meta('(negatable)'));
       if (isDeprecated) {
         const deprecatedMeta =
           typeof opt.deprecated === 'string' ? styler.meta(`(deprecated: ${opt.deprecated})`) : styler.meta('(deprecated)');
@@ -328,6 +338,19 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
 
       const description = opt.description ? styler.description(opt.description) : '';
       lines.push(indent(1) + join(parts) + padding + description);
+
+      // Environment variable line
+      if (opt.env) {
+        const envVars = typeof opt.env === 'string' ? [opt.env] : opt.env;
+        const envParts: string[] = [styler.example('Env:'), styler.exampleValue(envVars.join(', '))];
+        lines.push(indent(3) + join(envParts));
+      }
+
+      // Config key line
+      if (opt.configKey) {
+        const configParts: string[] = [styler.example('Config:'), styler.exampleValue(opt.configKey)];
+        lines.push(indent(3) + join(configParts));
+      }
 
       // Examples line
       if (opt.examples && opt.examples.length > 0) {

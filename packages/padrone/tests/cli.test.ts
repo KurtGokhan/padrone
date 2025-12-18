@@ -101,7 +101,7 @@ describe('CLI', () => {
       const result = program.parse('alerts --region "West Coast" --severity high');
 
       expect(result.command.path).toBe('alerts');
-      expect(result.options).toEqual({ region: '"West', severity: 'high' }); // Note: quotes are parsed as part of the value
+      expect(result.options).toEqual({ region: 'West Coast', severity: 'high' }); // Note: quotes are now properly parsed
     });
 
     it('should handle empty input', () => {
@@ -615,6 +615,872 @@ describe('CLI', () => {
       expect(parsed.args).toEqual(original.args);
       expect((parsed.options as typeof original.options)?.unit).toBe(original.options.unit);
       expect((parsed.options as typeof original.options)?.verbose).toBe(original.options.verbose);
+    });
+
+    it('should stringify variadic options as multiple flags', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              include: z.array(z.string()).optional(),
+            }),
+            { include: { variadic: true } },
+          )
+          .handle(),
+      );
+
+      const result = program.stringify('test', undefined, { include: ['src', 'lib', 'tests'] });
+      expect(result).toBe('test --include=src --include=lib --include=tests');
+    });
+  });
+
+  describe('variadic options', () => {
+    it('should collect repeated options into an array', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              include: z.array(z.string()).optional(),
+            }),
+            { include: { variadic: true } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test --include=src --include=lib --include=tests');
+
+      expect(result.options?.include).toEqual(['src', 'lib', 'tests']);
+    });
+
+    it('should work with aliases for variadic options', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              include: z.array(z.string()).optional(),
+            }),
+            { include: { variadic: true, alias: ['i'] } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test -i=src -i=lib --include=tests');
+
+      expect(result.options?.include).toEqual(['src', 'lib', 'tests']);
+    });
+
+    it('should handle variadic options with space-separated values', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              tag: z.array(z.string()).optional(),
+            }),
+            { tag: { variadic: true } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test --tag one --tag two --tag three');
+
+      expect(result.options?.tag).toEqual(['one', 'two', 'three']);
+    });
+
+    it('should display variadic options in help text', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              include: z.array(z.string()).optional().describe('Files to include'),
+            }),
+            { include: { variadic: true } },
+          )
+          .handle(),
+      );
+
+      const helpText = program.help('test');
+
+      expect(helpText).toContain('--include');
+      expect(helpText).toContain('(repeatable)');
+    });
+  });
+
+  describe('negatable boolean options', () => {
+    it('should parse --no-<option> as false', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              verbose: z.boolean().optional().default(true),
+            }),
+            { verbose: { negatable: true } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test --no-verbose');
+
+      expect(result.options?.verbose).toBe(false);
+    });
+
+    it('should parse --<option> as true', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              verbose: z.boolean().optional().default(false),
+            }),
+            { verbose: { negatable: true } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test --verbose');
+
+      expect(result.options?.verbose).toBe(true);
+    });
+
+    it('should display negatable options in help text', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              verbose: z.boolean().optional().describe('Enable verbose output'),
+            }),
+            { verbose: { negatable: true } },
+          )
+          .handle(),
+      );
+
+      const helpText = program.help('test');
+
+      expect(helpText).toContain('--verbose');
+      expect(helpText).toContain('(negatable)');
+    });
+
+    it('should stringify false boolean to --no-<option>', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              verbose: z.boolean().optional(),
+            }),
+            { verbose: { negatable: true } },
+          )
+          .handle(),
+      );
+
+      const result = program.stringify('test', undefined, { verbose: false });
+
+      expect(result).toBe('test --no-verbose');
+    });
+  });
+
+  describe('environment variable binding', () => {
+    it('should apply env var when option is not provided', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              apiKey: z.string().optional(),
+            }),
+            { apiKey: { env: 'API_KEY' } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test', { env: { API_KEY: 'secret123' } });
+
+      expect(result.options?.apiKey).toBe('secret123');
+    });
+
+    it('should prefer CLI value over env var', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              apiKey: z.string().optional(),
+            }),
+            { apiKey: { env: 'API_KEY' } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test --apiKey=from-cli', { env: { API_KEY: 'from-env' } });
+
+      expect(result.options?.apiKey).toBe('from-cli');
+    });
+
+    it('should support multiple env var names (fallback)', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              port: z.coerce.number().optional(),
+            }),
+            { port: { env: ['PORT', 'APP_PORT'] } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      // First env var not set, second one is
+      const result = program.parse('test', { env: { APP_PORT: '8080' } });
+
+      expect(result.options?.port).toBe(8080);
+    });
+
+    it('should parse boolean env vars correctly', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              debug: z.boolean().optional(),
+            }),
+            { debug: { env: 'DEBUG' } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test', { env: { DEBUG: 'true' } });
+
+      expect(result.options?.debug).toBe(true);
+    });
+
+    it('should display env var in help text', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              apiKey: z.string().optional().describe('API key for authentication'),
+            }),
+            { apiKey: { env: 'API_KEY' } },
+          )
+          .handle(),
+      );
+
+      const helpText = program.help('test');
+
+      expect(helpText).toContain('--apiKey');
+      expect(helpText).toContain('API_KEY');
+    });
+  });
+
+  describe('quoted string parsing', () => {
+    it('should parse double-quoted strings with spaces', () => {
+      const result = program.parse('current "New York" --unit celsius');
+
+      expect(result.args).toEqual(['New York']);
+      expect(result.options?.unit).toBe('celsius');
+    });
+
+    it('should parse single-quoted strings with spaces', () => {
+      const result = program.parse("current 'San Francisco' --unit celsius");
+
+      expect(result.args).toEqual(['San Francisco']);
+      expect(result.options?.unit).toBe('celsius');
+    });
+
+    it('should parse quoted option values', () => {
+      const result = program.parse('alerts --region="West Coast" --severity high');
+
+      expect(result.options?.region).toBe('West Coast');
+      expect(result.options?.severity).toBe('high');
+    });
+
+    it('should handle escaped quotes within quoted strings', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c.args(z.tuple([z.string()])).handle((args) => ({ message: args[0] })),
+      );
+
+      const result = program.parse('test "He said \\"hello\\""');
+
+      expect(result.args?.[0]).toBe('He said "hello"');
+    });
+
+    it('should handle multiple quoted arguments', () => {
+      const result = program.parse('compare "New York" "Los Angeles" "San Francisco"');
+
+      expect(result.args).toEqual(['New York', 'Los Angeles', 'San Francisco']);
+    });
+  });
+
+  describe('config file support', () => {
+    it('should apply config values when options are not provided', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              port: z.coerce.number().optional(),
+              host: z.string().optional(),
+            }),
+            {
+              port: { configKey: 'server.port' },
+              host: { configKey: 'server.host' },
+            },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const configData = {
+        server: {
+          port: 3000,
+          host: 'localhost',
+        },
+      };
+
+      const result = program.parse('test', { configData });
+
+      expect(result.options?.port).toBe(3000);
+      expect(result.options?.host).toBe('localhost');
+    });
+
+    it('should prefer CLI value over config value', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              port: z.coerce.number().optional(),
+            }),
+            { port: { configKey: 'server.port' } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const configData = { server: { port: 3000 } };
+      const result = program.parse('test --port=8080', { configData });
+
+      expect(result.options?.port).toBe(8080);
+    });
+
+    it('should prefer env value over config value', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              port: z.coerce.number().optional(),
+            }),
+            { port: { configKey: 'server.port', env: 'PORT' } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const configData = { server: { port: 3000 } };
+      const result = program.parse('test', { configData, env: { PORT: '9000' } });
+
+      expect(result.options?.port).toBe(9000);
+    });
+
+    it('should handle deeply nested config keys', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              timeout: z.coerce.number().optional(),
+            }),
+            { timeout: { configKey: 'services.api.connection.timeout' } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const configData = {
+        services: {
+          api: {
+            connection: {
+              timeout: 5000,
+            },
+          },
+        },
+      };
+
+      const result = program.parse('test', { configData });
+
+      expect(result.options?.timeout).toBe(5000);
+    });
+
+    it('should display config key in help text', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              port: z.coerce.number().optional().describe('Server port'),
+            }),
+            { port: { configKey: 'server.port' } },
+          )
+          .handle(),
+      );
+
+      const helpText = program.help('test');
+
+      expect(helpText).toContain('--port');
+      expect(helpText).toContain('server.port');
+    });
+  });
+
+  describe('array syntax with brackets', () => {
+    it('should parse [a,b,c] as an array', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              tags: z.array(z.string()).optional(),
+            }),
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test --tags=[a,b,c]');
+
+      expect(result.options?.tags).toEqual(['a', 'b', 'c']);
+    });
+
+    it('should parse empty brackets as empty array', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              tags: z.array(z.string()).optional(),
+            }),
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test --tags=[]');
+
+      expect(result.options?.tags).toEqual([]);
+    });
+
+    it('should handle quoted values within array brackets', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              names: z.array(z.string()).optional(),
+            }),
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test --names=["hello world","foo bar"]');
+
+      expect(result.options?.names).toEqual(['hello world', 'foo bar']);
+    });
+
+    it('should handle mixed quoted and unquoted values in array', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              items: z.array(z.string()).optional(),
+            }),
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test --items=[simple,"with space",another]');
+
+      expect(result.options?.items).toEqual(['simple', 'with space', 'another']);
+    });
+
+    it('should combine array syntax with variadic options', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              include: z.array(z.string()).optional(),
+            }),
+            { include: { variadic: true } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test --include=[a,b] --include=c --include=[d,e]');
+
+      expect(result.options?.include).toEqual(['a', 'b', 'c', 'd', 'e']);
+    });
+
+    it('should work with short aliases', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              tags: z.array(z.string()).optional(),
+            }),
+            { tags: { alias: ['t'] } },
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test -t=[one,two,three]');
+
+      expect(result.options?.tags).toEqual(['one', 'two', 'three']);
+    });
+
+    it('should trim whitespace from array items', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              items: z.array(z.string()).optional(),
+            }),
+          )
+          .handle((_args, options) => options),
+      );
+
+      const result = program.parse('test --items=[  a  ,  b  ,  c  ]');
+
+      expect(result.options?.items).toEqual(['a', 'b', 'c']);
+    });
+  });
+
+  describe('help and version commands', () => {
+    it('should show help with --help flag', () => {
+      const program = createPadrone('test-cli')
+        .description('A test CLI application')
+        .version('1.2.3')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('--help');
+
+      expect(result.result as string).toContain('test-cli');
+    });
+
+    it('should show help with -h flag', () => {
+      const program = createPadrone('test-cli')
+        .description('A test CLI application')
+        .version('1.2.3')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('-h');
+
+      expect(result.result as string).toContain('test-cli');
+    });
+
+    it('should show help for specific command with --help flag', () => {
+      const program = createPadrone('test-cli').command('greet', (c) =>
+        c.args(z.tuple([z.string()]).describe('Name to greet')).handle((args) => `Hello, ${args[0]}!`),
+      );
+
+      const result = program.cli('greet --help');
+
+      expect(result.result as string).toContain('greet');
+    });
+
+    it('should show help for nested command with --help flag', () => {
+      const program = createPadrone('test-cli').command('git', (c) =>
+        c.command('commit', (c) =>
+          c.options(z.object({ message: z.string().describe('Commit message') })).handle((_args, opts) => opts?.message),
+        ),
+      );
+
+      const result = program.cli('git commit --help');
+
+      expect(result.result as string).toContain('commit');
+      expect(result.result as string).toContain('message');
+    });
+
+    it('should show help with help command', () => {
+      const program = createPadrone('test-cli')
+        .description('A test CLI application')
+        .version('1.2.3')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('help');
+
+      expect(result.result as string).toContain('test-cli');
+    });
+
+    it('should show help for specific command with help command', () => {
+      const program = createPadrone('test-cli').command('greet', (c) =>
+        c.args(z.tuple([z.string()]).describe('Name to greet')).handle((args) => `Hello, ${args[0]}!`),
+      );
+
+      const result = program.cli('help greet');
+
+      expect(result.result as string).toContain('greet');
+    });
+
+    it('should show help for nested command with help command', () => {
+      const program = createPadrone('test-cli').command('git', (c) =>
+        c.command('commit', (c) =>
+          c.options(z.object({ message: z.string().describe('Commit message') })).handle((_args, opts) => opts?.message),
+        ),
+      );
+
+      const result = program.cli('help git commit');
+
+      expect(result.result as string).toContain('commit');
+      expect(result.result as string).toContain('message');
+    });
+
+    it('should show version with --version flag', () => {
+      const program = createPadrone('test-cli')
+        .description('A test CLI application')
+        .version('1.2.3')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('--version');
+
+      expect(result.result as string).toBe('1.2.3');
+    });
+
+    it('should show version with -v flag', () => {
+      const program = createPadrone('test-cli')
+        .version('2.0.0')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('-v');
+
+      expect(result.result as string).toBe('2.0.0');
+    });
+
+    it('should show version with -V flag', () => {
+      const program = createPadrone('test-cli')
+        .version('3.0.0')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('-V');
+
+      expect(result.result as string).toBe('3.0.0');
+    });
+
+    it('should show version with version command', () => {
+      const program = createPadrone('test-cli')
+        .version('4.0.0')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('version');
+
+      expect(result.result as string).toBe('4.0.0');
+    });
+
+    it('should auto-detect version from package.json when not explicitly set', () => {
+      const program = createPadrone('test-cli').command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('--version');
+
+      // Should auto-detect from package.json (0.0.1) or npm_package_version env var
+      // The actual value depends on the environment, so we just check it's not empty
+      expect(result.result as string).toMatch(/^\d+\.\d+\.\d+/);
+    });
+
+    it('should allow user to override help command', () => {
+      const program = createPadrone('test-cli')
+        .version('1.0.0')
+        .command('help', (c) => c.handle(() => 'Custom help!'))
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('help');
+
+      expect(result.result).toBe('Custom help!');
+    });
+
+    it('should allow user to override version command', () => {
+      const program = createPadrone('test-cli')
+        .version('1.0.0')
+        .command('version', (c) => c.handle(() => 'Custom version info'))
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('version');
+
+      expect(result.result).toBe('Custom version info');
+    });
+
+    it('should still show help with --help flag even when help command is overridden', () => {
+      const program = createPadrone('test-cli')
+        .version('1.0.0')
+        .command('help', (c) => c.handle(() => 'Custom help!'))
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('--help');
+
+      // --help flag should still use built-in help
+      expect(result.result as string).toContain('test-cli');
+    });
+
+    it('should set description on program', () => {
+      const program = createPadrone('test-cli').description('My awesome CLI tool');
+
+      const result = program.cli('--help');
+
+      expect(result.result as string).toContain('My awesome CLI tool');
+    });
+
+    it('should chain description and version', () => {
+      const program = createPadrone('test-cli')
+        .description('My awesome CLI tool')
+        .version('5.0.0')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const helpResult = program.cli('--help');
+      const versionResult = program.cli('--version');
+
+      expect(helpResult.result as string).toContain('My awesome CLI tool');
+      expect(versionResult.result as string).toBe('5.0.0');
+    });
+
+    it('should accept --detail flag for help', () => {
+      const program = createPadrone('test-cli')
+        .description('My CLI')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const minimalResult = program.cli('--help --detail=minimal');
+      const standardResult = program.cli('--help --detail=standard');
+      const fullResult = program.cli('--help --detail=full');
+
+      // All should produce help output
+      expect(minimalResult.result as string).toContain('test-cli');
+      expect(standardResult.result as string).toContain('test-cli');
+      expect(fullResult.result as string).toContain('test-cli');
+    });
+
+    it('should accept -d shorthand for detail flag', () => {
+      const program = createPadrone('test-cli')
+        .description('My CLI')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('--help -d full');
+
+      expect(result.result as string).toContain('test-cli');
+    });
+
+    it('should accept detail flag with help command', () => {
+      const program = createPadrone('test-cli')
+        .description('My CLI')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('help --detail=full');
+
+      expect(result.result as string).toContain('test-cli');
+    });
+
+    it('should accept detail flag for subcommand help', () => {
+      const program = createPadrone('test-cli').command('greet', (c) =>
+        c.args(z.tuple([z.string()]).describe('Name')).handle((args) => `Hello, ${args[0]}!`),
+      );
+
+      const result = program.cli('greet --help --detail=full');
+
+      expect(result.result as string).toContain('greet');
+    });
+
+    it('should accept --format flag for help', () => {
+      const program = createPadrone('test-cli')
+        .description('My CLI')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const textResult = program.cli('--help --format=text');
+      const markdownResult = program.cli('--help --format=markdown');
+      const jsonResult = program.cli('--help --format=json');
+
+      // All should produce help output
+      expect(textResult.result as string).toContain('test-cli');
+      expect(markdownResult.result as string).toContain('test-cli');
+      expect(jsonResult.result as string).toContain('test-cli');
+    });
+
+    it('should accept -f shorthand for format flag', () => {
+      const program = createPadrone('test-cli')
+        .description('My CLI')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('--help -f markdown');
+
+      expect(result.result as string).toContain('test-cli');
+    });
+
+    it('should accept format flag with help command', () => {
+      const program = createPadrone('test-cli')
+        .description('My CLI')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('help --format=json');
+
+      expect(result.result as string).toContain('test-cli');
+    });
+
+    it('should combine format and detail flags', () => {
+      const program = createPadrone('test-cli')
+        .description('My CLI')
+        .command('greet', (c) => c.handle(() => 'hello'));
+
+      const result = program.cli('--help --format=markdown --detail=full');
+
+      expect(result.result as string).toContain('test-cli');
+    });
+
+    it('should load config from --config flag', () => {
+      // Create a temp config file
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const os = require('node:os');
+
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'padrone-test-'));
+      const configPath = path.join(configDir, 'config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ server: { port: 9999 } }));
+
+      try {
+        const program = createPadrone('test-cli').command('serve', (c) =>
+          c
+            .options(z.object({ port: z.coerce.number().optional() }), { port: { configKey: 'server.port' } })
+            .handle((_args, opts) => opts?.port),
+        );
+
+        const result = program.cli(`serve --config=${configPath}`);
+
+        expect(result.result).toBe(9999);
+      } finally {
+        fs.unlinkSync(configPath);
+        fs.rmdirSync(configDir);
+      }
+    });
+
+    it('should load config from -c shorthand', () => {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const os = require('node:os');
+
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'padrone-test-'));
+      const configPath = path.join(configDir, 'config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ host: 'example.com' }));
+
+      try {
+        const program = createPadrone('test-cli').command('connect', (c) =>
+          c.options(z.object({ host: z.string().optional() }), { host: { configKey: 'host' } }).handle((_args, opts) => opts?.host),
+        );
+
+        const result = program.cli(`connect -c ${configPath}`);
+
+        expect(result.result).toBe('example.com');
+      } finally {
+        fs.unlinkSync(configPath);
+        fs.rmdirSync(configDir);
+      }
+    });
+
+    it('should allow CLI options to override config file values', () => {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const os = require('node:os');
+
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'padrone-test-'));
+      const configPath = path.join(configDir, 'config.json');
+      fs.writeFileSync(configPath, JSON.stringify({ server: { port: 3000 } }));
+
+      try {
+        const program = createPadrone('test-cli').command('serve', (c) =>
+          c
+            .options(z.object({ port: z.coerce.number().optional() }), { port: { configKey: 'server.port' } })
+            .handle((_args, opts) => opts?.port),
+        );
+
+        const result = program.cli(`serve --config=${configPath} --port=8080`);
+
+        // CLI option should override config file
+        expect(result.result).toBe(8080);
+      } finally {
+        fs.unlinkSync(configPath);
+        fs.rmdirSync(configDir);
+      }
     });
   });
 });

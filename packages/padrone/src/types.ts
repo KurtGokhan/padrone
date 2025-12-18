@@ -40,6 +40,7 @@ export type PadroneCommand<
   name: TName;
   path: FullCommandName<TName, TParentName>;
   description?: string;
+  version?: string;
   needsApproval?: boolean | ((args: TArgs, options: TOpts) => Promise<boolean> | boolean);
   args?: ZArgs;
   options?: ZOpts;
@@ -128,6 +129,15 @@ export type PadroneProgram<
   TCmd extends PadroneCommand<'', '', TArgs, TOpts, TRes, TCommands> = PadroneCommand<'', '', TArgs, TOpts, TRes, TCommands>,
 > = Omit<PadroneCommandBuilder<TName, '', TArgs, TOpts, TRes, TCommands>, 'command'> & {
   /**
+   * Sets the description for the program.
+   */
+  description: (description: string) => PadroneProgram<TName, TArgs, TOpts, TRes, TCommands>;
+
+  /**
+   * Sets the version for the program.
+   */
+  version: (version: string) => PadroneProgram<TName, TArgs, TOpts, TRes, TCommands>;
+  /**
    * Creates a command within the program with the given name and builder function.
    */
   command: <TNameNested extends string, TBuilder extends PadroneCommandBuilder<TNameNested, '', any, any, any, any>>(
@@ -149,6 +159,7 @@ export type PadroneProgram<
    */
   cli: <const TCommand extends PossibleCommands<[TCmd]>>(
     input?: TCommand,
+    options?: PadroneParseOptions,
   ) => PadroneCommandResult<PickCommandByPossibleCommands<[TCmd], TCommand>>;
 
   /**
@@ -156,6 +167,7 @@ export type PadroneProgram<
    */
   parse: <const TCommand extends PossibleCommands<[TCmd]>>(
     input?: TCommand,
+    options?: PadroneParseOptions,
   ) => PadroneParseResult<PickCommandByPossibleCommands<[TCmd], TCommand>>;
 
   /**
@@ -220,6 +232,22 @@ export type AnyPadroneProgram = PadroneProgram<string, any, any, any, [...AnyPad
 
 export type PadroneCommandResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> = PadroneParseResult<TCommand> & {
   result: GetResults<TCommand>;
+};
+
+/**
+ * Options for parsing CLI input.
+ */
+export type PadroneParseOptions = {
+  /**
+   * Custom environment variables to use for env binding.
+   * If not provided, process.env will be used.
+   */
+  env?: Record<string, string | undefined>;
+  /**
+   * Config file data to use for config binding.
+   * This should be the parsed content of a config file (JSON, YAML, etc.).
+   */
+  configData?: Record<string, unknown>;
 };
 
 export type PadroneParseResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> = {

@@ -2,6 +2,8 @@ import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 
 export const program = createPadrone('example')
+  .description('An example CLI application built with Padrone')
+  .version('1.0.0')
   .command('greet', (c) =>
     c
       .args(z.array(z.string()).describe('Names to greet'))
