@@ -17,7 +17,7 @@ const csvProgram = createPadrone('csv')
       .args(z.tuple([z.string().describe('The pattern to search for')]))
       .options(
         z.object({
-          ignoreCase: z.boolean().optional().default(false).describe('Ignore case when searching'),
+          ignoreCase: z.boolean().optional().default(false).describe('Ignore case when searching').meta({ alias: 'i' }),
         }),
       )
       .handle(async (args, options) => {
