@@ -140,3 +140,55 @@ describe('help with full detail mode', () => {
     expect(help).toMatchSnapshot();
   });
 });
+
+describe('help with minimal detail mode', () => {
+  const program = createWeatherProgram();
+
+  it('should generate minimal usage for root command', () => {
+    const help = program.help(undefined, { detail: 'minimal' });
+    expect(help).toBe('padrone-test [command]');
+  });
+
+  it('should generate minimal usage for command with args and options', () => {
+    const help = program.help('current', { detail: 'minimal' });
+    expect(help).toBe('padrone-test current [args...] [options]');
+  });
+
+  it('should generate minimal usage for command with subcommands', () => {
+    const help = program.help('forecast', { detail: 'minimal' });
+    expect(help).toBe('padrone-test forecast [command] [args...] [options]');
+  });
+
+  it('should generate minimal usage for nested command', () => {
+    const help = program.help('forecast extended', { detail: 'minimal' });
+    expect(help).toBe('padrone-test forecast extended [command] [args...] [options]');
+  });
+
+  it('should generate minimal usage for command with args only (void options)', () => {
+    const help = program.help('compare', { detail: 'minimal' });
+    // compare has z.void() for options, which still counts as having options schema
+    expect(help).toBe('padrone-test compare [args...] [options]');
+  });
+
+  it('should generate minimal usage for command with options only (void args)', () => {
+    const help = program.help('alerts', { detail: 'minimal' });
+    // alerts has z.void() for args, which still counts as having args schema
+    expect(help).toBe('padrone-test alerts [args...] [options]');
+  });
+
+  it('should generate minimal usage for noop command (void args and options)', () => {
+    const help = program.help('noop', { detail: 'minimal' });
+    // noop has z.void() for both, which still counts as having schemas
+    expect(help).toBe('padrone-test noop [args...] [options]');
+  });
+
+  it('should ignore format option in minimal mode', () => {
+    // Minimal mode should return the same output regardless of format
+    const textHelp = program.help('current', { format: 'text', detail: 'minimal' });
+    const jsonHelp = program.help('current', { format: 'json', detail: 'minimal' });
+    const markdownHelp = program.help('current', { format: 'markdown', detail: 'minimal' });
+
+    expect(textHelp).toBe(jsonHelp);
+    expect(jsonHelp).toBe(markdownHelp);
+  });
+});

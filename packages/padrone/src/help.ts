@@ -187,6 +187,6 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
 
 export function generateHelp(rootCommand: AnyPadroneCommand, commandObj: AnyPadroneCommand = rootCommand, options?: HelpOptions): string {
   const helpInfo = getHelpInfo(commandObj, options?.detail);
-  const formatter = createFormatter(options?.format ?? 'auto');
+  const formatter = createFormatter(options?.format ?? 'auto', options?.detail);
   return formatter.format(helpInfo);
 }

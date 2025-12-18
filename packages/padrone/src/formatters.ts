@@ -472,7 +472,29 @@ function shouldUseAnsi(): boolean {
   return false;
 }
 
-export function createFormatter(format: HelpFormat | 'auto'): Formatter {
+// ============================================================================
+// Minimal Formatter
+// ============================================================================
+
+/**
+ * Creates a minimal formatter that outputs just a single-line usage string.
+ */
+function createMinimalFormatter(): Formatter {
+  return {
+    format(info: HelpInfo): string {
+      const parts: string[] = [info.usage.command];
+      if (info.usage.hasSubcommands) parts.push('[command]');
+      if (info.usage.hasArguments) parts.push('[args...]');
+      if (info.usage.hasOptions) parts.push('[options]');
+      return parts.join(' ');
+    },
+  };
+}
+
+export type HelpDetail = 'minimal' | 'standard' | 'full';
+
+export function createFormatter(format: HelpFormat | 'auto', detail: HelpDetail = 'standard'): Formatter {
+  if (detail === 'minimal') return createMinimalFormatter();
   if (format === 'json') return createJsonFormatter();
   if (format === 'ansi' || (format === 'auto' && shouldUseAnsi())) return createGenericFormatter(createAnsiStyler(), createTextLayout());
   if (format === 'console') return createGenericFormatter(createConsoleStyler(), createTextLayout());
