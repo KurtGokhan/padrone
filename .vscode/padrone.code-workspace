@@ -9,6 +9,10 @@
       "path": "../packages/padrone"
     },
     {
+      "name": "📘 Docs",
+      "path": "../docs"
+    },
+    {
       "name": "⚡ Example",
       "path": "../examples/padrone-example"
     }
