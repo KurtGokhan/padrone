@@ -34,7 +34,7 @@
     "publish-to-npm": "bun run --filter '*' publish-to-npm"
   },
   "dependencies": {
-    "@typescript/native-preview": "^7.0.0-dev.20251218.1"
+    "@typescript/native-preview": "7.0.0-dev.20251217.1"
   },
   "devDependencies": {
     "@types/bun": "^1.3.4",

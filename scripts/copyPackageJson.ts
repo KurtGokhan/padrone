@@ -1,7 +1,7 @@
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const rootFile = (path: string) => fileURLToPath(import.meta.resolve(path));
+const rootFile = (path: string) => fileURLToPath(import.meta.resolve?.(path) || '');
 
 copyFileSync(rootFile('../README.md'), './dist/README.md');
 copyFileSync(rootFile('../LICENSE'), './dist/LICENSE');

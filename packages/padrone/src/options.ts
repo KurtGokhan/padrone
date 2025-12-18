@@ -329,7 +329,7 @@ export interface ParseOptionsContext {
 /**
  * Process variadic options by collecting multiple values into arrays.
  */
-export function processVariadicOptions(data: Record<string, unknown>, variadicOptions: Set<string>): Record<string, unknown> {
+export function processVariadicOptions(data: Record<string, unknown>, _variadicOptions: Set<string>): Record<string, unknown> {
   // Values are already accumulated during parsing - this ensures the final structure
   return data;
 }
