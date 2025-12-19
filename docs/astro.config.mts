@@ -1,21 +1,21 @@
-// @ts-check
-
+import react from '@astrojs/react';
 import starlight from '@astrojs/starlight';
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
+import starlightThemeNova from 'starlight-theme-nova';
 
-// https://astro.build/config
 export default defineConfig({
+  site: 'https://gkurt.com/padrone/',
+
   integrations: [
     starlight({
+      plugins: [starlightThemeNova()],
       title: 'My Docs',
-      social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/withastro/starlight' }],
+      social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/KurtGokhan/padrone' }],
       sidebar: [
         {
           label: 'Guides',
-          items: [
-            // Each item here is one entry in the navigation menu.
-            { label: 'Example Guide', slug: 'guides/example' },
-          ],
+          items: [{ label: 'Example Guide', slug: 'guides/example' }],
         },
         {
           label: 'Reference',
@@ -23,5 +23,10 @@ export default defineConfig({
         },
       ],
     }),
+    react(),
   ],
+
+  vite: {
+    plugins: [tailwindcss()],
+  },
 });
