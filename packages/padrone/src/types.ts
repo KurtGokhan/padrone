@@ -92,7 +92,7 @@ export type PadroneCommandBuilder<
   /**
    * Defines the handler function to be executed when the command is run.
    */
-  handle: <TRes>(
+  action: <TRes>(
     handler?: (args: StandardSchemaV1.InferOutput<TArgs>, options: StandardSchemaV1.InferOutput<TOpts>) => TRes,
   ) => PadroneCommandBuilder<TName, TParentName, TArgs, TOpts, TRes, TCommands>;
 

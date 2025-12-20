@@ -7,7 +7,7 @@ const csvProgram = createPadrone('csv')
     c
       .args(z.void())
       .options(z.void())
-      .handle(async () => {
+      .action(async () => {
         const content = await Bun.file('./src/test.csv').text();
         return content;
       }),
@@ -20,7 +20,7 @@ const csvProgram = createPadrone('csv')
           ignoreCase: z.boolean().optional().default(false).describe('Ignore case when searching').meta({ alias: 'i' }),
         }),
       )
-      .handle(async (args, options) => {
+      .action(async (args, options) => {
         const [pattern] = args;
         const content = await Bun.file('./src/test.csv').text();
         const lines = content.split('\n');

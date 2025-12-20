@@ -218,7 +218,7 @@ describe('CLI', () => {
 
   describe('edge cases', () => {
     it('should handle command with no args schema', () => {
-      const program = createPadrone('padrone-test').command('test', (c) => c.handle(() => ({ message: 'success' })));
+      const program = createPadrone('padrone-test').command('test', (c) => c.action(() => ({ message: 'success' })));
 
       const result = program.run('test', undefined, undefined);
       expect(result.result?.message).toBe('success');
@@ -226,7 +226,7 @@ describe('CLI', () => {
 
     it('should handle command with no options schema', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
-        c.args(z.tuple([z.string()])).handle((args) => ({ city: args[0] })),
+        c.args(z.tuple([z.string()])).action((args) => ({ city: args[0] })),
       );
 
       const result = program.run('test', ['City'], undefined);
@@ -235,7 +235,7 @@ describe('CLI', () => {
 
     it('should handle deeply nested commands', () => {
       const program = createPadrone('padrone-test').command('level1', (c) =>
-        c.command('level2', (c2) => c2.command('level3', (c3) => c3.handle(() => ({ depth: 3 })))).handle(() => ({ depth: 1 })),
+        c.command('level2', (c2) => c2.command('level3', (c3) => c3.action(() => ({ depth: 3 })))).action(() => ({ depth: 1 })),
       );
 
       const result = program.run('level1 level2 level3', undefined, undefined);
@@ -324,7 +324,7 @@ describe('CLI', () => {
                 .meta({ alias: ['h'] }),
             }),
           )
-          .handle((_args, options) => ({
+          .action((_args, options) => ({
             verbose: options?.verbose,
             help: options?.help,
           })),
@@ -352,7 +352,7 @@ describe('CLI', () => {
                 .meta({ alias: ['c'] }),
             }),
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test -u celsius -c=5');
@@ -372,7 +372,7 @@ describe('CLI', () => {
                 .meta({ alias: ['v'] }),
             }),
           )
-          .handle((_args, options) => ({
+          .action((_args, options) => ({
             verbose: options?.verbose || false,
           })),
       );
@@ -402,7 +402,7 @@ describe('CLI', () => {
                 .meta({ alias: ['o'] }),
             }),
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test -v --help -o=file.txt');
@@ -421,7 +421,7 @@ describe('CLI', () => {
               v: z.boolean().optional(), // Include 'v' in schema to test without alias
             }),
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       // No aliases defined, -v should work as 'v' key if it's in the schema
@@ -448,7 +448,7 @@ describe('CLI', () => {
                 .meta({ alias: ['h'] }),
             }),
           )
-          .handle(),
+          .action(),
       );
 
       const helpText = program.help('test');
@@ -472,11 +472,11 @@ describe('CLI', () => {
                     .meta({ alias: ['v'] }),
                 }),
               )
-              .handle((_args, options) => ({
+              .action((_args, options) => ({
                 verbose: options?.verbose || false,
               })),
           )
-          .handle(),
+          .action(),
       );
 
       const result = program.parse('parent child -v');
@@ -500,11 +500,11 @@ describe('CLI', () => {
                   },
                 },
               )
-              .handle((_args, options) => ({
+              .action((_args, options) => ({
                 verbose: options?.verbose || false,
               })),
           )
-          .handle(),
+          .action(),
       );
 
       const result = program.parse('parent child -v');
@@ -524,7 +524,7 @@ describe('CLI', () => {
                 .meta({ alias: ['v', 'verbose'] }),
             }),
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test -v');
@@ -626,7 +626,7 @@ describe('CLI', () => {
             }),
             { include: { variadic: true } },
           )
-          .handle(),
+          .action(),
       );
 
       const result = program.stringify('test', undefined, { include: ['src', 'lib', 'tests'] });
@@ -644,7 +644,7 @@ describe('CLI', () => {
             }),
             { include: { variadic: true } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test --include=src --include=lib --include=tests');
@@ -661,7 +661,7 @@ describe('CLI', () => {
             }),
             { include: { variadic: true, alias: ['i'] } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test -i=src -i=lib --include=tests');
@@ -678,7 +678,7 @@ describe('CLI', () => {
             }),
             { tag: { variadic: true } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test --tag one --tag two --tag three');
@@ -695,7 +695,7 @@ describe('CLI', () => {
             }),
             { include: { variadic: true } },
           )
-          .handle(),
+          .action(),
       );
 
       const helpText = program.help('test');
@@ -715,7 +715,7 @@ describe('CLI', () => {
             }),
             { verbose: { negatable: true } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test --no-verbose');
@@ -732,7 +732,7 @@ describe('CLI', () => {
             }),
             { verbose: { negatable: true } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test --verbose');
@@ -749,7 +749,7 @@ describe('CLI', () => {
             }),
             { verbose: { negatable: true } },
           )
-          .handle(),
+          .action(),
       );
 
       const helpText = program.help('test');
@@ -767,7 +767,7 @@ describe('CLI', () => {
             }),
             { verbose: { negatable: true } },
           )
-          .handle(),
+          .action(),
       );
 
       const result = program.stringify('test', undefined, { verbose: false });
@@ -786,7 +786,7 @@ describe('CLI', () => {
             }),
             { apiKey: { env: 'API_KEY' } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test', { env: { API_KEY: 'secret123' } });
@@ -803,7 +803,7 @@ describe('CLI', () => {
             }),
             { apiKey: { env: 'API_KEY' } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test --apiKey=from-cli', { env: { API_KEY: 'from-env' } });
@@ -820,7 +820,7 @@ describe('CLI', () => {
             }),
             { port: { env: ['PORT', 'APP_PORT'] } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       // First env var not set, second one is
@@ -838,7 +838,7 @@ describe('CLI', () => {
             }),
             { debug: { env: 'DEBUG' } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test', { env: { DEBUG: 'true' } });
@@ -855,7 +855,7 @@ describe('CLI', () => {
             }),
             { apiKey: { env: 'API_KEY' } },
           )
-          .handle(),
+          .action(),
       );
 
       const helpText = program.help('test');
@@ -889,7 +889,7 @@ describe('CLI', () => {
 
     it('should handle escaped quotes within quoted strings', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
-        c.args(z.tuple([z.string()])).handle((args) => ({ message: args[0] })),
+        c.args(z.tuple([z.string()])).action((args) => ({ message: args[0] })),
       );
 
       const result = program.parse('test "He said \\"hello\\""');
@@ -918,7 +918,7 @@ describe('CLI', () => {
               host: { configKey: 'server.host' },
             },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const configData = {
@@ -943,7 +943,7 @@ describe('CLI', () => {
             }),
             { port: { configKey: 'server.port' } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const configData = { server: { port: 3000 } };
@@ -961,7 +961,7 @@ describe('CLI', () => {
             }),
             { port: { configKey: 'server.port', env: 'PORT' } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const configData = { server: { port: 3000 } };
@@ -979,7 +979,7 @@ describe('CLI', () => {
             }),
             { timeout: { configKey: 'services.api.connection.timeout' } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const configData = {
@@ -1006,7 +1006,7 @@ describe('CLI', () => {
             }),
             { port: { configKey: 'server.port' } },
           )
-          .handle(),
+          .action(),
       );
 
       const helpText = program.help('test');
@@ -1025,7 +1025,7 @@ describe('CLI', () => {
               tags: z.array(z.string()).optional(),
             }),
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test --tags=[a,b,c]');
@@ -1041,7 +1041,7 @@ describe('CLI', () => {
               tags: z.array(z.string()).optional(),
             }),
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test --tags=[]');
@@ -1057,7 +1057,7 @@ describe('CLI', () => {
               names: z.array(z.string()).optional(),
             }),
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test --names=["hello world","foo bar"]');
@@ -1073,7 +1073,7 @@ describe('CLI', () => {
               items: z.array(z.string()).optional(),
             }),
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test --items=[simple,"with space",another]');
@@ -1090,7 +1090,7 @@ describe('CLI', () => {
             }),
             { include: { variadic: true } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test --include=[a,b] --include=c --include=[d,e]');
@@ -1107,7 +1107,7 @@ describe('CLI', () => {
             }),
             { tags: { alias: ['t'] } },
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test -t=[one,two,three]');
@@ -1123,7 +1123,7 @@ describe('CLI', () => {
               items: z.array(z.string()).optional(),
             }),
           )
-          .handle((_args, options) => options),
+          .action((_args, options) => options),
       );
 
       const result = program.parse('test --items=[  a  ,  b  ,  c  ]');
@@ -1137,7 +1137,7 @@ describe('CLI', () => {
       const program = createPadrone('test-cli')
         .description('A test CLI application')
         .version('1.2.3')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('--help');
 
@@ -1148,7 +1148,7 @@ describe('CLI', () => {
       const program = createPadrone('test-cli')
         .description('A test CLI application')
         .version('1.2.3')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('-h');
 
@@ -1157,7 +1157,7 @@ describe('CLI', () => {
 
     it('should show help for specific command with --help flag', () => {
       const program = createPadrone('test-cli').command('greet', (c) =>
-        c.args(z.tuple([z.string()]).describe('Name to greet')).handle((args) => `Hello, ${args[0]}!`),
+        c.args(z.tuple([z.string()]).describe('Name to greet')).action((args) => `Hello, ${args[0]}!`),
       );
 
       const result = program.cli('greet --help');
@@ -1168,7 +1168,7 @@ describe('CLI', () => {
     it('should show help for nested command with --help flag', () => {
       const program = createPadrone('test-cli').command('git', (c) =>
         c.command('commit', (c) =>
-          c.options(z.object({ message: z.string().describe('Commit message') })).handle((_args, opts) => opts?.message),
+          c.options(z.object({ message: z.string().describe('Commit message') })).action((_args, opts) => opts?.message),
         ),
       );
 
@@ -1182,7 +1182,7 @@ describe('CLI', () => {
       const program = createPadrone('test-cli')
         .description('A test CLI application')
         .version('1.2.3')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('help');
 
@@ -1191,7 +1191,7 @@ describe('CLI', () => {
 
     it('should show help for specific command with help command', () => {
       const program = createPadrone('test-cli').command('greet', (c) =>
-        c.args(z.tuple([z.string()]).describe('Name to greet')).handle((args) => `Hello, ${args[0]}!`),
+        c.args(z.tuple([z.string()]).describe('Name to greet')).action((args) => `Hello, ${args[0]}!`),
       );
 
       const result = program.cli('help greet');
@@ -1202,7 +1202,7 @@ describe('CLI', () => {
     it('should show help for nested command with help command', () => {
       const program = createPadrone('test-cli').command('git', (c) =>
         c.command('commit', (c) =>
-          c.options(z.object({ message: z.string().describe('Commit message') })).handle((_args, opts) => opts?.message),
+          c.options(z.object({ message: z.string().describe('Commit message') })).action((_args, opts) => opts?.message),
         ),
       );
 
@@ -1216,7 +1216,7 @@ describe('CLI', () => {
       const program = createPadrone('test-cli')
         .description('A test CLI application')
         .version('1.2.3')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('--version');
 
@@ -1226,7 +1226,7 @@ describe('CLI', () => {
     it('should show version with -v flag', () => {
       const program = createPadrone('test-cli')
         .version('2.0.0')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('-v');
 
@@ -1236,7 +1236,7 @@ describe('CLI', () => {
     it('should show version with -V flag', () => {
       const program = createPadrone('test-cli')
         .version('3.0.0')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('-V');
 
@@ -1246,7 +1246,7 @@ describe('CLI', () => {
     it('should show version with version command', () => {
       const program = createPadrone('test-cli')
         .version('4.0.0')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('version');
 
@@ -1254,7 +1254,7 @@ describe('CLI', () => {
     });
 
     it('should auto-detect version from package.json when not explicitly set', () => {
-      const program = createPadrone('test-cli').command('greet', (c) => c.handle(() => 'hello'));
+      const program = createPadrone('test-cli').command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('--version');
 
@@ -1266,8 +1266,8 @@ describe('CLI', () => {
     it('should allow user to override help command', () => {
       const program = createPadrone('test-cli')
         .version('1.0.0')
-        .command('help', (c) => c.handle(() => 'Custom help!'))
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('help', (c) => c.action(() => 'Custom help!'))
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('help');
 
@@ -1277,8 +1277,8 @@ describe('CLI', () => {
     it('should allow user to override version command', () => {
       const program = createPadrone('test-cli')
         .version('1.0.0')
-        .command('version', (c) => c.handle(() => 'Custom version info'))
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('version', (c) => c.action(() => 'Custom version info'))
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('version');
 
@@ -1288,8 +1288,8 @@ describe('CLI', () => {
     it('should still show help with --help flag even when help command is overridden', () => {
       const program = createPadrone('test-cli')
         .version('1.0.0')
-        .command('help', (c) => c.handle(() => 'Custom help!'))
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('help', (c) => c.action(() => 'Custom help!'))
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('--help');
 
@@ -1309,7 +1309,7 @@ describe('CLI', () => {
       const program = createPadrone('test-cli')
         .description('My awesome CLI tool')
         .version('5.0.0')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const helpResult = program.cli('--help');
       const versionResult = program.cli('--version');
@@ -1321,7 +1321,7 @@ describe('CLI', () => {
     it('should accept --detail flag for help', () => {
       const program = createPadrone('test-cli')
         .description('My CLI')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const minimalResult = program.cli('--help --detail=minimal');
       const standardResult = program.cli('--help --detail=standard');
@@ -1336,7 +1336,7 @@ describe('CLI', () => {
     it('should accept -d shorthand for detail flag', () => {
       const program = createPadrone('test-cli')
         .description('My CLI')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('--help -d full');
 
@@ -1346,7 +1346,7 @@ describe('CLI', () => {
     it('should accept detail flag with help command', () => {
       const program = createPadrone('test-cli')
         .description('My CLI')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('help --detail=full');
 
@@ -1355,7 +1355,7 @@ describe('CLI', () => {
 
     it('should accept detail flag for subcommand help', () => {
       const program = createPadrone('test-cli').command('greet', (c) =>
-        c.args(z.tuple([z.string()]).describe('Name')).handle((args) => `Hello, ${args[0]}!`),
+        c.args(z.tuple([z.string()]).describe('Name')).action((args) => `Hello, ${args[0]}!`),
       );
 
       const result = program.cli('greet --help --detail=full');
@@ -1366,7 +1366,7 @@ describe('CLI', () => {
     it('should accept --format flag for help', () => {
       const program = createPadrone('test-cli')
         .description('My CLI')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const textResult = program.cli('--help --format=text');
       const markdownResult = program.cli('--help --format=markdown');
@@ -1381,7 +1381,7 @@ describe('CLI', () => {
     it('should accept -f shorthand for format flag', () => {
       const program = createPadrone('test-cli')
         .description('My CLI')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('--help -f markdown');
 
@@ -1391,7 +1391,7 @@ describe('CLI', () => {
     it('should accept format flag with help command', () => {
       const program = createPadrone('test-cli')
         .description('My CLI')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('help --format=json');
 
@@ -1401,7 +1401,7 @@ describe('CLI', () => {
     it('should combine format and detail flags', () => {
       const program = createPadrone('test-cli')
         .description('My CLI')
-        .command('greet', (c) => c.handle(() => 'hello'));
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('--help --format=markdown --detail=full');
 
@@ -1422,7 +1422,7 @@ describe('CLI', () => {
         const program = createPadrone('test-cli').command('serve', (c) =>
           c
             .options(z.object({ port: z.coerce.number().optional() }), { port: { configKey: 'server.port' } })
-            .handle((_args, opts) => opts?.port),
+            .action((_args, opts) => opts?.port),
         );
 
         const result = program.cli(`serve --config=${configPath}`);
@@ -1445,7 +1445,7 @@ describe('CLI', () => {
 
       try {
         const program = createPadrone('test-cli').command('connect', (c) =>
-          c.options(z.object({ host: z.string().optional() }), { host: { configKey: 'host' } }).handle((_args, opts) => opts?.host),
+          c.options(z.object({ host: z.string().optional() }), { host: { configKey: 'host' } }).action((_args, opts) => opts?.host),
         );
 
         const result = program.cli(`connect -c ${configPath}`);
@@ -1470,7 +1470,7 @@ describe('CLI', () => {
         const program = createPadrone('test-cli').command('serve', (c) =>
           c
             .options(z.object({ port: z.coerce.number().optional() }), { port: { configKey: 'server.port' } })
-            .handle((_args, opts) => opts?.port),
+            .action((_args, opts) => opts?.port),
         );
 
         const result = program.cli(`serve --config=${configPath} --port=8080`);

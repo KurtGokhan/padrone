@@ -22,7 +22,7 @@ export function createWeatherProgram() {
             verbose: z.boolean().optional().describe('Show detailed information'),
           }),
         )
-        .handle((args, options) => {
+        .action((args, options) => {
           const [city] = args;
           return {
             city,
@@ -41,7 +41,7 @@ export function createWeatherProgram() {
             unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
           }),
         )
-        .handle((args, options) => {
+        .action((args, options) => {
           const [city] = args;
           return {
             city,
@@ -57,7 +57,7 @@ export function createWeatherProgram() {
                 unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
               }),
             )
-            .handle((args, options) => {
+            .action((args, options) => {
               const [city] = args;
               return {
                 city,
@@ -69,7 +69,7 @@ export function createWeatherProgram() {
               c
                 .args(z.tuple([z.string().describe('City name')]))
                 .options(z.void())
-                .handle((args, _options) => {
+                .action((args, _options) => {
                   return {
                     city: args[0],
                     extendedForecast: mockWeatherData.forecast,
@@ -88,7 +88,7 @@ export function createWeatherProgram() {
             ascending: z.boolean().optional().describe('Sort alerts in ascending order'),
           }),
         )
-        .handle((_args, options) => {
+        .action((_args, options) => {
           return {
             region: options?.region || 'all',
             alerts: mockWeatherData.alerts,
@@ -100,7 +100,7 @@ export function createWeatherProgram() {
       c
         .args(z.array(z.string()).min(2).describe('Cities to compare'))
         .options(z.void())
-        .handle((args, _options) => {
+        .action((args, _options) => {
           return {
             cities: args,
             comparison: args.map((city) => ({
@@ -115,7 +115,7 @@ export function createWeatherProgram() {
       c
         .args(z.void())
         .options(z.void())
-        .handle(() => undefined),
+        .action(() => undefined),
     )
     .command('cities', (c) =>
       c
@@ -130,7 +130,7 @@ export function createWeatherProgram() {
             },
           },
         )
-        .handle(),
+        .action(),
     )
     .command('deprecated-test', (c) =>
       c
@@ -154,7 +154,7 @@ export function createWeatherProgram() {
             },
           },
         )
-        .handle(),
+        .action(),
     )
     .command('hidden-test', (c) =>
       c
@@ -177,7 +177,7 @@ export function createWeatherProgram() {
             },
           },
         )
-        .handle(),
+        .action(),
     )
     .command('examples-test', (c) =>
       c
@@ -207,7 +207,7 @@ export function createWeatherProgram() {
             },
           },
         )
-        .handle(),
+        .action(),
     );
 }
 

@@ -61,7 +61,7 @@ const program = createPadrone('myapp')
             .meta({ alias: 'p' }),
         }),
       )
-      .handle((args, options) => {
+      .action((args, options) => {
         const prefix = options?.prefix ? `${options.prefix} ` : '';
         args.forEach((name) => {
           console.log(`Hello, ${prefix}${name}!`);
@@ -126,13 +126,13 @@ const program = createPadrone('weather')
           days: z.number().optional().default(3).describe('Number of days'),
         }),
       )
-      .handle((args, options) => {
+      .action((args, options) => {
         console.log(`Forecast for ${args[0]}: ${options.days} days`);
       })
       .command('extended', (c) =>
         c
           .args(z.tuple([z.string()]))
-          .handle((args) => {
+          .action((args) => {
             console.log(`Extended forecast for ${args[0]}`);
           }),
       ),
@@ -167,7 +167,7 @@ const program = createPadrone('app')
             .meta({ alias: 'v', deprecated: 'Use --debug instead' }),
         }),
       )
-      .handle((_, options) => {
+      .action((_, options) => {
         console.log(`Server running at ${options.host}:${options.port}`);
       }),
   );
@@ -185,7 +185,7 @@ const weatherCli = createPadrone('weather')
   .command('current', (c) =>
     c
       .args(z.tuple([z.string().describe('City name')]))
-      .handle((args) => {
+      .action((args) => {
         return { city: args[0], temperature: 72, condition: 'Sunny' };
       }),
   );
@@ -233,7 +233,7 @@ Creates a new CLI program with the given name.
 | `.command(name, builder)` | Add a command to the program |
 | `.args(schema)` | Define positional arguments schema |
 | `.options(schema, meta?)` | Define options schema |
-| `.handle(handler)` | Set the command handler function |
+| `.action(handler)` | Set the command handler function |
 | `.cli(input?)` | Run as CLI (parses `process.argv` or input string) |
 | `.run(command, args, options)` | Run a command programmatically |
 | `.parse(input?)` | Parse input without executing |

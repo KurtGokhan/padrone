@@ -6,7 +6,7 @@ import { createPadrone } from 'padrone';
 
 const padrone = createPadrone('mycli')
   .version('0.1.0')
-  .command('greet', (c) => c.handle(() => 'Hello from Padrone!'));
+  .command('greet', (c) => c.action(() => 'Hello from Padrone!'));
 
 export function Terminal() {
   const wasmTerminal = useMemo(() => {

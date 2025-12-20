@@ -21,7 +21,7 @@ export const program = createPadrone('example')
             .meta({ deprecated: 'Use prefix instead' as any }),
         }),
       )
-      .handle((args, options) => {
+      .action((args, options) => {
         const prefix = options?.prefix ? `${options.prefix} ` : '';
         args.forEach((name) => {
           console.log(`Hello, ${prefix}${name}!`);
@@ -36,7 +36,7 @@ export const program = createPadrone('example')
               suffix: z.string().optional().describe('suffix to use in greeting'),
             }),
           )
-          .handle((args, options) => {
+          .action((args, options) => {
             const prefix = options?.prefix ? `${options.prefix} ` : '';
             const suffix = options?.suffix ? ` ${options.suffix}` : '';
             args.forEach((name) => {
@@ -49,11 +49,11 @@ export const program = createPadrone('example')
     c
       .args(z.void())
       .options(z.void())
-      .handle(() => {
+      .action(() => {
         console.log('Goodbye, World!');
       }),
   )
-  .command('noop', (c) => c.handle());
+  .command('noop', (c) => c.action());
 
 program.run('greet', ['John', 'Jake'], { prefix: 'Mr.' });
 program.run('greet nested', ['John', 'Jake'], { prefix: 'Mr.', suffix: 'Esq.' });

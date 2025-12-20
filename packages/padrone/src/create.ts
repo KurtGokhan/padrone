@@ -423,8 +423,8 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     options(options, meta) {
       return createPadroneCommandBuilder({ ...existingCommand, options, meta }) as any;
     },
-    handle(handle = noop) {
-      return createPadroneCommandBuilder({ ...existingCommand, handler: handle }) as any;
+    action(handler = noop) {
+      return createPadroneCommandBuilder({ ...existingCommand, handler }) as any;
     },
     command: <TName extends string, TCommand extends PadroneCommand<TName, string, any, any, any, any>>(
       name: TName,
