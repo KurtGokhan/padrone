@@ -4,27 +4,25 @@ import * as z from 'zod/v4';
 
 const csvProgram = createPadrone('csv')
   .command('read', (c) =>
-    c
-      .args(z.void())
-      .options(z.void())
-      .action(async () => {
-        const content = await Bun.file('./src/test.csv').text();
-        return content;
-      }),
+    c.action(async () => {
+      const content = await Bun.file('./src/test.csv').text();
+      return content;
+    }),
   )
   .command('grep', (c) =>
     c
-      .args(z.tuple([z.string().describe('The pattern to search for')]))
       .options(
         z.object({
+          pattern: z.string().describe('The pattern to search for'),
           ignoreCase: z.boolean().optional().default(false).describe('Ignore case when searching').meta({ alias: 'i' }),
         }),
+        { positional: ['pattern'] },
       )
-      .action(async (args, options) => {
-        const [pattern] = args;
+      .action(async (options) => {
+        const { pattern, ignoreCase } = options;
         const content = await Bun.file('./src/test.csv').text();
         const lines = content.split('\n');
-        const regex = new RegExp(pattern, options?.ignoreCase ? 'i' : undefined);
+        const regex = new RegExp(pattern, ignoreCase ? 'i' : undefined);
         const matches = lines.filter((line) => regex.test(line));
         return matches.join('\n');
       }),

@@ -28,7 +28,7 @@ export interface PadroneOptionsMeta {
   configKey?: string;
 }
 
-export type PositionalArgs<TObj> =
+type PositionalArgs<TObj> =
   TObj extends Record<string, any>
     ? {
         [K in keyof TObj]: TObj[K] extends Array<any> ? `...${K & string}` : K & string;
@@ -71,40 +71,105 @@ export function parsePositionalConfig(positional: string[]): { name: string; var
   });
 }
 
-export function extractAliasesFromSchema(schema: StandardJSONSchemaV1, meta?: Record<string, PadroneOptionsMeta | undefined>) {
-  const aliases: Record<string, string> = {};
+/**
+ * Result type for extractSchemaMetadata function.
+ */
+export interface SchemaMetadataResult {
+  aliases: Record<string, string>;
+  variadicOptions: Set<string>;
+  negatableOptions: Set<string>;
+  envBindings: Record<string, string[]>;
+  configKeys: Record<string, string>;
+}
 
-  // Extract aliases from meta object (explicit parameter)
+/**
+ * Extract all option metadata from schema and meta in a single pass.
+ * This consolidates aliases, variadic, negatable, env bindings, and config keys extraction.
+ */
+export function extractSchemaMetadata(
+  schema: StandardJSONSchemaV1,
+  meta?: Record<string, PadroneOptionsMeta | undefined>,
+): SchemaMetadataResult {
+  const aliases: Record<string, string> = {};
+  const variadicOptions = new Set<string>();
+  const negatableOptions = new Set<string>();
+  const envBindings: Record<string, string[]> = {};
+  const configKeys: Record<string, string> = {};
+
+  // Extract from meta object
   if (meta) {
     for (const [key, value] of Object.entries(meta)) {
-      if (!value?.alias) continue;
-      const list = typeof value.alias === 'string' ? [value.alias] : value.alias;
-      if (!list) continue;
+      if (!value) continue;
 
-      for (const aliasKey of list) {
-        if (typeof aliasKey !== 'string' || !aliasKey || aliasKey === key) continue;
-        aliases[aliasKey] = key;
+      // Extract aliases
+      if (value.alias) {
+        const list = typeof value.alias === 'string' ? [value.alias] : value.alias;
+        for (const aliasKey of list) {
+          if (typeof aliasKey === 'string' && aliasKey && aliasKey !== key) {
+            aliases[aliasKey] = key;
+          }
+        }
+      }
+
+      // Extract variadic
+      if (value.variadic) variadicOptions.add(key);
+
+      // Extract negatable
+      if (value.negatable) negatableOptions.add(key);
+
+      // Extract env bindings
+      if (value.env) {
+        envBindings[key] = typeof value.env === 'string' ? [value.env] : value.env;
+      }
+
+      // Extract config keys
+      if (value.configKey) {
+        configKeys[key] = value.configKey;
       }
     }
   }
 
-  // Extract aliases from JSON schema properties (e.g., Zod's .meta({ alias: [...] }))
+  // Extract from JSON schema properties
   try {
     const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
       for (const [propertyName, propertySchema] of Object.entries(jsonSchema.properties as Record<string, any>)) {
-        const propAlias = propertySchema?.alias;
-        if (!propAlias) continue;
+        if (!propertySchema) continue;
 
-        const list = typeof propAlias === 'string' ? [propAlias] : propAlias;
-        if (!Array.isArray(list)) continue;
-
-        for (const aliasKey of list) {
-          if (typeof aliasKey !== 'string' || !aliasKey || aliasKey === propertyName) continue;
-          // Don't override if already set from meta
-          if (!(aliasKey in aliases)) {
-            aliases[aliasKey] = propertyName;
+        // Extract aliases from schema
+        const propAlias = propertySchema.alias;
+        if (propAlias) {
+          const list = typeof propAlias === 'string' ? [propAlias] : propAlias;
+          if (Array.isArray(list)) {
+            for (const aliasKey of list) {
+              if (typeof aliasKey === 'string' && aliasKey && aliasKey !== propertyName && !(aliasKey in aliases)) {
+                aliases[aliasKey] = propertyName;
+              }
+            }
           }
+        }
+
+        // Extract variadic from schema
+        if (propertySchema.variadic && !variadicOptions.has(propertyName)) {
+          variadicOptions.add(propertyName);
+        }
+
+        // Extract negatable from schema
+        if (propertySchema.negatable && !negatableOptions.has(propertyName)) {
+          negatableOptions.add(propertyName);
+        }
+
+        // Extract env bindings from schema
+        if (propertySchema.env && !(propertyName in envBindings)) {
+          const envVars = typeof propertySchema.env === 'string' ? [propertySchema.env] : propertySchema.env;
+          if (Array.isArray(envVars)) {
+            envBindings[propertyName] = envVars;
+          }
+        }
+
+        // Extract config keys from schema
+        if (propertySchema.configKey && !(propertyName in configKeys)) {
+          configKeys[propertyName] = propertySchema.configKey;
         }
       }
     }
@@ -112,10 +177,10 @@ export function extractAliasesFromSchema(schema: StandardJSONSchemaV1, meta?: Re
     // Ignore errors from JSON schema generation
   }
 
-  return aliases;
+  return { aliases, variadicOptions, negatableOptions, envBindings, configKeys };
 }
 
-export function preprocessAliases(data: Record<string, unknown>, aliases: Record<string, string>): Record<string, unknown> {
+function preprocessAliases(data: Record<string, unknown>, aliases: Record<string, string>): Record<string, unknown> {
   const result = { ...data };
 
   for (const [aliasKey, fullOptionName] of Object.entries(aliases)) {
@@ -131,150 +196,10 @@ export function preprocessAliases(data: Record<string, unknown>, aliases: Record
 }
 
 /**
- * Extract variadic option names from schema and meta.
- */
-export function extractVariadicFromSchema(
-  schema: StandardJSONSchemaV1,
-  meta?: Record<string, PadroneOptionsMeta | undefined>,
-): Set<string> {
-  const variadicOptions = new Set<string>();
-
-  // Extract from meta object
-  if (meta) {
-    for (const [key, value] of Object.entries(meta)) {
-      if (value?.variadic) variadicOptions.add(key);
-    }
-  }
-
-  // Extract from JSON schema properties
-  try {
-    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
-    if (jsonSchema.type === 'object' && jsonSchema.properties) {
-      for (const [propertyName, propertySchema] of Object.entries(jsonSchema.properties as Record<string, any>)) {
-        if (propertySchema?.variadic && !variadicOptions.has(propertyName)) {
-          variadicOptions.add(propertyName);
-        }
-      }
-    }
-  } catch {
-    // Ignore errors
-  }
-
-  return variadicOptions;
-}
-
-/**
- * Extract negatable option names from schema and meta.
- */
-export function extractNegatableFromSchema(
-  schema: StandardJSONSchemaV1,
-  meta?: Record<string, PadroneOptionsMeta | undefined>,
-): Set<string> {
-  const negatableOptions = new Set<string>();
-
-  // Extract from meta object
-  if (meta) {
-    for (const [key, value] of Object.entries(meta)) {
-      if (value?.negatable) negatableOptions.add(key);
-    }
-  }
-
-  // Extract from JSON schema properties
-  try {
-    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
-    if (jsonSchema.type === 'object' && jsonSchema.properties) {
-      for (const [propertyName, propertySchema] of Object.entries(jsonSchema.properties as Record<string, any>)) {
-        if (propertySchema?.negatable && !negatableOptions.has(propertyName)) {
-          negatableOptions.add(propertyName);
-        }
-      }
-    }
-  } catch {
-    // Ignore errors
-  }
-
-  return negatableOptions;
-}
-
-/**
- * Extract environment variable bindings from schema and meta.
- */
-export function extractEnvBindingsFromSchema(
-  schema: StandardJSONSchemaV1,
-  meta?: Record<string, PadroneOptionsMeta | undefined>,
-): Record<string, string[]> {
-  const envBindings: Record<string, string[]> = {};
-
-  // Extract from meta object
-  if (meta) {
-    for (const [key, value] of Object.entries(meta)) {
-      if (value?.env) {
-        const envVars = typeof value.env === 'string' ? [value.env] : value.env;
-        envBindings[key] = envVars;
-      }
-    }
-  }
-
-  // Extract from JSON schema properties
-  try {
-    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
-    if (jsonSchema.type === 'object' && jsonSchema.properties) {
-      for (const [propertyName, propertySchema] of Object.entries(jsonSchema.properties as Record<string, any>)) {
-        if (propertySchema?.env && !(propertyName in envBindings)) {
-          const envVars = typeof propertySchema.env === 'string' ? [propertySchema.env] : propertySchema.env;
-          if (Array.isArray(envVars)) {
-            envBindings[propertyName] = envVars;
-          }
-        }
-      }
-    }
-  } catch {
-    // Ignore errors
-  }
-
-  return envBindings;
-}
-
-/**
- * Extract config key mappings from schema and meta.
- */
-export function extractConfigKeysFromSchema(
-  schema: StandardJSONSchemaV1,
-  meta?: Record<string, PadroneOptionsMeta | undefined>,
-): Record<string, string> {
-  const configKeys: Record<string, string> = {};
-
-  // Extract from meta object
-  if (meta) {
-    for (const [key, value] of Object.entries(meta)) {
-      if (value?.configKey) {
-        configKeys[key] = value.configKey;
-      }
-    }
-  }
-
-  // Extract from JSON schema properties
-  try {
-    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
-    if (jsonSchema.type === 'object' && jsonSchema.properties) {
-      for (const [propertyName, propertySchema] of Object.entries(jsonSchema.properties as Record<string, any>)) {
-        if (propertySchema?.configKey && !(propertyName in configKeys)) {
-          configKeys[propertyName] = propertySchema.configKey;
-        }
-      }
-    }
-  } catch {
-    // Ignore errors
-  }
-
-  return configKeys;
-}
-
-/**
  * Apply environment variable values to options.
  * CLI values take precedence over environment variables.
  */
-export function applyEnvBindings(
+function applyEnvBindings(
   data: Record<string, unknown>,
   envBindings: Record<string, string[]>,
   env: Record<string, string | undefined> = typeof process !== 'undefined' ? process.env : {},
@@ -339,7 +264,7 @@ function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
  * Apply config file values to options.
  * CLI values and env values take precedence over config file values.
  */
-export function applyConfigValues(
+function applyConfigValues(
   data: Record<string, unknown>,
   configKeys: Record<string, string>,
   configData: Record<string, unknown>,
@@ -367,14 +292,6 @@ export interface ParseOptionsContext {
   configKeys?: Record<string, string>;
   configData?: Record<string, unknown>;
   env?: Record<string, string | undefined>;
-}
-
-/**
- * Process variadic options by collecting multiple values into arrays.
- */
-export function processVariadicOptions(data: Record<string, unknown>, _variadicOptions: Set<string>): Record<string, unknown> {
-  // Values are already accumulated during parsing - this ensures the final structure
-  return data;
 }
 
 /**

@@ -1,6 +1,6 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
 import { createFormatter, type HelpArgumentInfo, type HelpFormat, type HelpInfo, type HelpOptionInfo } from './formatters';
-import { extractAliasesFromSchema, type PadroneMeta, parsePositionalConfig } from './options';
+import { extractSchemaMetadata, type PadroneMeta, parsePositionalConfig } from './options';
 import type { AnyPadroneCommand } from './types';
 import { getRootCommand } from './utils';
 
@@ -161,7 +161,7 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
     const optMap: Record<string, HelpOptionInfo> = Object.fromEntries(optionsInfo.map((opt) => [opt.name, opt]));
 
     // Merge aliases into options
-    const aliases = extractAliasesFromSchema(cmd.options, cmd.meta?.options);
+    const { aliases } = extractSchemaMetadata(cmd.options, cmd.meta?.options);
     for (const [alias, name] of Object.entries(aliases)) {
       const opt = optMap[name];
       if (!opt) continue;

@@ -4,3 +4,6 @@ silent = true
 
 [install]
 linker = "isolated"
+
+[test]
+onlyFailures = true

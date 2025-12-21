@@ -1,14 +1,6 @@
 import type { Schema } from 'ai';
 import { generateHelp } from './help';
-import {
-  extractAliasesFromSchema,
-  extractConfigKeysFromSchema,
-  extractEnvBindingsFromSchema,
-  extractNegatableFromSchema,
-  extractVariadicFromSchema,
-  parsePositionalConfig,
-  preprocessOptions,
-} from './options';
+import { extractSchemaMetadata, parsePositionalConfig, preprocessOptions } from './options';
 import { parseCliInputToParts } from './parse';
 import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneCommandBuilder, PadroneProgram } from './types';
 import { getVersion, loadConfigFile } from './utils';
@@ -73,11 +65,10 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
 
     // Extract option metadata from the nested options object in meta
     const optionsMeta = curCommand.meta?.options;
-    const aliases = curCommand.options ? extractAliasesFromSchema(curCommand.options, optionsMeta) : {};
-    const variadicOptions = curCommand.options ? extractVariadicFromSchema(curCommand.options, optionsMeta) : new Set<string>();
-    const negatableOptions = curCommand.options ? extractNegatableFromSchema(curCommand.options, optionsMeta) : new Set<string>();
-    const envBindings = curCommand.options ? extractEnvBindingsFromSchema(curCommand.options, optionsMeta) : {};
-    const configKeys = curCommand.options ? extractConfigKeysFromSchema(curCommand.options, optionsMeta) : {};
+    const schemaMetadata = curCommand.options
+      ? extractSchemaMetadata(curCommand.options, optionsMeta)
+      : { aliases: {}, variadicOptions: new Set<string>(), negatableOptions: new Set<string>(), envBindings: {}, configKeys: {} };
+    const { aliases, variadicOptions, negatableOptions, envBindings, configKeys } = schemaMetadata;
 
     // Parse positional configuration
     const positionalConfig = curCommand.meta?.positional ? parsePositionalConfig(curCommand.meta.positional) : [];
