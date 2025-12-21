@@ -1,8 +1,13 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
-import { createFormatter, type HelpArgumentInfo, type HelpFormat, type HelpInfo, type HelpOptionInfo } from './formatters';
+import { createFormatter, type HelpArgumentInfo, type HelpDetail, type HelpFormat, type HelpInfo, type HelpOptionInfo } from './formatter';
 import { extractSchemaMetadata, type PadroneMeta, parsePositionalConfig } from './options';
 import type { AnyPadroneCommand } from './types';
 import { getRootCommand } from './utils';
+
+export type HelpOptions = {
+  format?: HelpFormat | 'auto';
+  detail?: HelpDetail;
+};
 
 /**
  * Extract positional arguments info from schema based on meta.positional config.
@@ -130,12 +135,6 @@ function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: PadroneMeta, po
 
   return result;
 }
-
-export type HelpOptions = {
-  format?: HelpFormat | 'auto';
-  /** Future: Control the level of detail in the output */
-  detail?: 'minimal' | 'standard' | 'full';
-};
 
 // ============================================================================
 // Core Help Info Builder

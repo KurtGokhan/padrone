@@ -1,6 +1,7 @@
 import { createColorizer } from './colorizer';
 
 export type HelpFormat = 'text' | 'ansi' | 'console' | 'markdown' | 'html' | 'json';
+export type HelpDetail = 'minimal' | 'standard' | 'full';
 
 // ============================================================================
 // Help Info Types (shared with help.ts)
@@ -513,8 +514,6 @@ function createMinimalFormatter(): Formatter {
     },
   };
 }
-
-export type HelpDetail = 'minimal' | 'standard' | 'full';
 
 export function createFormatter(format: HelpFormat | 'auto', detail: HelpDetail = 'standard'): Formatter {
   if (detail === 'minimal') return createMinimalFormatter();

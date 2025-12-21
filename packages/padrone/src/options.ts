@@ -64,7 +64,7 @@ export function parsePositionalConfig(positional: string[]): { name: string; var
 /**
  * Result type for extractSchemaMetadata function.
  */
-export interface SchemaMetadataResult {
+interface SchemaMetadataResult {
   aliases: Record<string, string>;
   envBindings: Record<string, string[]>;
   configKeys: Record<string, string>;
@@ -254,7 +254,7 @@ function applyConfigValues(
   return result;
 }
 
-export interface ParseOptionsContext {
+interface ParseOptionsContext {
   aliases?: Record<string, string>;
   envBindings?: Record<string, string[]>;
   configKeys?: Record<string, string>;

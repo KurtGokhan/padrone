@@ -255,7 +255,7 @@ export type PadroneAPI<TCommand extends AnyPadroneCommand> = PadroneAPICommand<T
   [K in TCommand['~types']['commands'][number] as K['name']]: PadroneAPI<K>;
 };
 
-export type PadroneAPICommand<TCommand extends AnyPadroneCommand> = (options: GetOptions<'in', TCommand>) => GetResults<TCommand>;
+type PadroneAPICommand<TCommand extends AnyPadroneCommand> = (options: GetOptions<'in', TCommand>) => GetResults<TCommand>;
 
 type NormalizeOptions<TOptions> = IsUnknown<TOptions> extends true ? void | EmptyRecord : TOptions;
 type GetOptions<TDir extends 'in' | 'out', TCommand extends AnyPadroneCommand> = TDir extends 'in'

@@ -235,5 +235,3 @@ export function createWeatherProgram() {
         .action(),
     );
 }
-
-export type WeatherProgram = ReturnType<typeof createWeatherProgram>;

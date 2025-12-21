@@ -15,7 +15,7 @@ type SplitString<TName extends string, TSplitBy extends string = ' '> = TName ex
   ? [FirstPart, ...SplitString<RestParts, TSplitBy>]
   : [TName];
 
-export type JoinString<TParts extends string[], TJoinBy extends string = ' '> = TParts extends [
+type JoinString<TParts extends string[], TJoinBy extends string = ' '> = TParts extends [
   infer FirstPart extends string,
   ...infer RestParts extends string[],
 ]
@@ -26,7 +26,7 @@ export type JoinString<TParts extends string[], TJoinBy extends string = ' '> = 
     ? ''
     : TParts[number];
 
-export type SplitLastSpace<S extends string> =
+type SplitLastSpace<S extends string> =
   SplitString<S> extends [...infer Init extends string[], infer Last extends string]
     ? Init extends []
       ? [S, never]
