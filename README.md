@@ -210,10 +210,10 @@ console.log(program.help());
 
 Example output:
 ```
-Usage: myapp greet [args...] [options]
+Usage: myapp greet names... [options]
 
 Arguments:
-  args...    Names to greet
+  names...    Names to greet
 
 Options:
   -p, --prefix <string>   Prefix to use in greeting

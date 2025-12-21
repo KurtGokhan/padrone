@@ -40,7 +40,7 @@ exports[`help should generate help for a command 1`] = `
 "Usage: padrone-test current [args...] [options]
 
 Arguments:
-  args...
+  city
     City name
 
 Options:
@@ -53,7 +53,7 @@ exports[`help should generate help for a command with enabled colors 1`] = `
 "Usage: \x1B[36m\x1B[1mpadrone-test current\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mArguments:\x1B[0m
-  \x1B[32margs...\x1B[0m
+  \x1B[32mcity\x1B[0m
     \x1B[2mCity name\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
@@ -71,7 +71,8 @@ Commands:
 Run "forecast extended [command] --help" for more information on a command.
 
 Arguments:
-  args...
+  city
+    City name (overrides positional argument)
 
 Options:
   --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
@@ -158,7 +159,7 @@ exports[`help should generate help in console format 1`] = `
 "Usage: \x1B[36m\x1B[1mpadrone-test current\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mArguments:\x1B[0m
-  \x1B[32margs...\x1B[0m
+  \x1B[32mcity\x1B[0m
     \x1B[2mCity name\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
@@ -174,7 +175,7 @@ exports[`help should generate help in markdown format 1`] = `
 
 ### Arguments:
 
-  \`args...\`
+  \`city\`
 
     City name
 
@@ -189,7 +190,7 @@ exports[`help should generate help in markdown format 1`] = `
 "
 `;
 
-exports[`help should generate help in html format 1`] = `"<div style="font-family: monospace; line-height: 1.6;"><strong>Usage:</strong> <strong style="color: #00bcd4;">padrone-test current</strong> <span style="color: #999;">[args...]</span> <span style="color: #999;">[options]</span><br><br><h3>Arguments:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">args...</code><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #666;">City name</span><br><br><h3>Options:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">--unit</code> <code style="color: #ff9800;">&lt;string&gt;</code> <span style="color: #999;">(optional)</span> <span style="color: #999;">(default: fahrenheit)</span> <span style="color: #999;">(choices: celsius, fahrenheit)</span>     <span style="color: #666;">Temperature unit</span><br>&nbsp;&nbsp;<code style="color: #4caf50;">--verbose</code> <code style="color: #ff9800;">&lt;boolean&gt;</code> <span style="color: #999;">(optional)</span>  <span style="color: #666;">Show detailed information</span><br></div>"`;
+exports[`help should generate help in html format 1`] = `"<div style="font-family: monospace; line-height: 1.6;"><strong>Usage:</strong> <strong style="color: #00bcd4;">padrone-test current</strong> <span style="color: #999;">[args...]</span> <span style="color: #999;">[options]</span><br><br><h3>Arguments:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">city</code><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #666;">City name</span><br><br><h3>Options:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">--unit</code> <code style="color: #ff9800;">&lt;string&gt;</code> <span style="color: #999;">(optional)</span> <span style="color: #999;">(default: fahrenheit)</span> <span style="color: #999;">(choices: celsius, fahrenheit)</span>     <span style="color: #666;">Temperature unit</span><br>&nbsp;&nbsp;<code style="color: #4caf50;">--verbose</code> <code style="color: #ff9800;">&lt;boolean&gt;</code> <span style="color: #999;">(optional)</span>  <span style="color: #666;">Show detailed information</span><br></div>"`;
 
 exports[`help should generate help in json format 1`] = `
 "{
@@ -197,10 +198,10 @@ exports[`help should generate help in json format 1`] = `
   "usage": "padrone-test current [args...] [options]",
   "arguments": [
     {
-      "name": "args...",
+      "name": "city",
       "optional": false,
       "description": "City name",
-      "type": "array<any>"
+      "type": "string"
     }
   ],
   "options": [
@@ -247,7 +248,7 @@ Subcommand Details:
 Usage: padrone-test current [args...] [options]
 
 Arguments:
-  args...
+  city
     City name
 
 Options:
@@ -263,7 +264,8 @@ Commands:
 Run "forecast [command] --help" for more information on a command.
 
 Arguments:
-  args...
+  city
+    City name (overrides positional argument)
 
 Options:
   --days <number> (optional) (default: 3)  Number of days to forecast
@@ -280,7 +282,8 @@ Commands:
 Run "forecast extended [command] --help" for more information on a command.
 
 Arguments:
-  args...
+  city
+    City name (overrides positional argument)
 
 Options:
   --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
@@ -291,10 +294,11 @@ Subcommand Details:
 Usage: padrone-test forecast extended extended [args...] [options]
 
 Arguments:
-  args...
+  city
+    City name (overrides positional argument)
 
 ────────────────────────────────────────────────────────────
-Usage: padrone-test alerts [args...] [options]
+Usage: padrone-test alerts [options]
 
 Options:
   --region <string> (optional)     Region to check alerts for
@@ -305,11 +309,11 @@ Options:
 Usage: padrone-test compare [args...] [options]
 
 Arguments:
-  args[2..∞]
+  ...cities
     Cities to compare
 
 ────────────────────────────────────────────────────────────
-Usage: padrone-test noop [args...] [options]
+Usage: padrone-test noop
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test cities [options]
@@ -386,10 +390,10 @@ exports[`help with full detail mode should generate full help with all nested co
       "usage": "padrone-test current [args...] [options]",
       "arguments": [
         {
-          "name": "args...",
+          "name": "city",
           "optional": false,
           "description": "City name",
-          "type": "array<any>"
+          "type": "string"
         }
       ],
       "options": [
@@ -422,9 +426,10 @@ exports[`help with full detail mode should generate full help with all nested co
       ],
       "arguments": [
         {
-          "name": "args...",
+          "name": "city",
           "optional": false,
-          "type": "array<any>"
+          "description": "City name (overrides positional argument)",
+          "type": "string"
         }
       ],
       "options": [
@@ -458,9 +463,10 @@ exports[`help with full detail mode should generate full help with all nested co
           ],
           "arguments": [
             {
-              "name": "args...",
+              "name": "city",
               "optional": false,
-              "type": "array<any>"
+              "description": "City name (overrides positional argument)",
+              "type": "string"
             }
           ],
           "options": [
@@ -482,9 +488,10 @@ exports[`help with full detail mode should generate full help with all nested co
               "usage": "padrone-test forecast extended extended [args...] [options]",
               "arguments": [
                 {
-                  "name": "args...",
+                  "name": "city",
                   "optional": false,
-                  "type": "array<any>"
+                  "description": "City name (overrides positional argument)",
+                  "type": "string"
                 }
               ]
             }
@@ -494,7 +501,7 @@ exports[`help with full detail mode should generate full help with all nested co
     },
     {
       "name": "alerts",
-      "usage": "padrone-test alerts [args...] [options]",
+      "usage": "padrone-test alerts [options]",
       "options": [
         {
           "name": "region",
@@ -526,7 +533,7 @@ exports[`help with full detail mode should generate full help with all nested co
       "usage": "padrone-test compare [args...] [options]",
       "arguments": [
         {
-          "name": "args[2..∞]",
+          "name": "...cities",
           "optional": false,
           "description": "Cities to compare",
           "type": "array<string>"
@@ -535,7 +542,7 @@ exports[`help with full detail mode should generate full help with all nested co
     },
     {
       "name": "noop",
-      "usage": "padrone-test noop [args...] [options]"
+      "usage": "padrone-test noop"
     },
     {
       "name": "cities",
@@ -693,7 +700,7 @@ Usage: **padrone-test current** *[args...]* *[options]*
 
 ### Arguments:
 
-  \`args...\`
+  \`city\`
 
     City name
 
@@ -725,7 +732,9 @@ Usage: **padrone-test forecast** *[command]* *[args...]* *[options]*
 
 ### Arguments:
 
-  \`args...\`
+  \`city\`
+
+    City name (overrides positional argument)
 
 
 
@@ -759,7 +768,9 @@ Usage: **padrone-test forecast extended** *[command]* *[args...]* *[options]*
 
 ### Arguments:
 
-  \`args...\`
+  \`city\`
+
+    City name (overrides positional argument)
 
 
 
@@ -781,13 +792,15 @@ Usage: **padrone-test forecast extended extended** *[args...]* *[options]*
 
 ### Arguments:
 
-  \`args...\`
+  \`city\`
+
+    City name (overrides positional argument)
 
 
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test alerts** *[args...]* *[options]*
+Usage: **padrone-test alerts** *[options]*
 
 
 
@@ -809,7 +822,7 @@ Usage: **padrone-test compare** *[args...]* *[options]*
 
 ### Arguments:
 
-  \`args[2..∞]\`
+  \`...cities\`
 
     Cities to compare
 
@@ -817,7 +830,7 @@ Usage: **padrone-test compare** *[args...]* *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test noop** *[args...]* *[options]*
+Usage: **padrone-test noop**
 
 
 
@@ -899,7 +912,8 @@ Commands:
 Run "forecast [command] --help" for more information on a command.
 
 Arguments:
-  args...
+  city
+    City name (overrides positional argument)
 
 Options:
   --days <number> (optional) (default: 3)  Number of days to forecast
@@ -916,7 +930,8 @@ Commands:
 Run "forecast extended [command] --help" for more information on a command.
 
 Arguments:
-  args...
+  city
+    City name (overrides positional argument)
 
 Options:
   --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
@@ -927,7 +942,8 @@ Subcommand Details:
 Usage: padrone-test forecast extended extended [args...] [options]
 
 Arguments:
-  args...
+  city
+    City name (overrides positional argument)
 "
 `;
 
@@ -940,7 +956,8 @@ Commands:
 Run "forecast extended [command] --help" for more information on a command.
 
 Arguments:
-  args...
+  city
+    City name (overrides positional argument)
 
 Options:
   --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
@@ -951,7 +968,8 @@ Subcommand Details:
 Usage: padrone-test forecast extended extended [args...] [options]
 
 Arguments:
-  args...
+  city
+    City name (overrides positional argument)
 "
 `;
 
@@ -964,7 +982,8 @@ exports[`help with full detail mode should work with ansi format in full detail 
 \x1B[90mRun "forecast [command] --help" for more information on a command.\x1B[0m
 
 \x1B[1mArguments:\x1B[0m
-  \x1B[32margs...\x1B[0m
+  \x1B[32mcity\x1B[0m
+    \x1B[2mCity name (overrides positional argument)\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
   \x1B[32m--days\x1B[0m \x1B[33m<number>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: 3)\x1B[0m  \x1B[2mNumber of days to forecast\x1B[0m
@@ -981,7 +1000,8 @@ Usage: \x1B[36m\x1B[1mpadrone-test forecast extended\x1B[0m \x1B[90m[command]\x1
 \x1B[90mRun "forecast extended [command] --help" for more information on a command.\x1B[0m
 
 \x1B[1mArguments:\x1B[0m
-  \x1B[32margs...\x1B[0m
+  \x1B[32mcity\x1B[0m
+    \x1B[2mCity name (overrides positional argument)\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
   \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: fahrenheit)\x1B[0m \x1B[90m(choices: celsius, fahrenheit)\x1B[0m  \x1B[2mTemperature unit\x1B[0m
@@ -992,6 +1012,7 @@ Usage: \x1B[36m\x1B[1mpadrone-test forecast extended\x1B[0m \x1B[90m[command]\x1
 Usage: \x1B[36m\x1B[1mpadrone-test forecast extended extended\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mArguments:\x1B[0m
-  \x1B[32margs...\x1B[0m
+  \x1B[32mcity\x1B[0m
+    \x1B[2mCity name (overrides positional argument)\x1B[0m
 "
 `;

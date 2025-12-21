@@ -9,18 +9,23 @@ describe('CLI', () => {
 
   describe('programmatic execution', () => {
     it('should execute a simple command with args and options', () => {
-      const result = program.run('current', ['New York'], { unit: 'celsius', verbose: true });
+      const result = program.run('current', { city: 'New York', unit: 'celsius', verbose: true });
 
       expect(result.command.path).toBe('current');
-      expect(result.args).toEqual(['New York']);
-      expect(result.options).toEqual({ unit: 'celsius', verbose: true });
+      expect(result.options).toMatchInlineSnapshot(`
+        {
+          "city": "New York",
+          "unit": "celsius",
+          "verbose": true,
+        }
+      `);
       expect(result.result.city).toBe('New York');
       expect(result.result.temperature).toBe(22);
       expect(result.result.humidity).toBe(65);
     });
 
     it('should execute a command with default options', () => {
-      const result = program.run('current', ['London'], {});
+      const result = program.run('current', { city: 'London' });
 
       expect(result.command.path).toBe('current');
       expect(result.result.temperature).toBe(72); // Default fahrenheit
@@ -28,29 +33,28 @@ describe('CLI', () => {
     });
 
     it('should execute nested commands', () => {
-      const result = program.run('forecast extended', ['Tokyo'], { unit: 'celsius' });
+      const result = program.run('forecast extended', { city: 'Tokyo', unit: 'celsius' });
 
       expect(result.command.path).toBe('forecast extended');
-      expect(result.args).toEqual(['Tokyo']);
-      expect(result.options).toEqual({ unit: 'celsius' });
+      expect(result.options?.city).toEqual('Tokyo');
+      expect(result.options?.unit).toEqual('celsius');
       expect(result.result.city).toBe('Tokyo');
       expect(result.result.extendedForecast).toBeDefined();
     });
 
     it('should execute a command with array args', () => {
-      const result = program.run('compare', ['New York', 'London', 'Tokyo'], undefined);
+      const result = program.run('compare', { cities: ['New York', 'London', 'Tokyo'] });
 
       expect(result.command.path).toBe('compare');
-      expect(result.args).toEqual(['New York', 'London', 'Tokyo']);
+      expect(result.options?.cities).toEqual(['New York', 'London', 'Tokyo']);
       expect(result.result.cities).toEqual(['New York', 'London', 'Tokyo']);
       expect(result.result.comparison).toHaveLength(3);
     });
 
     it('should execute a command with void args and options', () => {
-      const result = program.run('noop', undefined, undefined);
+      const result = program.run('noop', undefined);
 
       expect(result.command.path).toBe('noop');
-      expect(result.args).toBeUndefined();
       expect(result.options).toBeUndefined();
       expect(result.result).toBeUndefined();
     });
@@ -61,40 +65,42 @@ describe('CLI', () => {
       const result = program.parse('current Paris');
 
       expect(result.command.path).toBe('current');
-      expect(result.args).toEqual(['Paris']);
-      expect(result.options).toEqual({ unit: 'fahrenheit' });
+      expect(result.options?.city).toEqual('Paris');
+      expect(result.options?.unit).toEqual('fahrenheit');
     });
 
     it('should parse command with options', () => {
       const result = program.parse('current London --unit celsius --verbose');
 
       expect(result.command.path).toBe('current');
-      expect(result.args).toEqual(['London']);
-      expect(result.options).toEqual({ unit: 'celsius', verbose: true });
+      expect(result.options?.city).toEqual('London');
+      expect(result.options?.unit).toEqual('celsius');
+      expect(result.options?.verbose).toBe(true);
     });
 
     it('should parse command with option values', () => {
       const result = program.parse('forecast Tokyo --days=5 --unit fahrenheit');
 
       expect(result.command.path).toBe('forecast');
-      expect(result.args).toEqual(['Tokyo']);
-      expect(result.options).toEqual({ days: 5, unit: 'fahrenheit' });
+      expect(result.options?.city).toEqual('Tokyo');
+      expect(result.options?.days).toEqual(5);
+      expect(result.options?.unit).toEqual('fahrenheit');
     });
 
     it('should parse nested commands', () => {
       const result = program.parse('forecast extended Berlin --unit celsius');
 
       expect(result.command.path).toBe('forecast extended');
-      expect(result.args).toEqual(['Berlin']);
-      expect(result.options).toEqual({ unit: 'celsius' });
+      expect(result.options?.city).toEqual('Berlin');
+      expect(result.options?.unit).toEqual('celsius');
     });
 
     it('should parse command with multiple args', () => {
       const result = program.parse('compare New York London Tokyo');
 
       expect(result.command.path).toBe('compare');
-      // Note: Parser splits on spaces, so "New York" becomes ["New", "York"]
-      expect(result.args).toEqual(['New', 'York', 'London', 'Tokyo']);
+      // Note: Parser splits on spaces, so "New York" becomes separate elements
+      expect(result.options?.cities).toEqual(['New', 'York', 'London', 'Tokyo']);
     });
 
     it('should parse command with complex options', () => {
@@ -108,7 +114,6 @@ describe('CLI', () => {
       const result = program.parse('');
 
       expect(result.command.path).toBe('' as TODO);
-      expect(result.args).toBeUndefined();
       expect(result.options).toBeUndefined();
     });
   });
@@ -120,7 +125,7 @@ describe('CLI', () => {
       expect(result).toBeDefined();
       if (!result) throw new Error('Result is undefined');
       expect(result.command.path).toBe('current');
-      expect(result.args).toEqual(['Madrid']);
+      expect(result.options?.city).toEqual('Madrid');
       expect(result.result.city).toBe('Madrid');
       expect(result.result.temperature).toBe(22);
     });
@@ -139,7 +144,7 @@ describe('CLI', () => {
 
     it('should throw error for non-existent command', () => {
       expect(() => {
-        program.run('nonexistent' as any, [], {});
+        program.run('nonexistent' as any, {});
       }).toThrow('Command "nonexistent" not found');
     });
   });
@@ -174,7 +179,7 @@ describe('CLI', () => {
       expect(api.current).toBeDefined();
       expect(typeof api.current).toBe('function');
 
-      const result = api.current(['Berlin'], { unit: 'celsius', verbose: true });
+      const result = api.current({ city: 'Berlin', unit: 'celsius', verbose: true });
       // API returns PadroneCommandResult, so access .result property
       expect(result.city).toBe('Berlin');
       expect(result.temperature).toBe(22);
@@ -188,7 +193,7 @@ describe('CLI', () => {
       expect(api.forecast.extended).toBeDefined();
       expect(typeof api.forecast.extended).toBe('function');
 
-      const result = api.forecast.extended(['Paris'], { unit: 'celsius' });
+      const result = api.forecast.extended({ city: 'Paris', unit: 'celsius' });
       // API returns PadroneCommandResult, so access .result property
       expect(result.city).toBe('Paris');
       expect(result.extendedForecast).toBeDefined();
@@ -207,11 +212,11 @@ describe('CLI', () => {
     it('should execute commands through API', () => {
       const api = program.api();
 
-      const compareResult = api.compare(['NYC', 'LA'], undefined);
+      const compareResult = api.compare({ cities: ['NYC', 'LA'] });
       // API returns PadroneCommandResult, so access .result property
       expect(compareResult.cities).toEqual(['NYC', 'LA']);
 
-      const alertsResult = api.alerts(undefined, { region: 'California', severity: 'high' });
+      const alertsResult = api.alerts({ region: 'California', severity: 'high' });
       expect(alertsResult.region).toBe('California');
     });
   });
@@ -220,16 +225,16 @@ describe('CLI', () => {
     it('should handle command with no args schema', () => {
       const program = createPadrone('padrone-test').command('test', (c) => c.action(() => ({ message: 'success' })));
 
-      const result = program.run('test', undefined, undefined);
+      const result = program.run('test', undefined);
       expect(result.result?.message).toBe('success');
     });
 
-    it('should handle command with no options schema', () => {
+    it('should handle command with positional args', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
-        c.args(z.tuple([z.string()])).action((args) => ({ city: args[0] })),
+        c.options(z.object({ city: z.string() }), { positional: ['city'] }).action((options) => ({ city: options.city })),
       );
 
-      const result = program.run('test', ['City'], undefined);
+      const result = program.run('test', { city: 'City' });
       expect(result.result.city).toBe('City');
     });
 
@@ -238,7 +243,7 @@ describe('CLI', () => {
         c.command('level2', (c2) => c2.command('level3', (c3) => c3.action(() => ({ depth: 3 })))).action(() => ({ depth: 1 })),
       );
 
-      const result = program.run('level1 level2 level3', undefined, undefined);
+      const result = program.run('level1 level2 level3', undefined);
       expect(result.result.depth).toBe(3);
     });
 
@@ -268,7 +273,7 @@ describe('CLI', () => {
   describe('real-world weather CLI scenarios', () => {
     it('should handle checking current weather for multiple cities sequentially', () => {
       const cities = ['New York', 'London', 'Tokyo'];
-      const results = cities.map((city) => program.run('current', [city], { unit: 'celsius' }));
+      const results = cities.map((city) => program.run('current', { city, unit: 'celsius' }));
 
       expect(results).toHaveLength(3);
       results.forEach((result, i) => {
@@ -278,7 +283,7 @@ describe('CLI', () => {
     });
 
     it('should handle getting forecast with custom days', () => {
-      const result = program.run('forecast', ['Miami'], { days: 5, unit: 'fahrenheit' });
+      const result = program.run('forecast', { city: 'Miami', days: 5, unit: 'fahrenheit' });
 
       expect(result.result.days).toBe(5);
       expect(result.result.forecast).toHaveLength(2); // Mock data only has 2 days
@@ -286,7 +291,7 @@ describe('CLI', () => {
 
     it('should handle comparing weather across multiple cities', () => {
       const cities = ['Seattle', 'Portland', 'Vancouver'];
-      const result = program.run('compare', cities, undefined);
+      const result = program.run('compare', { cities });
 
       expect(result.result?.comparison).toHaveLength(3);
       result.result?.comparison.forEach((comp: any, i: number) => {
@@ -297,7 +302,7 @@ describe('CLI', () => {
     });
 
     it('should handle checking alerts with filters', () => {
-      const result = program.run('alerts', undefined, {
+      const result = program.run('alerts', {
         region: 'West Coast',
         severity: 'high',
       });
@@ -324,7 +329,7 @@ describe('CLI', () => {
                 .meta({ alias: ['h'] }),
             }),
           )
-          .action((_args, options) => ({
+          .action((options) => ({
             verbose: options?.verbose,
             help: options?.help,
           })),
@@ -352,7 +357,7 @@ describe('CLI', () => {
                 .meta({ alias: ['c'] }),
             }),
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test -u celsius -c=5');
@@ -372,7 +377,7 @@ describe('CLI', () => {
                 .meta({ alias: ['v'] }),
             }),
           )
-          .action((_args, options) => ({
+          .action((options) => ({
             verbose: options?.verbose || false,
           })),
       );
@@ -402,7 +407,7 @@ describe('CLI', () => {
                 .meta({ alias: ['o'] }),
             }),
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test -v --help -o=file.txt');
@@ -421,7 +426,7 @@ describe('CLI', () => {
               v: z.boolean().optional(), // Include 'v' in schema to test without alias
             }),
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       // No aliases defined, -v should work as 'v' key if it's in the schema
@@ -472,7 +477,7 @@ describe('CLI', () => {
                     .meta({ alias: ['v'] }),
                 }),
               )
-              .action((_args, options) => ({
+              .action((options) => ({
                 verbose: options?.verbose || false,
               })),
           )
@@ -495,12 +500,14 @@ describe('CLI', () => {
                   verbose: z.boolean().optional(),
                 }),
                 {
-                  verbose: {
-                    alias: ['v'],
+                  options: {
+                    verbose: {
+                      alias: ['v'],
+                    },
                   },
                 },
               )
-              .action((_args, options) => ({
+              .action((options) => ({
                 verbose: options?.verbose || false,
               })),
           )
@@ -524,7 +531,7 @@ describe('CLI', () => {
                 .meta({ alias: ['v', 'verbose'] }),
             }),
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test -v');
@@ -535,84 +542,84 @@ describe('CLI', () => {
 
   describe('stringify', () => {
     it('should stringify a simple command with args', () => {
-      const result = program.stringify('current', ['New York'], undefined);
+      const result = program.stringify('current', { city: 'New York', unit: 'fahrenheit' });
 
-      expect(result).toBe('current "New York"');
+      expect(result).toBe('current "New York" --unit=fahrenheit');
     });
 
     it('should stringify a command with args and options', () => {
-      const result = program.stringify('current', ['London'], { unit: 'celsius', verbose: true });
+      const result = program.stringify('current', { city: 'London', unit: 'celsius', verbose: true });
 
       expect(result).toBe('current London --unit=celsius --verbose');
     });
 
     it('should stringify a nested command', () => {
-      const result = program.stringify('forecast extended', ['Tokyo'], { unit: 'fahrenheit' });
+      const result = program.stringify('forecast extended', { city: 'Tokyo', unit: 'fahrenheit' });
 
       expect(result).toBe('forecast extended Tokyo --unit=fahrenheit');
     });
 
     it('should stringify a command with multiple args', () => {
-      const result = program.stringify('compare', ['NYC', 'LA', 'Chicago'], undefined);
+      const result = program.stringify('compare', { cities: ['NYC', 'LA', 'Chicago'] });
 
       expect(result).toBe('compare NYC LA Chicago');
     });
 
     it('should stringify args with spaces using quotes', () => {
-      const result = program.stringify('compare', ['New York', 'Los Angeles'], undefined);
+      const result = program.stringify('compare', { cities: ['New York', 'Los Angeles'] });
 
       expect(result).toBe('compare "New York" "Los Angeles"');
     });
 
     it('should stringify options with string values containing spaces', () => {
-      const result = program.stringify('alerts', undefined, { region: 'West Coast', severity: 'high' });
+      const result = program.stringify('alerts', { region: 'West Coast', severity: 'high' });
 
       expect(result).toBe('alerts --region="West Coast" --severity=high');
     });
 
     it('should stringify false boolean options with no- prefix', () => {
-      const result = program.stringify('alerts', undefined, { ascending: false });
+      const result = program.stringify('alerts', { ascending: false });
 
       expect(result).toBe('alerts --no-ascending');
     });
 
     it('should stringify numeric options', () => {
-      const result = program.stringify('forecast', ['Berlin'], { days: 5, unit: 'celsius' });
+      const result = program.stringify('forecast', { city: 'Berlin', days: 5, unit: 'celsius' });
 
       expect(result).toBe('forecast Berlin --days=5 --unit=celsius');
     });
 
     it('should omit undefined options', () => {
-      const result = program.stringify('current', ['Paris'], { unit: 'celsius', verbose: undefined });
+      const result = program.stringify('current', { city: 'Paris', unit: 'celsius', verbose: undefined });
 
       expect(result).toBe('current Paris --unit=celsius');
     });
 
     it('should handle command with no args and no options', () => {
-      const result = program.stringify('noop', undefined, undefined);
+      const result = program.stringify('noop', undefined);
 
       expect(result).toBe('noop');
     });
 
     it('should throw error for non-existent command', () => {
       expect(() => {
-        program.stringify('nonexistent' as any, [], {});
+        program.stringify('nonexistent' as any, {});
       }).toThrow('Command "nonexistent" not found');
     });
 
-    it('should handle empty args array', () => {
-      const result = program.stringify('compare', [], undefined);
+    it('should handle empty cities array', () => {
+      const result = program.stringify('compare', { cities: [] });
 
       expect(result).toBe('compare');
     });
 
     it('should roundtrip: stringify then parse produces same result', () => {
-      const original = { command: 'current' as const, args: ['Tokyo'] as [string], options: { unit: 'celsius' as const, verbose: true } };
-      const stringified = program.stringify(original.command, original.args, original.options);
+      const original = { command: 'current' as const, options: { city: 'Tokyo', unit: 'celsius' as const, verbose: true } };
+      const stringified = program.stringify(original.command, original.options);
       const parsed = program.parse(stringified);
 
       expect(parsed.command.path).toBe(original.command);
-      expect(parsed.args).toEqual(original.args);
+      expect((parsed.options as typeof original.options)?.city).toEqual(original.options.city);
       expect((parsed.options as typeof original.options)?.unit).toBe(original.options.unit);
       expect((parsed.options as typeof original.options)?.verbose).toBe(original.options.verbose);
     });
@@ -624,12 +631,12 @@ describe('CLI', () => {
             z.object({
               include: z.array(z.string()).optional(),
             }),
-            { include: { variadic: true } },
+            { options: { include: { variadic: true } } },
           )
           .action(),
       );
 
-      const result = program.stringify('test', undefined, { include: ['src', 'lib', 'tests'] });
+      const result = program.stringify('test', { include: ['src', 'lib', 'tests'] });
       expect(result).toBe('test --include=src --include=lib --include=tests');
     });
   });
@@ -642,9 +649,9 @@ describe('CLI', () => {
             z.object({
               include: z.array(z.string()).optional(),
             }),
-            { include: { variadic: true } },
+            { options: { include: { variadic: true } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test --include=src --include=lib --include=tests');
@@ -659,9 +666,9 @@ describe('CLI', () => {
             z.object({
               include: z.array(z.string()).optional(),
             }),
-            { include: { variadic: true, alias: ['i'] } },
+            { options: { include: { variadic: true, alias: ['i'] } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test -i=src -i=lib --include=tests');
@@ -676,9 +683,9 @@ describe('CLI', () => {
             z.object({
               tag: z.array(z.string()).optional(),
             }),
-            { tag: { variadic: true } },
+            { options: { tag: { variadic: true } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test --tag one --tag two --tag three');
@@ -693,7 +700,7 @@ describe('CLI', () => {
             z.object({
               include: z.array(z.string()).optional().describe('Files to include'),
             }),
-            { include: { variadic: true } },
+            { options: { include: { variadic: true } } },
           )
           .action(),
       );
@@ -713,9 +720,9 @@ describe('CLI', () => {
             z.object({
               verbose: z.boolean().optional().default(true),
             }),
-            { verbose: { negatable: true } },
+            { options: { verbose: { negatable: true } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test --no-verbose');
@@ -730,9 +737,9 @@ describe('CLI', () => {
             z.object({
               verbose: z.boolean().optional().default(false),
             }),
-            { verbose: { negatable: true } },
+            { options: { verbose: { negatable: true } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test --verbose');
@@ -747,7 +754,7 @@ describe('CLI', () => {
             z.object({
               verbose: z.boolean().optional().describe('Enable verbose output'),
             }),
-            { verbose: { negatable: true } },
+            { options: { verbose: { negatable: true } } },
           )
           .action(),
       );
@@ -765,12 +772,12 @@ describe('CLI', () => {
             z.object({
               verbose: z.boolean().optional(),
             }),
-            { verbose: { negatable: true } },
+            { options: { verbose: { negatable: true } } },
           )
           .action(),
       );
 
-      const result = program.stringify('test', undefined, { verbose: false });
+      const result = program.stringify('test', { verbose: false });
 
       expect(result).toBe('test --no-verbose');
     });
@@ -784,9 +791,9 @@ describe('CLI', () => {
             z.object({
               apiKey: z.string().optional(),
             }),
-            { apiKey: { env: 'API_KEY' } },
+            { options: { apiKey: { env: 'API_KEY' } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test', { env: { API_KEY: 'secret123' } });
@@ -801,9 +808,9 @@ describe('CLI', () => {
             z.object({
               apiKey: z.string().optional(),
             }),
-            { apiKey: { env: 'API_KEY' } },
+            { options: { apiKey: { env: 'API_KEY' } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test --apiKey=from-cli', { env: { API_KEY: 'from-env' } });
@@ -818,9 +825,9 @@ describe('CLI', () => {
             z.object({
               port: z.coerce.number().optional(),
             }),
-            { port: { env: ['PORT', 'APP_PORT'] } },
+            { options: { port: { env: ['PORT', 'APP_PORT'] } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       // First env var not set, second one is
@@ -836,9 +843,9 @@ describe('CLI', () => {
             z.object({
               debug: z.boolean().optional(),
             }),
-            { debug: { env: 'DEBUG' } },
+            { options: { debug: { env: 'DEBUG' } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test', { env: { DEBUG: 'true' } });
@@ -853,7 +860,7 @@ describe('CLI', () => {
             z.object({
               apiKey: z.string().optional().describe('API key for authentication'),
             }),
-            { apiKey: { env: 'API_KEY' } },
+            { options: { apiKey: { env: 'API_KEY' } } },
           )
           .action(),
       );
@@ -869,14 +876,14 @@ describe('CLI', () => {
     it('should parse double-quoted strings with spaces', () => {
       const result = program.parse('current "New York" --unit celsius');
 
-      expect(result.args).toEqual(['New York']);
+      expect(result.options?.city).toEqual('New York');
       expect(result.options?.unit).toBe('celsius');
     });
 
     it('should parse single-quoted strings with spaces', () => {
       const result = program.parse("current 'San Francisco' --unit celsius");
 
-      expect(result.args).toEqual(['San Francisco']);
+      expect(result.options?.city).toEqual('San Francisco');
       expect(result.options?.unit).toBe('celsius');
     });
 
@@ -889,18 +896,18 @@ describe('CLI', () => {
 
     it('should handle escaped quotes within quoted strings', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
-        c.args(z.tuple([z.string()])).action((args) => ({ message: args[0] })),
+        c.options(z.object({ message: z.string() }), { positional: ['message'] }).action((options) => ({ message: options.message })),
       );
 
       const result = program.parse('test "He said \\"hello\\""');
 
-      expect(result.args?.[0]).toBe('He said "hello"');
+      expect(result.options?.message).toBe('He said "hello"');
     });
 
     it('should handle multiple quoted arguments', () => {
       const result = program.parse('compare "New York" "Los Angeles" "San Francisco"');
 
-      expect(result.args).toEqual(['New York', 'Los Angeles', 'San Francisco']);
+      expect(result.options?.cities).toEqual(['New York', 'Los Angeles', 'San Francisco']);
     });
   });
 
@@ -914,11 +921,13 @@ describe('CLI', () => {
               host: z.string().optional(),
             }),
             {
-              port: { configKey: 'server.port' },
-              host: { configKey: 'server.host' },
+              options: {
+                port: { configKey: 'server.port' },
+                host: { configKey: 'server.host' },
+              },
             },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const configData = {
@@ -941,9 +950,9 @@ describe('CLI', () => {
             z.object({
               port: z.coerce.number().optional(),
             }),
-            { port: { configKey: 'server.port' } },
+            { options: { port: { configKey: 'server.port' } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const configData = { server: { port: 3000 } };
@@ -959,9 +968,9 @@ describe('CLI', () => {
             z.object({
               port: z.coerce.number().optional(),
             }),
-            { port: { configKey: 'server.port', env: 'PORT' } },
+            { options: { port: { configKey: 'server.port', env: 'PORT' } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const configData = { server: { port: 3000 } };
@@ -977,9 +986,9 @@ describe('CLI', () => {
             z.object({
               timeout: z.coerce.number().optional(),
             }),
-            { timeout: { configKey: 'services.api.connection.timeout' } },
+            { options: { timeout: { configKey: 'services.api.connection.timeout' } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const configData = {
@@ -1004,7 +1013,7 @@ describe('CLI', () => {
             z.object({
               port: z.coerce.number().optional().describe('Server port'),
             }),
-            { port: { configKey: 'server.port' } },
+            { options: { port: { configKey: 'server.port' } } },
           )
           .action(),
       );
@@ -1025,7 +1034,7 @@ describe('CLI', () => {
               tags: z.array(z.string()).optional(),
             }),
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test --tags=[a,b,c]');
@@ -1041,7 +1050,7 @@ describe('CLI', () => {
               tags: z.array(z.string()).optional(),
             }),
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test --tags=[]');
@@ -1057,7 +1066,7 @@ describe('CLI', () => {
               names: z.array(z.string()).optional(),
             }),
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test --names=["hello world","foo bar"]');
@@ -1073,7 +1082,7 @@ describe('CLI', () => {
               items: z.array(z.string()).optional(),
             }),
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test --items=[simple,"with space",another]');
@@ -1088,9 +1097,9 @@ describe('CLI', () => {
             z.object({
               include: z.array(z.string()).optional(),
             }),
-            { include: { variadic: true } },
+            { options: { include: { variadic: true } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test --include=[a,b] --include=c --include=[d,e]');
@@ -1105,9 +1114,9 @@ describe('CLI', () => {
             z.object({
               tags: z.array(z.string()).optional(),
             }),
-            { tags: { alias: ['t'] } },
+            { options: { tags: { alias: ['t'] } } },
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test -t=[one,two,three]');
@@ -1123,7 +1132,7 @@ describe('CLI', () => {
               items: z.array(z.string()).optional(),
             }),
           )
-          .action((_args, options) => options),
+          .action((options) => options),
       );
 
       const result = program.parse('test --items=[  a  ,  b  ,  c  ]');
@@ -1157,7 +1166,9 @@ describe('CLI', () => {
 
     it('should show help for specific command with --help flag', () => {
       const program = createPadrone('test-cli').command('greet', (c) =>
-        c.args(z.tuple([z.string()]).describe('Name to greet')).action((args) => `Hello, ${args[0]}!`),
+        c
+          .options(z.object({ name: z.string().describe('Name to greet') }), { positional: ['name'] })
+          .action((options) => `Hello, ${options.name}!`),
       );
 
       const result = program.cli('greet --help');
@@ -1167,9 +1178,7 @@ describe('CLI', () => {
 
     it('should show help for nested command with --help flag', () => {
       const program = createPadrone('test-cli').command('git', (c) =>
-        c.command('commit', (c) =>
-          c.options(z.object({ message: z.string().describe('Commit message') })).action((_args, opts) => opts?.message),
-        ),
+        c.command('commit', (c) => c.options(z.object({ message: z.string().describe('Commit message') })).action((opts) => opts?.message)),
       );
 
       const result = program.cli('git commit --help');
@@ -1191,7 +1200,9 @@ describe('CLI', () => {
 
     it('should show help for specific command with help command', () => {
       const program = createPadrone('test-cli').command('greet', (c) =>
-        c.args(z.tuple([z.string()]).describe('Name to greet')).action((args) => `Hello, ${args[0]}!`),
+        c
+          .options(z.object({ name: z.string().describe('Name to greet') }), { positional: ['name'] })
+          .action((options) => `Hello, ${options.name}!`),
       );
 
       const result = program.cli('help greet');
@@ -1201,9 +1212,7 @@ describe('CLI', () => {
 
     it('should show help for nested command with help command', () => {
       const program = createPadrone('test-cli').command('git', (c) =>
-        c.command('commit', (c) =>
-          c.options(z.object({ message: z.string().describe('Commit message') })).action((_args, opts) => opts?.message),
-        ),
+        c.command('commit', (c) => c.options(z.object({ message: z.string().describe('Commit message') })).action((opts) => opts?.message)),
       );
 
       const result = program.cli('help git commit');
@@ -1355,7 +1364,7 @@ describe('CLI', () => {
 
     it('should accept detail flag for subcommand help', () => {
       const program = createPadrone('test-cli').command('greet', (c) =>
-        c.args(z.tuple([z.string()]).describe('Name')).action((args) => `Hello, ${args[0]}!`),
+        c.options(z.object({ name: z.string().describe('Name') }), { positional: ['name'] }).action((options) => `Hello, ${options.name}!`),
       );
 
       const result = program.cli('greet --help --detail=full');
@@ -1421,8 +1430,8 @@ describe('CLI', () => {
       try {
         const program = createPadrone('test-cli').command('serve', (c) =>
           c
-            .options(z.object({ port: z.coerce.number().optional() }), { port: { configKey: 'server.port' } })
-            .action((_args, opts) => opts?.port),
+            .options(z.object({ port: z.coerce.number().optional() }), { options: { port: { configKey: 'server.port' } } })
+            .action((opts) => opts?.port),
         );
 
         const result = program.cli(`serve --config=${configPath}`);
@@ -1445,7 +1454,7 @@ describe('CLI', () => {
 
       try {
         const program = createPadrone('test-cli').command('connect', (c) =>
-          c.options(z.object({ host: z.string().optional() }), { host: { configKey: 'host' } }).action((_args, opts) => opts?.host),
+          c.options(z.object({ host: z.string().optional() }), { options: { host: { configKey: 'host' } } }).action((opts) => opts?.host),
         );
 
         const result = program.cli(`connect -c ${configPath}`);
@@ -1469,8 +1478,8 @@ describe('CLI', () => {
       try {
         const program = createPadrone('test-cli').command('serve', (c) =>
           c
-            .options(z.object({ port: z.coerce.number().optional() }), { port: { configKey: 'server.port' } })
-            .action((_args, opts) => opts?.port),
+            .options(z.object({ port: z.coerce.number().optional() }), { options: { port: { configKey: 'server.port' } } })
+            .action((opts) => opts?.port),
         );
 
         const result = program.cli(`serve --config=${configPath} --port=8080`);

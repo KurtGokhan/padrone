@@ -15,15 +15,18 @@ export function createWeatherProgram() {
   return createPadrone('padrone-test')
     .command('current', (c) =>
       c
-        .args(z.tuple([z.string()]).describe('City name'))
         .options(
           z.object({
+            city: z.string().describe('City name'),
             unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
             verbose: z.boolean().optional().describe('Show detailed information'),
           }),
+          {
+            positional: ['city'],
+          },
         )
-        .action((args, options) => {
-          const [city] = args;
+        .action((options) => {
+          const { city } = options;
           return {
             city,
             temperature: options?.unit === 'celsius' ? 22 : 72,
@@ -34,15 +37,18 @@ export function createWeatherProgram() {
     )
     .command('forecast', (c) =>
       c
-        .args(z.tuple([z.string().describe('City name')]))
         .options(
           z.object({
+            city: z.string().describe('City name (overrides positional argument)'),
             days: z.coerce.number().min(1).max(7).optional().default(3).describe('Number of days to forecast'),
             unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
           }),
+          {
+            positional: ['city'],
+          },
         )
-        .action((args, options) => {
-          const [city] = args;
+        .action((options) => {
+          const { city } = options;
           return {
             city,
             days: options?.days || 3,
@@ -51,14 +57,17 @@ export function createWeatherProgram() {
         })
         .command('extended', (c) =>
           c
-            .args(z.tuple([z.string().describe('City name')]))
             .options(
               z.object({
+                city: z.string().describe('City name (overrides positional argument)'),
                 unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
               }),
+              {
+                positional: ['city'],
+              },
             )
-            .action((args, options) => {
-              const [city] = args;
+            .action((options) => {
+              const { city } = options;
               return {
                 city,
                 extendedForecast: mockWeatherData.forecast,
@@ -67,11 +76,18 @@ export function createWeatherProgram() {
             })
             .command('extended', (c) =>
               c
-                .args(z.tuple([z.string().describe('City name')]))
-                .options(z.void())
-                .action((args, _options) => {
+                .options(
+                  z.object({
+                    city: z.string().describe('City name (overrides positional argument)'),
+                  }),
+                  {
+                    positional: ['city'],
+                  },
+                )
+                .action((options) => {
+                  const { city } = options;
                   return {
-                    city: args[0],
+                    city,
                     extendedForecast: mockWeatherData.forecast,
                   };
                 }),
@@ -80,7 +96,6 @@ export function createWeatherProgram() {
     )
     .command('alerts', (c) =>
       c
-        .args(z.void())
         .options(
           z.object({
             region: z.string().optional().describe('Region to check alerts for'),
@@ -88,7 +103,7 @@ export function createWeatherProgram() {
             ascending: z.boolean().optional().describe('Sort alerts in ascending order'),
           }),
         )
-        .action((_args, options) => {
+        .action((options) => {
           return {
             region: options?.region || 'all',
             alerts: mockWeatherData.alerts,
@@ -98,12 +113,19 @@ export function createWeatherProgram() {
     )
     .command('compare', (c) =>
       c
-        .args(z.array(z.string()).min(2).describe('Cities to compare'))
-        .options(z.void())
-        .action((args, _options) => {
+        .options(
+          z.object({
+            cities: z.array(z.string()).min(2).describe('Cities to compare'),
+          }),
+          {
+            positional: ['...cities'],
+          },
+        )
+        .action((options) => {
+          const { cities } = options;
           return {
-            cities: args,
-            comparison: args.map((city) => ({
+            cities,
+            comparison: cities.map((city) => ({
               city,
               temp: 72,
               condition: 'Sunny',
@@ -111,12 +133,7 @@ export function createWeatherProgram() {
           };
         }),
     )
-    .command('noop', (c) =>
-      c
-        .args(z.void())
-        .options(z.void())
-        .action(() => undefined),
-    )
+    .command('noop', (c) => c.action(() => undefined))
     .command('cities', (c) =>
       c
         .options(
@@ -124,9 +141,11 @@ export function createWeatherProgram() {
             verbose: z.boolean().optional(),
           }),
           {
-            verbose: {
-              alias: 'v',
-              description: 'Show detailed information',
+            options: {
+              verbose: {
+                alias: 'v',
+                description: 'Show detailed information',
+              },
             },
           },
         )
@@ -141,16 +160,18 @@ export function createWeatherProgram() {
             deprecatedWithMessage: z.boolean().optional().describe('Deprecated option with message'),
           }),
           {
-            oldOption: {
-              deprecated: true,
-              description: 'This option is deprecated',
-            },
-            newOption: {
-              description: 'This is the new option',
-            },
-            deprecatedWithMessage: {
-              deprecated: 'Use newOption instead',
-              description: 'This option is deprecated with a message',
+            options: {
+              oldOption: {
+                deprecated: true,
+                description: 'This option is deprecated',
+              },
+              newOption: {
+                description: 'This is the new option',
+              },
+              deprecatedWithMessage: {
+                deprecated: 'Use newOption instead',
+                description: 'This option is deprecated with a message',
+              },
             },
           },
         )
@@ -165,15 +186,17 @@ export function createWeatherProgram() {
             anotherVisible: z.boolean().optional().describe('Another visible option'),
           }),
           {
-            visibleOption: {
-              description: 'This option is visible in help',
-            },
-            hiddenOption: {
-              hidden: true,
-              description: 'This option should not appear in help',
-            },
-            anotherVisible: {
-              description: 'This option is also visible',
+            options: {
+              visibleOption: {
+                description: 'This option is visible in help',
+              },
+              hiddenOption: {
+                hidden: true,
+                description: 'This option should not appear in help',
+              },
+              anotherVisible: {
+                description: 'This option is also visible',
+              },
             },
           },
         )
@@ -189,21 +212,23 @@ export function createWeatherProgram() {
             config: z.string().optional().describe('Configuration file'),
           }),
           {
-            output: {
-              description: 'Specify the output file path',
-              examples: ['output.txt', './dist/result.json'],
-            },
-            format: {
-              description: 'Choose the output format',
-              examples: ['json', 'yaml'],
-            },
-            verbose: {
-              description: 'Show detailed information',
-              examples: [true],
-            },
-            config: {
-              description: 'Path to configuration file',
-              examples: ['./config.json', '~/.config/app.json'],
+            options: {
+              output: {
+                description: 'Specify the output file path',
+                examples: ['output.txt', './dist/result.json'],
+              },
+              format: {
+                description: 'Choose the output format',
+                examples: ['json', 'yaml'],
+              },
+              verbose: {
+                description: 'Show detailed information',
+                examples: [true],
+              },
+              config: {
+                description: 'Path to configuration file',
+                examples: ['./config.json', '~/.config/app.json'],
+              },
             },
           },
         )

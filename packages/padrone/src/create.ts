@@ -6,6 +6,7 @@ import {
   extractEnvBindingsFromSchema,
   extractNegatableFromSchema,
   extractVariadicFromSchema,
+  parsePositionalConfig,
   preprocessOptions,
 } from './options';
 import { parseCliInputToParts } from './parse';
@@ -70,12 +71,16 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
 
     if (!curCommand) return { command: existingCommand as any };
 
-    // Extract option metadata
-    const aliases = curCommand.options ? extractAliasesFromSchema(curCommand.options, curCommand.meta) : {};
-    const variadicOptions = curCommand.options ? extractVariadicFromSchema(curCommand.options, curCommand.meta) : new Set<string>();
-    const negatableOptions = curCommand.options ? extractNegatableFromSchema(curCommand.options, curCommand.meta) : new Set<string>();
-    const envBindings = curCommand.options ? extractEnvBindingsFromSchema(curCommand.options, curCommand.meta) : {};
-    const configKeys = curCommand.options ? extractConfigKeysFromSchema(curCommand.options, curCommand.meta) : {};
+    // Extract option metadata from the nested options object in meta
+    const optionsMeta = curCommand.meta?.options;
+    const aliases = curCommand.options ? extractAliasesFromSchema(curCommand.options, optionsMeta) : {};
+    const variadicOptions = curCommand.options ? extractVariadicFromSchema(curCommand.options, optionsMeta) : new Set<string>();
+    const negatableOptions = curCommand.options ? extractNegatableFromSchema(curCommand.options, optionsMeta) : new Set<string>();
+    const envBindings = curCommand.options ? extractEnvBindingsFromSchema(curCommand.options, optionsMeta) : {};
+    const configKeys = curCommand.options ? extractConfigKeysFromSchema(curCommand.options, optionsMeta) : {};
+
+    // Parse positional configuration
+    const positionalConfig = curCommand.meta?.positional ? parsePositionalConfig(curCommand.meta.positional) : [];
 
     const opts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
     const optionsRecord: Record<string, unknown> = {};
@@ -127,6 +132,26 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
       env: parseOptions?.env,
     });
 
+    // Map positional arguments to their named options
+    if (positionalConfig.length > 0) {
+      let argIndex = 0;
+      for (const { name, variadic } of positionalConfig) {
+        if (argIndex >= args.length) break;
+
+        if (variadic) {
+          // Collect remaining args (but leave room for non-variadic args after)
+          const remainingPositionals = positionalConfig.slice(positionalConfig.indexOf({ name, variadic }) + 1);
+          const nonVariadicAfter = remainingPositionals.filter((p) => !p.variadic).length;
+          const variadicEnd = args.length - nonVariadicAfter;
+          preprocessedOptions[name] = args.slice(argIndex, variadicEnd);
+          argIndex = variadicEnd;
+        } else {
+          preprocessedOptions[name] = args[argIndex];
+          argIndex++;
+        }
+      }
+    }
+
     const optionsParsed = curCommand.options
       ? curCommand.options['~standard'].validate(preprocessedOptions)
       : { value: preprocessedOptions };
@@ -135,22 +160,14 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
       throw new Error('Async validation is not supported. Schema validate() must return a synchronous result.');
     }
 
-    const argsParsed = curCommand.args ? curCommand.args['~standard'].validate(args) : { value: args };
-
-    if (argsParsed instanceof Promise) {
-      throw new Error('Async validation is not supported. Schema validate() must return a synchronous result.');
-    }
-
     return {
       command: curCommand as any,
-      args: argsParsed.issues ? undefined : (argsParsed.value as any),
       options: optionsParsed.issues ? undefined : (optionsParsed.value as any),
-      argsResult: argsParsed as any,
       optionsResult: optionsParsed as any,
     };
   };
 
-  const stringify: AnyPadroneProgram['stringify'] = (command = '' as any, args, options) => {
+  const stringify: AnyPadroneProgram['stringify'] = (command = '' as any, options) => {
     const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyPadroneCommand);
     if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
 
@@ -158,18 +175,32 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
 
     if (commandObj.path) parts.push(commandObj.path);
 
-    if (args != null && Array.isArray(args)) {
-      for (const arg of args as unknown[]) {
-        if (arg === undefined || arg === null) continue;
-        const argStr = String(arg);
-        if (argStr.includes(' ')) parts.push(`"${argStr}"`);
-        else parts.push(argStr);
-      }
-    }
+    // Get positional config to determine which options are positional
+    const positionalConfig = commandObj.meta?.positional ? parsePositionalConfig(commandObj.meta.positional) : [];
+    const positionalNames = new Set(positionalConfig.map((p) => p.name));
 
+    // Output positional arguments first in order
     if (options && typeof options === 'object') {
-      for (const [key, value] of Object.entries(options)) {
+      for (const { name, variadic } of positionalConfig) {
+        const value = (options as Record<string, unknown>)[name];
         if (value === undefined) continue;
+
+        if (variadic && Array.isArray(value)) {
+          for (const v of value) {
+            const vStr = String(v);
+            if (vStr.includes(' ')) parts.push(`"${vStr}"`);
+            else parts.push(vStr);
+          }
+        } else {
+          const argStr = String(value);
+          if (argStr.includes(' ')) parts.push(`"${argStr}"`);
+          else parts.push(argStr);
+        }
+      }
+
+      // Output remaining options (non-positional)
+      for (const [key, value] of Object.entries(options)) {
+        if (value === undefined || positionalNames.has(key)) continue;
 
         if (typeof value === 'boolean') {
           if (value) parts.push(`--${key}`);
@@ -339,7 +370,6 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
         console.log(version);
         return {
           command: existingCommand,
-          args: undefined,
           options: undefined,
           result: version,
         } as any;
@@ -350,28 +380,26 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     const configPath = extractConfigPath(resolvedInput);
     const configData = configPath ? loadConfigFile(configPath) : cliOptions?.configData;
 
-    const { command, args, options, argsResult, optionsResult } = parse(resolvedInput, {
+    const { command, options, optionsResult } = parse(resolvedInput, {
       ...cliOptions,
       configData: configData ?? cliOptions?.configData,
     });
-    const res = run(command, args, options) as any;
+    const res = run(command, options) as any;
     return {
       ...res,
-      argsResult,
       optionsResult,
     };
   };
 
-  const run: AnyPadroneProgram['run'] = (command, args, options) => {
+  const run: AnyPadroneProgram['run'] = (command, options) => {
     const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyPadroneCommand);
     if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
     if (!commandObj.handler) throw new Error(`Command "${commandObj.path}" has no handler`);
 
-    const result = commandObj.handler(args as any, options as any);
+    const result = commandObj.handler(options as any);
 
     return {
       command: commandObj as any,
-      args: args as any,
       options: options as any,
       result,
     };
@@ -400,8 +428,8 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
       } satisfies Schema<{ command: string }> as Schema<{ command: string }>,
       title: existingCommand.description,
       needsApproval: (input) => {
-        const { command, options, args } = parse(input.command);
-        if (typeof command.needsApproval === 'function') return command.needsApproval(args, options);
+        const { command, options } = parse(input.command);
+        if (typeof command.needsApproval === 'function') return command.needsApproval(options);
         return !!command.needsApproval;
       },
       execute: (input) => {
@@ -417,16 +445,13 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     version(version: string) {
       return createPadroneCommandBuilder({ ...existingCommand, version }) as any;
     },
-    args(args) {
-      return createPadroneCommandBuilder({ ...existingCommand, args }) as any;
-    },
     options(options, meta) {
       return createPadroneCommandBuilder({ ...existingCommand, options, meta }) as any;
     },
     action(handler = noop) {
       return createPadroneCommandBuilder({ ...existingCommand, handler }) as any;
     },
-    command: <TName extends string, TCommand extends PadroneCommand<TName, string, any, any, any, any>>(
+    command: <TName extends string, TCommand extends PadroneCommand<TName, string, any, any, any>>(
       name: TName,
       builderFn?: (builder: PadroneCommandBuilder<TName>) => PadroneCommandBuilder,
     ) => {
@@ -451,7 +476,7 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
 
     api() {
       function buildApi(command: AnyPadroneCommand) {
-        const runCommand = ((args, options) => run(command, args, options).result) as PadroneAPI<AnyPadroneCommand>;
+        const runCommand = ((options) => run(command, options).result) as PadroneAPI<AnyPadroneCommand>;
         if (!command.commands) return runCommand;
         for (const cmd of command.commands) runCommand[cmd.name] = buildApi(cmd);
         return runCommand;

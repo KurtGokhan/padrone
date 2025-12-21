@@ -1,77 +1,63 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
 import { createFormatter, type HelpArgumentInfo, type HelpFormat, type HelpInfo, type HelpOptionInfo } from './formatters';
-import { extractAliasesFromSchema, type PadroneOptionsMeta } from './options';
+import { extractAliasesFromSchema, type PadroneMeta, parsePositionalConfig } from './options';
 import type { AnyPadroneCommand } from './types';
 import { getRootCommand } from './utils';
 
-function extractArgsInfo(schema: StandardJSONSchemaV1) {
-  const result: HelpArgumentInfo[] = [];
-  if (!schema) return result;
+/**
+ * Extract positional arguments info from schema based on meta.positional config.
+ */
+function extractPositionalArgsInfo(
+  schema: StandardJSONSchemaV1,
+  meta?: PadroneMeta,
+): { args: HelpArgumentInfo[]; positionalNames: Set<string> } {
+  const args: HelpArgumentInfo[] = [];
+  const positionalNames = new Set<string>();
 
-  const vendor = schema['~standard'].vendor;
-  if (!vendor.includes('zod')) return result;
+  if (!schema || !meta?.positional || meta.positional.length === 0) {
+    return { args, positionalNames };
+  }
+
+  const positionalConfig = parsePositionalConfig(meta.positional);
 
   try {
     const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
 
-    // Handle tuple: z.tuple([z.string(), z.number(), ...])
-    if (jsonSchema.type === 'array' && Array.isArray(jsonSchema.items)) {
-      jsonSchema.items.forEach((item: any, index: number) => {
-        result.push({
-          name: `arg${index + 1}`,
-          description: item.description,
-          optional: !jsonSchema.required || !jsonSchema.required.includes(`arg${index + 1}`),
-          default: item.default,
-          type: item.type,
+    if (jsonSchema.type === 'object' && jsonSchema.properties) {
+      const properties = jsonSchema.properties as Record<string, any>;
+      const required = (jsonSchema.required as string[]) || [];
+
+      for (const { name, variadic } of positionalConfig) {
+        const prop = properties[name];
+        if (!prop) continue;
+
+        positionalNames.add(name);
+        const optMeta = meta.options?.[name];
+
+        args.push({
+          name: variadic ? `...${name}` : name,
+          description: optMeta?.description ?? prop.description,
+          optional: !required.includes(name),
+          default: prop.default,
+          type: variadic ? `array<${prop.items?.type || 'string'}>` : prop.type,
         });
-      });
-      return result;
-    }
-
-    // Handle array: z.array(z.string())
-    if (jsonSchema.type === 'array') {
-      const items = jsonSchema.items as any;
-      const minItems = jsonSchema.minItems;
-      const maxItems = jsonSchema.maxItems;
-
-      let name = 'args...';
-      if (minItems !== undefined || maxItems !== undefined) {
-        const min = minItems ?? 0;
-        const max = maxItems ?? '∞';
-        name = `args[${min}..${max}]`;
       }
-
-      const elementType = items?.type || 'any';
-      result.push({
-        name,
-        description: jsonSchema.description,
-        optional: false,
-        type: `array<${elementType}>`,
-      });
-      return result;
     }
-
-    // Handle other types
-    result.push({
-      name: 'args',
-      description: jsonSchema.description,
-      optional: false,
-      default: jsonSchema.default,
-      type: jsonSchema.type as string,
-    });
   } catch {
     // Fallback to empty result if toJSONSchema fails
   }
 
-  return result;
+  return { args, positionalNames };
 }
 
-function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: Record<string, PadroneOptionsMeta | undefined>) {
+function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: PadroneMeta, positionalNames?: Set<string>) {
   const result: HelpOptionInfo[] = [];
   if (!schema) return result;
 
   const vendor = schema['~standard'].vendor;
   if (!vendor.includes('zod')) return result;
+
+  const optionsMeta = meta?.options;
 
   try {
     const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
@@ -82,9 +68,12 @@ function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: Record<string, 
       const required = (jsonSchema.required as string[]) || [];
 
       for (const [key, prop] of Object.entries(properties)) {
+        // Skip positional arguments - they are shown in arguments section
+        if (positionalNames?.has(key)) continue;
+
         const isOptional = !required.includes(key);
         const enumValues = prop.enum as string[] | undefined;
-        const optMeta = meta?.[key];
+        const optMeta = optionsMeta?.[key];
 
         result.push({
           name: key,
@@ -130,13 +119,20 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
   const rootCmd = getRootCommand(cmd);
   const commandName = cmd.path || cmd.name || 'program';
 
+  // Extract positional args from options schema based on meta.positional
+  const { args: positionalArgs, positionalNames } = cmd.options
+    ? extractPositionalArgsInfo(cmd.options, cmd.meta)
+    : { args: [], positionalNames: new Set<string>() };
+
+  const hasArguments = positionalArgs.length > 0;
+
   const helpInfo: HelpInfo = {
     name: commandName,
     description: cmd.description,
     usage: {
       command: rootCmd === cmd ? commandName : `${rootCmd.name} ${commandName}`,
       hasSubcommands: !!(cmd.commands && cmd.commands.length > 0),
-      hasArguments: !!cmd.args,
+      hasArguments,
       hasOptions: !!cmd.options,
     },
   };
@@ -154,21 +150,18 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
     }
   }
 
-  // Build arguments info
-  if (cmd.args) {
-    const argsInfo = extractArgsInfo(cmd.args);
-    if (argsInfo.length > 0) {
-      helpInfo.arguments = argsInfo;
-    }
+  // Build arguments info from positional options
+  if (hasArguments) {
+    helpInfo.arguments = positionalArgs;
   }
 
-  // Build options info with aliases
+  // Build options info with aliases (excluding positional args)
   if (cmd.options) {
-    const optionsInfo = extractOptionsInfo(cmd.options, cmd.meta);
+    const optionsInfo = extractOptionsInfo(cmd.options, cmd.meta, positionalNames);
     const optMap: Record<string, HelpOptionInfo> = Object.fromEntries(optionsInfo.map((opt) => [opt.name, opt]));
 
     // Merge aliases into options
-    const aliases = extractAliasesFromSchema(cmd.options, cmd.meta);
+    const aliases = extractAliasesFromSchema(cmd.options, cmd.meta?.options);
     for (const [alias, name] of Object.entries(aliases)) {
       const opt = optMap[name];
       if (!opt) continue;

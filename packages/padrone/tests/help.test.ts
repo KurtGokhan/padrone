@@ -173,13 +173,13 @@ describe('help with minimal detail mode', () => {
   it('should generate minimal usage for command with options only (void args)', () => {
     const help = program.help('alerts', { detail: 'minimal' });
     // alerts has z.void() for args, which still counts as having args schema
-    expect(help).toBe('padrone-test alerts [args...] [options]');
+    expect(help).toBe('padrone-test alerts [options]');
   });
 
   it('should generate minimal usage for noop command (void args and options)', () => {
     const help = program.help('noop', { detail: 'minimal' });
     // noop has z.void() for both, which still counts as having schemas
-    expect(help).toBe('padrone-test noop [args...] [options]');
+    expect(help).toBe('padrone-test noop');
   });
 
   it('should ignore format option in minimal mode', () => {
