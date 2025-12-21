@@ -458,8 +458,8 @@ describe('CLI', () => {
 
       const helpText = program.help('test');
 
-      expect(helpText).toContain('--verbose');
-      expect(helpText).toContain('--help');
+      expect(helpText).toContain('--[no-]verbose');
+      expect(helpText).toContain('--[no-]help');
       expect(helpText).toContain('-v');
       expect(helpText).toContain('-h');
     });
@@ -631,7 +631,6 @@ describe('CLI', () => {
             z.object({
               include: z.array(z.string()).optional(),
             }),
-            { options: { include: { variadic: true } } },
           )
           .action(),
       );
@@ -649,7 +648,6 @@ describe('CLI', () => {
             z.object({
               include: z.array(z.string()).optional(),
             }),
-            { options: { include: { variadic: true } } },
           )
           .action((options) => options),
       );
@@ -666,7 +664,7 @@ describe('CLI', () => {
             z.object({
               include: z.array(z.string()).optional(),
             }),
-            { options: { include: { variadic: true, alias: ['i'] } } },
+            { options: { include: { alias: ['i'] } } },
           )
           .action((options) => options),
       );
@@ -683,7 +681,6 @@ describe('CLI', () => {
             z.object({
               tag: z.array(z.string()).optional(),
             }),
-            { options: { tag: { variadic: true } } },
           )
           .action((options) => options),
       );
@@ -700,7 +697,6 @@ describe('CLI', () => {
             z.object({
               include: z.array(z.string()).optional().describe('Files to include'),
             }),
-            { options: { include: { variadic: true } } },
           )
           .action(),
       );
@@ -720,7 +716,6 @@ describe('CLI', () => {
             z.object({
               verbose: z.boolean().optional().default(true),
             }),
-            { options: { verbose: { negatable: true } } },
           )
           .action((options) => options),
       );
@@ -737,7 +732,6 @@ describe('CLI', () => {
             z.object({
               verbose: z.boolean().optional().default(false),
             }),
-            { options: { verbose: { negatable: true } } },
           )
           .action((options) => options),
       );
@@ -754,15 +748,13 @@ describe('CLI', () => {
             z.object({
               verbose: z.boolean().optional().describe('Enable verbose output'),
             }),
-            { options: { verbose: { negatable: true } } },
           )
           .action(),
       );
 
       const helpText = program.help('test');
 
-      expect(helpText).toContain('--verbose');
-      expect(helpText).toContain('(negatable)');
+      expect(helpText).toContain('--[no-]verbose');
     });
 
     it('should stringify false boolean to --no-<option>', () => {
@@ -772,7 +764,6 @@ describe('CLI', () => {
             z.object({
               verbose: z.boolean().optional(),
             }),
-            { options: { verbose: { negatable: true } } },
           )
           .action(),
       );
@@ -780,6 +771,47 @@ describe('CLI', () => {
       const result = program.stringify('test', { verbose: false });
 
       expect(result).toBe('test --no-verbose');
+    });
+
+    it('should not show --[no-] prefix when explicit noOption property exists', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              verbose: z.boolean().optional().describe('Enable verbose output'),
+              noVerbose: z.boolean().optional().describe('Disable verbose output'),
+            }),
+          )
+          .action(),
+      );
+
+      const helpText = program.help('test');
+
+      // verbose should NOT be shown as --[no-]verbose since noVerbose exists
+      expect(helpText).toContain('--verbose');
+      expect(helpText).not.toContain('--[no-]verbose');
+      // noVerbose should also not be negatable (it's the negation itself)
+      expect(helpText).toContain('--noVerbose');
+      expect(helpText).not.toContain('--[no-]noVerbose');
+    });
+
+    it('should handle kebab-case no-option property', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .options(
+            z.object({
+              debug: z.boolean().optional().describe('Enable debug mode'),
+              'no-debug': z.boolean().optional().describe('Disable debug mode'),
+            }),
+          )
+          .action(),
+      );
+
+      const helpText = program.help('test');
+
+      // debug should NOT be shown as --[no-]debug since no-debug exists
+      expect(helpText).toContain('--debug');
+      expect(helpText).not.toContain('--[no-]debug');
     });
   });
 
@@ -1097,7 +1129,6 @@ describe('CLI', () => {
             z.object({
               include: z.array(z.string()).optional(),
             }),
-            { options: { include: { variadic: true } } },
           )
           .action((options) => options),
       );

@@ -66,6 +66,33 @@ function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: PadroneMeta, po
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
       const properties = jsonSchema.properties as Record<string, any>;
       const required = (jsonSchema.required as string[]) || [];
+      const propertyNames = new Set(Object.keys(properties));
+
+      // Helper to check if a negated version of an option exists
+      const hasExplicitNegation = (key: string): boolean => {
+        // Check for noVerbose style (camelCase)
+        const camelNegated = `no${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+        if (propertyNames.has(camelNegated)) return true;
+        // Check for no-verbose style (kebab-case, though rare in JS)
+        const kebabNegated = `no-${key}`;
+        if (propertyNames.has(kebabNegated)) return true;
+        return false;
+      };
+
+      // Helper to check if this option is itself a negation of another option
+      const isNegationOf = (key: string): boolean => {
+        // Check for noVerbose -> verbose (camelCase)
+        if (key.startsWith('no') && key.length > 2 && key[2] === key[2]?.toUpperCase()) {
+          const positiveKey = key.charAt(2).toLowerCase() + key.slice(3);
+          if (propertyNames.has(positiveKey)) return true;
+        }
+        // Check for no-verbose -> verbose (kebab-case)
+        if (key.startsWith('no-')) {
+          const positiveKey = key.slice(3);
+          if (propertyNames.has(positiveKey)) return true;
+        }
+        return false;
+      };
 
       for (const [key, prop] of Object.entries(properties)) {
         // Skip positional arguments - they are shown in arguments section
@@ -74,20 +101,25 @@ function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: PadroneMeta, po
         const isOptional = !required.includes(key);
         const enumValues = prop.enum as string[] | undefined;
         const optMeta = optionsMeta?.[key];
+        const propType = prop.type as string;
+
+        // Booleans are negatable unless there's an explicit noOption property
+        // or this option is itself a negation of another option
+        const isNegatable = propType === 'boolean' && !hasExplicitNegation(key) && !isNegationOf(key);
 
         result.push({
           name: key,
           description: optMeta?.description ?? prop.description,
           optional: isOptional,
           default: prop.default,
-          type: prop.type as string,
+          type: propType,
           enum: enumValues,
           deprecated: optMeta?.deprecated ?? prop?.deprecated,
           hidden: optMeta?.hidden ?? prop?.hidden,
           examples: optMeta?.examples ?? prop?.examples,
           env: optMeta?.env ?? prop?.env,
-          variadic: optMeta?.variadic ?? prop?.variadic,
-          negatable: optMeta?.negatable ?? prop?.negatable,
+          variadic: propType === 'array', // Arrays are always variadic
+          negatable: isNegatable,
           configKey: optMeta?.configKey ?? prop?.configKey,
         });
       }

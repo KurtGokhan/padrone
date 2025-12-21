@@ -45,7 +45,7 @@ Arguments:
 
 Options:
   --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)     Temperature unit
-  --verbose <boolean> (optional)  Show detailed information
+  --[no-]verbose <boolean> (optional)  Show detailed information
 "
 `;
 
@@ -58,7 +58,7 @@ exports[`help should generate help for a command with enabled colors 1`] = `
 
 \x1B[1mOptions:\x1B[0m
   \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: fahrenheit)\x1B[0m \x1B[90m(choices: celsius, fahrenheit)\x1B[0m     \x1B[2mTemperature unit\x1B[0m
-  \x1B[32m--verbose\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mShow detailed information\x1B[0m
+  \x1B[32m--[no-]verbose\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mShow detailed information\x1B[0m
 "
 `;
 
@@ -83,7 +83,7 @@ exports[`help should generate help for a command with meta object 1`] = `
 "Usage: padrone-test cities [options]
 
 Options:
-  --verbose, -v <boolean> (optional)  Show detailed information
+  --[no-]verbose, -v <boolean> (optional)  Show detailed information
 "
 `;
 
@@ -93,7 +93,7 @@ exports[`help should generate help for a command with deprecated options 1`] = `
 Options:
   --oldOption <string> (deprecated)              This option is deprecated
   --newOption <string> (optional)              This is the new option
-  --deprecatedWithMessage <boolean> (deprecated: Use newOption instead)  This option is deprecated with a message
+  --[no-]deprecatedWithMessage <boolean> (deprecated: Use newOption instead)  This option is deprecated with a message
 "
 `;
 
@@ -103,7 +103,7 @@ exports[`help should generate help for a command with deprecated options and col
 \x1B[1mOptions:\x1B[0m
   \x1B[9m\x1B[90m--oldOption\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(deprecated)\x1B[0m              \x1B[2mThis option is deprecated\x1B[0m
   \x1B[32m--newOption\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m              \x1B[2mThis is the new option\x1B[0m
-  \x1B[9m\x1B[90m--deprecatedWithMessage\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(deprecated: Use newOption instead)\x1B[0m  \x1B[2mThis option is deprecated with a message\x1B[0m
+  \x1B[9m\x1B[90m--[no-]deprecatedWithMessage\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(deprecated: Use newOption instead)\x1B[0m  \x1B[2mThis option is deprecated with a message\x1B[0m
 "
 `;
 
@@ -112,7 +112,7 @@ exports[`help should generate help for a command with hidden options 1`] = `
 
 Options:
   --visibleOption <string> (optional)   This option is visible in help
-  --anotherVisible <boolean> (optional)  This option is also visible
+  --[no-]anotherVisible <boolean> (optional)  This option is also visible
 "
 `;
 
@@ -121,7 +121,7 @@ exports[`help should generate help for a command with hidden options and colors 
 
 \x1B[1mOptions:\x1B[0m
   \x1B[32m--visibleOption\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m   \x1B[2mThis option is visible in help\x1B[0m
-  \x1B[32m--anotherVisible\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mThis option is also visible\x1B[0m
+  \x1B[32m--[no-]anotherVisible\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mThis option is also visible\x1B[0m
 "
 `;
 
@@ -133,7 +133,7 @@ Options:
       Example: output.txt, ./dist/result.json
   --format <string> (optional) (choices: json, yaml, xml)   Choose the output format
       Example: json, yaml
-  --verbose <boolean> (optional)  Show detailed information
+  --[no-]verbose <boolean> (optional)  Show detailed information
       Example: true
   --config <string> (optional)   Path to configuration file
       Example: ./config.json, ~/.config/app.json
@@ -148,7 +148,7 @@ exports[`help should generate help for a command with examples and colors 1`] = 
       \x1B[4mExample:\x1B[0m \x1B[3moutput.txt, ./dist/result.json\x1B[0m
   \x1B[32m--format\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(choices: json, yaml, xml)\x1B[0m   \x1B[2mChoose the output format\x1B[0m
       \x1B[4mExample:\x1B[0m \x1B[3mjson, yaml\x1B[0m
-  \x1B[32m--verbose\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mShow detailed information\x1B[0m
+  \x1B[32m--[no-]verbose\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mShow detailed information\x1B[0m
       \x1B[4mExample:\x1B[0m \x1B[3mtrue\x1B[0m
   \x1B[32m--config\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m   \x1B[2mPath to configuration file\x1B[0m
       \x1B[4mExample:\x1B[0m \x1B[3m./config.json, ~/.config/app.json\x1B[0m
@@ -164,7 +164,7 @@ exports[`help should generate help in console format 1`] = `
 
 \x1B[1mOptions:\x1B[0m
   \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: fahrenheit)\x1B[0m \x1B[90m(choices: celsius, fahrenheit)\x1B[0m     \x1B[2mTemperature unit\x1B[0m
-  \x1B[32m--verbose\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mShow detailed information\x1B[0m
+  \x1B[32m--[no-]verbose\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mShow detailed information\x1B[0m
 "
 `;
 
@@ -185,12 +185,12 @@ exports[`help should generate help in markdown format 1`] = `
 
   \`--unit\` \`<string>\` *(optional)* *(default: fahrenheit)* *(choices: celsius, fahrenheit)*     Temperature unit
 
-  \`--verbose\` \`<boolean>\` *(optional)*  Show detailed information
+  \`--[no-]verbose\` \`<boolean>\` *(optional)*  Show detailed information
 
 "
 `;
 
-exports[`help should generate help in html format 1`] = `"<div style="font-family: monospace; line-height: 1.6;"><strong>Usage:</strong> <strong style="color: #00bcd4;">padrone-test current</strong> <span style="color: #999;">[args...]</span> <span style="color: #999;">[options]</span><br><br><h3>Arguments:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">city</code><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #666;">City name</span><br><br><h3>Options:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">--unit</code> <code style="color: #ff9800;">&lt;string&gt;</code> <span style="color: #999;">(optional)</span> <span style="color: #999;">(default: fahrenheit)</span> <span style="color: #999;">(choices: celsius, fahrenheit)</span>     <span style="color: #666;">Temperature unit</span><br>&nbsp;&nbsp;<code style="color: #4caf50;">--verbose</code> <code style="color: #ff9800;">&lt;boolean&gt;</code> <span style="color: #999;">(optional)</span>  <span style="color: #666;">Show detailed information</span><br></div>"`;
+exports[`help should generate help in html format 1`] = `"<div style="font-family: monospace; line-height: 1.6;"><strong>Usage:</strong> <strong style="color: #00bcd4;">padrone-test current</strong> <span style="color: #999;">[args...]</span> <span style="color: #999;">[options]</span><br><br><h3>Arguments:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">city</code><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #666;">City name</span><br><br><h3>Options:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">--unit</code> <code style="color: #ff9800;">&lt;string&gt;</code> <span style="color: #999;">(optional)</span> <span style="color: #999;">(default: fahrenheit)</span> <span style="color: #999;">(choices: celsius, fahrenheit)</span>     <span style="color: #666;">Temperature unit</span><br>&nbsp;&nbsp;<code style="color: #4caf50;">--[no-]verbose</code> <code style="color: #ff9800;">&lt;boolean&gt;</code> <span style="color: #999;">(optional)</span>  <span style="color: #666;">Show detailed information</span><br></div>"`;
 
 exports[`help should generate help in json format 1`] = `
 "{
@@ -253,7 +253,7 @@ Arguments:
 
 Options:
   --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)     Temperature unit
-  --verbose <boolean> (optional)  Show detailed information
+  --[no-]verbose <boolean> (optional)  Show detailed information
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test forecast [command] [args...] [options]
@@ -303,7 +303,7 @@ Usage: padrone-test alerts [options]
 Options:
   --region <string> (optional)     Region to check alerts for
   --severity <string> (optional) (choices: low, medium, high)   Filter by severity
-  --ascending <boolean> (optional)  Sort alerts in ascending order
+  --[no-]ascending <boolean> (optional)  Sort alerts in ascending order
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test compare [args...] [options]
@@ -319,7 +319,7 @@ Usage: padrone-test noop
 Usage: padrone-test cities [options]
 
 Options:
-  --verbose, -v <boolean> (optional)  Show detailed information
+  --[no-]verbose, -v <boolean> (optional)  Show detailed information
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test deprecated-test [options]
@@ -327,14 +327,14 @@ Usage: padrone-test deprecated-test [options]
 Options:
   --oldOption <string> (deprecated)              This option is deprecated
   --newOption <string> (optional)              This is the new option
-  --deprecatedWithMessage <boolean> (deprecated: Use newOption instead)  This option is deprecated with a message
+  --[no-]deprecatedWithMessage <boolean> (deprecated: Use newOption instead)  This option is deprecated with a message
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test hidden-test [options]
 
 Options:
   --visibleOption <string> (optional)   This option is visible in help
-  --anotherVisible <boolean> (optional)  This option is also visible
+  --[no-]anotherVisible <boolean> (optional)  This option is also visible
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test examples-test [options]
@@ -344,7 +344,7 @@ Options:
       Example: output.txt, ./dist/result.json
   --format <string> (optional) (choices: json, yaml, xml)   Choose the output format
       Example: json, yaml
-  --verbose <boolean> (optional)  Show detailed information
+  --[no-]verbose <boolean> (optional)  Show detailed information
       Example: true
   --config <string> (optional)   Path to configuration file
       Example: ./config.json, ~/.config/app.json
@@ -710,7 +710,7 @@ Usage: **padrone-test current** *[args...]* *[options]*
 
   \`--unit\` \`<string>\` *(optional)* *(default: fahrenheit)* *(choices: celsius, fahrenheit)*     Temperature unit
 
-  \`--verbose\` \`<boolean>\` *(optional)*  Show detailed information
+  \`--[no-]verbose\` \`<boolean>\` *(optional)*  Show detailed information
 
 
 
@@ -810,7 +810,7 @@ Usage: **padrone-test alerts** *[options]*
 
   \`--severity\` \`<string>\` *(optional)* *(choices: low, medium, high)*   Filter by severity
 
-  \`--ascending\` \`<boolean>\` *(optional)*  Sort alerts in ascending order
+  \`--[no-]ascending\` \`<boolean>\` *(optional)*  Sort alerts in ascending order
 
 
 
@@ -842,7 +842,7 @@ Usage: **padrone-test cities** *[options]*
 
 ### Options:
 
-  \`--verbose, -v\` \`<boolean>\` *(optional)*  Show detailed information
+  \`--[no-]verbose, -v\` \`<boolean>\` *(optional)*  Show detailed information
 
 
 
@@ -858,7 +858,7 @@ Usage: **padrone-test deprecated-test** *[options]*
 
   \`--newOption\` \`<string>\` *(optional)*              This is the new option
 
-  ~~--deprecatedWithMessage~~ \`<boolean>\` *(deprecated: Use newOption instead)*  This option is deprecated with a message
+  ~~--[no-]deprecatedWithMessage~~ \`<boolean>\` *(deprecated: Use newOption instead)*  This option is deprecated with a message
 
 
 
@@ -872,7 +872,7 @@ Usage: **padrone-test hidden-test** *[options]*
 
   \`--visibleOption\` \`<string>\` *(optional)*   This option is visible in help
 
-  \`--anotherVisible\` \`<boolean>\` *(optional)*  This option is also visible
+  \`--[no-]anotherVisible\` \`<boolean>\` *(optional)*  This option is also visible
 
 
 
@@ -892,7 +892,7 @@ Usage: **padrone-test examples-test** *[options]*
 
     **Example:** \`json, yaml\`
 
-  \`--verbose\` \`<boolean>\` *(optional)*  Show detailed information
+  \`--[no-]verbose\` \`<boolean>\` *(optional)*  Show detailed information
 
     **Example:** \`true\`
 

@@ -67,8 +67,23 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     const optionsMeta = curCommand.meta?.options;
     const schemaMetadata = curCommand.options
       ? extractSchemaMetadata(curCommand.options, optionsMeta)
-      : { aliases: {}, variadicOptions: new Set<string>(), negatableOptions: new Set<string>(), envBindings: {}, configKeys: {} };
-    const { aliases, variadicOptions, negatableOptions, envBindings, configKeys } = schemaMetadata;
+      : { aliases: {}, envBindings: {}, configKeys: {} };
+    const { aliases, envBindings, configKeys } = schemaMetadata;
+
+    // Get array options from schema (arrays are always variadic)
+    const arrayOptions = new Set<string>();
+    if (curCommand.options) {
+      try {
+        const jsonSchema = curCommand.options['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+        if (jsonSchema.type === 'object' && jsonSchema.properties) {
+          for (const [key, prop] of Object.entries(jsonSchema.properties as Record<string, any>)) {
+            if (prop?.type === 'array') arrayOptions.add(key);
+          }
+        }
+      } catch {
+        // Ignore schema parsing errors
+      }
+    }
 
     // Parse positional configuration
     const positionalConfig = curCommand.meta?.positional ? parsePositionalConfig(curCommand.meta.positional) : [];
@@ -87,8 +102,8 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
 
       const value = opt.value ?? true;
 
-      // Handle variadic options - accumulate values into arrays
-      if (variadicOptions.has(key)) {
+      // Handle array options - accumulate values into arrays (arrays are always variadic)
+      if (arrayOptions.has(key)) {
         if (key in optionsRecord) {
           const existing = optionsRecord[key];
           if (Array.isArray(existing)) {
@@ -115,8 +130,6 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     // Apply preprocessing (aliases already handled above, apply env and config)
     const preprocessedOptions = preprocessOptions(optionsRecord, {
       aliases: {}, // Already resolved aliases above
-      variadicOptions,
-      negatableOptions,
       envBindings,
       configKeys,
       configData: parseOptions?.configData,

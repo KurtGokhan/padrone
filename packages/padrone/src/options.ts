@@ -7,20 +7,10 @@ export interface PadroneOptionsMeta {
   hidden?: boolean;
   examples?: unknown[];
   /**
-   * Allow the option to be specified multiple times.
-   * Values will be collected into an array.
-   */
-  variadic?: boolean;
-  /**
    * Environment variable name(s) to bind this option to.
    * Can be a single string or array of env var names (checked in order).
    */
   env?: string | string[];
-  /**
-   * Allow the option to be negated with --no-<option>.
-   * When negated, the value will be set to false.
-   */
-  negatable?: boolean;
   /**
    * Key path in config file that maps to this option.
    * Supports dot notation for nested keys (e.g., 'server.port').
@@ -76,23 +66,19 @@ export function parsePositionalConfig(positional: string[]): { name: string; var
  */
 export interface SchemaMetadataResult {
   aliases: Record<string, string>;
-  variadicOptions: Set<string>;
-  negatableOptions: Set<string>;
   envBindings: Record<string, string[]>;
   configKeys: Record<string, string>;
 }
 
 /**
  * Extract all option metadata from schema and meta in a single pass.
- * This consolidates aliases, variadic, negatable, env bindings, and config keys extraction.
+ * This consolidates aliases, env bindings, and config keys extraction.
  */
 export function extractSchemaMetadata(
   schema: StandardJSONSchemaV1,
   meta?: Record<string, PadroneOptionsMeta | undefined>,
 ): SchemaMetadataResult {
   const aliases: Record<string, string> = {};
-  const variadicOptions = new Set<string>();
-  const negatableOptions = new Set<string>();
   const envBindings: Record<string, string[]> = {};
   const configKeys: Record<string, string> = {};
 
@@ -110,12 +96,6 @@ export function extractSchemaMetadata(
           }
         }
       }
-
-      // Extract variadic
-      if (value.variadic) variadicOptions.add(key);
-
-      // Extract negatable
-      if (value.negatable) negatableOptions.add(key);
 
       // Extract env bindings
       if (value.env) {
@@ -149,16 +129,6 @@ export function extractSchemaMetadata(
           }
         }
 
-        // Extract variadic from schema
-        if (propertySchema.variadic && !variadicOptions.has(propertyName)) {
-          variadicOptions.add(propertyName);
-        }
-
-        // Extract negatable from schema
-        if (propertySchema.negatable && !negatableOptions.has(propertyName)) {
-          negatableOptions.add(propertyName);
-        }
-
         // Extract env bindings from schema
         if (propertySchema.env && !(propertyName in envBindings)) {
           const envVars = typeof propertySchema.env === 'string' ? [propertySchema.env] : propertySchema.env;
@@ -177,7 +147,7 @@ export function extractSchemaMetadata(
     // Ignore errors from JSON schema generation
   }
 
-  return { aliases, variadicOptions, negatableOptions, envBindings, configKeys };
+  return { aliases, envBindings, configKeys };
 }
 
 function preprocessAliases(data: Record<string, unknown>, aliases: Record<string, string>): Record<string, unknown> {
@@ -286,8 +256,6 @@ function applyConfigValues(
 
 export interface ParseOptionsContext {
   aliases?: Record<string, string>;
-  variadicOptions?: Set<string>;
-  negatableOptions?: Set<string>;
   envBindings?: Record<string, string[]>;
   configKeys?: Record<string, string>;
   configData?: Record<string, unknown>;

@@ -33,9 +33,9 @@ export type HelpOptionInfo = {
   examples?: unknown[];
   /** Environment variable(s) this option can be set from */
   env?: string | string[];
-  /** Whether this option can be specified multiple times (variadic) */
+  /** Whether this option is an array type (shown as <type...>) */
   variadic?: boolean;
-  /** Whether this option can be negated with --no-<option> */
+  /** Whether this option is a boolean (shown as --[no-]option) */
   negatable?: boolean;
   /** Config file key that maps to this option */
   configKey?: string;
@@ -316,7 +316,8 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     const maxNameLength = Math.max(...options.map((opt) => opt.name.length));
 
     for (const opt of options) {
-      const optionName = `--${opt.name}`;
+      // Format option name: --[no-]option for booleans, --option otherwise
+      const optionName = opt.negatable ? `--[no-]${opt.name}` : `--${opt.name}`;
       const aliasNames = opt.aliases && opt.aliases.length > 0 ? opt.aliases.map((a) => `-${a}`).join(', ') : '';
       const fullOptionName = aliasNames ? `${optionName}, ${aliasNames}` : optionName;
       const padding = ' '.repeat(Math.max(0, maxNameLength - opt.name.length + 2));
@@ -329,7 +330,6 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
       if (opt.default !== undefined) parts.push(styler.meta(`(default: ${String(opt.default)})`));
       if (opt.enum) parts.push(styler.meta(`(choices: ${opt.enum.join(', ')})`));
       if (opt.variadic) parts.push(styler.meta('(repeatable)'));
-      if (opt.negatable) parts.push(styler.meta('(negatable)'));
       if (isDeprecated) {
         const deprecatedMeta =
           typeof opt.deprecated === 'string' ? styler.meta(`(deprecated: ${opt.deprecated})`) : styler.meta('(deprecated)');
