@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'bun:test';
 import * as z from 'zod/v4';
 import { createPadrone } from '../src/index';
-import type { TODO } from '../src/type-utils';
 import { createWeatherProgram } from './common';
+import { createConsoleMocker } from './console-mocker';
 
 describe('CLI', () => {
   const program = createWeatherProgram();
+  createConsoleMocker();
 
   describe('programmatic execution', () => {
     it('should execute a simple command with args and options', () => {
@@ -113,7 +114,7 @@ describe('CLI', () => {
     it('should handle empty input', () => {
       const result = program.parse('');
 
-      expect(result.command.path).toBe('' as TODO);
+      expect(result.command.path).toBe('');
       expect(result.options).toBeUndefined();
     });
   });
@@ -801,7 +802,7 @@ describe('CLI', () => {
           .options(
             z.object({
               debug: z.boolean().optional().describe('Enable debug mode'),
-              'no-debug': z.boolean().optional().describe('Disable debug mode'),
+              'no-debug': z.never(),
             }),
           )
           .action(),
