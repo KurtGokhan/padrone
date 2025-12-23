@@ -14,22 +14,18 @@ import type {
 
 type UnknownRecord = Record<string, unknown>;
 type EmptyRecord = Record<string, never>;
-
 type DefaultOpts = UnknownRecord | void;
 
 /**
  * A schema that supports both validation (StandardSchemaV1) and JSON schema generation (StandardJSONSchemaV1).
  * This is the type required for command arguments and options in Padrone.
  */
-export type PadroneSchema<Input = unknown, Output = Input> = StandardSchemaV1<Input, Output> & StandardJSONSchemaV1<Input, Output>;
-
-type ZOpts = PadroneSchema;
-type ZDefaultOpts = PadroneSchema<DefaultOpts>;
+type PadroneSchema<Input = unknown, Output = Input> = StandardSchemaV1<Input, Output> & StandardJSONSchemaV1<Input, Output>;
 
 export type PadroneCommand<
   TName extends string = string,
   TParentName extends string = '',
-  TOpts extends ZOpts = ZDefaultOpts,
+  TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
 > = {
@@ -38,7 +34,7 @@ export type PadroneCommand<
   description?: string;
   version?: string;
   needsApproval?: boolean | ((options: TOpts) => Promise<boolean> | boolean);
-  options?: ZOpts;
+  options?: PadroneSchema;
   meta?: GetMeta<TOpts>;
   handler?: (options: StandardSchemaV1.InferOutput<TOpts>) => TRes;
 
@@ -62,7 +58,7 @@ export type AnyPadroneCommand = PadroneCommand<string, any, any, any, [...AnyPad
 export type PadroneCommandBuilder<
   TName extends string = string,
   TParentName extends string = '',
-  TOpts extends ZOpts = ZDefaultOpts,
+  TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
 > = {
@@ -83,7 +79,7 @@ export type PadroneCommandBuilder<
    * })
    * ```
    */
-  options: <TOpts extends ZOpts = PadroneSchema<void>>(
+  options: <TOpts extends PadroneSchema = PadroneSchema<void>>(
     options?: TOpts,
     meta?: GetMeta<TOpts>,
   ) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, TCommands>;
@@ -120,7 +116,7 @@ export type PadroneCommandBuilder<
 
 export type PadroneProgram<
   TName extends string = string,
-  TOpts extends ZOpts = ZDefaultOpts,
+  TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
   TCmd extends PadroneCommand<'', '', TOpts, TRes, TCommands> = PadroneCommand<'', '', TOpts, TRes, TCommands>,
@@ -264,4 +260,4 @@ type GetOptions<TDir extends 'in' | 'out', TCommand extends AnyPadroneCommand> =
 
 type GetResults<TCommand extends AnyPadroneCommand> = ReturnType<NonNullable<TCommand['handler']>>;
 
-type GetMeta<TOpts extends ZOpts> = PadroneMeta<NonNullable<StandardSchemaV1.InferInput<TOpts>>>;
+type GetMeta<TOpts extends PadroneSchema> = PadroneMeta<NonNullable<StandardSchemaV1.InferInput<TOpts>>>;

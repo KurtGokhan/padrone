@@ -70,16 +70,19 @@ export function loadConfigFile(configPath: string): Record<string, unknown> | un
       return undefined;
     }
 
-    const content = fs.readFileSync(absolutePath, 'utf-8');
+    const getContent = () => fs.readFileSync(absolutePath, 'utf-8');
     const ext = path.extname(absolutePath).toLowerCase();
 
-    // Parse based on file extension
-    if (ext === '.json' || ext === '.jsonc') {
-      // Strip comments for JSONC support (simple implementation)
-      const jsonContent = content
-        .replace(/^\s*\/\/.*$/gm, '') // Remove single-line comments
-        .replace(/\/\*[\s\S]*?\*\//g, ''); // Remove multi-line comments
-      return JSON.parse(jsonContent);
+    if (ext === '.yaml' || ext === '.yml') {
+      return Bun.YAML.parse(getContent()) as any;
+    }
+
+    if (ext === '.toml') {
+      return Bun.TOML.parse(getContent()) as any;
+    }
+
+    if (ext === '.json') {
+      return JSON.parse(getContent());
     }
 
     if (ext === '.js' || ext === '.cjs' || ext === '.mjs' || ext === '.ts' || ext === '.cts' || ext === '.mts') {
@@ -89,7 +92,7 @@ export function loadConfigFile(configPath: string): Record<string, unknown> | un
 
     // For unknown extensions, try to parse as JSON
     try {
-      return JSON.parse(content);
+      return JSON.parse(getContent());
     } catch {
       console.error(`Unable to parse config file: ${absolutePath}`);
       return undefined;

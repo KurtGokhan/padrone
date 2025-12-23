@@ -18,5 +18,4 @@ export type {
   PadroneParseOptions,
   PadroneParseResult,
   PadroneProgram,
-  PadroneSchema,
 } from './types';
