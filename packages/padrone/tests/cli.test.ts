@@ -1176,8 +1176,7 @@ describe('CLI', () => {
   describe('help and version commands', () => {
     it('should show help with --help flag', () => {
       const program = createPadrone('test-cli')
-        .description('A test CLI application')
-        .version('1.2.3')
+        .configure({ description: 'A test CLI application', version: '1.2.3' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('--help');
@@ -1187,8 +1186,7 @@ describe('CLI', () => {
 
     it('should show help with -h flag', () => {
       const program = createPadrone('test-cli')
-        .description('A test CLI application')
-        .version('1.2.3')
+        .configure({ description: 'A test CLI application', version: '1.2.3' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('-h');
@@ -1221,8 +1219,7 @@ describe('CLI', () => {
 
     it('should show help with help command', () => {
       const program = createPadrone('test-cli')
-        .description('A test CLI application')
-        .version('1.2.3')
+        .configure({ description: 'A test CLI application', version: '1.2.3' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('help');
@@ -1255,8 +1252,7 @@ describe('CLI', () => {
 
     it('should show version with --version flag', () => {
       const program = createPadrone('test-cli')
-        .description('A test CLI application')
-        .version('1.2.3')
+        .configure({ description: 'A test CLI application', version: '1.2.3' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('--version');
@@ -1266,7 +1262,7 @@ describe('CLI', () => {
 
     it('should show version with -v flag', () => {
       const program = createPadrone('test-cli')
-        .version('2.0.0')
+        .configure({ version: '2.0.0' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('-v');
@@ -1276,7 +1272,7 @@ describe('CLI', () => {
 
     it('should show version with -V flag', () => {
       const program = createPadrone('test-cli')
-        .version('3.0.0')
+        .configure({ version: '3.0.0' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('-V');
@@ -1286,7 +1282,7 @@ describe('CLI', () => {
 
     it('should show version with version command', () => {
       const program = createPadrone('test-cli')
-        .version('4.0.0')
+        .configure({ version: '4.0.0' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('version');
@@ -1306,7 +1302,7 @@ describe('CLI', () => {
 
     it('should allow user to override help command', () => {
       const program = createPadrone('test-cli')
-        .version('1.0.0')
+        .configure({ version: '1.0.0' })
         .command('help', (c) => c.action(() => 'Custom help!'))
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1317,7 +1313,7 @@ describe('CLI', () => {
 
     it('should allow user to override version command', () => {
       const program = createPadrone('test-cli')
-        .version('1.0.0')
+        .configure({ version: '1.0.0' })
         .command('version', (c) => c.action(() => 'Custom version info'))
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1328,7 +1324,7 @@ describe('CLI', () => {
 
     it('should still show help with --help flag even when help command is overridden', () => {
       const program = createPadrone('test-cli')
-        .version('1.0.0')
+        .configure({ version: '1.0.0' })
         .command('help', (c) => c.action(() => 'Custom help!'))
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1339,7 +1335,7 @@ describe('CLI', () => {
     });
 
     it('should set description on program', () => {
-      const program = createPadrone('test-cli').description('My awesome CLI tool');
+      const program = createPadrone('test-cli').configure({ description: 'My awesome CLI tool' });
 
       const result = program.cli('--help');
 
@@ -1348,8 +1344,7 @@ describe('CLI', () => {
 
     it('should chain description and version', () => {
       const program = createPadrone('test-cli')
-        .description('My awesome CLI tool')
-        .version('5.0.0')
+        .configure({ description: 'My awesome CLI tool', version: '5.0.0' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const helpResult = program.cli('--help');
@@ -1361,7 +1356,7 @@ describe('CLI', () => {
 
     it('should accept --detail flag for help', () => {
       const program = createPadrone('test-cli')
-        .description('My CLI')
+        .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const minimalResult = program.cli('--help --detail=minimal');
@@ -1376,7 +1371,7 @@ describe('CLI', () => {
 
     it('should accept -d shorthand for detail flag', () => {
       const program = createPadrone('test-cli')
-        .description('My CLI')
+        .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('--help -d full');
@@ -1386,7 +1381,7 @@ describe('CLI', () => {
 
     it('should accept detail flag with help command', () => {
       const program = createPadrone('test-cli')
-        .description('My CLI')
+        .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('help --detail=full');
@@ -1406,7 +1401,7 @@ describe('CLI', () => {
 
     it('should accept --format flag for help', () => {
       const program = createPadrone('test-cli')
-        .description('My CLI')
+        .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const textResult = program.cli('--help --format=text');
@@ -1421,7 +1416,7 @@ describe('CLI', () => {
 
     it('should accept -f shorthand for format flag', () => {
       const program = createPadrone('test-cli')
-        .description('My CLI')
+        .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('--help -f markdown');
@@ -1431,7 +1426,7 @@ describe('CLI', () => {
 
     it('should accept format flag with help command', () => {
       const program = createPadrone('test-cli')
-        .description('My CLI')
+        .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('help --format=json');
@@ -1441,7 +1436,7 @@ describe('CLI', () => {
 
     it('should combine format and detail flags', () => {
       const program = createPadrone('test-cli')
-        .description('My CLI')
+        .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.cli('--help --format=markdown --detail=full');

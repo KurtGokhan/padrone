@@ -14,6 +14,7 @@ export type {
   AnyPadroneProgram,
   PadroneCommand,
   PadroneCommandBuilder,
+  PadroneCommandConfig,
   PadroneCommandResult,
   PadroneParseOptions,
   PadroneParseResult,

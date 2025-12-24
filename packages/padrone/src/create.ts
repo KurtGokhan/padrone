@@ -443,11 +443,8 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
   };
 
   return {
-    description(description: string) {
-      return createPadroneCommandBuilder({ ...existingCommand, description }) as any;
-    },
-    version(version: string) {
-      return createPadroneCommandBuilder({ ...existingCommand, version }) as any;
+    configure(config: { title?: string; description?: string; version?: string; deprecated?: boolean | string; hidden?: boolean }) {
+      return createPadroneCommandBuilder({ ...existingCommand, ...config }) as any;
     },
     options(options, meta) {
       return createPadroneCommandBuilder({ ...existingCommand, options, meta }) as any;

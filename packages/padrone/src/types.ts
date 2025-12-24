@@ -31,8 +31,11 @@ export type PadroneCommand<
 > = {
   name: TName;
   path: FullCommandName<TName, TParentName>;
+  title?: string;
   description?: string;
   version?: string;
+  deprecated?: boolean | string;
+  hidden?: boolean;
   needsApproval?: boolean | ((options: TOpts) => Promise<boolean> | boolean);
   options?: PadroneSchema;
   meta?: GetMeta<TOpts>;
@@ -55,6 +58,22 @@ export type PadroneCommand<
 
 export type AnyPadroneCommand = PadroneCommand<string, any, any, any, [...AnyPadroneCommand[]]>;
 
+/**
+ * Configuration options for a command.
+ */
+export type PadroneCommandConfig = {
+  /** A short title for the command, displayed in help. */
+  title?: string;
+  /** A longer description of what the command does. */
+  description?: string;
+  /** The version of the command. */
+  version?: string;
+  /** Whether the command is deprecated, or a message explaining the deprecation. */
+  deprecated?: boolean | string;
+  /** Whether the command should be hidden from help output. */
+  hidden?: boolean;
+};
+
 export type PadroneCommandBuilder<
   TName extends string = string,
   TParentName extends string = '',
@@ -62,6 +81,19 @@ export type PadroneCommandBuilder<
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
 > = {
+  /**
+   * Configures command properties like title, description, version, deprecated, and hidden.
+   * @example
+   * ```ts
+   * .configure({
+   *   title: 'Build Project',
+   *   description: 'Compiles the project',
+   *   deprecated: 'Use "compile" instead',
+   * })
+   * ```
+   */
+  configure: (config: PadroneCommandConfig) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, TCommands>;
+
   /**
    * Defines the options schema for the command, including positional arguments.
    * Use the `positional` array in meta to specify which options are positional args.
@@ -120,16 +152,19 @@ export type PadroneProgram<
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
   TCmd extends PadroneCommand<'', '', TOpts, TRes, TCommands> = PadroneCommand<'', '', TOpts, TRes, TCommands>,
-> = Omit<PadroneCommandBuilder<TName, '', TOpts, TRes, TCommands>, 'command'> & {
+> = Omit<PadroneCommandBuilder<TName, '', TOpts, TRes, TCommands>, 'command' | 'configure'> & {
   /**
-   * Sets the description for the program.
+   * Configures command properties like title, description, version, deprecated, and hidden.
+   * @example
+   * ```ts
+   * .configure({
+   *   description: 'My CLI application',
+   *   version: '1.0.0',
+   * })
+   * ```
    */
-  description: (description: string) => PadroneProgram<TName, TOpts, TRes, TCommands>;
+  configure: (config: PadroneCommandConfig) => PadroneProgram<TName, TOpts, TRes, TCommands>;
 
-  /**
-   * Sets the version for the program.
-   */
-  version: (version: string) => PadroneProgram<TName, TOpts, TRes, TCommands>;
   /**
    * Creates a command within the program with the given name and builder function.
    */

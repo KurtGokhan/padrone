@@ -47,7 +47,10 @@ export type HelpOptionInfo = {
  */
 export type HelpSubcommandInfo = {
   name: string;
+  title?: string;
   description?: string;
+  deprecated?: boolean | string;
+  hidden?: boolean;
 };
 
 /**
@@ -57,8 +60,14 @@ export type HelpSubcommandInfo = {
 export type HelpInfo = {
   /** The full command name (e.g., "cli serve" or "<root>") */
   name: string;
+  /** Short title for the command */
+  title?: string;
   /** Command description */
   description?: string;
+  /** Whether the command is deprecated */
+  deprecated?: boolean | string;
+  /** Whether the command is hidden */
+  hidden?: boolean;
   /** Usage string parts for flexible formatting */
   usage: {
     command: string;
@@ -275,9 +284,19 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     const maxNameLength = Math.max(...subcommands.map((c) => c.name.length));
     for (const subCmd of subcommands) {
       const padding = ' '.repeat(Math.max(0, maxNameLength - subCmd.name.length + 2));
-      const lineParts: string[] = [styler.command(subCmd.name), padding];
-      if (subCmd.description) {
-        lineParts.push(styler.description(subCmd.description));
+      const isDeprecated = !!subCmd.deprecated;
+      const commandName = isDeprecated ? styler.deprecated(subCmd.name) : styler.command(subCmd.name);
+      const lineParts: string[] = [commandName, padding];
+
+      // Use title if available, otherwise use description
+      const displayText = subCmd.title ?? subCmd.description;
+      if (displayText) {
+        lineParts.push(isDeprecated ? styler.deprecated(displayText) : styler.description(displayText));
+      }
+      if (isDeprecated) {
+        const deprecatedMeta =
+          typeof subCmd.deprecated === 'string' ? styler.meta(` (deprecated: ${subCmd.deprecated})`) : styler.meta(' (deprecated)');
+        lineParts.push(deprecatedMeta);
       }
       lines.push(indent(1) + lineParts.join(''));
     }
@@ -368,9 +387,23 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     format(info: HelpInfo): string {
       const lines: string[] = [];
 
+      // Show deprecation warning at the top if command is deprecated
+      if (info.deprecated) {
+        const deprecationMessage =
+          typeof info.deprecated === 'string' ? `⚠️  This command is deprecated: ${info.deprecated}` : '⚠️  This command is deprecated';
+        lines.push(styler.deprecated(deprecationMessage));
+        lines.push('');
+      }
+
       // Usage section
       lines.push(...formatUsageSection(info));
       lines.push('');
+
+      // Title section (if present, shows a short summary line)
+      if (info.title) {
+        lines.push(styler.label(info.title));
+        lines.push('');
+      }
 
       // Description section (if present)
       if (info.description) {
@@ -417,69 +450,9 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
 // ============================================================================
 
 function createJsonFormatter(): Formatter {
-  function getJson(info: HelpInfo) {
-    const json: Record<string, unknown> = {
-      name: info.name,
-      usage: [
-        info.usage.command,
-        info.usage.hasSubcommands ? '[command]' : null,
-        info.usage.hasArguments ? '[args...]' : null,
-        info.usage.hasOptions ? '[options]' : null,
-      ]
-        .filter(Boolean)
-        .join(' '),
-    };
-
-    if (info.description) json.description = info.description;
-
-    if (info.subcommands?.length) {
-      json.commands = info.subcommands.map((c) => {
-        const cmd: Record<string, unknown> = { name: c.name };
-        if (c.description) cmd.description = c.description;
-        return cmd;
-      });
-    }
-
-    if (info.arguments?.length) {
-      json.arguments = info.arguments.map((arg) => {
-        const argJson: Record<string, unknown> = {
-          name: arg.name,
-          optional: arg.optional,
-        };
-        if (arg.description) argJson.description = arg.description;
-        if (arg.default !== undefined) argJson.default = arg.default;
-        if (arg.type) argJson.type = arg.type;
-        return argJson;
-      });
-    }
-
-    if (info.options?.length) {
-      json.options = info.options.map((opt) => {
-        const optJson: Record<string, unknown> = {
-          name: opt.name,
-          optional: opt.optional,
-        };
-        if (opt.aliases && opt.aliases.length > 0) optJson.aliases = opt.aliases;
-        if (opt.description) optJson.description = opt.description;
-        if (opt.default !== undefined) optJson.default = opt.default;
-        if (opt.type) optJson.type = opt.type;
-        if (opt.enum) optJson.enum = opt.enum;
-        if (opt.deprecated !== undefined) optJson.deprecated = opt.deprecated;
-        if (opt.examples && opt.examples.length > 0) optJson.examples = opt.examples;
-        return optJson;
-      });
-    }
-
-    if (info.nestedCommands?.length) {
-      json.nestedCommands = info.nestedCommands.map(getJson);
-    }
-
-    return json;
-  }
-
   return {
     format(info: HelpInfo): string {
-      return JSON.stringify(getJson(info), null, 2);
+      return JSON.stringify(info, null, 2);
     },
   };
 }

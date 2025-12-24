@@ -195,32 +195,41 @@ exports[`help should generate help in html format 1`] = `"<div style="font-famil
 exports[`help should generate help in json format 1`] = `
 "{
   "name": "current",
-  "usage": "padrone-test current [args...] [options]",
+  "usage": {
+    "command": "padrone-test current",
+    "hasSubcommands": false,
+    "hasArguments": true,
+    "hasOptions": true
+  },
   "arguments": [
     {
       "name": "city",
-      "optional": false,
       "description": "City name",
+      "optional": false,
       "type": "string"
     }
   ],
   "options": [
     {
       "name": "unit",
-      "optional": true,
       "description": "Temperature unit",
+      "optional": true,
       "default": "fahrenheit",
       "type": "string",
       "enum": [
         "celsius",
         "fahrenheit"
-      ]
+      ],
+      "variadic": false,
+      "negatable": false
     },
     {
       "name": "verbose",
-      "optional": true,
       "description": "Show detailed information",
-      "type": "boolean"
+      "optional": true,
+      "type": "boolean",
+      "variadic": false,
+      "negatable": true
     }
   ]
 }"
@@ -354,8 +363,13 @@ Options:
 exports[`help with full detail mode should generate full help with all nested commands in json format 1`] = `
 "{
   "name": "padrone-test",
-  "usage": "padrone-test [command]",
-  "commands": [
+  "usage": {
+    "command": "padrone-test",
+    "hasSubcommands": true,
+    "hasArguments": false,
+    "hasOptions": false
+  },
+  "subcommands": [
     {
       "name": "current"
     },
@@ -387,240 +401,325 @@ exports[`help with full detail mode should generate full help with all nested co
   "nestedCommands": [
     {
       "name": "current",
-      "usage": "padrone-test current [args...] [options]",
+      "usage": {
+        "command": "padrone-test current",
+        "hasSubcommands": false,
+        "hasArguments": true,
+        "hasOptions": true
+      },
       "arguments": [
         {
           "name": "city",
-          "optional": false,
           "description": "City name",
+          "optional": false,
           "type": "string"
         }
       ],
       "options": [
         {
           "name": "unit",
-          "optional": true,
           "description": "Temperature unit",
+          "optional": true,
           "default": "fahrenheit",
           "type": "string",
           "enum": [
             "celsius",
             "fahrenheit"
-          ]
+          ],
+          "variadic": false,
+          "negatable": false
         },
         {
           "name": "verbose",
-          "optional": true,
           "description": "Show detailed information",
-          "type": "boolean"
+          "optional": true,
+          "type": "boolean",
+          "variadic": false,
+          "negatable": true
         }
       ]
     },
     {
       "name": "forecast",
-      "usage": "padrone-test forecast [command] [args...] [options]",
-      "commands": [
+      "usage": {
+        "command": "padrone-test forecast",
+        "hasSubcommands": true,
+        "hasArguments": true,
+        "hasOptions": true
+      },
+      "subcommands": [
         {
           "name": "extended"
-        }
-      ],
-      "arguments": [
-        {
-          "name": "city",
-          "optional": false,
-          "description": "City name (overrides positional argument)",
-          "type": "string"
-        }
-      ],
-      "options": [
-        {
-          "name": "days",
-          "optional": true,
-          "description": "Number of days to forecast",
-          "default": 3,
-          "type": "number"
-        },
-        {
-          "name": "unit",
-          "optional": true,
-          "description": "Temperature unit",
-          "default": "fahrenheit",
-          "type": "string",
-          "enum": [
-            "celsius",
-            "fahrenheit"
-          ]
         }
       ],
       "nestedCommands": [
         {
           "name": "forecast extended",
-          "usage": "padrone-test forecast extended [command] [args...] [options]",
-          "commands": [
+          "usage": {
+            "command": "padrone-test forecast extended",
+            "hasSubcommands": true,
+            "hasArguments": true,
+            "hasOptions": true
+          },
+          "subcommands": [
             {
               "name": "extended"
+            }
+          ],
+          "nestedCommands": [
+            {
+              "name": "forecast extended extended",
+              "usage": {
+                "command": "padrone-test forecast extended extended",
+                "hasSubcommands": false,
+                "hasArguments": true,
+                "hasOptions": true
+              },
+              "arguments": [
+                {
+                  "name": "city",
+                  "description": "City name (overrides positional argument)",
+                  "optional": false,
+                  "type": "string"
+                }
+              ]
             }
           ],
           "arguments": [
             {
               "name": "city",
-              "optional": false,
               "description": "City name (overrides positional argument)",
+              "optional": false,
               "type": "string"
             }
           ],
           "options": [
             {
               "name": "unit",
-              "optional": true,
               "description": "Temperature unit",
+              "optional": true,
               "default": "fahrenheit",
               "type": "string",
               "enum": [
                 "celsius",
                 "fahrenheit"
-              ]
-            }
-          ],
-          "nestedCommands": [
-            {
-              "name": "forecast extended extended",
-              "usage": "padrone-test forecast extended extended [args...] [options]",
-              "arguments": [
-                {
-                  "name": "city",
-                  "optional": false,
-                  "description": "City name (overrides positional argument)",
-                  "type": "string"
-                }
-              ]
+              ],
+              "variadic": false,
+              "negatable": false
             }
           ]
+        }
+      ],
+      "arguments": [
+        {
+          "name": "city",
+          "description": "City name (overrides positional argument)",
+          "optional": false,
+          "type": "string"
+        }
+      ],
+      "options": [
+        {
+          "name": "days",
+          "description": "Number of days to forecast",
+          "optional": true,
+          "default": 3,
+          "type": "number",
+          "variadic": false,
+          "negatable": false
+        },
+        {
+          "name": "unit",
+          "description": "Temperature unit",
+          "optional": true,
+          "default": "fahrenheit",
+          "type": "string",
+          "enum": [
+            "celsius",
+            "fahrenheit"
+          ],
+          "variadic": false,
+          "negatable": false
         }
       ]
     },
     {
       "name": "alerts",
-      "usage": "padrone-test alerts [options]",
+      "usage": {
+        "command": "padrone-test alerts",
+        "hasSubcommands": false,
+        "hasArguments": false,
+        "hasOptions": true
+      },
       "options": [
         {
           "name": "region",
-          "optional": true,
           "description": "Region to check alerts for",
-          "type": "string"
+          "optional": true,
+          "type": "string",
+          "variadic": false,
+          "negatable": false
         },
         {
           "name": "severity",
-          "optional": true,
           "description": "Filter by severity",
+          "optional": true,
           "type": "string",
           "enum": [
             "low",
             "medium",
             "high"
-          ]
+          ],
+          "variadic": false,
+          "negatable": false
         },
         {
           "name": "ascending",
-          "optional": true,
           "description": "Sort alerts in ascending order",
-          "type": "boolean"
+          "optional": true,
+          "type": "boolean",
+          "variadic": false,
+          "negatable": true
         }
       ]
     },
     {
       "name": "compare",
-      "usage": "padrone-test compare [args...] [options]",
+      "usage": {
+        "command": "padrone-test compare",
+        "hasSubcommands": false,
+        "hasArguments": true,
+        "hasOptions": true
+      },
       "arguments": [
         {
           "name": "...cities",
-          "optional": false,
           "description": "Cities to compare",
+          "optional": false,
           "type": "array<string>"
         }
       ]
     },
     {
       "name": "noop",
-      "usage": "padrone-test noop"
+      "usage": {
+        "command": "padrone-test noop",
+        "hasSubcommands": false,
+        "hasArguments": false,
+        "hasOptions": false
+      }
     },
     {
       "name": "cities",
-      "usage": "padrone-test cities [options]",
+      "usage": {
+        "command": "padrone-test cities",
+        "hasSubcommands": false,
+        "hasArguments": false,
+        "hasOptions": true
+      },
       "options": [
         {
           "name": "verbose",
+          "description": "Show detailed information",
           "optional": true,
+          "type": "boolean",
+          "variadic": false,
+          "negatable": true,
           "aliases": [
             "v"
-          ],
-          "description": "Show detailed information",
-          "type": "boolean"
+          ]
         }
       ]
     },
     {
       "name": "deprecated-test",
-      "usage": "padrone-test deprecated-test [options]",
+      "usage": {
+        "command": "padrone-test deprecated-test",
+        "hasSubcommands": false,
+        "hasArguments": false,
+        "hasOptions": true
+      },
       "options": [
         {
           "name": "oldOption",
-          "optional": true,
           "description": "This option is deprecated",
+          "optional": true,
           "type": "string",
-          "deprecated": true
+          "deprecated": true,
+          "variadic": false,
+          "negatable": false
         },
         {
           "name": "newOption",
-          "optional": true,
           "description": "This is the new option",
-          "type": "string"
+          "optional": true,
+          "type": "string",
+          "variadic": false,
+          "negatable": false
         },
         {
           "name": "deprecatedWithMessage",
-          "optional": true,
           "description": "This option is deprecated with a message",
+          "optional": true,
           "type": "boolean",
-          "deprecated": "Use newOption instead"
+          "deprecated": "Use newOption instead",
+          "variadic": false,
+          "negatable": true
         }
       ]
     },
     {
       "name": "hidden-test",
-      "usage": "padrone-test hidden-test [options]",
+      "usage": {
+        "command": "padrone-test hidden-test",
+        "hasSubcommands": false,
+        "hasArguments": false,
+        "hasOptions": true
+      },
       "options": [
         {
           "name": "visibleOption",
-          "optional": true,
           "description": "This option is visible in help",
-          "type": "string"
+          "optional": true,
+          "type": "string",
+          "variadic": false,
+          "negatable": false
         },
         {
           "name": "anotherVisible",
-          "optional": true,
           "description": "This option is also visible",
-          "type": "boolean"
+          "optional": true,
+          "type": "boolean",
+          "variadic": false,
+          "negatable": true
         }
       ]
     },
     {
       "name": "examples-test",
-      "usage": "padrone-test examples-test [options]",
+      "usage": {
+        "command": "padrone-test examples-test",
+        "hasSubcommands": false,
+        "hasArguments": false,
+        "hasOptions": true
+      },
       "options": [
         {
           "name": "output",
-          "optional": true,
           "description": "Specify the output file path",
+          "optional": true,
           "type": "string",
           "examples": [
             "output.txt",
             "./dist/result.json"
-          ]
+          ],
+          "variadic": false,
+          "negatable": false
         },
         {
           "name": "format",
-          "optional": true,
           "description": "Choose the output format",
+          "optional": true,
           "type": "string",
           "enum": [
             "json",
@@ -630,26 +729,32 @@ exports[`help with full detail mode should generate full help with all nested co
           "examples": [
             "json",
             "yaml"
-          ]
+          ],
+          "variadic": false,
+          "negatable": false
         },
         {
           "name": "verbose",
-          "optional": true,
           "description": "Show detailed information",
+          "optional": true,
           "type": "boolean",
           "examples": [
             true
-          ]
+          ],
+          "variadic": false,
+          "negatable": true
         },
         {
           "name": "config",
-          "optional": true,
           "description": "Path to configuration file",
+          "optional": true,
           "type": "string",
           "examples": [
             "./config.json",
             "~/.config/app.json"
-          ]
+          ],
+          "variadic": false,
+          "negatable": false
         }
       ]
     }

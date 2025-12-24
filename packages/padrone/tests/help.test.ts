@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test';
+import type { HelpInfo } from '../src';
 import { createWeatherProgram } from './common';
 
 describe('help', () => {
@@ -127,12 +128,12 @@ describe('help with full detail mode', () => {
 
   it('should not include nested commands in standard detail mode', () => {
     const help = program.help('forecast', { format: 'json', detail: 'standard' });
-    const parsed = JSON.parse(help);
+    const parsed = JSON.parse(help) as HelpInfo;
 
     // Standard mode should not have nestedCommands
     expect(parsed.nestedCommands).toBeUndefined();
     // But should still have subcommands list
-    expect(parsed.commands).toBeDefined();
+    expect(parsed.subcommands).toBeDefined();
   });
 
   it('should work with ansi format in full detail mode', () => {
