@@ -6,6 +6,7 @@ const rootFile = (path: string) => fileURLToPath(import.meta.resolve?.(path) || 
 copyFileSync(rootFile('../README.md'), './dist/README.md');
 copyFileSync(rootFile('../LICENSE'), './dist/LICENSE');
 cpSync('./src', './dist/src', { recursive: true });
+cpSync(rootFile('../media'), './dist/media', { recursive: true });
 
 const content = readFileSync('./package.json', 'utf-8');
 const {
