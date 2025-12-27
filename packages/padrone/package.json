@@ -15,19 +15,18 @@
     "vercel-ai",
     "standard-schema"
   ],
-  "homepage": "https://gkurt.com/padrone/",
+  "homepage": "https://github.com/KurtGokhan/padrone",
   "bugs": {
     "url": "https://github.com/KurtGokhan/padrone/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/KurtGokhan/padrone.git",
-    "directory": "packages/padrone"
+    "url": "git+https://github.com/KurtGokhan/padrone.git"
   },
   "license": "MIT",
   "author": {
     "name": "Gokhan Kurt",
-    "email": "krtgkn@gmail.com",
+    "email": "gokhan@gkurt.com",
     "url": "https://gkurt.com"
   },
   "type": "module",
