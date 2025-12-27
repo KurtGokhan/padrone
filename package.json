@@ -1,6 +1,6 @@
 {
   "name": "@padrone/root",
-  "version": "0.0.1",
+  "version": "1.0.0-beta.2",
   "type": "module",
   "private": true,
   "description": "Create interactive CLI apps with Zod schemas",
