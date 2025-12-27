@@ -1,16 +1,59 @@
 {
   "name": "padrone",
-  "version": "0.0.1",
-  "main": "src/index.ts",
-  "module": "src/index.ts",
+  "version": "1.0.0-beta.1",
+  "description": "Create type-safe, interactive CLI apps with Zod schemas",
+  "keywords": [
+    "cli",
+    "command-line",
+    "zod",
+    "typescript",
+    "type-safe",
+    "parser",
+    "arguments",
+    "options",
+    "ai",
+    "vercel-ai",
+    "standard-schema"
+  ],
+  "homepage": "https://gkurt.com/padrone/",
+  "bugs": {
+    "url": "https://github.com/KurtGokhan/padrone/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KurtGokhan/padrone.git",
+    "directory": "packages/padrone"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Gokhan Kurt",
+    "email": "krtgkn@gmail.com",
+    "url": "https://gkurt.com"
+  },
   "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "source": "./src/index.ts"
+    }
+  },
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
-    "build": "tsdown src/index.ts",
+    "build": "tsdown src/index.ts --dts --sourcemap",
     "dev": "bun src/index.ts",
     "test": "bun test",
-    "prepare": "bun bundle",
+    "prepublishOnly": "bun run build",
     "bundle": "bun run build && bun ../../scripts/copyPackageJson.ts",
-    "publish-to-npm": "bun publish --access public --no-git-checks --no-confirm"
+    "publish-to-npm": "bun run bundle && cd dist && bun publish --access public"
   },
   "dependencies": {
     "@standard-schema/spec": "^1.1.0"
@@ -31,5 +74,8 @@
     "zod": {
       "optional": true
     }
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

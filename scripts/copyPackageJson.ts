@@ -1,13 +1,24 @@
-import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const rootFile = (path: string) => fileURLToPath(import.meta.resolve?.(path) || '');
 
 copyFileSync(rootFile('../README.md'), './dist/README.md');
 copyFileSync(rootFile('../LICENSE'), './dist/LICENSE');
+cpSync('./src', './dist/src', { recursive: true });
 
 const content = readFileSync('./package.json', 'utf-8');
-const { scripts, devDependencies, private: _, overrides, volta, 'lint-staged': __, workspaces, ...parsed }: any = JSON.parse(content);
+const {
+  scripts,
+  devDependencies,
+  private: _,
+  overrides,
+  volta,
+  'lint-staged': __,
+  workspaces,
+  files,
+  ...parsed
+}: any = JSON.parse(content);
 
 function replacePath(path: string) {
   return path.replace(/^\.\/dist\//, './');
