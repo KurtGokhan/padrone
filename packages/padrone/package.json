@@ -1,6 +1,6 @@
 {
   "name": "padrone",
-  "version": "1.0.0-beta.3",
+  "version": "1.0.0-beta.4",
   "description": "Create type-safe, interactive CLI apps with Zod schemas",
   "keywords": [
     "cli",
