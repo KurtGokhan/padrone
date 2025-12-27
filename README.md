@@ -51,19 +51,20 @@ import * as z from 'zod/v4';
 const program = createPadrone('myapp')
   .command('greet', (c) =>
     c
-      .args(z.array(z.string()).describe('Names to greet'))
       .options(
         z.object({
+          names: z.array(z.string()).describe('Names to greet'),
           prefix: z
             .string()
             .optional()
             .describe('Prefix to use in greeting')
             .meta({ alias: 'p' }),
         }),
+        { positional: ['...names'] },
       )
-      .action((args, options) => {
+      .action((options) => {
         const prefix = options?.prefix ? `${options.prefix} ` : '';
-        args.forEach((name) => {
+        options.names.forEach((name) => {
           console.log(`Hello, ${prefix}${name}!`);
         });
       }),
@@ -94,13 +95,12 @@ Hello, Mr. Jane!
 ### Programmatic Execution
 
 ```typescript
-// Run a command directly with typed args and options
-program.run('greet', ['John', 'Jane'], { prefix: 'Dr.' });
+// Run a command directly with typed options
+program.run('greet', { names: ['John', 'Jane'], prefix: 'Dr.' });
 
 // Parse CLI input without executing
 const parsed = program.parse('greet John --prefix Mr.');
-console.log(parsed.args);    // ['John']
-console.log(parsed.options); // { prefix: 'Mr.' }
+console.log(parsed.options); // { names: ['John'], prefix: 'Mr.' }
 ```
 
 ### API Mode
@@ -111,7 +111,7 @@ Generate a typed API from your CLI program:
 const api = program.api();
 
 // Call commands as functions with full type safety
-api.greet(['Alice', 'Bob'], { prefix: 'Dr.' });
+api.greet({ names: ['Alice', 'Bob'], prefix: 'Dr.' });
 ```
 
 ### Nested Commands
@@ -120,20 +120,26 @@ api.greet(['Alice', 'Bob'], { prefix: 'Dr.' });
 const program = createPadrone('weather')
   .command('forecast', (c) =>
     c
-      .args(z.tuple([z.string().describe('City name')]))
       .options(
         z.object({
+          city: z.string().describe('City name'),
           days: z.number().optional().default(3).describe('Number of days'),
         }),
+        { positional: ['city'] },
       )
-      .action((args, options) => {
-        console.log(`Forecast for ${args[0]}: ${options.days} days`);
+      .action((options) => {
+        console.log(`Forecast for ${options.city}: ${options.days} days`);
       })
       .command('extended', (c) =>
         c
-          .args(z.tuple([z.string()]))
-          .action((args) => {
-            console.log(`Extended forecast for ${args[0]}`);
+          .options(
+            z.object({
+              city: z.string().describe('City name'),
+            }),
+            { positional: ['city'] },
+          )
+          .action((options) => {
+            console.log(`Extended forecast for ${options.city}`);
           }),
       ),
   );
@@ -167,8 +173,37 @@ const program = createPadrone('app')
             .meta({ alias: 'v', deprecated: 'Use --debug instead' }),
         }),
       )
-      .action((_, options) => {
+      .action((options) => {
         console.log(`Server running at ${options.host}:${options.port}`);
+      }),
+  );
+```
+
+### Environment Variables and Config Files
+
+Padrone supports binding options to environment variables and config files:
+
+```typescript
+const program = createPadrone('app')
+  .configure({
+    configFiles: ['app.config.json', '.apprc'],
+  })
+  .command('serve', (c) =>
+    c
+      .options(
+        z.object({
+          port: z.number().default(3000).describe('Port to listen on'),
+          apiKey: z.string().describe('API key for authentication'),
+        }),
+        {
+          options: {
+            port: { env: 'APP_PORT', configKey: 'server.port' },
+            apiKey: { env: ['API_KEY', 'APP_API_KEY'] },
+          },
+        },
+      )
+      .action((options) => {
+        console.log(`Server running on port ${options.port}`);
       }),
   );
 ```
@@ -180,13 +215,19 @@ Padrone provides first-class support for the [Vercel AI SDK](https://ai-sdk.dev/
 ```typescript
 import { streamText } from 'ai';
 import { createPadrone } from 'padrone';
+import * as z from 'zod/v4';
 
 const weatherCli = createPadrone('weather')
   .command('current', (c) =>
     c
-      .args(z.tuple([z.string().describe('City name')]))
-      .action((args) => {
-        return { city: args[0], temperature: 72, condition: 'Sunny' };
+      .options(
+        z.object({
+          city: z.string().describe('City name'),
+        }),
+        { positional: ['city'] },
+      )
+      .action((options) => {
+        return { city: options.city, temperature: 72, condition: 'Sunny' };
       }),
   );
 
@@ -210,7 +251,7 @@ console.log(program.help());
 
 Example output:
 ```
-Usage: myapp greet names... [options]
+Usage: myapp greet [names...] [options]
 
 Arguments:
   names...    Names to greet
@@ -230,17 +271,32 @@ Creates a new CLI program with the given name.
 
 | Method | Description |
 |--------|-------------|
+| `.configure(config)` | Configure program properties (title, description, version, configFiles) |
 | `.command(name, builder)` | Add a command to the program |
-| `.args(schema)` | Define positional arguments schema |
-| `.options(schema, meta?)` | Define options schema |
+| `.options(schema, meta?)` | Define options schema with optional positional args |
 | `.action(handler)` | Set the command handler function |
 | `.cli(input?)` | Run as CLI (parses `process.argv` or input string) |
-| `.run(command, args, options)` | Run a command programmatically |
+| `.run(command, options)` | Run a command programmatically |
 | `.parse(input?)` | Parse input without executing |
+| `.stringify(command?, options?)` | Convert command and options back to CLI string |
 | `.api()` | Generate a typed API object |
 | `.help(command?)` | Generate help text |
 | `.tool()` | Generate a Vercel AI SDK tool |
 | `.find(command)` | Find a command by name |
+
+### Options Meta
+
+Use the second argument of `.options()` to configure positional arguments and per-option metadata:
+
+```typescript
+.options(schema, {
+  positional: ['source', '...files', 'dest'],  // '...files' is variadic
+  options: {
+    verbose: { alias: 'v', env: 'VERBOSE' },
+    config: { configKey: 'settings.config' },
+  },
+})
+```
 
 ### Zod Meta Options
 
@@ -248,10 +304,12 @@ Use `.meta()` on Zod schemas to provide additional CLI metadata:
 
 ```typescript
 z.string().meta({
-  alias: 'p',           // Short alias (-p)
-  examples: ['value'],  // Example values for help text
+  alias: 'p',            // Short alias (-p)
+  examples: ['value'],   // Example values for help text
   deprecated: 'message', // Mark as deprecated
-  hidden: true,         // Hide from help output
+  hidden: true,          // Hide from help output
+  env: 'MY_VAR',         // Bind to environment variable
+  configKey: 'path.key', // Bind to config file key
 })
 ```
 
