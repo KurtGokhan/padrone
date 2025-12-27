@@ -20,6 +20,9 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
 
+    // Make internal packages use dev entry points
+    "customConditions": ["padrone@dev"],
+
     // Some stricter flags (disabled by default)
     "noUnusedLocals": false,
     "noUnusedParameters": false,
