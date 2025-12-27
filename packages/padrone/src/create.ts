@@ -3,7 +3,7 @@ import { generateHelp } from './help';
 import { extractSchemaMetadata, parsePositionalConfig, preprocessOptions } from './options';
 import { parseCliInputToParts } from './parse';
 import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneCommandBuilder, PadroneProgram } from './types';
-import { getVersion, loadConfigFile } from './utils';
+import { findConfigFile, getVersion, loadConfigFile } from './utils';
 
 const commandSymbol = Symbol('padrone_command');
 
@@ -32,9 +32,12 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     return findCommandByName(command, existingCommand.commands) as ReturnType<AnyPadroneProgram['find']>;
   };
 
-  const parse: AnyPadroneProgram['parse'] = (input, parseOptions) => {
+  /**
+   * Parses CLI input to find the command and extract raw options without validation.
+   */
+  const parseCommand = (input: string | undefined) => {
     input ??= typeof process !== 'undefined' ? (process.argv.slice(2).join(' ') as any) : undefined;
-    if (!input) return { command: existingCommand as any };
+    if (!input) return { command: existingCommand, rawOptions: {} as Record<string, unknown>, args: [] as string[] };
 
     const parts = parseCliInputToParts(input);
 
@@ -42,8 +45,6 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     const args = parts.filter((p) => p.type === 'arg').map((p) => p.value);
 
     let curCommand: AnyPadroneCommand | undefined = existingCommand;
-
-    const commandTerms: string[] = [];
 
     // If the first term is the program name, skip it
     if (terms[0] === existingCommand.name) terms.shift();
@@ -54,21 +55,20 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
 
       if (found) {
         curCommand = found;
-        commandTerms.push(term);
       } else {
         args.unshift(...terms.slice(i));
         break;
       }
     }
 
-    if (!curCommand) return { command: existingCommand as any };
+    if (!curCommand) return { command: existingCommand, rawOptions: {} as Record<string, unknown>, args };
 
     // Extract option metadata from the nested options object in meta
     const optionsMeta = curCommand.meta?.options;
     const schemaMetadata = curCommand.options
       ? extractSchemaMetadata(curCommand.options, optionsMeta)
       : { aliases: {}, envBindings: {}, configKeys: {} };
-    const { aliases, envBindings, configKeys } = schemaMetadata;
+    const { aliases } = schemaMetadata;
 
     // Get array options from schema (arrays are always variadic)
     const arrayOptions = new Set<string>();
@@ -85,18 +85,15 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
       }
     }
 
-    // Parse positional configuration
-    const positionalConfig = curCommand.meta?.positional ? parsePositionalConfig(curCommand.meta.positional) : [];
-
     const opts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
-    const optionsRecord: Record<string, unknown> = {};
+    const rawOptions: Record<string, unknown> = {};
 
     for (const opt of opts) {
       const key = opt.type === 'alias' ? aliases[opt.key] || opt.key : opt.key;
 
       // Handle negated boolean options (--no-verbose)
       if (opt.type === 'option' && opt.negated) {
-        optionsRecord[key] = false;
+        rawOptions[key] = false;
         continue;
       }
 
@@ -104,8 +101,8 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
 
       // Handle array options - accumulate values into arrays (arrays are always variadic)
       if (arrayOptions.has(key)) {
-        if (key in optionsRecord) {
-          const existing = optionsRecord[key];
+        if (key in rawOptions) {
+          const existing = rawOptions[key];
           if (Array.isArray(existing)) {
             if (Array.isArray(value)) {
               existing.push(...value);
@@ -114,27 +111,49 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
             }
           } else {
             if (Array.isArray(value)) {
-              optionsRecord[key] = [existing, ...value];
+              rawOptions[key] = [existing, ...value];
             } else {
-              optionsRecord[key] = [existing, value];
+              rawOptions[key] = [existing, value];
             }
           }
         } else {
-          optionsRecord[key] = Array.isArray(value) ? value : [value];
+          rawOptions[key] = Array.isArray(value) ? value : [value];
         }
       } else {
-        optionsRecord[key] = value;
+        rawOptions[key] = value;
       }
     }
 
-    // Apply preprocessing (aliases already handled above, apply env and config)
-    const preprocessedOptions = preprocessOptions(optionsRecord, {
-      aliases: {}, // Already resolved aliases above
+    return { command: curCommand, rawOptions, args };
+  };
+
+  /**
+   * Validates raw options against the command's schema and applies preprocessing.
+   */
+  const validateOptions = (
+    command: AnyPadroneCommand,
+    rawOptions: Record<string, unknown>,
+    args: string[],
+    parseOptions?: { env?: Record<string, string | undefined>; configData?: Record<string, unknown> },
+  ) => {
+    // Extract option metadata for preprocessing
+    const optionsMeta = command.meta?.options;
+    const schemaMetadata = command.options
+      ? extractSchemaMetadata(command.options, optionsMeta)
+      : { aliases: {}, envBindings: {}, configKeys: {} };
+    const { envBindings, configKeys } = schemaMetadata;
+
+    // Apply preprocessing (env and config bindings)
+    const preprocessedOptions = preprocessOptions(rawOptions, {
+      aliases: {}, // Already resolved aliases in parseCommand
       envBindings,
       configKeys,
       configData: parseOptions?.configData,
       env: parseOptions?.env,
     });
+
+    // Parse positional configuration
+    const positionalConfig = command.meta?.positional ? parsePositionalConfig(command.meta.positional) : [];
 
     // Map positional arguments to their named options
     if (positionalConfig.length > 0) {
@@ -156,18 +175,29 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
       }
     }
 
-    const optionsParsed = curCommand.options
-      ? curCommand.options['~standard'].validate(preprocessedOptions)
-      : { value: preprocessedOptions };
+    const optionsParsed = command.options ? command.options['~standard'].validate(preprocessedOptions) : { value: preprocessedOptions };
 
     if (optionsParsed instanceof Promise) {
       throw new Error('Async validation is not supported. Schema validate() must return a synchronous result.');
     }
 
+    // Return undefined for options when there's no schema and no meaningful options
+    const hasOptions = command.options || Object.keys(preprocessedOptions).length > 0;
+
     return {
-      command: curCommand as any,
-      options: optionsParsed.issues ? undefined : (optionsParsed.value as any),
+      options: optionsParsed.issues ? undefined : hasOptions ? (optionsParsed.value as any) : undefined,
       optionsResult: optionsParsed as any,
+    };
+  };
+
+  const parse: AnyPadroneProgram['parse'] = (input, parseOptions) => {
+    const { command, rawOptions, args } = parseCommand(input);
+    const { options, optionsResult } = validateOptions(command, rawOptions, args, parseOptions);
+
+    return {
+      command: command as any,
+      options,
+      optionsResult,
     };
   };
 
@@ -380,14 +410,40 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
       }
     }
 
+    // Parse the command first (without validating options)
+    const { command, rawOptions, args } = parseCommand(resolvedInput);
+
     // Extract config file path from --config or -c flag
     const configPath = extractConfigPath(resolvedInput);
-    const configData = configPath ? loadConfigFile(configPath) : cliOptions?.configData;
 
-    const { command, options, optionsResult } = parse(resolvedInput, {
+    // Resolve config files: command's own configFiles > inherited from parent/root
+    // undefined = inherit, empty array = no config files (explicit opt-out)
+    const resolveConfigFiles = (cmd: AnyPadroneCommand): string[] | undefined => {
+      if (cmd.configFiles !== undefined) return cmd.configFiles;
+      if (cmd.parent) return resolveConfigFiles(cmd.parent);
+      return undefined;
+    };
+    const effectiveConfigFiles = resolveConfigFiles(command);
+
+    // Determine config data: explicit --config flag > auto-discovered config > provided configData
+    let configData = cliOptions?.configData;
+    if (configPath) {
+      // Explicit config path takes precedence
+      configData = loadConfigFile(configPath);
+    } else if (effectiveConfigFiles?.length) {
+      // Search for config files if configFiles is configured (inherited or own)
+      const foundConfigPath = findConfigFile(effectiveConfigFiles);
+      if (foundConfigPath) {
+        configData = loadConfigFile(foundConfigPath) ?? configData;
+      }
+    }
+
+    // Validate options with config data
+    const { options, optionsResult } = validateOptions(command, rawOptions, args, {
       ...cliOptions,
-      configData: configData ?? cliOptions?.configData,
+      configData,
     });
+
     const res = run(command, options) as any;
     return {
       ...res,
@@ -443,7 +499,7 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
   };
 
   return {
-    configure(config: { title?: string; description?: string; version?: string; deprecated?: boolean | string; hidden?: boolean }) {
+    configure(config) {
       return createPadroneCommandBuilder({ ...existingCommand, ...config }) as any;
     },
     options(options, meta) {

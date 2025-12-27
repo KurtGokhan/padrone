@@ -102,3 +102,30 @@ export function loadConfigFile(configPath: string): Record<string, unknown> | un
     return undefined;
   }
 }
+
+/**
+ * Searches for a config file from a list of possible file names.
+ * Searches in the current working directory.
+ * @param configFiles - Array of possible config file names to search for
+ * @returns The path to the first found config file, or undefined if none found
+ */
+export function findConfigFile(configFiles: string[]): string | undefined {
+  if (typeof process === 'undefined' || !configFiles?.length) return undefined;
+
+  try {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const cwd = process.cwd();
+
+    for (const configFile of configFiles) {
+      const configPath = path.isAbsolute(configFile) ? configFile : path.resolve(cwd, configFile);
+      if (fs.existsSync(configPath)) {
+        return configPath;
+      }
+    }
+  } catch {
+    // Ignore errors (e.g., fs not available in browser)
+  }
+
+  return undefined;
+}

@@ -40,6 +40,8 @@ export type PadroneCommand<
   options?: PadroneSchema;
   meta?: GetMeta<TOpts>;
   handler?: (options: StandardSchemaV1.InferOutput<TOpts>) => TRes;
+  /** List of possible config file names to search for. */
+  configFiles?: string[];
 
   parent?: AnyPadroneCommand;
   commands?: TCommands;
@@ -72,6 +74,18 @@ export type PadroneCommandConfig = {
   deprecated?: boolean | string;
   /** Whether the command should be hidden from help output. */
   hidden?: boolean;
+  /**
+   * List of possible config file names to search for.
+   * When the CLI runs, it will search for these files in the current directory
+   * and apply the first one found.
+   *
+   * - `undefined`: Inherit from parent command (default)
+   * - `['file1', 'file2']`: Use these config files
+   * - `[]`: Explicitly disable config file loading (no inheritance)
+   *
+   * @example ['myapp.config.json', 'myapp.config.yaml', '.myapprc']
+   */
+  configFiles?: string[];
 };
 
 export type PadroneCommandBuilder<
@@ -154,12 +168,13 @@ export type PadroneProgram<
   TCmd extends PadroneCommand<'', '', TOpts, TRes, TCommands> = PadroneCommand<'', '', TOpts, TRes, TCommands>,
 > = Omit<PadroneCommandBuilder<TName, '', TOpts, TRes, TCommands>, 'command' | 'configure'> & {
   /**
-   * Configures command properties like title, description, version, deprecated, and hidden.
+   * Configures program properties like title, description, version, deprecated, hidden, and configFiles.
    * @example
    * ```ts
    * .configure({
    *   description: 'My CLI application',
    *   version: '1.0.0',
+   *   configFiles: ['myapp.config.json', '.myapprc'],
    * })
    * ```
    */
