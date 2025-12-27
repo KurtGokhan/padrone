@@ -11,7 +11,7 @@
     "compile": "bun run build --compile"
   },
   "dependencies": {
-    "ai": "^6.0.0-beta.149",
+    "ai": "^6.0.3",
     "padrone": "workspace:*",
     "zod": "^4.2.1"
   }
