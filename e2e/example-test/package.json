@@ -1,0 +1,18 @@
+{
+  "name": "@padrone/example-test",
+  "version": "1.0.0-beta.4",
+  "private": true,
+  "module": "src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "ai": "bun run src/ai.ts",
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --target bun",
+    "compile": "bun run build --compile"
+  },
+  "dependencies": {
+    "ai": "^6.0.3",
+    "padrone": "file:../../packages/padrone/padrone-1.0.0-beta.4.tgz",
+    "zod": "^4.2.1"
+  }
+}

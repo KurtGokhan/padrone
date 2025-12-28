@@ -19,7 +19,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun i
 
-      - run: bun run publish-to-npm
+      - run: bun publish --access public
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true

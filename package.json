@@ -30,8 +30,7 @@
     "format": "biome format",
     "check": "biome check",
     "prepare": "husky",
-    "bump": "bumpp -r --no-push",
-    "publish-to-npm": "bun run --filter '*' publish-to-npm"
+    "bump": "bumpp -r --no-push"
   },
   "dependencies": {
     "@typescript/native-preview": "7.0.0-dev.20251227.1"
