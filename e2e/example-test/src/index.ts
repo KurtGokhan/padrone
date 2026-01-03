@@ -95,23 +95,6 @@ export const program = createPadrone('example')
   )
   .command('noop', (c) => c.action());
 
-program.run('greet', { names: ['John', 'Jake'], prefix: 'Mr.' });
-program.run('greet nested', { names: ['John', 'Jake'], prefix: 'Mr.', suffix: 'Esq.' });
-program.run('farewell', undefined);
-program.run('noop', undefined);
-
-program.cli('greet nested John Jake -p Mr. --suffix Esq2.');
-
-const api = program.api();
-
-api.greet.nested({ names: ['Alice', 'Bob'], prefix: 'Dr.', suffix: 'PhD' });
-
 try {
   await program.cli();
 } catch {}
-
-console.log('\n\n---- HELP ----\n');
-console.log(await program.help());
-
-console.log('\n\n---- HELP (greet) ----\n');
-console.log(await program.help('greet'));

@@ -277,6 +277,22 @@ export type PadroneProgram<
   help: <const TCommand extends GetCommandNames<[TCmd]> | FlattenCommands<[TCmd]>>(command?: TCommand, options?: HelpOptions) => string;
 
   /**
+   * Generates and returns a shell completion script.
+   * If shell is not specified, automatically detects the current shell and provides instructions.
+   * @param shell - The shell type (bash, zsh, fish, powershell). If not provided, auto-detects.
+   * @returns The shell completion script as a string.
+   * @example
+   * ```ts
+   * // Get bash completion script
+   * const bashScript = program.completion('bash');
+   *
+   * // Auto-detect shell and get completion script with instructions
+   * const script = program.completion();
+   * ```
+   */
+  completion: (shell?: 'bash' | 'zsh' | 'fish' | 'powershell') => string;
+
+  /**
    * Reflection information about the program.
    * Avoid using this in application code, unless you know what you're doing.
    * @deprecated Internal use only

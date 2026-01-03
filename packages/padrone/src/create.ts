@@ -1,4 +1,5 @@
 import type { Schema } from 'ai';
+import { generateCompletionOutput, type ShellType } from './completion';
 import { generateHelp } from './help';
 import { extractSchemaMetadata, parsePositionalConfig, preprocessOptions } from './options';
 import { parseCliInputToParts } from './parse';
@@ -281,12 +282,16 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
   type FormatLevel = 'text' | 'ansi' | 'console' | 'markdown' | 'html' | 'json' | 'auto';
 
   /**
-   * Check if help or version flags/commands are present in the input.
+   * Check if help, version, or completion flags/commands are present in the input.
    * Returns the appropriate action to take, or null if normal execution should proceed.
    */
   const checkBuiltinCommands = (
     input: string | undefined,
-  ): { type: 'help'; command?: AnyPadroneCommand; detail?: DetailLevel; format?: FormatLevel } | { type: 'version' } | null => {
+  ):
+    | { type: 'help'; command?: AnyPadroneCommand; detail?: DetailLevel; format?: FormatLevel }
+    | { type: 'version' }
+    | { type: 'completion'; shell?: ShellType }
+    | null => {
     if (!input) return null;
 
     const parts = parseCliInputToParts(input);
@@ -342,9 +347,10 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     const normalizedTerms = [...terms];
     if (normalizedTerms[0] === existingCommand.name) normalizedTerms.shift();
 
-    // Check if user has defined 'help' or 'version' commands (they take precedence)
+    // Check if user has defined 'help', 'version', or 'completion' commands (they take precedence)
     const userHelpCommand = findCommandByName('help', existingCommand.commands);
     const userVersionCommand = findCommandByName('version', existingCommand.commands);
+    const userCompletionCommand = findCommandByName('completion', existingCommand.commands);
 
     // Check for 'help' command (only if user hasn't defined one)
     if (!userHelpCommand && normalizedTerms[0] === 'help') {
@@ -357,6 +363,14 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     // Check for 'version' command (only if user hasn't defined one)
     if (!userVersionCommand && normalizedTerms[0] === 'version') {
       return { type: 'version' };
+    }
+
+    // Check for 'completion' command (only if user hasn't defined one)
+    if (!userCompletionCommand && normalizedTerms[0] === 'completion') {
+      const shellArg = normalizedTerms[1] as ShellType | undefined;
+      const validShells: ShellType[] = ['bash', 'zsh', 'fish', 'powershell'];
+      const shell = shellArg && validShells.includes(shellArg) ? shellArg : undefined;
+      return { type: 'completion', shell };
     }
 
     // Handle help flag - find the command being requested
@@ -400,7 +414,7 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     // Resolve input from process.argv if not provided
     const resolvedInput = input ?? (typeof process !== 'undefined' ? (process.argv.slice(2).join(' ') as any) : undefined);
 
-    // Check for built-in help/version commands and flags
+    // Check for built-in help/version/completion commands and flags
     const builtin = checkBuiltinCommands(resolvedInput);
 
     if (builtin) {
@@ -425,6 +439,16 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
           command: existingCommand,
           options: undefined,
           result: version,
+        } as any;
+      }
+
+      if (builtin.type === 'completion') {
+        const completionScript = generateCompletionOutput(existingCommand, builtin.shell);
+        console.log(completionScript);
+        return {
+          command: existingCommand,
+          options: undefined,
+          result: completionScript,
         } as any;
       }
     }
@@ -571,6 +595,10 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
           : (command as AnyPadroneCommand);
       if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
       return generateHelp(existingCommand, commandObj, options);
+    },
+
+    completion(shell) {
+      return generateCompletionOutput(existingCommand, shell as ShellType | undefined);
     },
 
     '~types': {} as any,
