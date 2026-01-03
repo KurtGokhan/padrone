@@ -94,6 +94,7 @@ export type PadroneCommandBuilder<
   TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
+  TParentOpts extends PadroneSchema = PadroneSchema<void>,
 > = {
   /**
    * Configures command properties like title, description, version, deprecated, and hidden.
@@ -106,15 +107,17 @@ export type PadroneCommandBuilder<
    * })
    * ```
    */
-  configure: (config: PadroneCommandConfig) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, TCommands>;
+  configure: (config: PadroneCommandConfig) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, TCommands, TParentOpts>;
 
   /**
    * Defines the options schema for the command, including positional arguments.
+   * Can accept either a schema directly or a function that takes parent options as a base and returns a schema.
    * Use the `positional` array in meta to specify which options are positional args.
    * Use '...name' prefix for variadic (rest) arguments, matching JS/TS rest syntax.
    *
    * @example
    * ```ts
+   * // Direct schema
    * .options(z.object({
    *   source: z.string(),
    *   files: z.string().array(),
@@ -124,29 +127,40 @@ export type PadroneCommandBuilder<
    *   positional: ['source', '...files', 'dest'],
    * })
    * ```
+   *
+   * @example
+   * ```ts
+   * // Function-based schema extending parent options
+   * .options((parentOpts) => {
+   *   return z.object({
+   *     ...parentOpts.shape,
+   *     verbose: z.boolean().default(false),
+   *   });
+   * })
+   * ```
    */
   options: <TOpts extends PadroneSchema = PadroneSchema<void>>(
-    options?: TOpts,
+    options?: TOpts | ((parentOptions: TParentOpts) => TOpts),
     meta?: GetMeta<TOpts>,
-  ) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, TCommands>;
+  ) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, TCommands, TParentOpts>;
 
   /**
    * Defines the handler function to be executed when the command is run.
    */
   action: <TRes>(
     handler?: (options: StandardSchemaV1.InferOutput<TOpts>) => TRes,
-  ) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, TCommands>;
+  ) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, TCommands, TParentOpts>;
 
   /**
    * Creates a nested command within the current command with the given name and builder function.
    */
   command: <
     TNameNested extends string,
-    TBuilder extends PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, any>,
+    TBuilder extends PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, any, TOpts>,
   >(
     name: TNameNested,
-    builderFn?: (builder: PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>>) => TBuilder,
-  ) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, [...TCommands, TBuilder['~types']['command']]>;
+    builderFn?: (builder: PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, any, TOpts>) => TBuilder,
+  ) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, [...TCommands, TBuilder['~types']['command']], TParentOpts>;
 
   /** @deprecated Internal use only */
   '~types': {
@@ -166,7 +180,7 @@ export type PadroneProgram<
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
   TCmd extends PadroneCommand<'', '', TOpts, TRes, TCommands> = PadroneCommand<'', '', TOpts, TRes, TCommands>,
-> = Omit<PadroneCommandBuilder<TName, '', TOpts, TRes, TCommands>, 'command' | 'configure'> & {
+> = Omit<PadroneCommandBuilder<TName, '', TOpts, TRes, TCommands, PadroneSchema<void>>, 'command' | 'configure'> & {
   /**
    * Configures program properties like title, description, version, deprecated, hidden, and configFiles.
    * @example
@@ -183,9 +197,9 @@ export type PadroneProgram<
   /**
    * Creates a command within the program with the given name and builder function.
    */
-  command: <TNameNested extends string, TBuilder extends PadroneCommandBuilder<TNameNested, '', any, any, any>>(
+  command: <TNameNested extends string, TBuilder extends PadroneCommandBuilder<TNameNested, '', any, any, any, PadroneSchema<void>>>(
     name: TNameNested,
-    builderFn?: (builder: PadroneCommandBuilder<TNameNested, ''>) => TBuilder,
+    builderFn?: (builder: PadroneCommandBuilder<TNameNested, '', any, any, any, PadroneSchema<void>>) => TBuilder,
   ) => PadroneProgram<TName, TOpts, TRes, [...TCommands, TBuilder['~types']['command']]>;
 
   /**

@@ -503,7 +503,9 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
       return createPadroneCommandBuilder({ ...existingCommand, ...config }) as any;
     },
     options(options, meta) {
-      return createPadroneCommandBuilder({ ...existingCommand, options, meta }) as any;
+      // If options is a function, call it with parent's options as base
+      const resolvedOptions = typeof options === 'function' ? options(existingCommand.options as any) : options;
+      return createPadroneCommandBuilder({ ...existingCommand, options: resolvedOptions, meta }) as any;
     },
     action(handler = noop) {
       return createPadroneCommandBuilder({ ...existingCommand, handler }) as any;
