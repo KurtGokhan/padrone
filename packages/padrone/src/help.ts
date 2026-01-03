@@ -161,6 +161,7 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
     name: commandName,
     title: cmd.title,
     description: cmd.description,
+    aliases: cmd.aliases ? (typeof cmd.aliases === 'string' ? [cmd.aliases] : cmd.aliases) : undefined,
     deprecated: cmd.deprecated,
     hidden: cmd.hidden,
     usage: {
@@ -174,13 +175,17 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
   // Build subcommands info (filter out hidden commands unless showing full detail)
   if (cmd.commands && cmd.commands.length > 0) {
     const visibleCommands = detail === 'full' ? cmd.commands : cmd.commands.filter((c) => !c.hidden);
-    helpInfo.subcommands = visibleCommands.map((c) => ({
-      name: c.name,
-      title: c.title,
-      description: c.description,
-      deprecated: c.deprecated,
-      hidden: c.hidden,
-    }));
+    helpInfo.subcommands = visibleCommands.map((c) => {
+      const aliases = c.aliases ? (typeof c.aliases === 'string' ? [c.aliases] : c.aliases) : undefined;
+      return {
+        name: c.name,
+        title: c.title,
+        description: c.description,
+        aliases,
+        deprecated: c.deprecated,
+        hidden: c.hidden,
+      };
+    });
 
     // In 'full' detail mode, recursively build help for all nested commands
     if (detail === 'full') {

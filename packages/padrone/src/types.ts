@@ -34,6 +34,8 @@ export type PadroneCommand<
   title?: string;
   description?: string;
   version?: string;
+  /** Alternative names that can be used to invoke this command. Can be a single string or an array of strings. */
+  aliases?: string | string[];
   deprecated?: boolean | string;
   hidden?: boolean;
   needsApproval?: boolean | ((options: TOpts) => Promise<boolean> | boolean);
@@ -70,6 +72,8 @@ export type PadroneCommandConfig = {
   description?: string;
   /** The version of the command. */
   version?: string;
+  /** Alternative names that can be used to invoke this command. Can be a single string or an array of strings. */
+  aliases?: string | string[];
   /** Whether the command is deprecated, or a message explaining the deprecation. */
   deprecated?: boolean | string;
   /** Whether the command should be hidden from help output. */

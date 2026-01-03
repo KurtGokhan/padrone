@@ -11,6 +11,7 @@ export const program = createPadrone('example')
       .configure({
         title: 'Greet People',
         description: 'Send greetings to one or more people with optional prefix and title',
+        aliases: 'hello', // Command alias
       })
       .options(
         z.object({
@@ -41,6 +42,7 @@ export const program = createPadrone('example')
           .configure({
             title: 'Nested Greet',
             description: 'A nested greeting command with additional suffix option',
+            aliases: 'sub', // Nested command alias
           })
           .options(
             z.object({

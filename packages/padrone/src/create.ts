@@ -18,11 +18,30 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     const foundByName = commands.find((cmd) => cmd.name === name);
     if (foundByName) return foundByName;
 
+    // Check for aliases
+    const foundByAlias = commands.find((cmd) => {
+      if (!cmd.aliases) return false;
+      const aliasList = typeof cmd.aliases === 'string' ? [cmd.aliases] : cmd.aliases;
+      return aliasList.includes(name);
+    });
+    if (foundByAlias) return foundByAlias;
+
     for (const cmd of commands) {
       if (cmd.commands && name.startsWith(`${cmd.name} `)) {
         const subCommandName = name.slice(cmd.name.length + 1);
         const subCommand = findCommandByName(subCommandName, cmd.commands);
         if (subCommand) return subCommand;
+      }
+      // Check aliases for nested commands
+      if (cmd.commands && cmd.aliases) {
+        const aliasList = typeof cmd.aliases === 'string' ? [cmd.aliases] : cmd.aliases;
+        for (const alias of aliasList) {
+          if (name.startsWith(`${alias} `)) {
+            const subCommandName = name.slice(alias.length + 1);
+            const subCommand = findCommandByName(subCommandName, cmd.commands);
+            if (subCommand) return subCommand;
+          }
+        }
       }
     }
     return undefined;

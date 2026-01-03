@@ -49,6 +49,7 @@ export type HelpSubcommandInfo = {
   name: string;
   title?: string;
   description?: string;
+  aliases?: string[];
   deprecated?: boolean | string;
   hidden?: boolean;
 };
@@ -64,6 +65,8 @@ export type HelpInfo = {
   title?: string;
   /** Command description */
   description?: string;
+  /** Alternative names/aliases for this command */
+  aliases?: string[];
   /** Whether the command is deprecated */
   deprecated?: boolean | string;
   /** Whether the command is hidden */
@@ -281,11 +284,18 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
 
     lines.push(styler.label('Commands:'));
 
-    const maxNameLength = Math.max(...subcommands.map((c) => c.name.length));
+    const maxNameLength = Math.max(
+      ...subcommands.map((c) => {
+        const aliases = c.aliases ? ` (${c.aliases.join(', ')})` : '';
+        return (c.name + aliases).length;
+      }),
+    );
     for (const subCmd of subcommands) {
-      const padding = ' '.repeat(Math.max(0, maxNameLength - subCmd.name.length + 2));
+      const aliases = subCmd.aliases ? ` (${subCmd.aliases.join(', ')})` : '';
+      const commandDisplay = subCmd.name + aliases;
+      const padding = ' '.repeat(Math.max(0, maxNameLength - commandDisplay.length + 2));
       const isDeprecated = !!subCmd.deprecated;
-      const commandName = isDeprecated ? styler.deprecated(subCmd.name) : styler.command(subCmd.name);
+      const commandName = isDeprecated ? styler.deprecated(commandDisplay) : styler.command(subCmd.name) + aliases;
       const lineParts: string[] = [commandName, padding];
 
       // Use title if available, otherwise use description
@@ -402,6 +412,12 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
       // Title section (if present, shows a short summary line)
       if (info.title) {
         lines.push(styler.label(info.title));
+        lines.push('');
+      }
+
+      // Aliases section (if present)
+      if (info.aliases && info.aliases.length > 0) {
+        lines.push(styler.meta(`Aliases: ${info.aliases.join(', ')}`));
         lines.push('');
       }
 
