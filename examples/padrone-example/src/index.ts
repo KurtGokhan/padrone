@@ -1,6 +1,11 @@
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 
+// For the example, we can either run the chat program or the original example program
+// Uncomment below to run the chat application
+// export const program = chatProgram;
+
+// Or keep the original example program and add chat as a subcommand
 export const program = createPadrone('example')
   .configure({
     description: 'An example CLI application built with Padrone',
