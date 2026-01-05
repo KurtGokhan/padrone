@@ -1,4 +1,5 @@
 import { describe, expectTypeOf } from 'bun:test';
+import type { SafeString } from '../src/type-utils';
 import { createWeatherProgram } from './common';
 
 /** This test is skipped because it's only used to test the types of the program, not the runtime behavior. */
@@ -16,6 +17,7 @@ describe.skip('Types', async () => {
 
   type TNames = Extract<Parameters<typeof program.run>[0], string>;
   expectTypeOf<TNames>().toEqualTypeOf<
+    | SafeString
     | ''
     | 'current'
     | 'forecast'

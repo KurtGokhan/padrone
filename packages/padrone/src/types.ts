@@ -229,7 +229,7 @@ export type PadroneProgram<
       | GetCommandPaths<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>
       | FlattenCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>,
   >(
-    name: TCommand,
+    name: TCommand | SafeString,
     options: NoInfer<GetOptions<'in', PickCommandByName<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>>,
   ) => PadroneCommandResult<PickCommandByName<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>;
 
@@ -237,7 +237,7 @@ export type PadroneProgram<
    * Runs the program as a CLI application, parsing `process.argv` or provided input.
    */
   cli: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>>(
-    input?: TCommand,
+    input?: TCommand | SafeString,
     options?: PadroneParseOptions,
   ) => PadroneCommandResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>;
 
@@ -261,7 +261,7 @@ export type PadroneProgram<
    * Finds a command by name, returning `undefined` if not found.
    */
   find: <const TFind extends GetCommandPaths<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>>(
-    command: TFind | (string & {}),
+    command: TFind | SafeString,
   ) => IsUnknown<TFind> extends false
     ? TFind extends string
       ? PickCommandByName<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TFind>
