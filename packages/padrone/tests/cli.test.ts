@@ -188,7 +188,6 @@ describe('CLI', () => {
 
     it('should generate nested API structure', () => {
       const api = program.api();
-
       expect(api.forecast).toBeDefined();
       expect(typeof api.forecast).toBe('function');
       expect(api.forecast.extended).toBeDefined();
@@ -617,12 +616,12 @@ describe('CLI', () => {
     it('should roundtrip: stringify then parse produces same result', () => {
       const original = { command: 'current' as const, options: { city: 'Tokyo', unit: 'celsius' as const, verbose: true } };
       const stringified = program.stringify(original.command, original.options);
-      const parsed = program.parse(stringified);
+      const parsed = program.parse<'current'>(stringified);
 
       expect(parsed.command.path).toBe(original.command);
-      expect((parsed.options as typeof original.options)?.city).toEqual(original.options.city);
-      expect((parsed.options as typeof original.options)?.unit).toBe(original.options.unit);
-      expect((parsed.options as typeof original.options)?.verbose).toBe(original.options.verbose);
+      expect(parsed.options?.city).toEqual(original.options.city);
+      expect(parsed.options?.unit).toBe(original.options.unit);
+      expect(parsed.options?.verbose).toBe(original.options.verbose);
     });
 
     it('should stringify variadic options as multiple flags', () => {

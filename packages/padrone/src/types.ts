@@ -5,11 +5,12 @@ import type { PadroneMeta } from './options';
 import type {
   FlattenCommands,
   FullCommandName,
-  GetCommandNames,
+  GetCommandPaths,
   IsUnknown,
   PickCommandByName,
   PickCommandByPossibleCommands,
   PossibleCommands,
+  SafeString,
 } from './type-utils';
 
 type UnknownRecord = Record<string, unknown>;
@@ -160,11 +161,18 @@ export type PadroneCommandBuilder<
    */
   command: <
     TNameNested extends string,
-    TBuilder extends PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, any, TOpts>,
+    TBuilder extends PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, AnyPadroneCommand[], TOpts>,
   >(
     name: TNameNested,
-    builderFn?: (builder: PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, any, TOpts>) => TBuilder,
-  ) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, [...TCommands, TBuilder['~types']['command']], TParentOpts>;
+    builderFn?: (builder: PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, [], TOpts>) => TBuilder,
+  ) => PadroneCommandBuilder<
+    TName,
+    TParentName,
+    TOpts,
+    TRes,
+    TCommands extends [] ? [TBuilder['~types']['command']] : [...TCommands, TBuilder['~types']['command']],
+    TParentOpts
+  >;
 
   /** @deprecated Internal use only */
   '~types': {
@@ -179,12 +187,11 @@ export type PadroneCommandBuilder<
 };
 
 export type PadroneProgram<
-  TName extends string = string,
+  TProgramName extends string = '',
   TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
-  TCmd extends PadroneCommand<'', '', TOpts, TRes, TCommands> = PadroneCommand<'', '', TOpts, TRes, TCommands>,
-> = Omit<PadroneCommandBuilder<TName, '', TOpts, TRes, TCommands, PadroneSchema<void>>, 'command' | 'configure'> & {
+> = Omit<PadroneCommandBuilder<'', '', TOpts, TRes, TCommands, PadroneSchema<void>>, 'command' | 'configure'> & {
   /**
    * Configures program properties like title, description, version, deprecated, hidden, and configFiles.
    * @example
@@ -196,63 +203,75 @@ export type PadroneProgram<
    * })
    * ```
    */
-  configure: (config: PadroneCommandConfig) => PadroneProgram<TName, TOpts, TRes, TCommands>;
+  configure: (config: Omit<PadroneCommandConfig, 'aliases'>) => PadroneProgram<'', TOpts, TRes, TCommands>;
 
   /**
    * Creates a command within the program with the given name and builder function.
    */
-  command: <TNameNested extends string, TBuilder extends PadroneCommandBuilder<TNameNested, '', any, any, any, PadroneSchema<void>>>(
+  command: <
+    TNameNested extends string,
+    TBuilder extends PadroneCommandBuilder<TNameNested, '', any, any, AnyPadroneCommand[], PadroneSchema<void>>,
+  >(
     name: TNameNested,
-    builderFn?: (builder: PadroneCommandBuilder<TNameNested, '', any, any, any, PadroneSchema<void>>) => TBuilder,
-  ) => PadroneProgram<TName, TOpts, TRes, [...TCommands, TBuilder['~types']['command']]>;
+    builderFn?: (builder: PadroneCommandBuilder<TNameNested, '', any, any, [], PadroneSchema<void>>) => TBuilder,
+  ) => PadroneProgram<
+    '',
+    TOpts,
+    TRes,
+    TCommands extends [] ? [TBuilder['~types']['command']] : [...TCommands, TBuilder['~types']['command']]
+  >;
 
   /**
    * Runs a command programmatically by name with provided options (including positional args).
    */
-  run: <const TCommand extends GetCommandNames<[TCmd]> | FlattenCommands<[TCmd]>>(
+  run: <
+    const TCommand extends
+      | GetCommandPaths<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>
+      | FlattenCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>,
+  >(
     name: TCommand,
-    options: NoInfer<GetOptions<'in', PickCommandByName<[TCmd], TCommand>>>,
-  ) => PadroneCommandResult<PickCommandByName<[TCmd], TCommand>>;
+    options: NoInfer<GetOptions<'in', PickCommandByName<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>>,
+  ) => PadroneCommandResult<PickCommandByName<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>;
 
   /**
    * Runs the program as a CLI application, parsing `process.argv` or provided input.
    */
-  cli: <const TCommand extends PossibleCommands<[TCmd]>>(
+  cli: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>>(
     input?: TCommand,
     options?: PadroneParseOptions,
-  ) => PadroneCommandResult<PickCommandByPossibleCommands<[TCmd], TCommand>>;
+  ) => PadroneCommandResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>;
 
   /**
    * Parses CLI input (or the provided input string) into command, args, and options without executing anything.
    */
-  parse: <const TCommand extends PossibleCommands<[TCmd]>>(
-    input?: TCommand,
+  parse: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>>(
+    input?: TCommand | SafeString,
     options?: PadroneParseOptions,
-  ) => PadroneParseResult<PickCommandByPossibleCommands<[TCmd], TCommand>>;
+  ) => PadroneParseResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>;
 
   /**
    * Converts command and options back into a CLI string.
    */
-  stringify: <const TCommand extends GetCommandNames<TCommands> = ''>(
+  stringify: <const TCommand extends GetCommandPaths<TCommands> = ''>(
     command?: TCommand,
-    options?: GetOptions<'out', PickCommandByPossibleCommands<[TCmd], TCommand>>,
+    options?: GetOptions<'out', PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>,
   ) => string;
 
   /**
    * Finds a command by name, returning `undefined` if not found.
    */
-  find: <const TName extends GetCommandNames<[TCmd]>>(
-    command: TName | (string & {}),
-  ) => IsUnknown<TName> extends false
-    ? TName extends string
-      ? PickCommandByName<[TCmd], TName>
-      : FlattenCommands<[TCmd]> | undefined
-    : FlattenCommands<[TCmd]> | undefined;
+  find: <const TFind extends GetCommandPaths<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>>(
+    command: TFind | (string & {}),
+  ) => IsUnknown<TFind> extends false
+    ? TFind extends string
+      ? PickCommandByName<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TFind>
+      : FlattenCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]> | undefined
+    : FlattenCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]> | undefined;
 
   /**
    * Generates a type-safe API for invoking commands programmatically.
    */
-  api: () => PadroneAPI<TCmd>;
+  api: () => PadroneAPI<PadroneCommand<'', '', TOpts, TRes, TCommands>>;
 
   // TODO: implement interactive and repl methods
 
@@ -274,7 +293,14 @@ export type PadroneProgram<
   /**
    * Returns the help information for the program or a specific command.
    */
-  help: <const TCommand extends GetCommandNames<[TCmd]> | FlattenCommands<[TCmd]>>(command?: TCommand, options?: HelpOptions) => string;
+  help: <
+    const TCommand extends
+      | GetCommandPaths<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>
+      | FlattenCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>,
+  >(
+    command?: TCommand,
+    options?: HelpOptions,
+  ) => string;
 
   /**
    * Generates and returns a shell completion script.
@@ -292,14 +318,9 @@ export type PadroneProgram<
    */
   completion: (shell?: 'bash' | 'zsh' | 'fish' | 'powershell') => string;
 
-  /**
-   * Reflection information about the program.
-   * Avoid using this in application code, unless you know what you're doing.
-   * @deprecated Internal use only
-   */
+  /** @deprecated Internal use only */
   '~types': {
-    command: TCmd;
-    commands: TCommands;
+    programName: TProgramName;
   };
 };
 

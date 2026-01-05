@@ -553,9 +553,9 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     action(handler = noop) {
       return createPadroneCommandBuilder({ ...existingCommand, handler }) as any;
     },
-    command: <TName extends string, TCommand extends PadroneCommand<TName, string, any, any, any>>(
+    command: <TName extends string, TBuilder extends PadroneCommandBuilder<TName, string, any, any, AnyPadroneCommand[], any>>(
       name: TName,
-      builderFn?: (builder: PadroneCommandBuilder<TName>) => PadroneCommandBuilder,
+      builderFn?: (builder: PadroneCommandBuilder<TName>) => TBuilder,
     ) => {
       const initialCommand = {
         name,
@@ -565,7 +565,8 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
       } satisfies PadroneCommand<TName, any>;
       const builder = createPadroneCommandBuilder(initialCommand);
 
-      const commandObj = ((builderFn?.(builder as any) as typeof builder)?.[commandSymbol] as TCommand) ?? initialCommand;
+      const commandObj =
+        ((builderFn?.(builder as any) as unknown as typeof builder)?.[commandSymbol] as AnyPadroneCommand) ?? initialCommand;
       return createPadroneCommandBuilder({ ...existingCommand, commands: [...(existingCommand.commands || []), commandObj] }) as any;
     },
 
@@ -604,5 +605,5 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     '~types': {} as any,
 
     [commandSymbol]: existingCommand,
-  } satisfies AnyPadroneProgram & { [commandSymbol]: AnyPadroneCommand } as unknown as TBuilder & { [commandSymbol]: AnyPadroneCommand };
+  } satisfies AnyPadroneProgram & { [commandSymbol]: AnyPadroneCommand } as any;
 }

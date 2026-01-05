@@ -13,28 +13,6 @@ const mockWeatherData = {
 
 export function createWeatherProgram() {
   return createPadrone('padrone-test')
-    .command('current', (c) =>
-      c
-        .options(
-          z.object({
-            city: z.string().describe('City name'),
-            unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
-            verbose: z.boolean().optional().describe('Show detailed information'),
-          }),
-          {
-            positional: ['city'],
-          },
-        )
-        .action((options) => {
-          const { city } = options;
-          return {
-            city,
-            temperature: options?.unit === 'celsius' ? 22 : 72,
-            condition: mockWeatherData.current.condition,
-            humidity: options?.verbose ? mockWeatherData.current.humidity : undefined,
-          };
-        }),
-    )
     .command('forecast', (c) =>
       c
         .options(
@@ -93,6 +71,28 @@ export function createWeatherProgram() {
                 }),
             ),
         ),
+    )
+    .command('current', (c) =>
+      c
+        .options(
+          z.object({
+            city: z.string().describe('City name'),
+            unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
+            verbose: z.boolean().optional().describe('Show detailed information'),
+          }),
+          {
+            positional: ['city'],
+          },
+        )
+        .action((options) => {
+          const { city } = options;
+          return {
+            city,
+            temperature: options?.unit === 'celsius' ? 22 : 72,
+            condition: mockWeatherData.current.condition,
+            humidity: options?.verbose ? mockWeatherData.current.humidity : undefined,
+          };
+        }),
     )
     .command('alerts', (c) =>
       c

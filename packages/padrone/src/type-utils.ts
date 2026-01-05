@@ -6,10 +6,11 @@ import type { AnyPadroneCommand } from './types';
  */
 export type TODO<TCast = any, _TReason = unknown> = TCast;
 
-type SafeString = string & {};
+export type SafeString = string & {};
 export type IsUnknown<T> = unknown extends T ? true : false;
 type IsAny<T> = any extends T ? true : false;
 type IsNever<T> = [T] extends [never] ? true : false;
+type IsEmpty<T extends readonly unknown[]> = T extends [] ? true : false;
 
 type SplitString<TName extends string, TSplitBy extends string = ' '> = TName extends `${infer FirstPart}${TSplitBy}${infer RestParts}`
   ? [FirstPart, ...SplitString<RestParts, TSplitBy>]
@@ -44,18 +45,17 @@ export type PickCommandByName<
   TName extends string | AnyPadroneCommand,
 > = TName extends AnyPadroneCommand ? TName : Extract<FlattenCommands<TCommands>, { path: TName }>;
 
-export type FlattenCommands<TCommands extends AnyPadroneCommand[]> = TCommands extends [infer FirstCommand, ...infer RestCommands]
-  ? FirstCommand extends AnyPadroneCommand
+export type FlattenCommands<TCommands extends AnyPadroneCommand[]> = TCommands extends []
+  ? never
+  : TCommands extends [infer FirstCommand, ...infer RestCommands]
     ?
         | (RestCommands extends AnyPadroneCommand[] ? FlattenCommands<RestCommands> : never)
-        | FlattenCommands<FirstCommand['~types']['commands']>
-        | FirstCommand
-    : RestCommands extends AnyPadroneCommand[]
-      ? FlattenCommands<RestCommands>
-      : never
-  : TCommands[number];
+        | (FirstCommand extends AnyPadroneCommand ? FlattenCommands<FirstCommand['~types']['commands']> | FirstCommand : never)
+    : IsAny<TCommands[number]> extends true
+      ? never
+      : TCommands[number];
 
-export type GetCommandNames<TCommands extends AnyPadroneCommand[]> = FlattenCommands<TCommands>['path'];
+export type GetCommandPaths<TCommands extends AnyPadroneCommand[]> = FlattenCommands<TCommands>['path'];
 
 /**
  * Find all the commands that are prefixed with a command name.
@@ -66,9 +66,9 @@ export type GetCommandNames<TCommands extends AnyPadroneCommand[]> = FlattenComm
  * By excluding those cases, we can ensure autocomplete works correctly.
  */
 type PrefixedCommands<TCommands extends AnyPadroneCommand[]> =
-  GetCommandNames<TCommands> extends infer CommandNames
+  GetCommandPaths<TCommands> extends infer CommandNames
     ? CommandNames extends string
-      ? AnyPartExtends<GetCommandNames<TCommands>, `${CommandNames} ${string}`> extends true
+      ? AnyPartExtends<GetCommandPaths<TCommands>, `${CommandNames} ${string}`> extends true
         ? never
         : `${CommandNames} ${string}`
       : never
@@ -78,7 +78,7 @@ type PrefixedCommands<TCommands extends AnyPadroneCommand[]> =
  * The possible commands are the commands that can be parsed by the program.
  * This includes the string that are exact matches to a command name, and strings that are prefixed with a command name.
  */
-export type PossibleCommands<TCommands extends AnyPadroneCommand[]> = GetCommandNames<TCommands> | PrefixedCommands<TCommands> | SafeString;
+export type PossibleCommands<TCommands extends AnyPadroneCommand[]> = GetCommandPaths<TCommands> | PrefixedCommands<TCommands> | SafeString;
 
 /**
  * Match a string to a command by the possible commands.
@@ -90,7 +90,7 @@ export type PickCommandByPossibleCommands<
   TCommand extends PossibleCommands<TCommands>,
 > = IsAny<TCommand> extends true
   ? TCommands[number]
-  : TCommand extends GetCommandNames<TCommands>
+  : TCommand extends GetCommandPaths<TCommands>
     ? PickCommandByName<TCommands, TCommand>
     : SplitLastSpace<TCommand> extends [infer Prefix extends string, infer Rest]
       ? IsNever<Rest> extends true
