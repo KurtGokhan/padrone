@@ -10,7 +10,6 @@ export type SafeString = string & {};
 export type IsUnknown<T> = unknown extends T ? true : false;
 type IsAny<T> = any extends T ? true : false;
 type IsNever<T> = [T] extends [never] ? true : false;
-type IsEmpty<T extends readonly unknown[]> = T extends [] ? true : false;
 
 type SplitString<TName extends string, TSplitBy extends string = ' '> = TName extends `${infer FirstPart}${TSplitBy}${infer RestParts}`
   ? [FirstPart, ...SplitString<RestParts, TSplitBy>]

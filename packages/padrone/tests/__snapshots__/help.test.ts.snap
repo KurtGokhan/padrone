@@ -4,8 +4,8 @@ exports[`help should generate help for the program 1`] = `
 "Usage: padrone-test [command]
 
 Commands:
-  current          
   forecast         
+  current          
   alerts           
   compare          
   noop             
@@ -22,8 +22,8 @@ exports[`help should generate help for the top level command 1`] = `
 "Usage: padrone-test [command]
 
 Commands:
-  current          
   forecast         
+  current          
   alerts           
   compare          
   noop             
@@ -239,8 +239,8 @@ exports[`help with full detail mode should generate full help with all nested co
 "Usage: padrone-test [command]
 
 Commands:
-  current          
   forecast         
+  current          
   alerts           
   compare          
   noop             
@@ -252,17 +252,6 @@ Commands:
 Run "padrone-test [command] --help" for more information on a command.
 
 Subcommand Details:
-
-────────────────────────────────────────────────────────────
-Usage: padrone-test current [args...] [options]
-
-Arguments:
-  city
-    City name
-
-Options:
-  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)     Temperature unit
-  --[no-]verbose <boolean> (optional)  Show detailed information
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test forecast [command] [args...] [options]
@@ -305,6 +294,17 @@ Usage: padrone-test forecast extended extended [args...] [options]
 Arguments:
   city
     City name (overrides positional argument)
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test current [args...] [options]
+
+Arguments:
+  city
+    City name
+
+Options:
+  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)     Temperature unit
+  --[no-]verbose <boolean> (optional)  Show detailed information
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test alerts [options]
@@ -371,10 +371,10 @@ exports[`help with full detail mode should generate full help with all nested co
   },
   "subcommands": [
     {
-      "name": "current"
+      "name": "forecast"
     },
     {
-      "name": "forecast"
+      "name": "current"
     },
     {
       "name": "alerts"
@@ -399,46 +399,6 @@ exports[`help with full detail mode should generate full help with all nested co
     }
   ],
   "nestedCommands": [
-    {
-      "name": "current",
-      "usage": {
-        "command": "padrone-test current",
-        "hasSubcommands": false,
-        "hasArguments": true,
-        "hasOptions": true
-      },
-      "arguments": [
-        {
-          "name": "city",
-          "description": "City name",
-          "optional": false,
-          "type": "string"
-        }
-      ],
-      "options": [
-        {
-          "name": "unit",
-          "description": "Temperature unit",
-          "optional": true,
-          "default": "fahrenheit",
-          "type": "string",
-          "enum": [
-            "celsius",
-            "fahrenheit"
-          ],
-          "variadic": false,
-          "negatable": false
-        },
-        {
-          "name": "verbose",
-          "description": "Show detailed information",
-          "optional": true,
-          "type": "boolean",
-          "variadic": false,
-          "negatable": true
-        }
-      ]
-    },
     {
       "name": "forecast",
       "usage": {
@@ -540,6 +500,46 @@ exports[`help with full detail mode should generate full help with all nested co
           ],
           "variadic": false,
           "negatable": false
+        }
+      ]
+    },
+    {
+      "name": "current",
+      "usage": {
+        "command": "padrone-test current",
+        "hasSubcommands": false,
+        "hasArguments": true,
+        "hasOptions": true
+      },
+      "arguments": [
+        {
+          "name": "city",
+          "description": "City name",
+          "optional": false,
+          "type": "string"
+        }
+      ],
+      "options": [
+        {
+          "name": "unit",
+          "description": "Temperature unit",
+          "optional": true,
+          "default": "fahrenheit",
+          "type": "string",
+          "enum": [
+            "celsius",
+            "fahrenheit"
+          ],
+          "variadic": false,
+          "negatable": false
+        },
+        {
+          "name": "verbose",
+          "description": "Show detailed information",
+          "optional": true,
+          "type": "boolean",
+          "variadic": false,
+          "negatable": true
         }
       ]
     },
@@ -769,9 +769,9 @@ exports[`help with full detail mode should generate full help with all nested co
 
 ### Commands:
 
-  **current**          
-
   **forecast**         
+
+  **current**          
 
   **alerts**           
 
@@ -794,28 +794,6 @@ exports[`help with full detail mode should generate full help with all nested co
 
 
 ### Subcommand Details:
-
-
-
-*────────────────────────────────────────────────────────────*
-
-Usage: **padrone-test current** *[args...]* *[options]*
-
-
-
-### Arguments:
-
-  \`city\`
-
-    City name
-
-
-
-### Options:
-
-  \`--unit\` \`<string>\` *(optional)* *(default: fahrenheit)* *(choices: celsius, fahrenheit)*     Temperature unit
-
-  \`--[no-]verbose\` \`<boolean>\` *(optional)*  Show detailed information
 
 
 
@@ -900,6 +878,28 @@ Usage: **padrone-test forecast extended extended** *[args...]* *[options]*
   \`city\`
 
     City name (overrides positional argument)
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test current** *[args...]* *[options]*
+
+
+
+### Arguments:
+
+  \`city\`
+
+    City name
+
+
+
+### Options:
+
+  \`--unit\` \`<string>\` *(optional)* *(default: fahrenheit)* *(choices: celsius, fahrenheit)*     Temperature unit
+
+  \`--[no-]verbose\` \`<boolean>\` *(optional)*  Show detailed information
 
 
 
