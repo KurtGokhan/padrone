@@ -1,4 +1,6 @@
 import { describe, expectTypeOf } from 'bun:test';
+import * as z from 'zod/v4';
+import { createPadrone } from '../src/index';
 import type { SafeString } from '../src/type-utils';
 import { createWeatherProgram } from './common';
 
@@ -31,4 +33,38 @@ describe.skip('Types', async () => {
     | 'hidden-test'
     | 'examples-test'
   >();
+});
+
+/** This test verifies that command aliases are properly typed */
+describe.skip('Types - Aliases', async () => {
+  const programWithAliases = createPadrone('test')
+    .command(['list', 'ls', 'l'], (c) =>
+      c.options(z.object({ format: z.enum(['json', 'table']).default('table') })).action((opts) => ({ items: [], format: opts.format })),
+    )
+    .command(['delete', 'rm'], (c) =>
+      c.options(z.object({ name: z.string() }), { positional: ['name'] }).action((opts) => ({ deleted: opts.name })),
+    )
+    .command('config', (c) =>
+      c.command(['set', 's'], (sub) =>
+        sub
+          .options(z.object({ key: z.string(), value: z.string() }), { positional: ['key', 'value'] })
+          .action((opts) => ({ key: opts.key, value: opts.value })),
+      ),
+    );
+
+  // Test that aliases are included in possible command names
+  type TPossibleNames = Extract<Parameters<typeof programWithAliases.cli>[0], string>;
+  expectTypeOf<TPossibleNames>().toMatchTypeOf<SafeString | 'list' | 'ls' | 'l' | 'delete' | 'rm' | 'config' | 'config set' | 'config s'>();
+
+  // Test that parse returns correct command type when using alias
+  const parsedByName = programWithAliases.parse('list');
+  const parsedByAlias = programWithAliases.parse('ls');
+  expectTypeOf<(typeof parsedByName)['command']['path']>().toEqualTypeOf<'list'>();
+  expectTypeOf<(typeof parsedByAlias)['command']['path']>().toEqualTypeOf<'list'>();
+
+  // Test nested command with alias
+  const parsedNestedByName = programWithAliases.parse('config set key value');
+  const parsedNestedByAlias = programWithAliases.parse('config s key value');
+  expectTypeOf<(typeof parsedNestedByName)['command']['path']>().toEqualTypeOf<'config set'>();
+  expectTypeOf<(typeof parsedNestedByAlias)['command']['path']>().toEqualTypeOf<'config set'>();
 });

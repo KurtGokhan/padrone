@@ -39,10 +39,39 @@ export type FullCommandName<TName extends string, TParentName extends string = '
   ? TName
   : `${TParentName} ${TName}`;
 
+/**
+ * Generate full alias paths by combining parent path with each alias.
+ */
+type FullAliasPaths<TAliases extends string[], TParentName extends string = ''> = TAliases extends [
+  infer First extends string,
+  ...infer Rest extends string[],
+]
+  ? FullCommandName<First, TParentName> | FullAliasPaths<Rest, TParentName>
+  : never;
+
+/**
+ * Get all paths for a command including its primary path and all alias paths.
+ */
+type GetCommandPathsAndAliases<TCommand extends AnyPadroneCommand> = TCommand['~types']['path'] extends infer Path extends string
+  ? TCommand['~types']['aliases'] extends infer Aliases extends string[]
+    ? TCommand['~types']['parentName'] extends infer ParentName extends string
+      ? Path | FullAliasPaths<Aliases, ParentName>
+      : Path
+    : Path
+  : never;
+
 export type PickCommandByName<
   TCommands extends AnyPadroneCommand[],
   TName extends string | AnyPadroneCommand,
-> = TName extends AnyPadroneCommand ? TName : Extract<FlattenCommands<TCommands>, { path: TName }>;
+> = TName extends AnyPadroneCommand
+  ? TName
+  : FlattenCommands<TCommands> extends infer Cmd extends AnyPadroneCommand
+    ? Cmd extends AnyPadroneCommand
+      ? TName extends GetCommandPathsAndAliases<Cmd>
+        ? Cmd
+        : never
+      : never
+    : never;
 
 export type FlattenCommands<TCommands extends AnyPadroneCommand[]> = TCommands extends []
   ? never
@@ -57,7 +86,12 @@ export type FlattenCommands<TCommands extends AnyPadroneCommand[]> = TCommands e
 export type GetCommandPaths<TCommands extends AnyPadroneCommand[]> = FlattenCommands<TCommands>['path'];
 
 /**
- * Find all the commands that are prefixed with a command name.
+ * Get all command paths including alias paths for all commands.
+ */
+export type GetCommandPathsOrAliases<TCommands extends AnyPadroneCommand[]> = GetCommandPathsAndAliases<FlattenCommands<TCommands>>;
+
+/**
+ * Find all the commands that are prefixed with a command name or alias.
  * This is needed to avoid matching other commands when followed by a space and another word.
  * For example, let's say `level1` and `level1 level2` are commands.
  * Then `level1 ${string}` would also match `level1 level2`,
@@ -65,9 +99,9 @@ export type GetCommandPaths<TCommands extends AnyPadroneCommand[]> = FlattenComm
  * By excluding those cases, we can ensure autocomplete works correctly.
  */
 type PrefixedCommands<TCommands extends AnyPadroneCommand[]> =
-  GetCommandPaths<TCommands> extends infer CommandNames
+  GetCommandPathsOrAliases<TCommands> extends infer CommandNames
     ? CommandNames extends string
-      ? AnyPartExtends<GetCommandPaths<TCommands>, `${CommandNames} ${string}`> extends true
+      ? AnyPartExtends<GetCommandPathsOrAliases<TCommands>, `${CommandNames} ${string}`> extends true
         ? never
         : `${CommandNames} ${string}`
       : never
@@ -75,13 +109,16 @@ type PrefixedCommands<TCommands extends AnyPadroneCommand[]> =
 
 /**
  * The possible commands are the commands that can be parsed by the program.
- * This includes the string that are exact matches to a command name, and strings that are prefixed with a command name.
+ * This includes the string that are exact matches to a command name or alias, and strings that are prefixed with a command name or alias.
  */
-export type PossibleCommands<TCommands extends AnyPadroneCommand[]> = GetCommandPaths<TCommands> | PrefixedCommands<TCommands> | SafeString;
+export type PossibleCommands<TCommands extends AnyPadroneCommand[]> =
+  | GetCommandPathsOrAliases<TCommands>
+  | PrefixedCommands<TCommands>
+  | SafeString;
 
 /**
  * Match a string to a command by the possible commands.
- * This is done by recursively splitting the string by the last space, and then checking if the prefix is a valid command name.
+ * This is done by recursively splitting the string by the last space, and then checking if the prefix is a valid command name or alias.
  * This is needed to avoid matching the top-level command when there are nested commands.
  */
 export type PickCommandByPossibleCommands<
@@ -89,7 +126,7 @@ export type PickCommandByPossibleCommands<
   TCommand extends PossibleCommands<TCommands>,
 > = IsAny<TCommand> extends true
   ? TCommands[number]
-  : TCommand extends GetCommandPaths<TCommands>
+  : TCommand extends GetCommandPathsOrAliases<TCommands>
     ? PickCommandByName<TCommands, TCommand>
     : SplitLastSpace<TCommand> extends [infer Prefix extends string, infer Rest]
       ? IsNever<Rest> extends true

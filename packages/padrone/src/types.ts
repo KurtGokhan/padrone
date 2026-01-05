@@ -23,13 +23,22 @@ type DefaultOpts = UnknownRecord | void;
  */
 type PadroneSchema<Input = unknown, Output = Input> = StandardSchemaV1<Input, Output> & StandardJSONSchemaV1<Input, Output>;
 
+/**
+ * Helper type to set aliases on a command type.
+ * Uses intersection to override just the aliases while preserving all other type information.
+ */
+type WithAliases<TCommand extends AnyPadroneCommand, TAliases extends string[]> = Omit<TCommand, 'aliases' | '~types'> & {
+  aliases?: TAliases;
+  '~types': Omit<TCommand['~types'], 'aliases'> & { aliases: TAliases };
+};
+
 export type PadroneCommand<
   TName extends string = string,
   TParentName extends string = '',
   TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
-  TAliases extends string[] = [],
+  TAliases extends string[] = string[],
 > = {
   name: TName;
   path: FullCommandName<TName, TParentName>;
@@ -55,6 +64,7 @@ export type PadroneCommand<
     name: TName;
     parentName: TParentName;
     path: FullCommandName<TName, TParentName>;
+    aliases: TAliases;
     optionsInput: StandardSchemaV1.InferInput<TOpts>;
     optionsOutput: StandardSchemaV1.InferOutput<TOpts>;
     result: TRes;
@@ -62,7 +72,7 @@ export type PadroneCommand<
   };
 };
 
-export type AnyPadroneCommand = PadroneCommand<string, any, any, any, [...AnyPadroneCommand[]]>;
+export type AnyPadroneCommand = PadroneCommand<string, any, any, any, [...AnyPadroneCommand[]], string[]>;
 
 /**
  * Configuration options for a command.
@@ -169,8 +179,15 @@ export type PadroneCommandBuilder<
    */
   command: <
     TNameNested extends string,
-    TBuilder extends PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, AnyPadroneCommand[], TOpts>,
     TAliases extends string[] = [],
+    TBuilder extends PadroneCommandBuilder<
+      TNameNested,
+      FullCommandName<TName, TParentName>,
+      any,
+      any,
+      AnyPadroneCommand[],
+      TOpts
+    > = PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, [], TOpts>,
   >(
     name: TNameNested | readonly [TNameNested, ...TAliases],
     builderFn?: (builder: PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, [], TOpts>) => TBuilder,
@@ -179,7 +196,9 @@ export type PadroneCommandBuilder<
     TParentName,
     TOpts,
     TRes,
-    TCommands extends [] ? [TBuilder['~types']['command']] : [...TCommands, TBuilder['~types']['command']],
+    TCommands extends []
+      ? [WithAliases<TBuilder['~types']['command'], TAliases>]
+      : [...TCommands, WithAliases<TBuilder['~types']['command'], TAliases>],
     TParentOpts
   >;
 
@@ -188,10 +207,11 @@ export type PadroneCommandBuilder<
     name: TName;
     parentName: TParentName;
     path: FullCommandName<TName, TParentName>;
+    aliases: [];
     options: TOpts;
     result: TRes;
     commands: TCommands;
-    command: PadroneCommand<TName, TParentName, TOpts, TRes, TCommands>;
+    command: PadroneCommand<TName, TParentName, TOpts, TRes, TCommands, []>;
   };
 };
 
@@ -228,8 +248,15 @@ export type PadroneProgram<
    */
   command: <
     TNameNested extends string,
-    TBuilder extends PadroneCommandBuilder<TNameNested, '', any, any, AnyPadroneCommand[], PadroneSchema<void>>,
     TAliases extends string[] = [],
+    TBuilder extends PadroneCommandBuilder<TNameNested, '', any, any, AnyPadroneCommand[], PadroneSchema<void>> = PadroneCommandBuilder<
+      TNameNested,
+      '',
+      any,
+      any,
+      [],
+      PadroneSchema<void>
+    >,
   >(
     name: TNameNested | readonly [TNameNested, ...TAliases],
     builderFn?: (builder: PadroneCommandBuilder<TNameNested, '', any, any, [], PadroneSchema<void>>) => TBuilder,
@@ -237,7 +264,9 @@ export type PadroneProgram<
     '',
     TOpts,
     TRes,
-    TCommands extends [] ? [TBuilder['~types']['command']] : [...TCommands, TBuilder['~types']['command']]
+    TCommands extends []
+      ? [WithAliases<TBuilder['~types']['command'], TAliases>]
+      : [...TCommands, WithAliases<TBuilder['~types']['command'], TAliases>]
   >;
 
   /**

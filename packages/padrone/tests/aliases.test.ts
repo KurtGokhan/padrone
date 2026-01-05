@@ -67,7 +67,7 @@ describe('Command Aliases', () => {
     });
 
     it('should parse and execute command using alias via CLI', () => {
-      const result = program.cli<'delete'>('rm test');
+      const result = program.cli('rm test');
       expect(result.command.name).toBe('delete');
       expect(result.result.deleted).toBe('test');
     });
@@ -75,19 +75,19 @@ describe('Command Aliases', () => {
 
   describe('Array of aliases', () => {
     it('should execute command using first alias from array', () => {
-      const result = program.cli<'list'>('ls');
+      const result = program.cli('ls');
       expect(result.command.name).toBe('list');
       expect(result.result.format).toBe('table');
     });
 
     it('should execute command using second alias from array', () => {
-      const result = program.cli<'list'>('show');
+      const result = program.cli('show');
       expect(result.command.name).toBe('list');
       expect(result.result.format).toBe('table');
     });
 
     it('should execute command with options using alias', () => {
-      const result = program.cli<'list'>('ls --format json');
+      const result = program.cli('ls --format json');
       expect(result.command.name).toBe('list');
       expect(result.options?.format).toBe('json');
       expect(result.result.format).toBe('json');
@@ -127,7 +127,7 @@ describe('Command Aliases', () => {
 
   describe('Nested command aliases', () => {
     it('should find nested command by alias', () => {
-      const result = program.cli<'config set'>('config cfg key value');
+      const result = program.cli('config cfg key value');
       expect(result.command.name).toBe('set');
       expect(result.result.key).toBe('key');
       expect(result.result.value).toBe('value');
@@ -179,7 +179,7 @@ describe('Command Aliases', () => {
     });
 
     it('should handle mixed case commands', () => {
-      const result = program.cli<'list'>('ls --format json');
+      const result = program.cli('ls --format json');
       expect(result.command.name).toBe('list');
     });
 
@@ -192,12 +192,12 @@ describe('Command Aliases', () => {
 
   describe('Parse method with aliases', () => {
     it('should parse using command alias', () => {
-      const result = program.parse<'list'>('ls');
+      const result = program.parse('ls');
       expect(result.command.name).toBe('list');
     });
 
     it('should parse nested command with alias', () => {
-      const result = program.parse<'config set'>('config cfg key value');
+      const result = program.parse('config cfg key value');
       expect(result.command.name).toBe('set');
       expect(result.options?.key).toBe('key');
     });
@@ -205,7 +205,7 @@ describe('Command Aliases', () => {
 
   describe('Stringify method preserves command name', () => {
     it('should stringify using actual command name, not alias', () => {
-      const result = program.cli<'list'>('ls --format json');
+      const result = program.cli('ls --format json');
       const stringified = program.stringify('list', result.options);
       expect(stringified).toContain('list');
       expect(stringified).toContain('format');
