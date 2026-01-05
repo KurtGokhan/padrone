@@ -20,11 +20,7 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     if (foundByName) return foundByName;
 
     // Check for aliases
-    const foundByAlias = commands.find((cmd) => {
-      if (!cmd.aliases) return false;
-      const aliasList = typeof cmd.aliases === 'string' ? [cmd.aliases] : cmd.aliases;
-      return aliasList.includes(name);
-    });
+    const foundByAlias = commands.find((cmd) => cmd.aliases?.includes(name));
     if (foundByAlias) return foundByAlias;
 
     for (const cmd of commands) {
@@ -35,8 +31,7 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
       }
       // Check aliases for nested commands
       if (cmd.commands && cmd.aliases) {
-        const aliasList = typeof cmd.aliases === 'string' ? [cmd.aliases] : cmd.aliases;
-        for (const alias of aliasList) {
+        for (const alias of cmd.aliases) {
           if (name.startsWith(`${alias} `)) {
             const subCommandName = name.slice(alias.length + 1);
             const subCommand = findCommandByName(subCommandName, cmd.commands);
@@ -554,12 +549,17 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
       return createPadroneCommandBuilder({ ...existingCommand, handler }) as any;
     },
     command: <TName extends string, TBuilder extends PadroneCommandBuilder<TName, string, any, any, AnyPadroneCommand[], any>>(
-      name: TName,
+      nameOrNames: TName | readonly [TName, ...string[]],
       builderFn?: (builder: PadroneCommandBuilder<TName>) => TBuilder,
     ) => {
+      // Extract name and aliases from the input
+      const name = (Array.isArray(nameOrNames) ? nameOrNames[0] : nameOrNames) as TName;
+      const aliases = Array.isArray(nameOrNames) && nameOrNames.length > 1 ? (nameOrNames.slice(1) as string[]) : undefined;
+
       const initialCommand = {
         name,
         path: existingCommand.path ? `${existingCommand.path} ${name}` : name,
+        aliases,
         parent: existingCommand,
         '~types': {} as any,
       } satisfies PadroneCommand<TName, any>;

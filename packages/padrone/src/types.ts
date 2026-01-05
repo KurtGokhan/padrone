@@ -29,14 +29,15 @@ export type PadroneCommand<
   TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
+  TAliases extends string[] = [],
 > = {
   name: TName;
   path: FullCommandName<TName, TParentName>;
   title?: string;
   description?: string;
   version?: string;
-  /** Alternative names that can be used to invoke this command. Can be a single string or an array of strings. */
-  aliases?: string | string[];
+  /** Alternative names that can be used to invoke this command. Derived from the names passed to command(). */
+  aliases?: TAliases;
   deprecated?: boolean | string;
   hidden?: boolean;
   needsApproval?: boolean | ((options: TOpts) => Promise<boolean> | boolean);
@@ -73,8 +74,6 @@ export type PadroneCommandConfig = {
   description?: string;
   /** The version of the command. */
   version?: string;
-  /** Alternative names that can be used to invoke this command. Can be a single string or an array of strings. */
-  aliases?: string | string[];
   /** Whether the command is deprecated, or a message explaining the deprecation. */
   deprecated?: boolean | string;
   /** Whether the command should be hidden from help output. */
@@ -158,12 +157,22 @@ export type PadroneCommandBuilder<
 
   /**
    * Creates a nested command within the current command with the given name and builder function.
+   * The name can be a single string or a tuple of [name, ...aliases] where additional strings are aliases.
+   * @example
+   * ```ts
+   * // Single name
+   * .command('list', (c) => c.action(() => 'list'))
+   *
+   * // Name with aliases
+   * .command(['list', 'ls', 'l'], (c) => c.action(() => 'list'))
+   * ```
    */
   command: <
     TNameNested extends string,
     TBuilder extends PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, AnyPadroneCommand[], TOpts>,
+    TAliases extends string[] = [],
   >(
-    name: TNameNested,
+    name: TNameNested | readonly [TNameNested, ...TAliases],
     builderFn?: (builder: PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, [], TOpts>) => TBuilder,
   ) => PadroneCommandBuilder<
     TName,
@@ -203,16 +212,26 @@ export type PadroneProgram<
    * })
    * ```
    */
-  configure: (config: Omit<PadroneCommandConfig, 'aliases'>) => PadroneProgram<'', TOpts, TRes, TCommands>;
+  configure: (config: PadroneCommandConfig) => PadroneProgram<'', TOpts, TRes, TCommands>;
 
   /**
    * Creates a command within the program with the given name and builder function.
+   * The name can be a single string or a tuple of [name, ...aliases] where additional strings are aliases.
+   * @example
+   * ```ts
+   * // Single name
+   * .command('list', (c) => c.action(() => 'list'))
+   *
+   * // Name with aliases
+   * .command(['list', 'ls', 'l'], (c) => c.action(() => 'list'))
+   * ```
    */
   command: <
     TNameNested extends string,
     TBuilder extends PadroneCommandBuilder<TNameNested, '', any, any, AnyPadroneCommand[], PadroneSchema<void>>,
+    TAliases extends string[] = [],
   >(
-    name: TNameNested,
+    name: TNameNested | readonly [TNameNested, ...TAliases],
     builderFn?: (builder: PadroneCommandBuilder<TNameNested, '', any, any, [], PadroneSchema<void>>) => TBuilder,
   ) => PadroneProgram<
     '',

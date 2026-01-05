@@ -4,12 +4,11 @@ import { createPadrone } from '../src/index';
 
 describe('Command Aliases', () => {
   const program = createPadrone('testprog')
-    .command('list', (c) =>
+    .command(['list', 'ls', 'show'], (c) =>
       c
         .configure({
           title: 'List items',
           description: 'Show all available items',
-          aliases: ['ls', 'show'],
         })
         .options(
           z.object({
@@ -20,12 +19,11 @@ describe('Command Aliases', () => {
           return { items: ['item1', 'item2'], format: options?.format };
         }),
     )
-    .command('delete', (c) =>
+    .command(['delete', 'rm'], (c) =>
       c
         .configure({
           title: 'Delete item',
           description: 'Remove an item',
-          aliases: 'rm',
         })
         .options(
           z.object({
@@ -43,11 +41,10 @@ describe('Command Aliases', () => {
           title: 'Configure app',
           description: 'Manage configuration',
         })
-        .command('set', (sub) =>
+        .command(['set', 'cfg'], (sub) =>
           sub
             .configure({
               title: 'Set config value',
-              aliases: ['cfg'],
             })
             .options(
               z.object({
@@ -168,12 +165,10 @@ describe('Command Aliases', () => {
   });
 
   describe('Edge cases', () => {
-    it('should work with empty alias array', () => {
+    it('should work with command without aliases', () => {
       const customProgram = createPadrone('testprog').command('test', (c) =>
         c
-          .configure({
-            aliases: [],
-          })
+          .configure({})
           .options(z.object({}))
           .action(() => ({ result: 'ok' })),
       );

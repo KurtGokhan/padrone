@@ -161,7 +161,7 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
     name: commandName,
     title: cmd.title,
     description: cmd.description,
-    aliases: cmd.aliases ? (typeof cmd.aliases === 'string' ? [cmd.aliases] : cmd.aliases) : undefined,
+    aliases: cmd.aliases,
     deprecated: cmd.deprecated,
     hidden: cmd.hidden,
     usage: {
@@ -176,12 +176,11 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
   if (cmd.commands && cmd.commands.length > 0) {
     const visibleCommands = detail === 'full' ? cmd.commands : cmd.commands.filter((c) => !c.hidden);
     helpInfo.subcommands = visibleCommands.map((c) => {
-      const aliases = c.aliases ? (typeof c.aliases === 'string' ? [c.aliases] : c.aliases) : undefined;
       return {
         name: c.name,
         title: c.title,
         description: c.description,
-        aliases,
+        aliases: c.aliases,
         deprecated: c.deprecated,
         hidden: c.hidden,
       };
