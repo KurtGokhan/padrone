@@ -122,10 +122,8 @@ function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: PadroneMeta, po
           deprecated: optMeta?.deprecated ?? prop?.deprecated,
           hidden: optMeta?.hidden ?? prop?.hidden,
           examples: optMeta?.examples ?? prop?.examples,
-          env: optMeta?.env ?? prop?.env,
           variadic: propType === 'array', // Arrays are always variadic
           negatable: isNegatable,
-          configKey: optMeta?.configKey ?? prop?.configKey,
         });
       }
     }

@@ -6,16 +6,6 @@ export interface PadroneOptionsMeta {
   deprecated?: boolean | string;
   hidden?: boolean;
   examples?: unknown[];
-  /**
-   * Environment variable name(s) to bind this option to.
-   * Can be a single string or array of env var names (checked in order).
-   */
-  env?: string | string[];
-  /**
-   * Key path in config file that maps to this option.
-   * Supports dot notation for nested keys (e.g., 'server.port').
-   */
-  configKey?: string;
 }
 
 type PositionalArgs<TObj> =
@@ -66,8 +56,6 @@ export function parsePositionalConfig(positional: string[]): { name: string; var
  */
 interface SchemaMetadataResult {
   aliases: Record<string, string>;
-  envBindings: Record<string, string[]>;
-  configKeys: Record<string, string>;
 }
 
 /**
@@ -79,8 +67,6 @@ export function extractSchemaMetadata(
   meta?: Record<string, PadroneOptionsMeta | undefined>,
 ): SchemaMetadataResult {
   const aliases: Record<string, string> = {};
-  const envBindings: Record<string, string[]> = {};
-  const configKeys: Record<string, string> = {};
 
   // Extract from meta object
   if (meta) {
@@ -95,16 +81,6 @@ export function extractSchemaMetadata(
             aliases[aliasKey] = key;
           }
         }
-      }
-
-      // Extract env bindings
-      if (value.env) {
-        envBindings[key] = typeof value.env === 'string' ? [value.env] : value.env;
-      }
-
-      // Extract config keys
-      if (value.configKey) {
-        configKeys[key] = value.configKey;
       }
     }
   }
@@ -128,26 +104,13 @@ export function extractSchemaMetadata(
             }
           }
         }
-
-        // Extract env bindings from schema
-        if (propertySchema.env && !(propertyName in envBindings)) {
-          const envVars = typeof propertySchema.env === 'string' ? [propertySchema.env] : propertySchema.env;
-          if (Array.isArray(envVars)) {
-            envBindings[propertyName] = envVars;
-          }
-        }
-
-        // Extract config keys from schema
-        if (propertySchema.configKey && !(propertyName in configKeys)) {
-          configKeys[propertyName] = propertySchema.configKey;
-        }
       }
     }
   } catch {
     // Ignore errors from JSON schema generation
   }
 
-  return { aliases, envBindings, configKeys };
+  return { aliases };
 }
 
 function preprocessAliases(data: Record<string, unknown>, aliases: Record<string, string>): Record<string, unknown> {
@@ -165,101 +128,28 @@ function preprocessAliases(data: Record<string, unknown>, aliases: Record<string
   return result;
 }
 
-/**
- * Apply environment variable values to options.
- * CLI values take precedence over environment variables.
- */
-function applyEnvBindings(
-  data: Record<string, unknown>,
-  envBindings: Record<string, string[]>,
-  env: Record<string, string | undefined> = typeof process !== 'undefined' ? process.env : {},
-): Record<string, unknown> {
-  const result = { ...data };
-
-  for (const [optionName, envVars] of Object.entries(envBindings)) {
-    // Only apply env var if option wasn't already set
-    if (optionName in result && result[optionName] !== undefined) continue;
-
-    for (const envVar of envVars) {
-      const envValue = env[envVar];
-      if (envValue !== undefined) {
-        // Try to parse the value intelligently
-        result[optionName] = parseEnvValue(envValue);
-        break;
-      }
-    }
-  }
-
-  return result;
-}
-
-/**
- * Parse an environment variable value, attempting to convert to appropriate types.
- */
-function parseEnvValue(value: string): unknown {
-  // Handle boolean-like values
-  const lowerValue = value.toLowerCase();
-  if (lowerValue === 'true' || lowerValue === '1' || lowerValue === 'yes') return true;
-  if (lowerValue === 'false' || lowerValue === '0' || lowerValue === 'no') return false;
-
-  // Handle numeric values
-  if (/^-?\d+$/.test(value)) return Number.parseInt(value, 10);
-  if (/^-?\d+\.\d+$/.test(value)) return Number.parseFloat(value);
-
-  // Handle arrays (comma-separated)
-  if (value.includes(',')) {
-    return value.split(',').map((v) => parseEnvValue(v.trim()));
-  }
-
-  return value;
-}
-
-/**
- * Get a nested value from an object using dot notation.
- */
-function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
-  const parts = path.split('.');
-  let current: unknown = obj;
-
-  for (const part of parts) {
-    if (current === null || current === undefined) return undefined;
-    if (typeof current !== 'object') return undefined;
-    current = (current as Record<string, unknown>)[part];
-  }
-
-  return current;
-}
-
-/**
- * Apply config file values to options.
- * CLI values and env values take precedence over config file values.
- */
-function applyConfigValues(
-  data: Record<string, unknown>,
-  configKeys: Record<string, string>,
-  configData: Record<string, unknown>,
-): Record<string, unknown> {
-  const result = { ...data };
-
-  for (const [optionName, configKey] of Object.entries(configKeys)) {
-    // Only apply config value if option wasn't already set
-    if (optionName in result && result[optionName] !== undefined) continue;
-
-    const configValue = getNestedValue(configData, configKey);
-    if (configValue !== undefined) {
-      result[optionName] = configValue;
-    }
-  }
-
-  return result;
-}
-
 interface ParseOptionsContext {
   aliases?: Record<string, string>;
-  envBindings?: Record<string, string[]>;
-  configKeys?: Record<string, string>;
+  envData?: Record<string, unknown>;
   configData?: Record<string, unknown>;
-  env?: Record<string, string | undefined>;
+}
+
+/**
+ * Apply values directly to options.
+ * CLI values take precedence over the provided values.
+ */
+function applyValues(data: Record<string, unknown>, values: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...data };
+
+  for (const [key, value] of Object.entries(values)) {
+    // Only apply value if option wasn't already set
+    if (key in result && result[key] !== undefined) continue;
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -276,14 +166,14 @@ export function preprocessOptions(data: Record<string, unknown>, ctx: ParseOptio
 
   // 2. Apply environment variables (higher precedence than config)
   // These only apply if CLI didn't set the option
-  if (ctx.envBindings && Object.keys(ctx.envBindings).length > 0) {
-    result = applyEnvBindings(result, ctx.envBindings, ctx.env);
+  if (ctx.envData) {
+    result = applyValues(result, ctx.envData);
   }
 
   // 3. Apply config file values (lowest precedence)
   // These only apply if neither CLI nor env set the option
-  if (ctx.configKeys && ctx.configData) {
-    result = applyConfigValues(result, ctx.configKeys, ctx.configData);
+  if (ctx.configData) {
+    result = applyValues(result, ctx.configData);
   }
 
   return result;

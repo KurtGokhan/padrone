@@ -80,9 +80,7 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
 
     // Extract option metadata from the nested options object in meta
     const optionsMeta = curCommand.meta?.options;
-    const schemaMetadata = curCommand.options
-      ? extractSchemaMetadata(curCommand.options, optionsMeta)
-      : { aliases: {}, envBindings: {}, configKeys: {} };
+    const schemaMetadata = curCommand.options ? extractSchemaMetadata(curCommand.options, optionsMeta) : { aliases: {} };
     const { aliases } = schemaMetadata;
 
     // Get array options from schema (arrays are always variadic)
@@ -149,22 +147,13 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     command: AnyPadroneCommand,
     rawOptions: Record<string, unknown>,
     args: string[],
-    parseOptions?: { env?: Record<string, string | undefined>; configData?: Record<string, unknown> },
+    parseOptions?: { envData?: Record<string, unknown>; configData?: Record<string, unknown> },
   ) => {
-    // Extract option metadata for preprocessing
-    const optionsMeta = command.meta?.options;
-    const schemaMetadata = command.options
-      ? extractSchemaMetadata(command.options, optionsMeta)
-      : { aliases: {}, envBindings: {}, configKeys: {} };
-    const { envBindings, configKeys } = schemaMetadata;
-
     // Apply preprocessing (env and config bindings)
     const preprocessedOptions = preprocessOptions(rawOptions, {
       aliases: {}, // Already resolved aliases in parseCommand
-      envBindings,
-      configKeys,
+      envData: parseOptions?.envData,
       configData: parseOptions?.configData,
-      env: parseOptions?.env,
     });
 
     // Parse positional configuration
@@ -207,7 +196,33 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
 
   const parse: AnyPadroneProgram['parse'] = (input, parseOptions) => {
     const { command, rawOptions, args } = parseCommand(input);
-    const { options, optionsResult } = validateOptions(command, rawOptions, args, parseOptions);
+
+    // Resolve env schema: command's own envSchema > inherited from parent/root
+    const resolveEnvSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['envSchema'] => {
+      if (cmd.envSchema !== undefined) return cmd.envSchema;
+      if (cmd.parent) return resolveEnvSchema(cmd.parent);
+      return undefined;
+    };
+    const envSchema = resolveEnvSchema(command);
+
+    // Validate env vars against schema if provided
+    let envData: Record<string, unknown> | undefined = parseOptions?.envData;
+    if (envSchema && !envData) {
+      const rawEnv = parseOptions?.env ?? (typeof process !== 'undefined' ? process.env : {});
+      const envValidated = envSchema['~standard'].validate(rawEnv);
+      if (envValidated instanceof Promise) {
+        throw new Error('Async validation is not supported. Env schema validate() must return a synchronous result.');
+      }
+      // For env vars, we don't throw on validation errors - just use the transformed value if valid
+      if (!envValidated.issues) {
+        envData = envValidated.value as unknown as Record<string, unknown>;
+      }
+    }
+
+    const { options, optionsResult } = validateOptions(command, rawOptions, args, {
+      envData,
+      configData: parseOptions?.configData,
+    });
 
     return {
       command: command as any,
@@ -463,6 +478,22 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     };
     const effectiveConfigFiles = resolveConfigFiles(command);
 
+    // Resolve config schema: command's own config > inherited from parent/root
+    const resolveConfigSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['config'] => {
+      if (cmd.config !== undefined) return cmd.config;
+      if (cmd.parent) return resolveConfigSchema(cmd.parent);
+      return undefined;
+    };
+    const configSchema = resolveConfigSchema(command);
+
+    // Resolve env schema: command's own envSchema > inherited from parent/root
+    const resolveEnvSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['envSchema'] => {
+      if (cmd.envSchema !== undefined) return cmd.envSchema;
+      if (cmd.parent) return resolveEnvSchema(cmd.parent);
+      return undefined;
+    };
+    const envSchema = resolveEnvSchema(command);
+
     // Determine config data: explicit --config flag > auto-discovered config > provided configData
     let configData = cliOptions?.configData;
     if (configPath) {
@@ -476,9 +507,37 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
       }
     }
 
-    // Validate options with config data
+    // Validate config data against schema if provided
+    if (configData && configSchema) {
+      const configValidated = configSchema['~standard'].validate(configData);
+      if (configValidated instanceof Promise) {
+        throw new Error('Async validation is not supported. Config schema validate() must return a synchronous result.');
+      }
+      if (configValidated.issues) {
+        const issueMessages = configValidated.issues.map((i) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`).join('\n');
+        throw new Error(`Invalid config file:\n${issueMessages}`);
+      }
+      configData = configValidated.value as unknown as Record<string, unknown>;
+    }
+
+    // Validate env vars against schema if provided
+    let envData: Record<string, unknown> | undefined = cliOptions?.envData;
+    if (envSchema) {
+      const rawEnv = cliOptions?.env ?? (typeof process !== 'undefined' ? process.env : {});
+      const envValidated = envSchema['~standard'].validate(rawEnv);
+      if (envValidated instanceof Promise) {
+        throw new Error('Async validation is not supported. Env schema validate() must return a synchronous result.');
+      }
+      // For env vars, we don't throw on validation errors - just use the transformed value if valid
+      // This is because the schema may use .optional() or .default() for missing env vars
+      if (!envValidated.issues) {
+        envData = envValidated.value as unknown as Record<string, unknown>;
+      }
+    }
+
+    // Validate options with env and config data
     const { options, optionsResult } = validateOptions(command, rawOptions, args, {
-      ...cliOptions,
+      envData,
       configData,
     });
 
@@ -544,6 +603,15 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
       // If options is a function, call it with parent's options as base
       const resolvedOptions = typeof options === 'function' ? options(existingCommand.options as any) : options;
       return createPadroneCommandBuilder({ ...existingCommand, options: resolvedOptions, meta }) as any;
+    },
+    configFile(file, schema) {
+      const configFiles = file === undefined ? undefined : Array.isArray(file) ? file : [file];
+      const resolvedConfig = typeof schema === 'function' ? schema(existingCommand.options) : (schema ?? existingCommand.options);
+      return createPadroneCommandBuilder({ ...existingCommand, configFiles, config: resolvedConfig as any }) as any;
+    },
+    env(schema) {
+      const resolvedEnv = typeof schema === 'function' ? schema(existingCommand.options) : schema;
+      return createPadroneCommandBuilder({ ...existingCommand, envSchema: resolvedEnv as any }) as any;
     },
     action(handler = noop) {
       return createPadroneCommandBuilder({ ...existingCommand, handler }) as any;
