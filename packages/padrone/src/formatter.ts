@@ -1,4 +1,4 @@
-import { createColorizer } from './colorizer';
+import { createColorizer } from './colorizer.ts';
 
 export type HelpFormat = 'text' | 'ansi' | 'console' | 'markdown' | 'html' | 'json';
 export type HelpDetail = 'minimal' | 'standard' | 'full';

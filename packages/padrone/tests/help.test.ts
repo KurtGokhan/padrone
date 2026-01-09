@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
-import type { HelpInfo } from '../src';
-import { createWeatherProgram } from './common';
+import type { HelpInfo } from 'padrone';
+import { createWeatherProgram } from './common.ts';
 
 describe('help', () => {
   const program = createWeatherProgram();

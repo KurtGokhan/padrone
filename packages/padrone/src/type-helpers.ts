@@ -1,9 +1,5 @@
-// ============================================================================
-// Helper Types for Extracting Schema Types
-// ============================================================================
-
-import type { GetCommandPaths, PickCommandByName } from './type-utils';
-import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand, PadroneSchema } from './types';
+import type { GetCommandPaths, PickCommandByName } from './type-utils.ts';
+import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand, PadroneSchema } from './types.ts';
 
 /**
  * Extracts the input type of the options schema from a command.

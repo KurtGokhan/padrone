@@ -1,7 +1,7 @@
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec';
 import type { Tool } from 'ai';
-import type { HelpOptions } from './help';
-import type { PadroneMeta } from './options';
+import type { HelpOptions } from './help.ts';
+import type { PadroneMeta } from './options.ts';
 import type {
   FlattenCommands,
   FullCommandName,
@@ -11,7 +11,7 @@ import type {
   PickCommandByPossibleCommands,
   PossibleCommands,
   SafeString,
-} from './type-utils';
+} from './type-utils.ts';
 
 type UnknownRecord = Record<string, unknown>;
 type EmptyRecord = Record<string, never>;

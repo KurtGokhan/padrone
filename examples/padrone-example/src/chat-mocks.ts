@@ -1,4 +1,4 @@
-import type { Channel, ChannelMessage, PrivateMessage, User } from './chat-types';
+import type { Channel, ChannelMessage, PrivateMessage, User } from './chat-types.ts';
 
 /**
  * Mock users for the chat application

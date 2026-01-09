@@ -30,13 +30,16 @@
     "url": "https://gkurt.com"
   },
   "type": "module",
+  "imports": {
+    "#*": "./*"
+  },
   "exports": {
     ".": {
+      "padrone@dev": "./src/index.ts",
       "import": {
         "types": "./dist/index.d.mts",
         "default": "./dist/index.mjs"
       },
-      "padrone@dev": "./src/index.ts",
       "source": "./src/index.ts"
     }
   },
@@ -53,8 +56,8 @@
   "scripts": {
     "build": "tsdown src/index.ts --dts --sourcemap",
     "dev": "bun src/index.ts",
-    "test": "bun test",
-    "prepack": "bun run build && bun ../../scripts/copyPackageJson.ts"
+    "test": "bun test --conditions=padrone@dev",
+    "prepack": "bun run build && bun ../../scripts/prepareForRelease.ts"
   },
   "dependencies": {
     "@standard-schema/spec": "^1.1.0"

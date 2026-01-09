@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test';
+import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
-import { createPadrone } from '../src/index';
-import { createWeatherProgram } from './common';
-import { createConsoleMocker } from './console-mocker';
+import { createWeatherProgram } from './common.ts';
+import { createConsoleMocker } from './console-mocker.ts';
 
 describe('CLI', () => {
   const program = createWeatherProgram();

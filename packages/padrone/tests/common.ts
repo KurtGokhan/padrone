@@ -1,5 +1,5 @@
+import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
-import { createPadrone } from '../src';
 
 // Mock weather data for testing
 const mockWeatherData = {

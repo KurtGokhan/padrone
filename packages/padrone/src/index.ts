@@ -1,7 +1,7 @@
-export { createPadrone } from './create';
-export type { HelpArgumentInfo, HelpFormat, HelpInfo, HelpOptionInfo, HelpSubcommandInfo } from './formatter';
-export type { HelpOptions } from './help';
-export type { PadroneOptionsMeta } from './options';
+export { createPadrone } from './create.ts';
+export type { HelpArgumentInfo, HelpFormat, HelpInfo, HelpOptionInfo, HelpSubcommandInfo } from './formatter.ts';
+export type { HelpOptions } from './help.ts';
+export type { PadroneOptionsMeta } from './options.ts';
 export type {
   InferCommand,
   InferConfigInput,
@@ -10,7 +10,7 @@ export type {
   InferEnvOutput,
   InferOptionsInput,
   InferOptionsOutput,
-} from './type-helpers';
+} from './type-helpers.ts';
 export type {
   AnyPadroneCommand,
   AnyPadroneProgram,
@@ -21,4 +21,5 @@ export type {
   PadroneParseOptions,
   PadroneParseResult,
   PadroneProgram,
-} from './types';
+  PadroneSchema,
+} from './types.ts';

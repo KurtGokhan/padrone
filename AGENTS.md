@@ -22,37 +22,39 @@ This project uses **Bun** exclusively. Do not use npm, yarn, or pnpm.
 ### Common Commands (from root)
 ```bash
 bun install              # Install dependencies
-bun test                 # Run all tests
+bun run test                 # Run all tests
 bun run check            # Lint + format check (biome)
 bun run lint             # Lint only
 bun run format           # Format only
 bun run types            # Type checking (uses tsgo - TypeScript native preview)
 bun run build            # Build packages (uses tsdown)
+
+bun run checks           # Run all checks: lint, test, types
 ```
 
 ### Running Tests
 ```bash
 # Run all tests
-bun test
+bun run test
 
 # Run a single test file
-bun test packages/padrone/tests/cli.test.ts
+bun run test packages/padrone/tests/cli.test.ts
 
 # Run tests matching a pattern (test name)
-bun test --test-name-pattern "should parse"
+bun run test --test-name-pattern "should parse"
 
 # Run a specific describe block
-bun test --test-name-pattern "CLI parsing"
+bun run test --test-name-pattern "CLI parsing"
 
 # Run tests in a specific directory
-bun test packages/padrone/tests/
+bun run test packages/padrone/tests/
 ```
 
 ### CI Pipeline
 The CI runs these checks in order:
 1. `bun i` - Install dependencies
 2. `bun check` - Biome lint + format
-3. `bun test` - Run tests
+3. `bun run test` - Run tests
 4. `bun types` - TypeScript type checking
 
 ## Code Style Guidelines
@@ -137,7 +139,7 @@ describe('Feature', () => {
   it('should do something', () => {
     const program = createPadrone('test')
       .command('cmd', (c) => c.action(() => 'result'));
-    
+
     const result = program.cli('cmd');
     expect(result.result).toBe('result');
   });
@@ -222,4 +224,4 @@ import * as z from 'zod/v4';
 3. **Type imports** - Must use `import type` for type-only imports
 4. **Index access** - Can return undefined, handle appropriately
 5. **Pre-commit hook** - Runs `biome check --write` automatically
-6. **Test runner** - Use `bun test`, not jest/vitest
+6. **Test runner** - Use `bun run test`, not jest/vitest

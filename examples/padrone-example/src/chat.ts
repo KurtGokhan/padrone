@@ -1,6 +1,6 @@
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
-import { MOCK_CHANNEL_MESSAGES, MOCK_CHANNELS, MOCK_PRIVATE_MESSAGES, MOCK_USERS } from './chat-mocks';
+import { MOCK_CHANNEL_MESSAGES, MOCK_CHANNELS, MOCK_PRIVATE_MESSAGES, MOCK_USERS } from './chat-mocks.ts';
 
 // ============================================================================
 // Helper Functions

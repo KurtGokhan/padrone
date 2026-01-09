@@ -1,10 +1,10 @@
 import type { Schema } from 'ai';
-import { generateCompletionOutput, type ShellType } from './completion';
-import { generateHelp } from './help';
-import { extractSchemaMetadata, parsePositionalConfig, preprocessOptions } from './options';
-import { parseCliInputToParts } from './parse';
-import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneCommandBuilder, PadroneProgram } from './types';
-import { findConfigFile, getVersion, loadConfigFile } from './utils';
+import { generateCompletionOutput, type ShellType } from './completion.ts';
+import { generateHelp } from './help.ts';
+import { extractSchemaMetadata, parsePositionalConfig, preprocessOptions } from './options.ts';
+import { parseCliInputToParts } from './parse.ts';
+import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneCommandBuilder, PadroneProgram } from './types.ts';
+import { findConfigFile, getVersion, loadConfigFile } from './utils.ts';
 
 const commandSymbol = Symbol('padrone_command');
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
+import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
-import { createPadrone } from '../src/index';
 
 describe('Command Aliases', () => {
   const program = createPadrone('testprog')

@@ -1,8 +1,7 @@
 import { describe, expectTypeOf } from 'bun:test';
+import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
-import { createPadrone } from '../src/index';
-import type { SafeString } from '../src/type-utils';
-import { createWeatherProgram } from './common';
+import { createWeatherProgram } from './common.ts';
 
 /** This test is skipped because it's only used to test the types of the program, not the runtime behavior. */
 describe.skip('Types', async () => {
@@ -19,7 +18,7 @@ describe.skip('Types', async () => {
 
   type TNames = Extract<Parameters<typeof program.run>[0], string>;
   expectTypeOf<TNames>().toEqualTypeOf<
-    | SafeString
+    | (string & {})
     | ''
     | 'current'
     | 'forecast'
@@ -54,7 +53,9 @@ describe.skip('Types - Aliases', async () => {
 
   // Test that aliases are included in possible command names
   type TPossibleNames = Extract<Parameters<typeof programWithAliases.cli>[0], string>;
-  expectTypeOf<TPossibleNames>().toMatchTypeOf<SafeString | 'list' | 'ls' | 'l' | 'delete' | 'rm' | 'config' | 'config set' | 'config s'>();
+  expectTypeOf<TPossibleNames>().toMatchTypeOf<
+    (string & {}) | 'list' | 'ls' | 'l' | 'delete' | 'rm' | 'config' | 'config set' | 'config s'
+  >();
 
   // Test that parse returns correct command type when using alias
   const parsedByName = programWithAliases.parse('list');

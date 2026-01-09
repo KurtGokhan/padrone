@@ -24,11 +24,12 @@
     "example": "bun --filter=@padrone/example start",
     "start": "bun --filter=padrone start",
     "docs": "bun --filter=padrone-docs start",
-    "test": "bun test",
+    "test": "bun test --conditions=padrone@dev",
     "types": "tsgo",
     "lint": "biome lint",
     "format": "biome format",
     "check": "biome check",
+    "checks": "bun check && bun run test && bun types",
     "prepare": "husky",
     "bump": "bumpp -r --no-push"
   },

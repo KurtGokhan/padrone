@@ -1,8 +1,15 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
-import { createFormatter, type HelpArgumentInfo, type HelpDetail, type HelpFormat, type HelpInfo, type HelpOptionInfo } from './formatter';
-import { extractSchemaMetadata, type PadroneMeta, parsePositionalConfig } from './options';
-import type { AnyPadroneCommand } from './types';
-import { getRootCommand } from './utils';
+import {
+  createFormatter,
+  type HelpArgumentInfo,
+  type HelpDetail,
+  type HelpFormat,
+  type HelpInfo,
+  type HelpOptionInfo,
+} from './formatter.ts';
+import { extractSchemaMetadata, type PadroneMeta, parsePositionalConfig } from './options.ts';
+import type { AnyPadroneCommand } from './types.ts';
+import { getRootCommand } from './utils.ts';
 
 export type HelpOptions = {
   format?: HelpFormat | 'auto';

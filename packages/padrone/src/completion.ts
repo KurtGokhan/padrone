@@ -1,5 +1,5 @@
-import { extractSchemaMetadata } from './options';
-import type { AnyPadroneCommand } from './types';
+import { extractSchemaMetadata } from './options.ts';
+import type { AnyPadroneCommand } from './types.ts';
 
 export type ShellType = 'bash' | 'zsh' | 'fish' | 'powershell';
 
