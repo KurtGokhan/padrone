@@ -21,7 +21,7 @@ type DefaultOpts = UnknownRecord | void;
  * A schema that supports both validation (StandardSchemaV1) and JSON schema generation (StandardJSONSchemaV1).
  * This is the type required for command arguments and options in Padrone.
  */
-type PadroneSchema<Input = unknown, Output = Input> = StandardSchemaV1<Input, Output> & StandardJSONSchemaV1<Input, Output>;
+export type PadroneSchema<Input = unknown, Output = Input> = StandardSchemaV1<Input, Output> & StandardJSONSchemaV1<Input, Output>;
 
 /**
  * Helper type to set aliases on a command type.

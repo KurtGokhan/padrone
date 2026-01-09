@@ -10,6 +10,10 @@ const commandSymbol = Symbol('padrone_command');
 
 const noop = <TRes>() => undefined as TRes;
 
+export function createPadrone<TName extends string>(name: TName): PadroneProgram<TName> {
+  return createPadroneCommandBuilder({ name, path: '', commands: [] } as PadroneCommand<TName>) as unknown as PadroneProgram<TName>;
+}
+
 export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = PadroneProgram>(
   existingCommand: AnyPadroneCommand,
 ): TBuilder & { [commandSymbol]: AnyPadroneCommand } {
