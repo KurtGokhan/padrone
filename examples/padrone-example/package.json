@@ -5,7 +5,7 @@
   "type": "module",
   "module": "src/index.ts",
   "scripts": {
-    "start": "bun run src/index.ts",
+    "start": "bun --conditions=padrone@dev src/index.ts",
     "ai": "bun run src/ai.ts",
     "dev": "bun run --watch src/index.ts",
     "build": "bun build src/index.ts --target bun",

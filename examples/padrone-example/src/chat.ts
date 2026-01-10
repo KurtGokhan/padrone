@@ -15,6 +15,9 @@ function getUserName(userId: string): string {
 // ============================================================================
 
 export const chatProgram = createPadrone('chat')
+  .action(() => {
+    console.log(chatProgram.help());
+  })
   .command('login', (c) =>
     c
       .configure({

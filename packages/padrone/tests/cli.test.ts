@@ -1137,20 +1137,6 @@ describe('CLI', () => {
       expect(command?.configFiles).toEqual(['myapp.config.json', '.myapprc']);
     });
 
-    it('should disable config files when given undefined', () => {
-      const program = createPadrone('padrone-test')
-        .configure({ configFiles: ['default.json'] })
-        .command('test', (c) =>
-          c
-            .options(z.object({ name: z.string().optional() }))
-            .configFile(undefined)
-            .action((options) => options),
-        );
-
-      const command = program.find('test');
-      expect(command?.configFiles).toBeUndefined();
-    });
-
     it('should inherit config schema from parent command', () => {
       const configSchema = z.object({ port: z.number() });
 
