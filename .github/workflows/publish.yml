@@ -20,6 +20,7 @@ jobs:
       - run: bun i
 
       - run: bun publish --access public
+        working-directory: ./packages/padrone
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
