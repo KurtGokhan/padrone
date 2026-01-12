@@ -26,6 +26,7 @@
     "[js][jsx][ts][tsx][typescript][typescriptreact][javascript][javascriptreact][json][jsonc][html][css][scss][markdown][mdx]": {
       "editor.defaultFormatter": "biomejs.biome"
     },
+    "bun.test.customFlag": "--conditions=padrone@dev",
     "editor.formatOnSave": true,
     "typescript.preferences.quoteStyle": "single",
     "workbench.editor.labelFormat": "medium",

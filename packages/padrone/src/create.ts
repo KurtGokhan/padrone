@@ -3,15 +3,15 @@ import { generateCompletionOutput, type ShellType } from './completion.ts';
 import { generateHelp } from './help.ts';
 import { extractSchemaMetadata, parsePositionalConfig, preprocessOptions } from './options.ts';
 import { parseCliInputToParts } from './parse.ts';
-import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneCommandBuilder, PadroneProgram } from './types.ts';
+import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneProgram } from './types.ts';
 import { findConfigFile, getVersion, loadConfigFile } from './utils.ts';
 
 const commandSymbol = Symbol('padrone_command');
 
 const noop = <TRes>() => undefined as TRes;
 
-export function createPadrone<TName extends string>(name: TName): PadroneProgram<TName> {
-  return createPadroneCommandBuilder({ name, path: '', commands: [] } as PadroneCommand<TName>) as unknown as PadroneProgram<TName>;
+export function createPadrone<TProgramName extends string>(name: TProgramName): PadroneProgram<TProgramName, '', ''> {
+  return createPadroneCommandBuilder({ name, path: '', commands: [] } as any) as unknown as PadroneProgram<TProgramName, '', ''>;
 }
 
 export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = PadroneProgram>(
@@ -620,12 +620,9 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
     action(handler = noop) {
       return createPadroneCommandBuilder({ ...existingCommand, handler }) as any;
     },
-    command: <TName extends string, TBuilder extends PadroneCommandBuilder<TName, string, any, any, AnyPadroneCommand[], any>>(
-      nameOrNames: TName | readonly [TName, ...string[]],
-      builderFn?: (builder: PadroneCommandBuilder<TName>) => TBuilder,
-    ) => {
+    command(nameOrNames, builderFn) {
       // Extract name and aliases from the input
-      const name = (Array.isArray(nameOrNames) ? nameOrNames[0] : nameOrNames) as TName;
+      const name = Array.isArray(nameOrNames) ? nameOrNames[0] : nameOrNames;
       const aliases = Array.isArray(nameOrNames) && nameOrNames.length > 1 ? (nameOrNames.slice(1) as string[]) : undefined;
 
       const initialCommand = {
@@ -634,7 +631,7 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
         aliases,
         parent: existingCommand,
         '~types': {} as any,
-      } satisfies PadroneCommand<TName, any>;
+      } satisfies PadroneCommand;
       const builder = createPadroneCommandBuilder(initialCommand);
 
       const commandObj =

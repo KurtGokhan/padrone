@@ -95,6 +95,22 @@ export type PadroneCommandConfig = {
 };
 
 export type PadroneCommandBuilder<
+  TProgramName extends string = '',
+  TName extends string = string,
+  TParentName extends string = '',
+  TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
+  TRes = void,
+  TCommands extends [...AnyPadroneCommand[]] = [],
+  TParentOpts extends PadroneSchema = PadroneSchema<void>,
+  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
+  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
+> = Pick<
+  PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>,
+  'configure' | 'command' | 'configFile' | 'env' | 'options' | 'action' | '~types'
+>;
+
+export type PadroneProgram<
+  TProgramName extends string = '',
   TName extends string = string,
   TParentName extends string = '',
   TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
@@ -117,7 +133,7 @@ export type PadroneCommandBuilder<
    */
   configure: (
     config: PadroneCommandConfig,
-  ) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>;
+  ) => PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>;
 
   /**
    * Defines the options schema for the command, including positional arguments.
@@ -152,7 +168,7 @@ export type PadroneCommandBuilder<
   options: <TOpts extends PadroneSchema = PadroneSchema<void>>(
     options?: TOpts | ((parentOptions: TParentOpts) => TOpts),
     meta?: GetMeta<TOpts>,
-  ) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>;
+  ) => PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>;
 
   /**
    * Configures config file path(s) and schema for parsing config files.
@@ -164,7 +180,7 @@ export type PadroneCommandBuilder<
   configFile: <TNewConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = TOpts>(
     file: string | string[] | undefined,
     schema?: TNewConfig | ((optionsSchema: TOpts) => TNewConfig),
-  ) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TNewConfig, TEnv>;
+  ) => PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TNewConfig, TEnv>;
 
   /**
    * Configures environment variable schema for parsing env vars into options.
@@ -177,14 +193,14 @@ export type PadroneCommandBuilder<
    */
   env: <TNewEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = TOpts>(
     schema: TNewEnv | ((optionsSchema: TOpts) => TNewEnv),
-  ) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TNewEnv>;
+  ) => PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TNewEnv>;
 
   /**
    * Defines the handler function to be executed when the command is run.
    */
   action: <TRes>(
     handler?: (options: StandardSchemaV1.InferOutput<TOpts>) => TRes,
-  ) => PadroneCommandBuilder<TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>;
+  ) => PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>;
 
   /**
    * Creates a nested command within the current command with the given name and builder function.
@@ -201,122 +217,38 @@ export type PadroneCommandBuilder<
   command: <
     TNameNested extends string,
     TAliases extends string[] = [],
-    TBuilder extends PadroneCommandBuilder<
-      TNameNested,
-      FullCommandName<TName, TParentName>,
-      any,
-      any,
-      AnyPadroneCommand[],
-      TOpts
-    > = PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, [], TOpts, TConfig>,
+    TBuilder extends
+      | PadroneCommandBuilder<TProgramName, TNameNested, FullCommandName<TName, TParentName>, any, any, any, TOpts, any, any>
+      | PadroneProgram<TProgramName, TNameNested, FullCommandName<TName, TParentName>, any, any, any, TOpts, any, any> =
+      | PadroneCommandBuilder<TProgramName, TNameNested, FullCommandName<TName, TParentName>, any, void, [], TOpts, any, any>
+      | PadroneProgram<TProgramName, TNameNested, FullCommandName<TName, TParentName>, any, void, [], TOpts, any, any>,
   >(
     name: TNameNested | readonly [TNameNested, ...TAliases],
-    builderFn?: (builder: PadroneCommandBuilder<TNameNested, FullCommandName<TName, TParentName>, any, any, [], TOpts>) => TBuilder,
-  ) => PadroneCommandBuilder<
+    builderFn?: (
+      builder: PadroneCommandBuilder<
+        TProgramName,
+        TNameNested,
+        FullCommandName<TName, TParentName>,
+        PadroneSchema<void>,
+        void,
+        [],
+        TOpts,
+        PadroneSchema<void>,
+        PadroneSchema<void>
+      >,
+    ) => TBuilder,
+  ) => PadroneProgram<
+    TProgramName,
     TName,
     TParentName,
     TOpts,
     TRes,
     TCommands extends []
       ? [WithAliases<TBuilder['~types']['command'], TAliases>]
-      : [...TCommands, WithAliases<TBuilder['~types']['command'], TAliases>],
+      : AnyPadroneCommand[] extends TCommands
+        ? [WithAliases<TBuilder['~types']['command'], TAliases>]
+        : [...TCommands, WithAliases<TBuilder['~types']['command'], TAliases>],
     TParentOpts,
-    TConfig,
-    TEnv
-  >;
-
-  /** @deprecated Internal use only */
-  '~types': {
-    name: TName;
-    parentName: TParentName;
-    path: FullCommandName<TName, TParentName>;
-    aliases: [];
-    options: TOpts;
-    result: TRes;
-    commands: TCommands;
-    command: PadroneCommand<TName, TParentName, TOpts, TRes, TCommands, []>;
-  };
-};
-
-export type PadroneProgram<
-  TProgramName extends string = '',
-  TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
-  TRes = void,
-  TCommands extends [...AnyPadroneCommand[]] = [],
-  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
-  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
-> = Omit<PadroneCommandBuilder<'', '', TOpts, TRes, TCommands, PadroneSchema<void>>, 'command' | 'configure' | 'configFile' | 'env'> & {
-  /**
-   * Configures program properties like title, description, version, deprecated, hidden, and configFiles.
-   * @example
-   * ```ts
-   * .configure({
-   *   description: 'My CLI application',
-   *   version: '1.0.0',
-   *   configFiles: ['myapp.config.json', '.myapprc'],
-   * })
-   * ```
-   */
-  configure: (config: PadroneCommandConfig) => PadroneProgram<'', TOpts, TRes, TCommands, TConfig, TEnv>;
-
-  /**
-   * Configures config file path(s) and schema for parsing config files.
-   * @example
-   * ```ts
-   * .configFile('config.json', z.object({ port: z.number() }))
-   * ```
-   */
-  configFile: <TNewConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = TOpts>(
-    file: string | string[] | undefined,
-    schema?: TNewConfig | ((optionsSchema: TOpts) => TNewConfig),
-  ) => PadroneProgram<'', TOpts, TRes, TCommands, TNewConfig, TEnv>;
-
-  /**
-   * Configures environment variable schema for parsing env vars into options.
-   * The schema should transform environment variables (typically SCREAMING_SNAKE_CASE)
-   * into the option names used by the command.
-   * @example
-   * ```ts
-   * .env(z.object({ MY_APP_PORT: z.coerce.number() }).transform(e => ({ port: e.MY_APP_PORT })))
-   * ```
-   */
-  env: <TNewEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = TOpts>(
-    schema: TNewEnv | ((optionsSchema: TOpts) => TNewEnv),
-  ) => PadroneProgram<'', TOpts, TRes, TCommands, TConfig, TNewEnv>;
-
-  /**
-   * Creates a command within the program with the given name and builder function.
-   * The name can be a single string or a tuple of [name, ...aliases] where additional strings are aliases.
-   * @example
-   * ```ts
-   * // Single name
-   * .command('list', (c) => c.action(() => 'list'))
-   *
-   * // Name with aliases
-   * .command(['list', 'ls', 'l'], (c) => c.action(() => 'list'))
-   * ```
-   */
-  command: <
-    TNameNested extends string,
-    TAliases extends string[] = [],
-    TBuilder extends PadroneCommandBuilder<TNameNested, '', any, any, AnyPadroneCommand[], PadroneSchema<void>> = PadroneCommandBuilder<
-      TNameNested,
-      '',
-      any,
-      any,
-      [],
-      PadroneSchema<void>
-    >,
-  >(
-    name: TNameNested | readonly [TNameNested, ...TAliases],
-    builderFn?: (builder: PadroneCommandBuilder<TNameNested, '', any, any, [], PadroneSchema<void>>) => TBuilder,
-  ) => PadroneProgram<
-    '',
-    TOpts,
-    TRes,
-    TCommands extends []
-      ? [WithAliases<TBuilder['~types']['command'], TAliases>]
-      : [...TCommands, WithAliases<TBuilder['~types']['command'], TAliases>],
     TConfig,
     TEnv
   >;
@@ -421,10 +353,18 @@ export type PadroneProgram<
   /** @deprecated Internal use only */
   '~types': {
     programName: TProgramName;
+    name: TName;
+    parentName: TParentName;
+    path: FullCommandName<TName, TParentName>;
+    aliases: [];
+    options: TOpts;
+    result: TRes;
+    commands: TCommands;
+    command: PadroneCommand<TName, TParentName, TOpts, TRes, TCommands, []>;
   };
 };
 
-export type AnyPadroneProgram = PadroneProgram<string, any, any, [...AnyPadroneCommand[]]>;
+export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any, [...AnyPadroneCommand[]]>;
 
 export type PadroneCommandResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> = PadroneParseResult<TCommand> & {
   result: GetResults<TCommand>;
