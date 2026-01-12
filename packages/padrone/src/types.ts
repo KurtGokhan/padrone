@@ -79,6 +79,16 @@ export type PadroneCommand<
 export type AnyPadroneCommand = PadroneCommand<string, any, any, any, [...AnyPadroneCommand[]], string[]>;
 
 /**
+ * Base type for extracting command information from builder or program.
+ * Both PadroneBuilder and PadroneProgram share this structure.
+ */
+type CommandTypesBase = {
+  '~types': {
+    command: AnyPadroneCommand;
+  };
+};
+
+/**
  * Configuration options for a command.
  */
 export type PadroneCommandConfig = {
@@ -94,31 +104,41 @@ export type PadroneCommandConfig = {
   hidden?: boolean;
 };
 
-export type PadroneCommandBuilder<
-  TProgramName extends string = '',
-  TName extends string = string,
-  TParentName extends string = '',
-  TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
-  TRes = void,
-  TCommands extends [...AnyPadroneCommand[]] = [],
-  TParentOpts extends PadroneSchema = PadroneSchema<void>,
-  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
-  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
-> = Pick<
-  PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>,
-  'configure' | 'command' | 'configFile' | 'env' | 'options' | 'action' | '~types'
->;
+/**
+ * Conditional type that returns either PadroneBuilder or PadroneProgram based on TReturn.
+ * Used to avoid repetition in PadroneBuilderMethods return types.
+ */
+type BuilderOrProgram<
+  TReturn extends 'builder' | 'program',
+  TProgramName extends string,
+  TName extends string,
+  TParentName extends string,
+  TOpts extends PadroneSchema,
+  TRes,
+  TCommands extends [...AnyPadroneCommand[]],
+  TParentOpts extends PadroneSchema,
+  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>>,
+  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>>,
+> = TReturn extends 'builder'
+  ? PadroneBuilder<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>
+  : PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>;
 
-export type PadroneProgram<
-  TProgramName extends string = '',
-  TName extends string = string,
-  TParentName extends string = '',
-  TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
-  TRes = void,
-  TCommands extends [...AnyPadroneCommand[]] = [],
-  TParentOpts extends PadroneSchema = PadroneSchema<void>,
-  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
-  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
+/**
+ * Base builder methods shared between PadroneBuilder and PadroneProgram.
+ * These methods are used for defining command structure (options, config, env, action, subcommands).
+ */
+export type PadroneBuilderMethods<
+  TProgramName extends string,
+  TName extends string,
+  TParentName extends string,
+  TOpts extends PadroneSchema,
+  TRes,
+  TCommands extends [...AnyPadroneCommand[]],
+  TParentOpts extends PadroneSchema,
+  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>>,
+  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>>,
+  /** The return type for builder methods - either PadroneBuilder or PadroneProgram */
+  TReturn extends 'builder' | 'program',
 > = {
   /**
    * Configures command properties like title, description, version, deprecated, and hidden.
@@ -133,7 +153,7 @@ export type PadroneProgram<
    */
   configure: (
     config: PadroneCommandConfig,
-  ) => PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>;
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>;
 
   /**
    * Defines the options schema for the command, including positional arguments.
@@ -165,10 +185,10 @@ export type PadroneProgram<
    * })
    * ```
    */
-  options: <TOpts extends PadroneSchema = PadroneSchema<void>>(
-    options?: TOpts | ((parentOptions: TParentOpts) => TOpts),
-    meta?: GetMeta<TOpts>,
-  ) => PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>;
+  options: <TNewOpts extends PadroneSchema = PadroneSchema<void>>(
+    options?: TNewOpts | ((parentOptions: TParentOpts) => TNewOpts),
+    meta?: GetMeta<TNewOpts>,
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TNewOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>;
 
   /**
    * Configures config file path(s) and schema for parsing config files.
@@ -180,7 +200,7 @@ export type PadroneProgram<
   configFile: <TNewConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = TOpts>(
     file: string | string[] | undefined,
     schema?: TNewConfig | ((optionsSchema: TOpts) => TNewConfig),
-  ) => PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TNewConfig, TEnv>;
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TNewConfig, TEnv>;
 
   /**
    * Configures environment variable schema for parsing env vars into options.
@@ -193,14 +213,14 @@ export type PadroneProgram<
    */
   env: <TNewEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = TOpts>(
     schema: TNewEnv | ((optionsSchema: TOpts) => TNewEnv),
-  ) => PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TNewEnv>;
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TNewEnv>;
 
   /**
    * Defines the handler function to be executed when the command is run.
    */
-  action: <TRes>(
-    handler?: (options: StandardSchemaV1.InferOutput<TOpts>) => TRes,
-  ) => PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>;
+  action: <TNewRes>(
+    handler?: (options: StandardSchemaV1.InferOutput<TOpts>) => TNewRes,
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TNewRes, TCommands, TParentOpts, TConfig, TEnv>;
 
   /**
    * Creates a nested command within the current command with the given name and builder function.
@@ -217,15 +237,21 @@ export type PadroneProgram<
   command: <
     TNameNested extends string,
     TAliases extends string[] = [],
-    TBuilder extends
-      | PadroneCommandBuilder<TProgramName, TNameNested, FullCommandName<TName, TParentName>, any, any, any, TOpts, any, any>
-      | PadroneProgram<TProgramName, TNameNested, FullCommandName<TName, TParentName>, any, any, any, TOpts, any, any> =
-      | PadroneCommandBuilder<TProgramName, TNameNested, FullCommandName<TName, TParentName>, any, void, [], TOpts, any, any>
-      | PadroneProgram<TProgramName, TNameNested, FullCommandName<TName, TParentName>, any, void, [], TOpts, any, any>,
+    TBuilder extends CommandTypesBase = PadroneBuilder<
+      TProgramName,
+      TNameNested,
+      FullCommandName<TName, TParentName>,
+      any,
+      void,
+      [],
+      TOpts,
+      any,
+      any
+    >,
   >(
     name: TNameNested | readonly [TNameNested, ...TAliases],
     builderFn?: (
-      builder: PadroneCommandBuilder<
+      builder: PadroneBuilder<
         TProgramName,
         TNameNested,
         FullCommandName<TName, TParentName>,
@@ -237,7 +263,8 @@ export type PadroneProgram<
         PadroneSchema<void>
       >,
     ) => TBuilder,
-  ) => PadroneProgram<
+  ) => BuilderOrProgram<
+    TReturn,
     TProgramName,
     TName,
     TParentName,
@@ -253,6 +280,43 @@ export type PadroneProgram<
     TEnv
   >;
 
+  /** @deprecated Internal use only */
+  '~types': {
+    programName: TProgramName;
+    name: TName;
+    parentName: TParentName;
+    path: FullCommandName<TName, TParentName>;
+    aliases: [];
+    options: TOpts;
+    result: TRes;
+    commands: TCommands;
+    command: PadroneCommand<TName, TParentName, TOpts, TRes, TCommands, []>;
+  };
+};
+
+export type PadroneBuilder<
+  TProgramName extends string = '',
+  TName extends string = string,
+  TParentName extends string = '',
+  TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
+  TRes = void,
+  TCommands extends [...AnyPadroneCommand[]] = [],
+  TParentOpts extends PadroneSchema = PadroneSchema<void>,
+  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
+  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
+> = PadroneBuilderMethods<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv, 'builder'>;
+
+export type PadroneProgram<
+  TProgramName extends string = '',
+  TName extends string = string,
+  TParentName extends string = '',
+  TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
+  TRes = void,
+  TCommands extends [...AnyPadroneCommand[]] = [],
+  TParentOpts extends PadroneSchema = PadroneSchema<void>,
+  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
+  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
+> = PadroneBuilderMethods<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv, 'program'> & {
   /**
    * Runs a command programmatically by name with provided options (including positional args).
    */
@@ -349,19 +413,6 @@ export type PadroneProgram<
    * ```
    */
   completion: (shell?: 'bash' | 'zsh' | 'fish' | 'powershell') => string;
-
-  /** @deprecated Internal use only */
-  '~types': {
-    programName: TProgramName;
-    name: TName;
-    parentName: TParentName;
-    path: FullCommandName<TName, TParentName>;
-    aliases: [];
-    options: TOpts;
-    result: TRes;
-    commands: TCommands;
-    command: PadroneCommand<TName, TParentName, TOpts, TRes, TCommands, []>;
-  };
 };
 
 export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any, [...AnyPadroneCommand[]]>;

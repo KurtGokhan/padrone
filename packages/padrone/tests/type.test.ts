@@ -1,7 +1,54 @@
 import { describe, expectTypeOf } from 'bun:test';
+import type { PadroneBuilder, PadroneProgram } from 'padrone';
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 import { createWeatherProgram } from './common.ts';
+
+/** This test verifies that PadroneBuilder does NOT have program-only methods */
+describe.skip('Types - Builder vs Program separation', async () => {
+  // Builder should have these methods
+  type BuilderKeys = keyof PadroneBuilder;
+  expectTypeOf<'configure'>().toMatchTypeOf<BuilderKeys>();
+  expectTypeOf<'options'>().toMatchTypeOf<BuilderKeys>();
+  expectTypeOf<'action'>().toMatchTypeOf<BuilderKeys>();
+  expectTypeOf<'command'>().toMatchTypeOf<BuilderKeys>();
+  expectTypeOf<'configFile'>().toMatchTypeOf<BuilderKeys>();
+  expectTypeOf<'env'>().toMatchTypeOf<BuilderKeys>();
+  expectTypeOf<'~types'>().toMatchTypeOf<BuilderKeys>();
+
+  // Builder should NOT have these program-only methods
+  type ProgramOnlyKeys = 'run' | 'cli' | 'parse' | 'stringify' | 'find' | 'api' | 'tool' | 'help' | 'completion';
+  expectTypeOf<ProgramOnlyKeys>().not.toMatchTypeOf<BuilderKeys>();
+
+  // Program should have all methods
+  type ProgramKeys = keyof PadroneProgram;
+  expectTypeOf<'configure'>().toMatchTypeOf<ProgramKeys>();
+  expectTypeOf<'options'>().toMatchTypeOf<ProgramKeys>();
+  expectTypeOf<'action'>().toMatchTypeOf<ProgramKeys>();
+  expectTypeOf<'command'>().toMatchTypeOf<ProgramKeys>();
+  expectTypeOf<'run'>().toMatchTypeOf<ProgramKeys>();
+  expectTypeOf<'cli'>().toMatchTypeOf<ProgramKeys>();
+  expectTypeOf<'parse'>().toMatchTypeOf<ProgramKeys>();
+  expectTypeOf<'stringify'>().toMatchTypeOf<ProgramKeys>();
+  expectTypeOf<'find'>().toMatchTypeOf<ProgramKeys>();
+  expectTypeOf<'api'>().toMatchTypeOf<ProgramKeys>();
+  expectTypeOf<'tool'>().toMatchTypeOf<ProgramKeys>();
+  expectTypeOf<'help'>().toMatchTypeOf<ProgramKeys>();
+  expectTypeOf<'completion'>().toMatchTypeOf<ProgramKeys>();
+
+  // Verify builder chaining returns builder within command() callback
+  createPadrone('test').command('cmd', (builder) => {
+    // builder should be PadroneBuilder
+    const afterOptions = builder.options(z.object({ name: z.string() }));
+    // afterOptions should also be PadroneBuilder - program methods should NOT exist
+    type AfterOptionsKeys = keyof typeof afterOptions;
+    expectTypeOf<'run'>().not.toMatchTypeOf<AfterOptionsKeys>();
+    expectTypeOf<'cli'>().not.toMatchTypeOf<AfterOptionsKeys>();
+    expectTypeOf<'parse'>().not.toMatchTypeOf<AfterOptionsKeys>();
+
+    return afterOptions.action((opts) => opts.name);
+  });
+});
 
 /** This test is skipped because it's only used to test the types of the program, not the runtime behavior. */
 describe.skip('Types', async () => {

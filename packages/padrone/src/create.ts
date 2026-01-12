@@ -11,10 +11,10 @@ const commandSymbol = Symbol('padrone_command');
 const noop = <TRes>() => undefined as TRes;
 
 export function createPadrone<TProgramName extends string>(name: TProgramName): PadroneProgram<TProgramName, '', ''> {
-  return createPadroneCommandBuilder({ name, path: '', commands: [] } as any) as unknown as PadroneProgram<TProgramName, '', ''>;
+  return createPadroneBuilder({ name, path: '', commands: [] } as any) as unknown as PadroneProgram<TProgramName, '', ''>;
 }
 
-export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = PadroneProgram>(
+export function createPadroneBuilder<TBuilder extends PadroneProgram = PadroneProgram>(
   existingCommand: AnyPadroneCommand,
 ): TBuilder & { [commandSymbol]: AnyPadroneCommand } {
   function findCommandByName(name: string, commands?: AnyPadroneCommand[]): AnyPadroneCommand | undefined {
@@ -601,24 +601,24 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
 
   return {
     configure(config) {
-      return createPadroneCommandBuilder({ ...existingCommand, ...config }) as any;
+      return createPadroneBuilder({ ...existingCommand, ...config }) as any;
     },
     options(options, meta) {
       // If options is a function, call it with parent's options as base
       const resolvedOptions = typeof options === 'function' ? options(existingCommand.options as any) : options;
-      return createPadroneCommandBuilder({ ...existingCommand, options: resolvedOptions, meta }) as any;
+      return createPadroneBuilder({ ...existingCommand, options: resolvedOptions, meta }) as any;
     },
     configFile(file, schema) {
       const configFiles = file === undefined ? undefined : Array.isArray(file) ? file : [file];
       const resolvedConfig = typeof schema === 'function' ? schema(existingCommand.options) : (schema ?? existingCommand.options);
-      return createPadroneCommandBuilder({ ...existingCommand, configFiles, config: resolvedConfig as any }) as any;
+      return createPadroneBuilder({ ...existingCommand, configFiles, config: resolvedConfig as any }) as any;
     },
     env(schema) {
       const resolvedEnv = typeof schema === 'function' ? schema(existingCommand.options) : schema;
-      return createPadroneCommandBuilder({ ...existingCommand, envSchema: resolvedEnv as any }) as any;
+      return createPadroneBuilder({ ...existingCommand, envSchema: resolvedEnv as any }) as any;
     },
     action(handler = noop) {
-      return createPadroneCommandBuilder({ ...existingCommand, handler }) as any;
+      return createPadroneBuilder({ ...existingCommand, handler }) as any;
     },
     command(nameOrNames, builderFn) {
       // Extract name and aliases from the input
@@ -632,11 +632,11 @@ export function createPadroneCommandBuilder<TBuilder extends PadroneProgram = Pa
         parent: existingCommand,
         '~types': {} as any,
       } satisfies PadroneCommand;
-      const builder = createPadroneCommandBuilder(initialCommand);
+      const builder = createPadroneBuilder(initialCommand);
 
       const commandObj =
         ((builderFn?.(builder as any) as unknown as typeof builder)?.[commandSymbol] as AnyPadroneCommand) ?? initialCommand;
-      return createPadroneCommandBuilder({ ...existingCommand, commands: [...(existingCommand.commands || []), commandObj] }) as any;
+      return createPadroneBuilder({ ...existingCommand, commands: [...(existingCommand.commands || []), commandObj] }) as any;
     },
 
     run,
