@@ -64,9 +64,9 @@
     "@standard-schema/spec": "^1.1.0"
   },
   "devDependencies": {
-    "ai": "^6.0.3",
-    "tsdown": "^0.18.3",
-    "zod": "^4.2.1"
+    "ai": "^6.0.64",
+    "tsdown": "^0.20.1",
+    "zod": "^4.3.6"
   },
   "peerDependencies": {
     "ai": "5 || 6",
