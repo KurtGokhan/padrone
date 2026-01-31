@@ -1,15 +1,13 @@
 {
-  "name": "@padrone/example",
+  "name": "@padrone/tasks-example",
   "version": "1.0.0-beta.6",
   "private": true,
   "type": "module",
-  "module": "src/index.ts",
+  "module": "src/tasks.ts",
   "scripts": {
-    "start": "bun --conditions=padrone@dev src/index.ts",
-    "ai": "bun run src/ai.ts",
-    "dev": "bun run --watch src/index.ts",
-    "build": "bun build src/index.ts --target bun",
-    "compile": "bun run build --compile"
+    "start": "bun --conditions=padrone@dev src/tasks.ts",
+    "ai": "bun --conditions=padrone@dev run src/ai.ts",
+    "dev": "bun --conditions=padrone@dev run --watch src/tasks.ts"
   },
   "dependencies": {
     "ai": "^6.0.64",

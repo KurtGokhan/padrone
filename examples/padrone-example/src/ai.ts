@@ -1,58 +1,52 @@
 import { stepCountIs, streamText } from 'ai';
-import { createPadrone } from 'padrone';
-import * as z from 'zod/v4';
+import { tasksProgram } from './tasks.ts';
 
-const csvProgram = createPadrone('csv')
-  .configure({
-    description:
-      'A program to read and search the people directory, which includes a list of people with their personal information such as address and phone number.',
-  })
-  .command('read', (c) =>
-    c.action(async () => {
-      const content = await Bun.file('./src/test.csv').text();
-      return content;
-    }),
-  )
-  .command('grep', (c) =>
-    c
-      .options(
-        z.object({
-          pattern: z.string().describe('The pattern to search for'),
-          ignoreCase: z.boolean().optional().default(false).describe('Ignore case when searching').meta({ alias: 'i' }),
-        }),
-        { positional: ['pattern'] },
-      )
-      .action(async (options) => {
-        const { pattern, ignoreCase } = options;
-        const content = await Bun.file('./src/test.csv').text();
-        const lines = content.split('\n');
-        const regex = new RegExp(pattern, ignoreCase ? 'i' : undefined);
-        const matches = lines.filter((line) => regex.test(line));
-        return matches.join('\n');
-      }),
-  );
+// This demo shows how to expose the task manager CLI as an AI tool.
+// The AI can then understand natural language requests and execute task commands.
+//
+// Example prompts:
+// - "Add a high priority task to prepare the presentation for Monday"
+// - "Show me all my pending tasks"
+// - "Mark task-3 as completed"
+// - "What tasks do I have tagged with 'work'?"
+
+const prompt = process.argv[2] || 'Show me all my pending high priority tasks';
+
+console.log(`## Prompt\n`);
+console.log(prompt);
 
 try {
-  const prompt = `What's the address of Pearl in the CSV file?`;
-  console.log(`Prompt: ${prompt}`);
-
   const result = streamText({
-    model: 'openai/gpt-5-nano',
+    // Replace with your preferred model (e.g., 'anthropic/claude-sonnet-4-20250514', 'openai/gpt-4')
+    model: 'anthropic/claude-sonnet-4-20250514',
     prompt,
     maxRetries: 0,
-    tools: { csv: await csvProgram.tool() },
+    tools: { tasks: await tasksProgram.tool() },
     toolChoice: 'auto',
     stopWhen: stepCountIs(5),
-    onStepFinish: ({ toolCalls }) => {
+    onStepFinish: ({ toolCalls, toolResults }) => {
       for (const toolCall of toolCalls) {
-        console.log(`[Tool Called] ${toolCall.toolName}:`, toolCall.input);
+        console.log(`\n[Tool Call] ${toolCall.toolName}:`);
+        console.log('\n```json');
+        console.log(JSON.stringify(toolCall.input, null, 2));
+        console.log('```\n');
+      }
+      for (const result of toolResults) {
+        console.log(`[Tool Result]:`);
+        console.log('\n```json');
+        console.log(JSON.stringify(result.output, null, 2));
+        console.log('```\n');
       }
     },
   });
 
-  console.log('\n');
-  for await (const chunk of result.textStream) console.write(chunk);
+  console.log('\n## AI Response\n');
+  for await (const chunk of result.textStream) {
+    process.stdout.write(chunk);
+  }
   console.log('\n');
 } catch (err) {
   console.error('Error during AI processing:', err);
+  console.log('\nNote: This demo requires an AI provider API key.');
+  console.log('Set your API key environment variable (e.g., ANTHROPIC_API_KEY or OPENAI_API_KEY)');
 }
