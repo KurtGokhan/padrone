@@ -82,7 +82,16 @@ export function loadConfigFile(configPath: string): Record<string, unknown> | un
     }
 
     if (ext === '.json') {
-      return JSON.parse(getContent());
+      if (Bun.JSONC) return Bun.JSONC.parse(getContent()) as any;
+      try {
+        return JSON.parse(getContent());
+      } catch {
+        return Bun.JSONC.parse(getContent()) as any;
+      }
+    }
+
+    if (ext === '.jsonc') {
+      return Bun.JSONC.parse(getContent()) as any;
     }
 
     if (ext === '.js' || ext === '.cjs' || ext === '.mjs' || ext === '.ts' || ext === '.cts' || ext === '.mts') {
