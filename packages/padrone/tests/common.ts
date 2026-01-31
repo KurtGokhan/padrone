@@ -1,140 +1,127 @@
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 
-// Mock weather data for testing
-const mockWeatherData = {
-  current: { temp: 72, condition: 'Sunny', humidity: 65 },
-  forecast: [
-    { day: 'Monday', high: 75, low: 60, condition: 'Sunny' },
-    { day: 'Tuesday', high: 78, low: 62, condition: 'Partly Cloudy' },
+// Mock task data for testing
+const mockTaskData = {
+  tasks: [
+    { id: 'task-1', title: 'Review PR', status: 'pending', priority: 'high', tags: ['work'] },
+    { id: 'task-2', title: 'Buy groceries', status: 'in_progress', priority: 'medium', tags: ['personal'] },
   ],
-  alerts: ['Heat advisory in effect'],
+  stats: { total: 5, completed: 2, pending: 3 },
 };
 
-export function createWeatherProgram() {
+export function createTasksProgram() {
   return createPadrone('padrone-test')
-    .command('forecast', (c) =>
+    .command('list', (c) =>
       c
         .options(
           z.object({
-            city: z.string().describe('City name (overrides positional argument)'),
-            days: z.coerce.number().min(1).max(7).optional().default(3).describe('Number of days to forecast'),
-            unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
+            status: z.enum(['pending', 'in_progress', 'completed']).optional().describe('Filter by status'),
+            limit: z.coerce.number().min(1).max(100).optional().default(10).describe('Maximum number of tasks'),
+            priority: z.enum(['low', 'medium', 'high']).optional().default('medium').describe('Filter by priority'),
           }),
-          {
-            positional: ['city'],
-          },
         )
         .action((options) => {
-          const { city } = options;
           return {
-            city,
-            days: options?.days || 3,
-            forecast: mockWeatherData.forecast.slice(0, options?.days || 3),
+            status: options.status || 'all',
+            limit: options?.limit || 10,
+            tasks: mockTaskData.tasks.slice(0, options?.limit || 10),
           };
         })
         .command('extended', (c) =>
           c
             .options(
               z.object({
-                city: z.string().describe('City name (overrides positional argument)'),
-                unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
+                status: z.enum(['pending', 'in_progress', 'completed']).optional().describe('Filter by status'),
+                priority: z.enum(['low', 'medium', 'high']).optional().default('medium').describe('Filter by priority'),
               }),
-              {
-                positional: ['city'],
-              },
             )
             .action((options) => {
-              const { city } = options;
               return {
-                city,
-                extendedForecast: mockWeatherData.forecast,
-                unit: options?.unit,
+                status: options.status || 'all',
+                extendedList: mockTaskData.tasks,
+                priority: options?.priority,
               };
             })
             .command('extended', (c) =>
               c
                 .options(
                   z.object({
-                    city: z.string().describe('City name (overrides positional argument)'),
+                    status: z.enum(['pending', 'in_progress', 'completed']).optional().describe('Filter by status'),
                   }),
-                  {
-                    positional: ['city'],
-                  },
                 )
                 .action((options) => {
-                  const { city } = options;
                   return {
-                    city,
-                    extendedForecast: mockWeatherData.forecast,
+                    status: options.status || 'all',
+                    extendedList: mockTaskData.tasks,
                   };
                 }),
             ),
         ),
     )
-    .command('current', (c) =>
+    .command('show', (c) =>
       c
         .options(
           z.object({
-            city: z.string().describe('City name'),
-            unit: z.enum(['celsius', 'fahrenheit']).optional().default('fahrenheit').describe('Temperature unit'),
+            id: z.string().describe('Task ID'),
+            priority: z.enum(['low', 'medium', 'high']).optional().default('medium').describe('Priority level'),
             verbose: z.boolean().optional().describe('Show detailed information'),
           }),
           {
-            positional: ['city'],
+            positional: ['id'],
           },
         )
         .action((options) => {
-          const { city } = options;
+          const { id } = options;
           return {
-            city,
-            temperature: options?.unit === 'celsius' ? 22 : 72,
-            condition: mockWeatherData.current.condition,
-            humidity: options?.verbose ? mockWeatherData.current.humidity : undefined,
+            id,
+            title: options?.priority === 'high' ? 'Important Task' : 'Regular Task',
+            status: mockTaskData.tasks[0]?.status,
+            stats: options?.verbose ? mockTaskData.stats : undefined,
           };
         }),
     )
-    .command('alerts', (c) =>
+    .command('filter', (c) =>
       c
         .options(
           z.object({
-            region: z.string().optional().describe('Region to check alerts for'),
-            severity: z.enum(['low', 'medium', 'high']).optional().describe('Filter by severity'),
-            ascending: z.boolean().optional().describe('Sort alerts in ascending order'),
+            status: z.enum(['pending', 'in_progress', 'completed']).optional().describe('Filter by status'),
+            priority: z.enum(['low', 'medium', 'high']).optional().describe('Filter by priority'),
+            ascending: z.boolean().optional().describe('Sort in ascending order'),
           }),
         )
         .action((options) => {
           return {
-            region: options?.region || 'all',
-            alerts: mockWeatherData.alerts,
-            severity: options?.severity,
+            status: options?.status || 'all',
+            tasks: mockTaskData.tasks,
+            priority: options?.priority,
           };
         }),
     )
-    .command('compare', (c) =>
+    .command('batch', (c) =>
       c
         .options(
           z.object({
-            cities: z.array(z.string()).min(2).describe('Cities to compare'),
+            ids: z.array(z.string()).min(2).describe('Task IDs to process'),
           }),
           {
-            positional: ['...cities'],
+            positional: ['...ids'],
           },
         )
         .action((options) => {
-          const { cities } = options;
+          const { ids } = options;
           return {
-            cities,
-            comparison: cities.map((city) => ({
-              city,
-              temp: 72,
-              condition: 'Sunny',
+            ids,
+            results: ids.map((id) => ({
+              id,
+              status: 'processed',
+              title: 'Task',
             })),
           };
         }),
     )
     .command('noop', (c) => c.action(() => undefined))
-    .command('cities', (c) =>
+    .command('tags', (c) =>
       c
         .options(
           z.object({

@@ -125,11 +125,13 @@ export type PickCommandByPossibleCommands<
   TCommands extends AnyPadroneCommand[],
   TCommand extends PossibleCommands<TCommands>,
 > = IsAny<TCommand> extends true
-  ? TCommands[number]
-  : TCommand extends GetCommandPathsOrAliases<TCommands>
-    ? PickCommandByName<TCommands, TCommand>
-    : SplitLastSpace<TCommand> extends [infer Prefix extends string, infer Rest]
-      ? IsNever<Rest> extends true
-        ? PickCommandByName<TCommands, Prefix>
-        : PickCommandByPossibleCommands<TCommands, Prefix>
-      : never;
+  ? FlattenCommands<TCommands>
+  : string extends TCommand
+    ? FlattenCommands<TCommands>
+    : TCommand extends GetCommandPathsOrAliases<TCommands>
+      ? PickCommandByName<TCommands, TCommand>
+      : SplitLastSpace<TCommand> extends [infer Prefix extends string, infer Rest]
+        ? IsNever<Rest> extends true
+          ? PickCommandByName<TCommands, Prefix>
+          : PickCommandByPossibleCommands<TCommands, Prefix>
+        : never;

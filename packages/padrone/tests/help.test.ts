@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test';
 import type { HelpInfo } from 'padrone';
-import { createWeatherProgram } from './common.ts';
+import { createTasksProgram } from './common.ts';
 
 describe('help', () => {
-  const program = createWeatherProgram();
+  const program = createTasksProgram();
 
   it('should generate help for the program', () => {
     const help = program.help(undefined, { format: 'text' });
@@ -16,22 +16,22 @@ describe('help', () => {
   });
 
   it('should generate help for a command', () => {
-    const help = program.help('current', { format: 'text' });
+    const help = program.help('show', { format: 'text' });
     expect(help).toMatchSnapshot();
   });
 
   it('should generate help for a command with enabled colors', () => {
-    const help = program.help('current', { format: 'ansi' });
+    const help = program.help('show', { format: 'ansi' });
     expect(help).toMatchSnapshot();
   });
 
   it('should generate help for a command with nested commands', () => {
-    const help = program.help('forecast extended', { format: 'text' });
+    const help = program.help('list extended', { format: 'text' });
     expect(help).toMatchSnapshot();
   });
 
   it('should generate help for a command with meta object', () => {
-    const help = program.help('cities', { format: 'text' });
+    const help = program.help('tags', { format: 'text' });
     expect(help).toMatchSnapshot();
   });
 
@@ -66,28 +66,28 @@ describe('help', () => {
   });
 
   it('should generate help in console format', () => {
-    const help = program.help('current', { format: 'console' });
+    const help = program.help('show', { format: 'console' });
     expect(help).toMatchSnapshot();
   });
 
   it('should generate help in markdown format', () => {
-    const help = program.help('current', { format: 'markdown' });
+    const help = program.help('show', { format: 'markdown' });
     expect(help).toMatchSnapshot();
   });
 
   it('should generate help in html format', () => {
-    const help = program.help('current', { format: 'html' });
+    const help = program.help('show', { format: 'html' });
     expect(help).toMatchSnapshot();
   });
 
   it('should generate help in json format', () => {
-    const help = program.help('current', { format: 'json' });
+    const help = program.help('show', { format: 'json' });
     expect(help).toMatchSnapshot();
   });
 });
 
 describe('help with full detail mode', () => {
-  const program = createWeatherProgram();
+  const program = createTasksProgram();
 
   it('should generate full help with all nested commands in text format', () => {
     const help = program.help(undefined, { format: 'text', detail: 'full' });
@@ -105,29 +105,29 @@ describe('help with full detail mode', () => {
   });
 
   it('should generate full help for a specific command with subcommands', () => {
-    const help = program.help('forecast', { format: 'text', detail: 'full' });
+    const help = program.help('list', { format: 'text', detail: 'full' });
     expect(help).toMatchSnapshot();
   });
 
   it('should generate full help for deeply nested commands', () => {
-    const help = program.help('forecast extended', { format: 'text', detail: 'full' });
+    const help = program.help('list extended', { format: 'text', detail: 'full' });
     expect(help).toMatchSnapshot();
   });
 
   it('should generate full help in json format for deeply nested commands', () => {
-    const help = program.help('forecast', { format: 'json', detail: 'full' });
+    const help = program.help('list', { format: 'json', detail: 'full' });
     const parsed = JSON.parse(help);
 
     // Verify structure contains nested commands
     expect(parsed.nestedCommands).toBeDefined();
     expect(parsed.nestedCommands.length).toBe(1);
-    expect(parsed.nestedCommands[0].name).toBe('forecast extended');
+    expect(parsed.nestedCommands[0].name).toBe('list extended');
     expect(parsed.nestedCommands[0].nestedCommands).toBeDefined();
-    expect(parsed.nestedCommands[0].nestedCommands[0].name).toBe('forecast extended extended');
+    expect(parsed.nestedCommands[0].nestedCommands[0].name).toBe('list extended extended');
   });
 
   it('should not include nested commands in standard detail mode', () => {
-    const help = program.help('forecast', { format: 'json', detail: 'standard' });
+    const help = program.help('list', { format: 'json', detail: 'standard' });
     const parsed = JSON.parse(help) as HelpInfo;
 
     // Standard mode should not have nestedCommands
@@ -137,13 +137,13 @@ describe('help with full detail mode', () => {
   });
 
   it('should work with ansi format in full detail mode', () => {
-    const help = program.help('forecast', { format: 'ansi', detail: 'full' });
+    const help = program.help('list', { format: 'ansi', detail: 'full' });
     expect(help).toMatchSnapshot();
   });
 });
 
 describe('help with minimal detail mode', () => {
-  const program = createWeatherProgram();
+  const program = createTasksProgram();
 
   it('should generate minimal usage for root command', () => {
     const help = program.help(undefined, { detail: 'minimal' });
@@ -151,30 +151,30 @@ describe('help with minimal detail mode', () => {
   });
 
   it('should generate minimal usage for command with args and options', () => {
-    const help = program.help('current', { detail: 'minimal' });
-    expect(help).toBe('padrone-test current [args...] [options]');
+    const help = program.help('show', { detail: 'minimal' });
+    expect(help).toBe('padrone-test show [args...] [options]');
   });
 
   it('should generate minimal usage for command with subcommands', () => {
-    const help = program.help('forecast', { detail: 'minimal' });
-    expect(help).toBe('padrone-test forecast [command] [args...] [options]');
+    const help = program.help('list', { detail: 'minimal' });
+    expect(help).toBe('padrone-test list [command] [options]');
   });
 
   it('should generate minimal usage for nested command', () => {
-    const help = program.help('forecast extended', { detail: 'minimal' });
-    expect(help).toBe('padrone-test forecast extended [command] [args...] [options]');
+    const help = program.help('list extended', { detail: 'minimal' });
+    expect(help).toBe('padrone-test list extended [command] [options]');
   });
 
   it('should generate minimal usage for command with args only (void options)', () => {
-    const help = program.help('compare', { detail: 'minimal' });
-    // compare has z.void() for options, which still counts as having options schema
-    expect(help).toBe('padrone-test compare [args...] [options]');
+    const help = program.help('batch', { detail: 'minimal' });
+    // batch has variadic args
+    expect(help).toBe('padrone-test batch [args...] [options]');
   });
 
   it('should generate minimal usage for command with options only (void args)', () => {
-    const help = program.help('alerts', { detail: 'minimal' });
-    // alerts has z.void() for args, which still counts as having args schema
-    expect(help).toBe('padrone-test alerts [options]');
+    const help = program.help('filter', { detail: 'minimal' });
+    // filter has options only
+    expect(help).toBe('padrone-test filter [options]');
   });
 
   it('should generate minimal usage for noop command (void args and options)', () => {
@@ -185,9 +185,9 @@ describe('help with minimal detail mode', () => {
 
   it('should ignore format option in minimal mode', () => {
     // Minimal mode should return the same output regardless of format
-    const textHelp = program.help('current', { format: 'text', detail: 'minimal' });
-    const jsonHelp = program.help('current', { format: 'json', detail: 'minimal' });
-    const markdownHelp = program.help('current', { format: 'markdown', detail: 'minimal' });
+    const textHelp = program.help('show', { format: 'text', detail: 'minimal' });
+    const jsonHelp = program.help('show', { format: 'json', detail: 'minimal' });
+    const markdownHelp = program.help('show', { format: 'markdown', detail: 'minimal' });
 
     expect(textHelp).toBe(jsonHelp);
     expect(jsonHelp).toBe(markdownHelp);

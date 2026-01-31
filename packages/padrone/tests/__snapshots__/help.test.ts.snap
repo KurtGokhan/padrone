@@ -4,12 +4,12 @@ exports[`help should generate help for the program 1`] = `
 "Usage: padrone-test [command]
 
 Commands:
-  forecast         
-  current          
-  alerts           
-  compare          
+  list             
+  show             
+  filter           
+  batch            
   noop             
-  cities           
+  tags             
   deprecated-test  
   hidden-test      
   examples-test    
@@ -22,12 +22,12 @@ exports[`help should generate help for the top level command 1`] = `
 "Usage: padrone-test [command]
 
 Commands:
-  forecast         
-  current          
-  alerts           
-  compare          
+  list             
+  show             
+  filter           
+  batch            
   noop             
-  cities           
+  tags             
   deprecated-test  
   hidden-test      
   examples-test    
@@ -37,50 +37,47 @@ Run "padrone-test [command] --help" for more information on a command.
 `;
 
 exports[`help should generate help for a command 1`] = `
-"Usage: padrone-test current [args...] [options]
+"Usage: padrone-test show [args...] [options]
 
 Arguments:
-  city
-    City name
+  id
+    Task ID
 
 Options:
-  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)     Temperature unit
-  --[no-]verbose <boolean> (optional)  Show detailed information
+  --priority <string> (optional) (default: medium) (choices: low, medium, high)  Priority level
+  --[no-]verbose <boolean> (optional)   Show detailed information
 "
 `;
 
 exports[`help should generate help for a command with enabled colors 1`] = `
-"Usage: \x1B[36m\x1B[1mpadrone-test current\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
+"Usage: \x1B[36m\x1B[1mpadrone-test show\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mArguments:\x1B[0m
-  \x1B[32mcity\x1B[0m
-    \x1B[2mCity name\x1B[0m
+  \x1B[32mid\x1B[0m
+    \x1B[2mTask ID\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
-  \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: fahrenheit)\x1B[0m \x1B[90m(choices: celsius, fahrenheit)\x1B[0m     \x1B[2mTemperature unit\x1B[0m
-  \x1B[32m--[no-]verbose\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mShow detailed information\x1B[0m
+  \x1B[32m--priority\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m  \x1B[2mPriority level\x1B[0m
+  \x1B[32m--[no-]verbose\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m   \x1B[2mShow detailed information\x1B[0m
 "
 `;
 
 exports[`help should generate help for a command with nested commands 1`] = `
-"Usage: padrone-test forecast extended [command] [args...] [options]
+"Usage: padrone-test list extended [command] [options]
 
 Commands:
   extended  
 
-Run "forecast extended [command] --help" for more information on a command.
-
-Arguments:
-  city
-    City name (overrides positional argument)
+Run "list extended [command] --help" for more information on a command.
 
 Options:
-  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+  --status <string> (optional) (choices: pending, in_progress, completed)    Filter by status
+  --priority <string> (optional) (default: medium) (choices: low, medium, high)  Filter by priority
 "
 `;
 
 exports[`help should generate help for a command with meta object 1`] = `
-"Usage: padrone-test cities [options]
+"Usage: padrone-test tags [options]
 
 Options:
   --[no-]verbose, -v <boolean> (optional)  Show detailed information
@@ -156,69 +153,70 @@ exports[`help should generate help for a command with examples and colors 1`] = 
 `;
 
 exports[`help should generate help in console format 1`] = `
-"Usage: \x1B[36m\x1B[1mpadrone-test current\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
+"Usage: \x1B[36m\x1B[1mpadrone-test show\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mArguments:\x1B[0m
-  \x1B[32mcity\x1B[0m
-    \x1B[2mCity name\x1B[0m
+  \x1B[32mid\x1B[0m
+    \x1B[2mTask ID\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
-  \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: fahrenheit)\x1B[0m \x1B[90m(choices: celsius, fahrenheit)\x1B[0m     \x1B[2mTemperature unit\x1B[0m
-  \x1B[32m--[no-]verbose\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mShow detailed information\x1B[0m
+  \x1B[32m--priority\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m  \x1B[2mPriority level\x1B[0m
+  \x1B[32m--[no-]verbose\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m   \x1B[2mShow detailed information\x1B[0m
 "
 `;
 
 exports[`help should generate help in markdown format 1`] = `
-"Usage: **padrone-test current** *[args...]* *[options]*
+"Usage: **padrone-test show** *[args...]* *[options]*
 
 
 
 ### Arguments:
 
-  \`city\`
+  \`id\`
 
-    City name
+    Task ID
 
 
 
 ### Options:
 
-  \`--unit\` \`<string>\` *(optional)* *(default: fahrenheit)* *(choices: celsius, fahrenheit)*     Temperature unit
+  \`--priority\` \`<string>\` *(optional)* *(default: medium)* *(choices: low, medium, high)*  Priority level
 
-  \`--[no-]verbose\` \`<boolean>\` *(optional)*  Show detailed information
+  \`--[no-]verbose\` \`<boolean>\` *(optional)*   Show detailed information
 
 "
 `;
 
-exports[`help should generate help in html format 1`] = `"<div style="font-family: monospace; line-height: 1.6;"><strong>Usage:</strong> <strong style="color: #00bcd4;">padrone-test current</strong> <span style="color: #999;">[args...]</span> <span style="color: #999;">[options]</span><br><br><h3>Arguments:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">city</code><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #666;">City name</span><br><br><h3>Options:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">--unit</code> <code style="color: #ff9800;">&lt;string&gt;</code> <span style="color: #999;">(optional)</span> <span style="color: #999;">(default: fahrenheit)</span> <span style="color: #999;">(choices: celsius, fahrenheit)</span>     <span style="color: #666;">Temperature unit</span><br>&nbsp;&nbsp;<code style="color: #4caf50;">--[no-]verbose</code> <code style="color: #ff9800;">&lt;boolean&gt;</code> <span style="color: #999;">(optional)</span>  <span style="color: #666;">Show detailed information</span><br></div>"`;
+exports[`help should generate help in html format 1`] = `"<div style="font-family: monospace; line-height: 1.6;"><strong>Usage:</strong> <strong style="color: #00bcd4;">padrone-test show</strong> <span style="color: #999;">[args...]</span> <span style="color: #999;">[options]</span><br><br><h3>Arguments:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">id</code><br>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #666;">Task ID</span><br><br><h3>Options:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">--priority</code> <code style="color: #ff9800;">&lt;string&gt;</code> <span style="color: #999;">(optional)</span> <span style="color: #999;">(default: medium)</span> <span style="color: #999;">(choices: low, medium, high)</span>  <span style="color: #666;">Priority level</span><br>&nbsp;&nbsp;<code style="color: #4caf50;">--[no-]verbose</code> <code style="color: #ff9800;">&lt;boolean&gt;</code> <span style="color: #999;">(optional)</span>   <span style="color: #666;">Show detailed information</span><br></div>"`;
 
 exports[`help should generate help in json format 1`] = `
 "{
-  "name": "current",
+  "name": "show",
   "usage": {
-    "command": "padrone-test current",
+    "command": "padrone-test show",
     "hasSubcommands": false,
     "hasArguments": true,
     "hasOptions": true
   },
   "arguments": [
     {
-      "name": "city",
-      "description": "City name",
+      "name": "id",
+      "description": "Task ID",
       "optional": false,
       "type": "string"
     }
   ],
   "options": [
     {
-      "name": "unit",
-      "description": "Temperature unit",
+      "name": "priority",
+      "description": "Priority level",
       "optional": true,
-      "default": "fahrenheit",
+      "default": "medium",
       "type": "string",
       "enum": [
-        "celsius",
-        "fahrenheit"
+        "low",
+        "medium",
+        "high"
       ],
       "variadic": false,
       "negatable": false
@@ -239,12 +237,12 @@ exports[`help with full detail mode should generate full help with all nested co
 "Usage: padrone-test [command]
 
 Commands:
-  forecast         
-  current          
-  alerts           
-  compare          
+  list             
+  show             
+  filter           
+  batch            
   noop             
-  cities           
+  tags             
   deprecated-test  
   hidden-test      
   examples-test    
@@ -254,78 +252,71 @@ Run "padrone-test [command] --help" for more information on a command.
 Subcommand Details:
 
 ────────────────────────────────────────────────────────────
-Usage: padrone-test forecast [command] [args...] [options]
+Usage: padrone-test list [command] [options]
 
 Commands:
   extended  
 
-Run "forecast [command] --help" for more information on a command.
-
-Arguments:
-  city
-    City name (overrides positional argument)
+Run "list [command] --help" for more information on a command.
 
 Options:
-  --days <number> (optional) (default: 3)  Number of days to forecast
-  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+  --status <string> (optional) (choices: pending, in_progress, completed)    Filter by status
+  --limit <number> (optional) (default: 10)     Maximum number of tasks
+  --priority <string> (optional) (default: medium) (choices: low, medium, high)  Filter by priority
 
 Subcommand Details:
 
 ────────────────────────────────────────────────────────────
-Usage: padrone-test forecast extended [command] [args...] [options]
+Usage: padrone-test list extended [command] [options]
 
 Commands:
   extended  
 
-Run "forecast extended [command] --help" for more information on a command.
-
-Arguments:
-  city
-    City name (overrides positional argument)
+Run "list extended [command] --help" for more information on a command.
 
 Options:
-  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+  --status <string> (optional) (choices: pending, in_progress, completed)    Filter by status
+  --priority <string> (optional) (default: medium) (choices: low, medium, high)  Filter by priority
 
 Subcommand Details:
 
 ────────────────────────────────────────────────────────────
-Usage: padrone-test forecast extended extended [args...] [options]
-
-Arguments:
-  city
-    City name (overrides positional argument)
-
-────────────────────────────────────────────────────────────
-Usage: padrone-test current [args...] [options]
-
-Arguments:
-  city
-    City name
+Usage: padrone-test list extended extended [options]
 
 Options:
-  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)     Temperature unit
-  --[no-]verbose <boolean> (optional)  Show detailed information
+  --status <string> (optional) (choices: pending, in_progress, completed)  Filter by status
 
 ────────────────────────────────────────────────────────────
-Usage: padrone-test alerts [options]
-
-Options:
-  --region <string> (optional)     Region to check alerts for
-  --severity <string> (optional) (choices: low, medium, high)   Filter by severity
-  --[no-]ascending <boolean> (optional)  Sort alerts in ascending order
-
-────────────────────────────────────────────────────────────
-Usage: padrone-test compare [args...] [options]
+Usage: padrone-test show [args...] [options]
 
 Arguments:
-  ...cities
-    Cities to compare
+  id
+    Task ID
+
+Options:
+  --priority <string> (optional) (default: medium) (choices: low, medium, high)  Priority level
+  --[no-]verbose <boolean> (optional)   Show detailed information
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test filter [options]
+
+Options:
+  --status <string> (optional) (choices: pending, in_progress, completed)     Filter by status
+  --priority <string> (optional) (choices: low, medium, high)   Filter by priority
+  --[no-]ascending <boolean> (optional)  Sort in ascending order
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test batch [args...] [options]
+
+Arguments:
+  ...ids
+    Task IDs to process
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test noop
 
 ────────────────────────────────────────────────────────────
-Usage: padrone-test cities [options]
+Usage: padrone-test tags [options]
 
 Options:
   --[no-]verbose, -v <boolean> (optional)  Show detailed information
@@ -371,22 +362,22 @@ exports[`help with full detail mode should generate full help with all nested co
   },
   "subcommands": [
     {
-      "name": "forecast"
+      "name": "list"
     },
     {
-      "name": "current"
+      "name": "show"
     },
     {
-      "name": "alerts"
+      "name": "filter"
     },
     {
-      "name": "compare"
+      "name": "batch"
     },
     {
       "name": "noop"
     },
     {
-      "name": "cities"
+      "name": "tags"
     },
     {
       "name": "deprecated-test"
@@ -400,11 +391,11 @@ exports[`help with full detail mode should generate full help with all nested co
   ],
   "nestedCommands": [
     {
-      "name": "forecast",
+      "name": "list",
       "usage": {
-        "command": "padrone-test forecast",
+        "command": "padrone-test list",
         "hasSubcommands": true,
-        "hasArguments": true,
+        "hasArguments": false,
         "hasOptions": true
       },
       "subcommands": [
@@ -414,11 +405,11 @@ exports[`help with full detail mode should generate full help with all nested co
       ],
       "nestedCommands": [
         {
-          "name": "forecast extended",
+          "name": "list extended",
           "usage": {
-            "command": "padrone-test forecast extended",
+            "command": "padrone-test list extended",
             "hasSubcommands": true,
-            "hasArguments": true,
+            "hasArguments": false,
             "hasOptions": true
           },
           "subcommands": [
@@ -428,41 +419,54 @@ exports[`help with full detail mode should generate full help with all nested co
           ],
           "nestedCommands": [
             {
-              "name": "forecast extended extended",
+              "name": "list extended extended",
               "usage": {
-                "command": "padrone-test forecast extended extended",
+                "command": "padrone-test list extended extended",
                 "hasSubcommands": false,
-                "hasArguments": true,
+                "hasArguments": false,
                 "hasOptions": true
               },
-              "arguments": [
+              "options": [
                 {
-                  "name": "city",
-                  "description": "City name (overrides positional argument)",
-                  "optional": false,
-                  "type": "string"
+                  "name": "status",
+                  "description": "Filter by status",
+                  "optional": true,
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "in_progress",
+                    "completed"
+                  ],
+                  "variadic": false,
+                  "negatable": false
                 }
               ]
             }
           ],
-          "arguments": [
-            {
-              "name": "city",
-              "description": "City name (overrides positional argument)",
-              "optional": false,
-              "type": "string"
-            }
-          ],
           "options": [
             {
-              "name": "unit",
-              "description": "Temperature unit",
+              "name": "status",
+              "description": "Filter by status",
               "optional": true,
-              "default": "fahrenheit",
               "type": "string",
               "enum": [
-                "celsius",
-                "fahrenheit"
+                "pending",
+                "in_progress",
+                "completed"
+              ],
+              "variadic": false,
+              "negatable": false
+            },
+            {
+              "name": "priority",
+              "description": "Filter by priority",
+              "optional": true,
+              "default": "medium",
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high"
               ],
               "variadic": false,
               "negatable": false
@@ -470,33 +474,39 @@ exports[`help with full detail mode should generate full help with all nested co
           ]
         }
       ],
-      "arguments": [
-        {
-          "name": "city",
-          "description": "City name (overrides positional argument)",
-          "optional": false,
-          "type": "string"
-        }
-      ],
       "options": [
         {
-          "name": "days",
-          "description": "Number of days to forecast",
+          "name": "status",
+          "description": "Filter by status",
           "optional": true,
-          "default": 3,
+          "type": "string",
+          "enum": [
+            "pending",
+            "in_progress",
+            "completed"
+          ],
+          "variadic": false,
+          "negatable": false
+        },
+        {
+          "name": "limit",
+          "description": "Maximum number of tasks",
+          "optional": true,
+          "default": 10,
           "type": "number",
           "variadic": false,
           "negatable": false
         },
         {
-          "name": "unit",
-          "description": "Temperature unit",
+          "name": "priority",
+          "description": "Filter by priority",
           "optional": true,
-          "default": "fahrenheit",
+          "default": "medium",
           "type": "string",
           "enum": [
-            "celsius",
-            "fahrenheit"
+            "low",
+            "medium",
+            "high"
           ],
           "variadic": false,
           "negatable": false
@@ -504,31 +514,32 @@ exports[`help with full detail mode should generate full help with all nested co
       ]
     },
     {
-      "name": "current",
+      "name": "show",
       "usage": {
-        "command": "padrone-test current",
+        "command": "padrone-test show",
         "hasSubcommands": false,
         "hasArguments": true,
         "hasOptions": true
       },
       "arguments": [
         {
-          "name": "city",
-          "description": "City name",
+          "name": "id",
+          "description": "Task ID",
           "optional": false,
           "type": "string"
         }
       ],
       "options": [
         {
-          "name": "unit",
-          "description": "Temperature unit",
+          "name": "priority",
+          "description": "Priority level",
           "optional": true,
-          "default": "fahrenheit",
+          "default": "medium",
           "type": "string",
           "enum": [
-            "celsius",
-            "fahrenheit"
+            "low",
+            "medium",
+            "high"
           ],
           "variadic": false,
           "negatable": false
@@ -544,25 +555,30 @@ exports[`help with full detail mode should generate full help with all nested co
       ]
     },
     {
-      "name": "alerts",
+      "name": "filter",
       "usage": {
-        "command": "padrone-test alerts",
+        "command": "padrone-test filter",
         "hasSubcommands": false,
         "hasArguments": false,
         "hasOptions": true
       },
       "options": [
         {
-          "name": "region",
-          "description": "Region to check alerts for",
+          "name": "status",
+          "description": "Filter by status",
           "optional": true,
           "type": "string",
+          "enum": [
+            "pending",
+            "in_progress",
+            "completed"
+          ],
           "variadic": false,
           "negatable": false
         },
         {
-          "name": "severity",
-          "description": "Filter by severity",
+          "name": "priority",
+          "description": "Filter by priority",
           "optional": true,
           "type": "string",
           "enum": [
@@ -575,7 +591,7 @@ exports[`help with full detail mode should generate full help with all nested co
         },
         {
           "name": "ascending",
-          "description": "Sort alerts in ascending order",
+          "description": "Sort in ascending order",
           "optional": true,
           "type": "boolean",
           "variadic": false,
@@ -584,17 +600,17 @@ exports[`help with full detail mode should generate full help with all nested co
       ]
     },
     {
-      "name": "compare",
+      "name": "batch",
       "usage": {
-        "command": "padrone-test compare",
+        "command": "padrone-test batch",
         "hasSubcommands": false,
         "hasArguments": true,
         "hasOptions": true
       },
       "arguments": [
         {
-          "name": "...cities",
-          "description": "Cities to compare",
+          "name": "...ids",
+          "description": "Task IDs to process",
           "optional": false,
           "type": "array<string>"
         }
@@ -610,9 +626,9 @@ exports[`help with full detail mode should generate full help with all nested co
       }
     },
     {
-      "name": "cities",
+      "name": "tags",
       "usage": {
-        "command": "padrone-test cities",
+        "command": "padrone-test tags",
         "hasSubcommands": false,
         "hasArguments": false,
         "hasOptions": true
@@ -769,17 +785,17 @@ exports[`help with full detail mode should generate full help with all nested co
 
 ### Commands:
 
-  **forecast**         
+  **list**             
 
-  **current**          
+  **show**             
 
-  **alerts**           
+  **filter**           
 
-  **compare**          
+  **batch**            
 
   **noop**             
 
-  **cities**           
+  **tags**             
 
   **deprecated-test**  
 
@@ -799,7 +815,7 @@ exports[`help with full detail mode should generate full help with all nested co
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test forecast** *[command]* *[args...]* *[options]*
+Usage: **padrone-test list** *[command]* *[options]*
 
 
 
@@ -809,23 +825,17 @@ Usage: **padrone-test forecast** *[command]* *[args...]* *[options]*
 
 
 
-*Run "forecast [command] --help" for more information on a command.*
-
-
-
-### Arguments:
-
-  \`city\`
-
-    City name (overrides positional argument)
+*Run "list [command] --help" for more information on a command.*
 
 
 
 ### Options:
 
-  \`--days\` \`<number>\` *(optional)* *(default: 3)*  Number of days to forecast
+  \`--status\` \`<string>\` *(optional)* *(choices: pending, in_progress, completed)*    Filter by status
 
-  \`--unit\` \`<string>\` *(optional)* *(default: fahrenheit)* *(choices: celsius, fahrenheit)*  Temperature unit
+  \`--limit\` \`<number>\` *(optional)* *(default: 10)*     Maximum number of tasks
+
+  \`--priority\` \`<string>\` *(optional)* *(default: medium)* *(choices: low, medium, high)*  Filter by priority
 
 
 
@@ -835,7 +845,7 @@ Usage: **padrone-test forecast** *[command]* *[args...]* *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test forecast extended** *[command]* *[args...]* *[options]*
+Usage: **padrone-test list extended** *[command]* *[options]*
 
 
 
@@ -845,21 +855,15 @@ Usage: **padrone-test forecast extended** *[command]* *[args...]* *[options]*
 
 
 
-*Run "forecast extended [command] --help" for more information on a command.*
-
-
-
-### Arguments:
-
-  \`city\`
-
-    City name (overrides positional argument)
+*Run "list extended [command] --help" for more information on a command.*
 
 
 
 ### Options:
 
-  \`--unit\` \`<string>\` *(optional)* *(default: fahrenheit)* *(choices: celsius, fahrenheit)*  Temperature unit
+  \`--status\` \`<string>\` *(optional)* *(choices: pending, in_progress, completed)*    Filter by status
+
+  \`--priority\` \`<string>\` *(optional)* *(default: medium)* *(choices: low, medium, high)*  Filter by priority
 
 
 
@@ -869,67 +873,65 @@ Usage: **padrone-test forecast extended** *[command]* *[args...]* *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test forecast extended extended** *[args...]* *[options]*
-
-
-
-### Arguments:
-
-  \`city\`
-
-    City name (overrides positional argument)
-
-
-
-*────────────────────────────────────────────────────────────*
-
-Usage: **padrone-test current** *[args...]* *[options]*
-
-
-
-### Arguments:
-
-  \`city\`
-
-    City name
+Usage: **padrone-test list extended extended** *[options]*
 
 
 
 ### Options:
 
-  \`--unit\` \`<string>\` *(optional)* *(default: fahrenheit)* *(choices: celsius, fahrenheit)*     Temperature unit
-
-  \`--[no-]verbose\` \`<boolean>\` *(optional)*  Show detailed information
+  \`--status\` \`<string>\` *(optional)* *(choices: pending, in_progress, completed)*  Filter by status
 
 
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test alerts** *[options]*
-
-
-
-### Options:
-
-  \`--region\` \`<string>\` *(optional)*     Region to check alerts for
-
-  \`--severity\` \`<string>\` *(optional)* *(choices: low, medium, high)*   Filter by severity
-
-  \`--[no-]ascending\` \`<boolean>\` *(optional)*  Sort alerts in ascending order
-
-
-
-*────────────────────────────────────────────────────────────*
-
-Usage: **padrone-test compare** *[args...]* *[options]*
+Usage: **padrone-test show** *[args...]* *[options]*
 
 
 
 ### Arguments:
 
-  \`...cities\`
+  \`id\`
 
-    Cities to compare
+    Task ID
+
+
+
+### Options:
+
+  \`--priority\` \`<string>\` *(optional)* *(default: medium)* *(choices: low, medium, high)*  Priority level
+
+  \`--[no-]verbose\` \`<boolean>\` *(optional)*   Show detailed information
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test filter** *[options]*
+
+
+
+### Options:
+
+  \`--status\` \`<string>\` *(optional)* *(choices: pending, in_progress, completed)*     Filter by status
+
+  \`--priority\` \`<string>\` *(optional)* *(choices: low, medium, high)*   Filter by priority
+
+  \`--[no-]ascending\` \`<boolean>\` *(optional)*  Sort in ascending order
+
+
+
+*────────────────────────────────────────────────────────────*
+
+Usage: **padrone-test batch** *[args...]* *[options]*
+
+
+
+### Arguments:
+
+  \`...ids\`
+
+    Task IDs to process
 
 
 
@@ -941,7 +943,7 @@ Usage: **padrone-test noop**
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test cities** *[options]*
+Usage: **padrone-test tags** *[options]*
 
 
 
@@ -1009,115 +1011,97 @@ Usage: **padrone-test examples-test** *[options]*
 `;
 
 exports[`help with full detail mode should generate full help for a specific command with subcommands 1`] = `
-"Usage: padrone-test forecast [command] [args...] [options]
+"Usage: padrone-test list [command] [options]
 
 Commands:
   extended  
 
-Run "forecast [command] --help" for more information on a command.
-
-Arguments:
-  city
-    City name (overrides positional argument)
+Run "list [command] --help" for more information on a command.
 
 Options:
-  --days <number> (optional) (default: 3)  Number of days to forecast
-  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+  --status <string> (optional) (choices: pending, in_progress, completed)    Filter by status
+  --limit <number> (optional) (default: 10)     Maximum number of tasks
+  --priority <string> (optional) (default: medium) (choices: low, medium, high)  Filter by priority
 
 Subcommand Details:
 
 ────────────────────────────────────────────────────────────
-Usage: padrone-test forecast extended [command] [args...] [options]
+Usage: padrone-test list extended [command] [options]
 
 Commands:
   extended  
 
-Run "forecast extended [command] --help" for more information on a command.
-
-Arguments:
-  city
-    City name (overrides positional argument)
+Run "list extended [command] --help" for more information on a command.
 
 Options:
-  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+  --status <string> (optional) (choices: pending, in_progress, completed)    Filter by status
+  --priority <string> (optional) (default: medium) (choices: low, medium, high)  Filter by priority
 
 Subcommand Details:
 
 ────────────────────────────────────────────────────────────
-Usage: padrone-test forecast extended extended [args...] [options]
+Usage: padrone-test list extended extended [options]
 
-Arguments:
-  city
-    City name (overrides positional argument)
+Options:
+  --status <string> (optional) (choices: pending, in_progress, completed)  Filter by status
 "
 `;
 
 exports[`help with full detail mode should generate full help for deeply nested commands 1`] = `
-"Usage: padrone-test forecast extended [command] [args...] [options]
+"Usage: padrone-test list extended [command] [options]
 
 Commands:
   extended  
 
-Run "forecast extended [command] --help" for more information on a command.
-
-Arguments:
-  city
-    City name (overrides positional argument)
+Run "list extended [command] --help" for more information on a command.
 
 Options:
-  --unit <string> (optional) (default: fahrenheit) (choices: celsius, fahrenheit)  Temperature unit
+  --status <string> (optional) (choices: pending, in_progress, completed)    Filter by status
+  --priority <string> (optional) (default: medium) (choices: low, medium, high)  Filter by priority
 
 Subcommand Details:
 
 ────────────────────────────────────────────────────────────
-Usage: padrone-test forecast extended extended [args...] [options]
+Usage: padrone-test list extended extended [options]
 
-Arguments:
-  city
-    City name (overrides positional argument)
+Options:
+  --status <string> (optional) (choices: pending, in_progress, completed)  Filter by status
 "
 `;
 
 exports[`help with full detail mode should work with ansi format in full detail mode 1`] = `
-"Usage: \x1B[36m\x1B[1mpadrone-test forecast\x1B[0m \x1B[90m[command]\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
+"Usage: \x1B[36m\x1B[1mpadrone-test list\x1B[0m \x1B[90m[command]\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mCommands:\x1B[0m
   \x1B[36m\x1B[1mextended\x1B[0m  
 
-\x1B[90mRun "forecast [command] --help" for more information on a command.\x1B[0m
-
-\x1B[1mArguments:\x1B[0m
-  \x1B[32mcity\x1B[0m
-    \x1B[2mCity name (overrides positional argument)\x1B[0m
+\x1B[90mRun "list [command] --help" for more information on a command.\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
-  \x1B[32m--days\x1B[0m \x1B[33m<number>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: 3)\x1B[0m  \x1B[2mNumber of days to forecast\x1B[0m
-  \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: fahrenheit)\x1B[0m \x1B[90m(choices: celsius, fahrenheit)\x1B[0m  \x1B[2mTemperature unit\x1B[0m
+  \x1B[32m--status\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(choices: pending, in_progress, completed)\x1B[0m    \x1B[2mFilter by status\x1B[0m
+  \x1B[32m--limit\x1B[0m \x1B[33m<number>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: 10)\x1B[0m     \x1B[2mMaximum number of tasks\x1B[0m
+  \x1B[32m--priority\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m  \x1B[2mFilter by priority\x1B[0m
 
 \x1B[1mSubcommand Details:\x1B[0m
 
 \x1B[90m────────────────────────────────────────────────────────────\x1B[0m
-Usage: \x1B[36m\x1B[1mpadrone-test forecast extended\x1B[0m \x1B[90m[command]\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
+Usage: \x1B[36m\x1B[1mpadrone-test list extended\x1B[0m \x1B[90m[command]\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mCommands:\x1B[0m
   \x1B[36m\x1B[1mextended\x1B[0m  
 
-\x1B[90mRun "forecast extended [command] --help" for more information on a command.\x1B[0m
-
-\x1B[1mArguments:\x1B[0m
-  \x1B[32mcity\x1B[0m
-    \x1B[2mCity name (overrides positional argument)\x1B[0m
+\x1B[90mRun "list extended [command] --help" for more information on a command.\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
-  \x1B[32m--unit\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: fahrenheit)\x1B[0m \x1B[90m(choices: celsius, fahrenheit)\x1B[0m  \x1B[2mTemperature unit\x1B[0m
+  \x1B[32m--status\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(choices: pending, in_progress, completed)\x1B[0m    \x1B[2mFilter by status\x1B[0m
+  \x1B[32m--priority\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m  \x1B[2mFilter by priority\x1B[0m
 
 \x1B[1mSubcommand Details:\x1B[0m
 
 \x1B[90m────────────────────────────────────────────────────────────\x1B[0m
-Usage: \x1B[36m\x1B[1mpadrone-test forecast extended extended\x1B[0m \x1B[90m[args...]\x1B[0m \x1B[90m[options]\x1B[0m
+Usage: \x1B[36m\x1B[1mpadrone-test list extended extended\x1B[0m \x1B[90m[options]\x1B[0m
 
-\x1B[1mArguments:\x1B[0m
-  \x1B[32mcity\x1B[0m
-    \x1B[2mCity name (overrides positional argument)\x1B[0m
+\x1B[1mOptions:\x1B[0m
+  \x1B[32m--status\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m \x1B[90m(choices: pending, in_progress, completed)\x1B[0m  \x1B[2mFilter by status\x1B[0m
 "
 `;

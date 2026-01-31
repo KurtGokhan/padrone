@@ -1,55 +1,55 @@
 import { describe, expect, it } from 'bun:test';
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
-import { createWeatherProgram } from './common.ts';
+import { createTasksProgram } from './common.ts';
 import { createConsoleMocker } from './console-mocker.ts';
 
 describe('CLI', () => {
-  const program = createWeatherProgram();
+  const program = createTasksProgram();
   createConsoleMocker();
 
   describe('programmatic execution', () => {
     it('should execute a simple command with args and options', () => {
-      const result = program.run('current', { city: 'New York', unit: 'celsius', verbose: true });
+      const result = program.run('show', { id: 'task-1', priority: 'high', verbose: true });
 
-      expect(result.command.path).toBe('current');
+      expect(result.command.path).toBe('show');
       expect(result.options).toMatchInlineSnapshot(`
         {
-          "city": "New York",
-          "unit": "celsius",
+          "id": "task-1",
+          "priority": "high",
           "verbose": true,
         }
       `);
-      expect(result.result.city).toBe('New York');
-      expect(result.result.temperature).toBe(22);
-      expect(result.result.humidity).toBe(65);
+      expect(result.result.id).toBe('task-1');
+      expect(result.result.title).toBe('Important Task');
+      expect(result.result.stats?.total).toBe(5);
     });
 
     it('should execute a command with default options', () => {
-      const result = program.run('current', { city: 'London' });
+      const result = program.run('show', { id: 'task-2' });
 
-      expect(result.command.path).toBe('current');
-      expect(result.result.temperature).toBe(72); // Default fahrenheit
-      expect(result.result.humidity).toBeUndefined(); // verbose not set
+      expect(result.command.path).toBe('show');
+      expect(result.result.title).toBe('Regular Task'); // Default medium priority
+      expect(result.result.stats).toBeUndefined(); // verbose not set
     });
 
     it('should execute nested commands', () => {
-      const result = program.run('forecast extended', { city: 'Tokyo', unit: 'celsius' });
+      const result = program.run('list extended', { status: 'pending', priority: 'high' });
 
-      expect(result.command.path).toBe('forecast extended');
-      expect(result.options?.city).toEqual('Tokyo');
-      expect(result.options?.unit).toEqual('celsius');
-      expect(result.result.city).toBe('Tokyo');
-      expect(result.result.extendedForecast).toBeDefined();
+      expect(result.command.path).toBe('list extended');
+      expect(result.options?.status).toEqual('pending');
+      expect(result.options?.priority).toEqual('high');
+      expect(result.result.status).toBe('pending');
+      expect(result.result.extendedList).toBeDefined();
     });
 
     it('should execute a command with array args', () => {
-      const result = program.run('compare', { cities: ['New York', 'London', 'Tokyo'] });
+      const result = program.run('batch', { ids: ['task-1', 'task-2', 'task-3'] });
 
-      expect(result.command.path).toBe('compare');
-      expect(result.options?.cities).toEqual(['New York', 'London', 'Tokyo']);
-      expect(result.result.cities).toEqual(['New York', 'London', 'Tokyo']);
-      expect(result.result.comparison).toHaveLength(3);
+      expect(result.command.path).toBe('batch');
+      expect(result.options?.ids).toEqual(['task-1', 'task-2', 'task-3']);
+      expect(result.result.ids).toEqual(['task-1', 'task-2', 'task-3']);
+      expect(result.result.results).toHaveLength(3);
     });
 
     it('should execute a command with void args and options', () => {
@@ -63,52 +63,50 @@ describe('CLI', () => {
 
   describe('CLI parsing', () => {
     it('should parse simple command with args', () => {
-      const result = program.parse('current Paris');
+      const result = program.parse('show task-1');
 
-      expect(result.command.path).toBe('current');
-      expect(result.options?.city).toEqual('Paris');
-      expect(result.options?.unit).toEqual('fahrenheit');
+      expect(result.command.path).toBe('show');
+      expect(result.options?.id).toEqual('task-1');
+      expect(result.options?.priority).toEqual('medium');
     });
 
     it('should parse command with options', () => {
-      const result = program.parse('current London --unit celsius --verbose');
+      const result = program.parse('show task-2 --priority high --verbose');
 
-      expect(result.command.path).toBe('current');
-      expect(result.options?.city).toEqual('London');
-      expect(result.options?.unit).toEqual('celsius');
+      expect(result.command.path).toBe('show');
+      expect(result.options?.id).toEqual('task-2');
+      expect(result.options?.priority).toEqual('high');
       expect(result.options?.verbose).toBe(true);
     });
 
     it('should parse command with option values', () => {
-      const result = program.parse('forecast Tokyo --days=5 --unit fahrenheit');
+      const result = program.parse('list --limit=5 --priority high');
 
-      expect(result.command.path).toBe('forecast');
-      expect(result.options?.city).toEqual('Tokyo');
-      expect(result.options?.days).toEqual(5);
-      expect(result.options?.unit).toEqual('fahrenheit');
+      expect(result.command.path).toBe('list');
+      expect(result.options?.limit).toEqual(5);
+      expect(result.options?.priority).toEqual('high');
     });
 
     it('should parse nested commands', () => {
-      const result = program.parse('forecast extended Berlin --unit celsius');
+      const result = program.parse('list extended --status pending --priority high');
 
-      expect(result.command.path).toBe('forecast extended');
-      expect(result.options?.city).toEqual('Berlin');
-      expect(result.options?.unit).toEqual('celsius');
+      expect(result.command.path).toBe('list extended');
+      expect(result.options?.status).toEqual('pending');
+      expect(result.options?.priority).toEqual('high');
     });
 
     it('should parse command with multiple args', () => {
-      const result = program.parse('compare New York London Tokyo');
+      const result = program.parse('batch task-1 task-2 task-3 task-4');
 
-      expect(result.command.path).toBe('compare');
-      // Note: Parser splits on spaces, so "New York" becomes separate elements
-      expect(result.options?.cities).toEqual(['New', 'York', 'London', 'Tokyo']);
+      expect(result.command.path).toBe('batch');
+      expect(result.options?.ids).toEqual(['task-1', 'task-2', 'task-3', 'task-4']);
     });
 
     it('should parse command with complex options', () => {
-      const result = program.parse('alerts --region "West Coast" --severity high');
+      const result = program.parse('filter --status "in_progress" --priority high');
 
-      expect(result.command.path).toBe('alerts');
-      expect(result.options).toEqual({ region: 'West Coast', severity: 'high' }); // Note: quotes are now properly parsed
+      expect(result.command.path).toBe('filter');
+      expect(result.options).toEqual({ status: 'in_progress', priority: 'high' }); // Note: quotes are now properly parsed
     });
 
     it('should handle empty input', () => {
@@ -121,14 +119,14 @@ describe('CLI', () => {
 
   describe('CLI execution', () => {
     it('should execute command via CLI string', () => {
-      const result = program.cli('current Madrid --unit celsius');
+      const result = program.cli('show task-1 --priority high');
 
       expect(result).toBeDefined();
       if (!result) throw new Error('Result is undefined');
-      expect(result.command.path).toBe('current');
-      expect(result.options?.city).toEqual('Madrid');
-      expect(result.result.city).toBe('Madrid');
-      expect(result.result.temperature).toBe(22);
+      expect(result.command.path).toBe('show');
+      expect(result.options?.id).toEqual('task-1');
+      expect(result.result.id).toBe('task-1');
+      expect(result.result.title).toBe('Important Task');
     });
 
     it('should return undefined for empty CLI input', () => {
@@ -136,34 +134,34 @@ describe('CLI', () => {
     });
 
     it('should execute nested command via CLI', () => {
-      const result = program.cli('forecast extended Sydney --unit celsius');
+      const result = program.cli('list extended --status pending --priority high');
 
       expect(result).toBeDefined();
-      expect(result?.command.path).toBe('forecast extended');
-      expect(result?.result.city).toBe('Sydney');
+      expect(result?.command.path).toBe('list extended');
+      expect(result?.result.status).toBe('pending');
     });
 
     it('should throw error for non-existent command', () => {
       expect(() => {
-        program.run('nonexistent' as any, {});
+        program.run('nonexistent', {});
       }).toThrow('Command "nonexistent" not found');
     });
   });
 
   describe('command finding', () => {
     it('should find a top-level command', () => {
-      const command = program.find('current');
+      const command = program.find('show');
 
       expect(command).toBeDefined();
-      expect(command?.name).toBe('current');
+      expect(command?.name).toBe('show');
     });
 
     it('should find a nested command', () => {
-      const command = program.find('forecast extended');
+      const command = program.find('list extended');
 
       expect(command).toBeDefined();
       expect(command?.name).toBe('extended');
-      expect(command?.path).toBe('forecast extended');
+      expect(command?.path).toBe('list extended');
     });
 
     it('should return undefined for non-existent command', () => {
@@ -177,47 +175,47 @@ describe('CLI', () => {
     it('should generate type-safe API for top-level commands', () => {
       const api = program.api();
 
-      expect(api.current).toBeDefined();
-      expect(typeof api.current).toBe('function');
+      expect(api.show).toBeDefined();
+      expect(typeof api.show).toBe('function');
 
-      const result = api.current({ city: 'Berlin', unit: 'celsius', verbose: true });
+      const result = api.show({ id: 'task-1', priority: 'high', verbose: true });
       // API returns PadroneCommandResult, so access .result property
-      expect(result.city).toBe('Berlin');
-      expect(result.temperature).toBe(22);
+      expect(result.id).toBe('task-1');
+      expect(result.title).toBe('Important Task');
     });
 
     it('should generate nested API structure', () => {
       const api = program.api();
-      expect(api.forecast).toBeDefined();
-      expect(typeof api.forecast).toBe('function');
-      expect(api.forecast.extended).toBeDefined();
-      expect(typeof api.forecast.extended).toBe('function');
+      expect(api.list).toBeDefined();
+      expect(typeof api.list).toBe('function');
+      expect(api.list.extended).toBeDefined();
+      expect(typeof api.list.extended).toBe('function');
 
-      const result = api.forecast.extended({ city: 'Paris', unit: 'celsius' });
+      const result = api.list.extended({ status: 'pending', priority: 'high' });
       // API returns PadroneCommandResult, so access .result property
-      expect(result.city).toBe('Paris');
-      expect(result.extendedForecast).toBeDefined();
+      expect(result.status).toBe('pending');
+      expect(result.extendedList).toBeDefined();
     });
 
     it('should generate API for all commands', () => {
       const api = program.api();
 
-      expect(api.current).toBeDefined();
-      expect(api.forecast).toBeDefined();
-      expect(api.alerts).toBeDefined();
-      expect(api.compare).toBeDefined();
+      expect(api.show).toBeDefined();
+      expect(api.list).toBeDefined();
+      expect(api.filter).toBeDefined();
+      expect(api.batch).toBeDefined();
       expect(api.noop).toBeDefined();
     });
 
     it('should execute commands through API', () => {
       const api = program.api();
 
-      const compareResult = api.compare({ cities: ['NYC', 'LA'] });
+      const batchResult = api.batch({ ids: ['task-1', 'task-2'] });
       // API returns PadroneCommandResult, so access .result property
-      expect(compareResult.cities).toEqual(['NYC', 'LA']);
+      expect(batchResult.ids).toEqual(['task-1', 'task-2']);
 
-      const alertsResult = api.alerts({ region: 'California', severity: 'high' });
-      expect(alertsResult.region).toBe('California');
+      const filterResult = api.filter({ status: 'pending', priority: 'high' });
+      expect(filterResult.status).toBe('pending');
     });
   });
 
@@ -231,11 +229,11 @@ describe('CLI', () => {
 
     it('should handle command with positional args', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
-        c.options(z.object({ city: z.string() }), { positional: ['city'] }).action((options) => ({ city: options.city })),
+        c.options(z.object({ id: z.string() }), { positional: ['id'] }).action((options) => ({ id: options.id })),
       );
 
-      const result = program.run('test', { city: 'City' });
-      expect(result.result.city).toBe('City');
+      const result = program.run('test', { id: 'task-1' });
+      expect(result.result.id).toBe('task-1');
     });
 
     it('should handle deeply nested commands', () => {
@@ -249,67 +247,67 @@ describe('CLI', () => {
 
     it('should handle command names with spaces in parsing', () => {
       // Note: This tests the parsing behavior - spaces typically separate commands
-      const result = program.parse('forecast extended');
+      const result = program.parse('list extended');
 
-      expect(result.command.path).toBe('forecast extended');
+      expect(result.command.path).toBe('list extended');
     });
 
     it('should handle options without values', () => {
-      const result = program.parse('alerts --ascending');
+      const result = program.parse('filter --ascending');
 
-      expect(result.command.path).toBe('alerts');
+      expect(result.command.path).toBe('filter');
       expect(result.options?.ascending).toBe(true);
     });
 
     it('should handle multiple boolean options', () => {
-      const result = program.parse('current Paris --verbose --unit celsius');
+      const result = program.parse('show task-1 --verbose --priority high');
 
-      expect(result.command.path).toBe('current');
+      expect(result.command.path).toBe('show');
       expect(result.options?.verbose).toBe(true);
-      expect(result.options?.unit).toBe('celsius');
+      expect(result.options?.priority).toBe('high');
     });
   });
 
-  describe('real-world weather CLI scenarios', () => {
-    it('should handle checking current weather for multiple cities sequentially', () => {
-      const cities = ['New York', 'London', 'Tokyo'];
-      const results = cities.map((city) => program.run('current', { city, unit: 'celsius' }));
+  describe('real-world task CLI scenarios', () => {
+    it('should handle showing tasks for multiple IDs sequentially', () => {
+      const ids = ['task-1', 'task-2', 'task-3'];
+      const results = ids.map((id) => program.run('show', { id, priority: 'high' }));
 
       expect(results).toHaveLength(3);
       results.forEach((result, i) => {
-        expect(result.result.city).toBe(cities[i]!);
-        expect(result.result.temperature).toBe(22);
+        expect(result.result.id).toBe(ids[i]!);
+        expect(result.result.title).toBe('Important Task');
       });
     });
 
-    it('should handle getting forecast with custom days', () => {
-      const result = program.run('forecast', { city: 'Miami', days: 5, unit: 'fahrenheit' });
+    it('should handle listing tasks with custom limit', () => {
+      const result = program.run('list', { limit: 5, priority: 'medium' });
 
-      expect(result.result.days).toBe(5);
-      expect(result.result.forecast).toHaveLength(2); // Mock data only has 2 days
+      expect(result.result.limit).toBe(5);
+      expect(result.result.tasks).toHaveLength(2); // Mock data only has 2 tasks
     });
 
-    it('should handle comparing weather across multiple cities', () => {
-      const cities = ['Seattle', 'Portland', 'Vancouver'];
-      const result = program.run('compare', { cities });
+    it('should handle batch operations across multiple tasks', () => {
+      const ids = ['task-1', 'task-2', 'task-3'];
+      const result = program.run('batch', { ids });
 
-      expect(result.result?.comparison).toHaveLength(3);
-      result.result?.comparison.forEach((comp: any, i: number) => {
-        expect(comp.city).toBe(cities[i]);
-        expect(comp.temp).toBeDefined();
-        expect(comp.condition).toBeDefined();
+      expect(result.result?.results).toHaveLength(3);
+      result.result?.results.forEach((res: any, i: number) => {
+        expect(res.id).toBe(ids[i]);
+        expect(res.status).toBeDefined();
+        expect(res.title).toBeDefined();
       });
     });
 
-    it('should handle checking alerts with filters', () => {
-      const result = program.run('alerts', {
-        region: 'West Coast',
-        severity: 'high',
+    it('should handle filtering tasks with options', () => {
+      const result = program.run('filter', {
+        status: 'pending',
+        priority: 'high',
       });
 
-      expect(result.result.region).toBe('West Coast');
-      expect(result.result.severity).toBe('high');
-      expect(result.result.alerts).toBeDefined();
+      expect(result.result.status).toBe('pending');
+      expect(result.result.priority).toBe('high');
+      expect(result.result.tasks).toBeDefined();
     });
   });
 
@@ -542,57 +540,57 @@ describe('CLI', () => {
 
   describe('stringify', () => {
     it('should stringify a simple command with args', () => {
-      const result = program.stringify('current', { city: 'New York', unit: 'fahrenheit' });
+      const result = program.stringify('show', { id: 'task 1', priority: 'medium' });
 
-      expect(result).toBe('current "New York" --unit=fahrenheit');
+      expect(result).toBe('show "task 1" --priority=medium');
     });
 
     it('should stringify a command with args and options', () => {
-      const result = program.stringify('current', { city: 'London', unit: 'celsius', verbose: true });
+      const result = program.stringify('show', { id: 'task-1', priority: 'high', verbose: true });
 
-      expect(result).toBe('current London --unit=celsius --verbose');
+      expect(result).toBe('show task-1 --priority=high --verbose');
     });
 
     it('should stringify a nested command', () => {
-      const result = program.stringify('forecast extended', { city: 'Tokyo', unit: 'fahrenheit' });
+      const result = program.stringify('list extended', { status: 'pending', priority: 'medium' });
 
-      expect(result).toBe('forecast extended Tokyo --unit=fahrenheit');
+      expect(result).toBe('list extended --status=pending --priority=medium');
     });
 
     it('should stringify a command with multiple args', () => {
-      const result = program.stringify('compare', { cities: ['NYC', 'LA', 'Chicago'] });
+      const result = program.stringify('batch', { ids: ['task-1', 'task-2', 'task-3'] });
 
-      expect(result).toBe('compare NYC LA Chicago');
+      expect(result).toBe('batch task-1 task-2 task-3');
     });
 
     it('should stringify args with spaces using quotes', () => {
-      const result = program.stringify('compare', { cities: ['New York', 'Los Angeles'] });
+      const result = program.stringify('batch', { ids: ['task one', 'task two'] });
 
-      expect(result).toBe('compare "New York" "Los Angeles"');
+      expect(result).toBe('batch "task one" "task two"');
     });
 
     it('should stringify options with string values containing spaces', () => {
-      const result = program.stringify('alerts', { region: 'West Coast', severity: 'high' });
+      const result = program.stringify('filter', { status: 'in_progress', priority: 'high' });
 
-      expect(result).toBe('alerts --region="West Coast" --severity=high');
+      expect(result).toBe('filter --status=in_progress --priority=high');
     });
 
     it('should stringify false boolean options with no- prefix', () => {
-      const result = program.stringify('alerts', { ascending: false });
+      const result = program.stringify('filter', { ascending: false });
 
-      expect(result).toBe('alerts --no-ascending');
+      expect(result).toBe('filter --no-ascending');
     });
 
     it('should stringify numeric options', () => {
-      const result = program.stringify('forecast', { city: 'Berlin', days: 5, unit: 'celsius' });
+      const result = program.stringify('list', { limit: 5, priority: 'high' });
 
-      expect(result).toBe('forecast Berlin --days=5 --unit=celsius');
+      expect(result).toBe('list --limit=5 --priority=high');
     });
 
     it('should omit undefined options', () => {
-      const result = program.stringify('current', { city: 'Paris', unit: 'celsius', verbose: undefined });
+      const result = program.stringify('show', { id: 'task-1', priority: 'high', verbose: undefined });
 
-      expect(result).toBe('current Paris --unit=celsius');
+      expect(result).toBe('show task-1 --priority=high');
     });
 
     it('should handle command with no args and no options', () => {
@@ -607,20 +605,20 @@ describe('CLI', () => {
       }).toThrow('Command "nonexistent" not found');
     });
 
-    it('should handle empty cities array', () => {
-      const result = program.stringify('compare', { cities: [] });
+    it('should handle empty ids array', () => {
+      const result = program.stringify('batch', { ids: [] });
 
-      expect(result).toBe('compare');
+      expect(result).toBe('batch');
     });
 
     it('should roundtrip: stringify then parse produces same result', () => {
-      const original = { command: 'current' as const, options: { city: 'Tokyo', unit: 'celsius' as const, verbose: true } };
+      const original = { command: 'show' as const, options: { id: 'task-1', priority: 'high' as const, verbose: true } };
       const stringified = program.stringify(original.command, original.options);
-      const parsed = program.parse<'current'>(stringified);
+      const parsed = program.parse<'show'>(stringified);
 
       expect(parsed.command.path).toBe(original.command);
-      expect(parsed.options?.city).toEqual(original.options.city);
-      expect(parsed.options?.unit).toBe(original.options.unit);
+      expect(parsed.options?.id).toEqual(original.options.id);
+      expect(parsed.options?.priority).toBe(original.options.priority);
       expect(parsed.options?.verbose).toBe(original.options.verbose);
     });
 
@@ -892,24 +890,24 @@ describe('CLI', () => {
 
   describe('quoted string parsing', () => {
     it('should parse double-quoted strings with spaces', () => {
-      const result = program.parse('current "New York" --unit celsius');
+      const result = program.parse('show "task one" --priority high');
 
-      expect(result.options?.city).toEqual('New York');
-      expect(result.options?.unit).toBe('celsius');
+      expect(result.options?.id).toEqual('task one');
+      expect(result.options?.priority).toBe('high');
     });
 
     it('should parse single-quoted strings with spaces', () => {
-      const result = program.parse("current 'San Francisco' --unit celsius");
+      const result = program.parse("show 'task two' --priority high");
 
-      expect(result.options?.city).toEqual('San Francisco');
-      expect(result.options?.unit).toBe('celsius');
+      expect(result.options?.id).toEqual('task two');
+      expect(result.options?.priority).toBe('high');
     });
 
     it('should parse quoted option values', () => {
-      const result = program.parse('alerts --region="West Coast" --severity high');
+      const result = program.parse('filter --status="in_progress" --priority high');
 
-      expect(result.options?.region).toBe('West Coast');
-      expect(result.options?.severity).toBe('high');
+      expect(result.options?.status).toBe('in_progress');
+      expect(result.options?.priority).toBe('high');
     });
 
     it('should handle escaped quotes within quoted strings', () => {
@@ -923,9 +921,9 @@ describe('CLI', () => {
     });
 
     it('should handle multiple quoted arguments', () => {
-      const result = program.parse('compare "New York" "Los Angeles" "San Francisco"');
+      const result = program.parse('batch "task one" "task two" "task three"');
 
-      expect(result.options?.cities).toEqual(['New York', 'Los Angeles', 'San Francisco']);
+      expect(result.options?.ids).toEqual(['task one', 'task two', 'task three']);
     });
   });
 
