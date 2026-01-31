@@ -1,40 +1,83 @@
 ---
-title: Welcome to Starlight
-description: Get started building your docs site with Starlight.
-template: splash # Remove or comment out this line to display the site sidebar on this page.
+title: Padrone
+description: Create type-safe, interactive CLI apps with Zod schemas
+template: splash
 hero:
-  tagline: Congrats on setting up a new Starlight project!
+  tagline: Build powerful CLI applications with full TypeScript support, Zod validation, and AI integration
   image:
-    file: ../../assets/houston.webp
+    file: ../../assets/padrone.svg
   actions:
-    - text: Example Guide
-      link: /guides/example/
+    - text: Get Started
+      link: /guides/introduction/
       icon: right-arrow
-    - text: Read the Starlight docs
-      link: https://starlight.astro.build
+    - text: View on GitHub
+      link: https://github.com/KurtGokhan/padrone
       icon: external
       variant: minimal
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Next steps
+## Features
 
 <CardGrid stagger>
-	<Card title="Update content" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
-	</Card>
-	<Card title="Change page layout" icon="document">
-		Delete `template: splash` in `src/content/docs/index.mdx` to display a
-		sidebar on this page.
-	</Card>
-	<Card title="Add new content" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
-	</Card>
-	<Card title="Configure your site" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
-	</Card>
-	<Card title="Read the docs" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
-	</Card>
+  <Card title="Type-Safe" icon="approve-check">
+    Full TypeScript support with Zod schema validation. Your CLI options are fully typed from definition to execution.
+  </Card>
+  <Card title="Fluent API" icon="puzzle">
+    Chain commands, arguments, and options with a clean builder pattern. Easy to read and maintain.
+  </Card>
+  <Card title="AI-Ready" icon="rocket">
+    First-class support for Vercel AI SDK. Expose your CLI as an AI tool with a single method call.
+  </Card>
+  <Card title="Auto Help" icon="document">
+    Automatic help generation from your schema definitions in multiple formats: text, ANSI, markdown, HTML, JSON.
+  </Card>
+  <Card title="Nested Commands" icon="list-format">
+    Support for deeply nested subcommands with full type inference throughout.
+  </Card>
+  <Card title="Standard Schema" icon="setting">
+    Built on Standard Schema for maximum compatibility. Works with Zod 3.25+ or 4.x.
+  </Card>
 </CardGrid>
+
+## Quick Example
+
+```typescript
+import { createPadrone } from 'padrone';
+import * as z from 'zod/v4';
+
+const program = createPadrone('myapp')
+  .command('greet', (c) =>
+    c
+      .options(
+        z.object({
+          names: z.array(z.string()).describe('Names to greet'),
+          prefix: z.string().optional().describe('Prefix').meta({ alias: 'p' }),
+        }),
+        { positional: ['...names'] },
+      )
+      .action((options) => {
+        options.names.forEach((name) => {
+          console.log(`Hello, ${options.prefix ?? ''} ${name}!`);
+        });
+      }),
+  );
+
+program.cli();
+```
+
+```bash
+myapp greet John Jane -p Mr.
+# Output:
+# Hello, Mr. John!
+# Hello, Mr. Jane!
+```
+
+## Installation
+
+```bash
+npm install padrone zod
+# or
+bun add padrone zod
+```
