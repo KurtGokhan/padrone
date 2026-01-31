@@ -181,13 +181,10 @@ const program = createPadrone('app')
 
 ### Environment Variables and Config Files
 
-Padrone supports binding options to environment variables and config files:
+Padrone supports loading options from environment variables and config files using dedicated schema methods:
 
 ```typescript
 const program = createPadrone('app')
-  .configure({
-    configFiles: ['app.config.json', '.apprc'],
-  })
   .command('serve', (c) =>
     c
       .options(
@@ -195,18 +192,34 @@ const program = createPadrone('app')
           port: z.number().default(3000).describe('Port to listen on'),
           apiKey: z.string().describe('API key for authentication'),
         }),
-        {
-          options: {
-            port: { env: 'APP_PORT', configKey: 'server.port' },
-            apiKey: { env: ['API_KEY', 'APP_API_KEY'] },
-          },
-        },
+      )
+      // Map environment variables to options
+      .env(
+        z
+          .object({
+            APP_PORT: z.coerce.number().optional(),
+            API_KEY: z.string().optional(),
+          })
+          .transform((env) => ({
+            port: env.APP_PORT,
+            apiKey: env.API_KEY,
+          })),
+      )
+      // Load config from JSON file with matching schema
+      .configFile(
+        'app.config.json',
+        z.object({
+          port: z.number().optional(),
+          apiKey: z.string().optional(),
+        }),
       )
       .action((options) => {
         console.log(`Server running on port ${options.port}`);
       }),
   );
 ```
+
+**Precedence order** (highest to lowest): CLI args > environment variables > config file
 
 ## 🤖 AI SDK Integration
 
@@ -271,9 +284,11 @@ Creates a new CLI program with the given name.
 
 | Method | Description |
 |--------|-------------|
-| `.configure(config)` | Configure program properties (title, description, version, configFiles) |
+| `.configure(config)` | Configure program properties (title, description, version) |
 | `.command(name, builder)` | Add a command to the program |
 | `.options(schema, meta?)` | Define options schema with optional positional args |
+| `.env(schema)` | Define schema for parsing environment variables into options |
+| `.configFile(file, schema?)` | Configure config file path(s) and schema |
 | `.action(handler)` | Set the command handler function |
 | `.cli(input?)` | Run as CLI (parses `process.argv` or input string) |
 | `.run(command, options)` | Run a command programmatically |
@@ -292,8 +307,8 @@ Use the second argument of `.options()` to configure positional arguments and pe
 .options(schema, {
   positional: ['source', '...files', 'dest'],  // '...files' is variadic
   options: {
-    verbose: { alias: 'v', env: 'VERBOSE' },
-    config: { configKey: 'settings.config' },
+    verbose: { alias: 'v' },
+    format: { deprecated: 'Use --output instead' },
   },
 })
 ```
@@ -308,8 +323,6 @@ z.string().meta({
   examples: ['value'],   // Example values for help text
   deprecated: 'message', // Mark as deprecated
   hidden: true,          // Hide from help output
-  env: 'MY_VAR',         // Bind to environment variable
-  configKey: 'path.key', // Bind to config file key
 })
 ```
 

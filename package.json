@@ -31,7 +31,11 @@
     "check": "biome check",
     "checks": "bun check && bun run test && bun types",
     "prepare": "husky",
-    "bump": "bumpp -r --no-push"
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "changeset:status": "changeset status",
+    "bump": "bumpp -r --no-push",
+    "release": "bun changeset:version && bun bump"
   },
   "dependencies": {
     "@typescript/native-preview": "7.0.0-dev.20260131.1"

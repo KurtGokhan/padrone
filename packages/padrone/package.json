@@ -52,7 +52,8 @@
     "src/",
     "media/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsdown src/index.ts --dts --sourcemap",
