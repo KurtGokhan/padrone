@@ -22,20 +22,22 @@ type ParseParts = {
    * An option provided to the command, prefixed with `--`.
    * If the option has an `=` sign, the value after it is used as the option's value.
    * Otherwise, the value is obtained from the next part or set to `true` if no value is provided.
+   * The key is an array representing the path for nested options (e.g., `--user.id=123` becomes `['user', 'id']`).
    */
   option: {
     type: 'option';
-    key: string;
+    key: string[];
     value?: string | string[];
     negated?: boolean;
   };
   /**
    * An alias option provided to the command, prefixed with `-`.
    * Which option it maps to cannot be determined until the command structure is known.
+   * Aliases cannot be nested, so the key is always a single-element array.
    */
   alias: {
     type: 'alias';
-    key: string;
+    key: string[];
     value?: string | string[];
   };
 };
@@ -119,19 +121,23 @@ export function parseCliInputToParts(input: string): ParsePart[] {
     pendingValue = undefined;
 
     if (part.startsWith('--no-') && part.length > 5) {
-      // Negated boolean option (--no-verbose)
-      const key = part.slice(5);
+      // Negated boolean option (--no-verbose or --no-config.debug)
+      const keyStr = part.slice(5);
+      const key = keyStr.split('.');
       const p = { type: 'option' as const, key, value: undefined, negated: true };
       result.push(p);
     } else if (part.startsWith('--')) {
-      const [key = '', value] = splitOptionValue(part.slice(2));
+      const [keyStr = '', value] = splitOptionValue(part.slice(2));
+      const key = keyStr.split('.');
 
       const p = { type: 'option' as const, key, value };
       if (typeof value === 'undefined') pendingValue = p;
       result.push(p);
     } else if (part.startsWith('-') && part.length > 1 && !/^-\d/.test(part)) {
       // Short option (but not negative numbers like -5)
-      const [key = '', value] = splitOptionValue(part.slice(1));
+      // Aliases cannot be nested, so key is always a single-element array
+      const [keyStr = '', value] = splitOptionValue(part.slice(1));
+      const key = [keyStr];
 
       const p = { type: 'alias' as const, key, value };
       if (typeof value === 'undefined') pendingValue = p;
@@ -177,6 +183,43 @@ function splitOptionValue(str: string): [string, string | string[] | undefined] 
   }
 
   return [key, value];
+}
+
+/**
+ * Sets a value at a nested path in an object.
+ * For example: setNestedValue(obj, ['user', 'profile', 'name'], 'John')
+ * Creates intermediate objects as needed.
+ */
+export function setNestedValue(obj: Record<string, unknown>, path: string[], value: unknown): void {
+  let current: Record<string, unknown> = obj;
+
+  for (let i = 0; i < path.length - 1; i++) {
+    const part = path[i]!;
+    if (!(part in current) || typeof current[part] !== 'object' || current[part] === null) {
+      current[part] = {};
+    }
+    current = current[part] as Record<string, unknown>;
+  }
+
+  const lastPart = path[path.length - 1]!;
+  current[lastPart] = value;
+}
+
+/**
+ * Gets a value at a nested path in an object.
+ * Returns undefined if the path doesn't exist.
+ */
+export function getNestedValue(obj: Record<string, unknown>, path: string[]): unknown {
+  let current: unknown = obj;
+
+  for (const part of path) {
+    if (current === null || current === undefined || typeof current !== 'object') {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[part];
+  }
+
+  return current;
 }
 
 /**

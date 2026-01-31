@@ -2,7 +2,7 @@ import type { Schema } from 'ai';
 import { generateCompletionOutput, type ShellType } from './completion.ts';
 import { generateHelp } from './help.ts';
 import { extractSchemaMetadata, parsePositionalConfig, preprocessOptions } from './options.ts';
-import { parseCliInputToParts } from './parse.ts';
+import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
 import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneProgram } from './types.ts';
 import { findConfigFile, getVersion, loadConfigFile } from './utils.ts';
 
@@ -106,20 +106,24 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const rawOptions: Record<string, unknown> = {};
 
     for (const opt of opts) {
-      const key = opt.type === 'alias' ? aliases[opt.key] || opt.key : opt.key;
+      // For aliases, resolve to the full key name (aliases map single char to full key name)
+      // opt.key is now a string[] - for aliases it's always single element like ['v']
+      const key: string[] = opt.type === 'alias' && opt.key.length === 1 && aliases[opt.key[0]!] ? [aliases[opt.key[0]!]!] : opt.key;
+
+      const rootKey = key[0]!;
 
       // Handle negated boolean options (--no-verbose)
       if (opt.type === 'option' && opt.negated) {
-        rawOptions[key] = false;
+        setNestedValue(rawOptions, key, false);
         continue;
       }
 
       const value = opt.value ?? true;
 
       // Handle array options - accumulate values into arrays (arrays are always variadic)
-      if (arrayOptions.has(key)) {
-        if (key in rawOptions) {
-          const existing = rawOptions[key];
+      if (arrayOptions.has(rootKey)) {
+        const existing = getNestedValue(rawOptions, key);
+        if (existing !== undefined) {
           if (Array.isArray(existing)) {
             if (Array.isArray(value)) {
               existing.push(...value);
@@ -128,16 +132,16 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             }
           } else {
             if (Array.isArray(value)) {
-              rawOptions[key] = [existing, ...value];
+              setNestedValue(rawOptions, key, [existing, ...value]);
             } else {
-              rawOptions[key] = [existing, value];
+              setNestedValue(rawOptions, key, [existing, value]);
             }
           }
         } else {
-          rawOptions[key] = Array.isArray(value) ? value : [value];
+          setNestedValue(rawOptions, key, Array.isArray(value) ? value : [value]);
         }
       } else {
-        rawOptions[key] = value;
+        setNestedValue(rawOptions, key, value);
       }
     }
 
@@ -266,9 +270,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         }
       }
 
-      // Output remaining options (non-positional)
-      for (const [key, value] of Object.entries(options)) {
-        if (value === undefined || positionalNames.has(key)) continue;
+      // Helper to stringify a value with a given key prefix
+      const stringifyValue = (key: string, value: unknown) => {
+        if (value === undefined) return;
 
         if (typeof value === 'boolean') {
           if (value) parts.push(`--${key}`);
@@ -280,12 +284,23 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             if (vStr.includes(' ')) parts.push(`--${key}="${vStr}"`);
             else parts.push(`--${key}=${vStr}`);
           }
+        } else if (typeof value === 'object' && value !== null) {
+          // Handle nested objects - convert to dot notation
+          for (const [nestedKey, nestedValue] of Object.entries(value)) {
+            stringifyValue(`${key}.${nestedKey}`, nestedValue);
+          }
         } else if (typeof value === 'string') {
           if (value.includes(' ')) parts.push(`--${key}="${value}"`);
           else parts.push(`--${key}=${value}`);
         } else {
           parts.push(`--${key}=${value}`);
         }
+      };
+
+      // Output remaining options (non-positional)
+      for (const [key, value] of Object.entries(options)) {
+        if (value === undefined || positionalNames.has(key)) continue;
+        stringifyValue(key, value);
       }
     }
 
@@ -312,18 +327,21 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const terms = parts.filter((p) => p.type === 'term').map((p) => p.value);
     const opts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
 
+    // Helper to check if a key array matches a single key string
+    const keyIs = (key: string[], name: string) => key.length === 1 && key[0] === name;
+
     // Check for --help, -h flags (these take precedence over commands)
-    const hasHelpFlag = opts.some((p) => (p.type === 'option' && p.key === 'help') || (p.type === 'alias' && p.key === 'h'));
+    const hasHelpFlag = opts.some((p) => (p.type === 'option' && keyIs(p.key, 'help')) || (p.type === 'alias' && keyIs(p.key, 'h')));
 
     // Extract detail level from --detail=<level> or -d <level>
     const getDetailLevel = (): DetailLevel | undefined => {
       for (const opt of opts) {
-        if (opt.type === 'option' && opt.key === 'detail' && typeof opt.value === 'string') {
+        if (opt.type === 'option' && keyIs(opt.key, 'detail') && typeof opt.value === 'string') {
           if (opt.value === 'minimal' || opt.value === 'standard' || opt.value === 'full') {
             return opt.value;
           }
         }
-        if (opt.type === 'alias' && opt.key === 'd' && typeof opt.value === 'string') {
+        if (opt.type === 'alias' && keyIs(opt.key, 'd') && typeof opt.value === 'string') {
           if (opt.value === 'minimal' || opt.value === 'standard' || opt.value === 'full') {
             return opt.value;
           }
@@ -337,12 +355,12 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const getFormat = (): FormatLevel | undefined => {
       const validFormats: FormatLevel[] = ['text', 'ansi', 'console', 'markdown', 'html', 'json', 'auto'];
       for (const opt of opts) {
-        if (opt.type === 'option' && opt.key === 'format' && typeof opt.value === 'string') {
+        if (opt.type === 'option' && keyIs(opt.key, 'format') && typeof opt.value === 'string') {
           if (validFormats.includes(opt.value as FormatLevel)) {
             return opt.value as FormatLevel;
           }
         }
-        if (opt.type === 'alias' && opt.key === 'f' && typeof opt.value === 'string') {
+        if (opt.type === 'alias' && keyIs(opt.key, 'f') && typeof opt.value === 'string') {
           if (validFormats.includes(opt.value as FormatLevel)) {
             return opt.value as FormatLevel;
           }
@@ -354,7 +372,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     // Check for --version, -v, -V flags
     const hasVersionFlag = opts.some(
-      (p) => (p.type === 'option' && p.key === 'version') || (p.type === 'alias' && (p.key === 'v' || p.key === 'V')),
+      (p) => (p.type === 'option' && keyIs(p.key, 'version')) || (p.type === 'alias' && (keyIs(p.key, 'v') || keyIs(p.key, 'V'))),
     );
 
     // If the first term is the program name, skip it
@@ -414,10 +432,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const opts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
 
     for (const opt of opts) {
-      if (opt.type === 'option' && opt.key === 'config' && typeof opt.value === 'string') {
+      if (opt.type === 'option' && opt.key.length === 1 && opt.key[0] === 'config' && typeof opt.value === 'string') {
         return opt.value;
       }
-      if (opt.type === 'alias' && opt.key === 'c' && typeof opt.value === 'string') {
+      if (opt.type === 'alias' && opt.key.length === 1 && opt.key[0] === 'c' && typeof opt.value === 'string') {
         return opt.value;
       }
     }

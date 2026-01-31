@@ -1641,4 +1641,111 @@ describe('CLI', () => {
       }
     });
   });
+
+  describe('nested object options (dot notation)', () => {
+    it('should parse --key.nested=value as nested object', () => {
+      const program = createPadrone('test-cli').command('test', (c) =>
+        c.options(z.object({ user: z.object({ id: z.coerce.number() }).optional() })).action((options) => options),
+      );
+
+      const result = program.parse('test --user.id=123');
+
+      expect(result.options?.user).toEqual({ id: 123 });
+    });
+
+    it('should parse deeply nested options', () => {
+      const program = createPadrone('test-cli').command('test', (c) =>
+        c.options(z.object({ server: z.object({ database: z.object({ host: z.string() }) }).optional() })).action((options) => options),
+      );
+
+      const result = program.parse('test --server.database.host=localhost');
+
+      expect(result.options?.server).toEqual({ database: { host: 'localhost' } });
+    });
+
+    it('should combine multiple nested options into same object', () => {
+      const program = createPadrone('test-cli').command('test', (c) =>
+        c.options(z.object({ user: z.object({ name: z.string(), age: z.coerce.number() }).optional() })).action((options) => options),
+      );
+
+      const result = program.parse('test --user.name=John --user.age=30');
+
+      expect(result.options?.user).toEqual({ name: 'John', age: 30 });
+    });
+
+    it('should handle nested boolean values', () => {
+      const program = createPadrone('test-cli').command('test', (c) =>
+        c.options(z.object({ config: z.object({ debug: z.boolean() }).optional() })).action((options) => options),
+      );
+
+      const result = program.parse('test --config.debug');
+
+      expect(result.options?.config).toEqual({ debug: true });
+    });
+
+    it('should handle negated nested boolean values', () => {
+      const program = createPadrone('test-cli').command('test', (c) =>
+        c.options(z.object({ config: z.object({ debug: z.boolean().default(true) }).optional() })).action((options) => options),
+      );
+
+      const result = program.parse('test --no-config.debug');
+
+      expect(result.options?.config).toEqual({ debug: false });
+    });
+
+    it('should stringify nested objects to dot notation', () => {
+      const program = createPadrone('test-cli').command('test', (c) =>
+        c.options(z.object({ user: z.object({ id: z.number(), name: z.string() }).optional() })).action((options) => options),
+      );
+
+      const result = program.stringify('test', { user: { id: 123, name: 'John' } });
+
+      expect(result).toContain('--user.id=123');
+      expect(result).toContain('--user.name=John');
+    });
+
+    it('should stringify deeply nested objects', () => {
+      const program = createPadrone('test-cli').command('test', (c) =>
+        c.options(z.object({ server: z.object({ db: z.object({ host: z.string() }) }).optional() })).action((options) => options),
+      );
+
+      const result = program.stringify('test', { server: { db: { host: 'localhost' } } });
+
+      expect(result).toBe('test --server.db.host=localhost');
+    });
+
+    it('should roundtrip nested objects through stringify and parse', () => {
+      const program = createPadrone('test-cli').command('test', (c) =>
+        c.options(z.object({ config: z.object({ port: z.coerce.number(), host: z.string() }).optional() })).action((options) => options),
+      );
+
+      const original = { config: { port: 8080, host: 'example.com' } };
+      const stringified = program.stringify('test', original);
+      const parsed = program.parse(stringified);
+
+      expect(parsed.options?.config).toEqual(original.config);
+    });
+
+    it('should handle nested options with quoted string values', () => {
+      const program = createPadrone('test-cli').command('test', (c) =>
+        c.options(z.object({ message: z.object({ text: z.string() }).optional() })).action((options) => options),
+      );
+
+      const result = program.parse('test --message.text="Hello World"');
+
+      expect(result.options?.message).toEqual({ text: 'Hello World' });
+    });
+
+    it('should work with CLI execution', () => {
+      const program = createPadrone('test-cli').command('test', (c) =>
+        c
+          .options(z.object({ settings: z.object({ verbose: z.boolean().default(false) }).optional() }))
+          .action((options) => options?.settings),
+      );
+
+      const result = program.cli('test --settings.verbose');
+
+      expect(result.result).toEqual({ verbose: true });
+    });
+  });
 });
