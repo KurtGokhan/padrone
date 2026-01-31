@@ -45,5 +45,10 @@ export default defineConfig({
     resolve: {
       conditions: ['padrone@dev'],
     },
+    ssr: {
+      resolve: {
+        conditions: ['padrone@dev'],
+      },
+    },
   },
 });
