@@ -73,4 +73,4 @@ const tool = program.tool();
 
 ## Next Steps
 
-Ready to start? Head to the [Quick Start](/guides/quick-start/) guide to build your first Padrone CLI.
+Ready to start? Head to the [Quick Start](../quick-start/) guide to build your first Padrone CLI.

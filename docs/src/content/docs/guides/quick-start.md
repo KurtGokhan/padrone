@@ -145,6 +145,6 @@ console.log(parsed.options); // { task: 'Clean room', priority: 'medium' }
 
 ## Next Steps
 
-- Learn about [Commands & Options](/guides/commands-options/) in depth
-- Integrate with [AI tools](/guides/ai-integration/)
-- Explore the [API Reference](/reference/api/)
+- Learn about [Commands & Options](../commands-options/) in depth
+- Integrate with [AI tools](../ai-integration/)
+- Explore the [API Reference](../../reference/api/)
