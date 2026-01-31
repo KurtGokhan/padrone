@@ -48,7 +48,8 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   }
 
   const find: AnyPadroneProgram['find'] = (command) => {
-    return findCommandByName(command, existingCommand.commands) as ReturnType<AnyPadroneProgram['find']>;
+    if (typeof command !== 'string') return findCommandByName(command.path, existingCommand.commands) as any;
+    return findCommandByName(command, existingCommand.commands) as any;
   };
 
   /**

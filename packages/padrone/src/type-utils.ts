@@ -7,9 +7,11 @@ import type { AnyPadroneCommand } from './types.ts';
 export type TODO<TCast = any, _TReason = unknown> = TCast;
 
 export type SafeString = string & {};
-export type IsUnknown<T> = unknown extends T ? true : false;
+type IsUnknown<T> = unknown extends T ? true : false;
 type IsAny<T> = any extends T ? true : false;
 type IsNever<T> = [T] extends [never] ? true : false;
+
+export type IsGeneric<T> = IsAny<T> extends true ? true : IsUnknown<T> extends true ? true : IsNever<T> extends true ? true : false;
 
 type SplitString<TName extends string, TSplitBy extends string = ' '> = TName extends `${infer FirstPart}${TSplitBy}${infer RestParts}`
   ? [FirstPart, ...SplitString<RestParts, TSplitBy>]
@@ -83,12 +85,10 @@ export type FlattenCommands<TCommands extends AnyPadroneCommand[]> = TCommands e
       ? never
       : TCommands[number];
 
-export type GetCommandPaths<TCommands extends AnyPadroneCommand[]> = FlattenCommands<TCommands>['path'];
-
 /**
  * Get all command paths including alias paths for all commands.
  */
-export type GetCommandPathsOrAliases<TCommands extends AnyPadroneCommand[]> = GetCommandPathsAndAliases<FlattenCommands<TCommands>>;
+type GetCommandPathsOrAliases<TCommands extends AnyPadroneCommand[]> = GetCommandPathsAndAliases<FlattenCommands<TCommands>>;
 
 /**
  * Find all the commands that are prefixed with a command name or alias.
@@ -111,10 +111,19 @@ type PrefixedCommands<TCommands extends AnyPadroneCommand[]> =
  * The possible commands are the commands that can be parsed by the program.
  * This includes the string that are exact matches to a command name or alias, and strings that are prefixed with a command name or alias.
  */
-export type PossibleCommands<TCommands extends AnyPadroneCommand[]> =
+export type PossibleCommands<
+  TCommands extends AnyPadroneCommand[],
+  TWithPrefixed extends boolean = false,
+  TWithObjects extends boolean = false,
+  TWithFallback extends boolean = true,
+> =
   | GetCommandPathsOrAliases<TCommands>
-  | PrefixedCommands<TCommands>
-  | SafeString;
+  | (TWithPrefixed extends true ? PrefixedCommands<TCommands> : never)
+  | (TWithObjects extends true ? FlattenCommands<TCommands> : never)
+  | (TWithFallback extends true ? SafeString : never);
+
+type CommandIsUnknownable<TCommand> =
+  IsGeneric<TCommand> extends true ? true : string extends TCommand ? true : SafeString extends TCommand ? true : false;
 
 /**
  * Match a string to a command by the possible commands.
@@ -123,15 +132,17 @@ export type PossibleCommands<TCommands extends AnyPadroneCommand[]> =
  */
 export type PickCommandByPossibleCommands<
   TCommands extends AnyPadroneCommand[],
-  TCommand extends PossibleCommands<TCommands>,
-> = IsAny<TCommand> extends true
+  TCommand extends PossibleCommands<TCommands, true, true> | SafeString,
+> = CommandIsUnknownable<TCommand> extends true
   ? FlattenCommands<TCommands>
-  : string extends TCommand
-    ? FlattenCommands<TCommands>
-    : TCommand extends GetCommandPathsOrAliases<TCommands>
-      ? PickCommandByName<TCommands, TCommand>
-      : SplitLastSpace<TCommand> extends [infer Prefix extends string, infer Rest]
-        ? IsNever<Rest> extends true
-          ? PickCommandByName<TCommands, Prefix>
-          : PickCommandByPossibleCommands<TCommands, Prefix>
-        : never;
+  : TCommand extends AnyPadroneCommand
+    ? TCommand
+    : TCommand extends string
+      ? TCommand extends GetCommandPathsOrAliases<TCommands>
+        ? PickCommandByName<TCommands, TCommand>
+        : SplitLastSpace<TCommand> extends [infer Prefix extends string, infer Rest]
+          ? IsNever<Rest> extends true
+            ? PickCommandByName<TCommands, Prefix>
+            : PickCommandByPossibleCommands<TCommands, Prefix>
+          : never
+      : never;

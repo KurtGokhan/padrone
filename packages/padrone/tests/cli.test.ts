@@ -601,7 +601,7 @@ describe('CLI', () => {
 
     it('should throw error for non-existent command', () => {
       expect(() => {
-        program.stringify('nonexistent' as any, {});
+        program.stringify('nonexistent', {});
       }).toThrow('Command "nonexistent" not found');
     });
 

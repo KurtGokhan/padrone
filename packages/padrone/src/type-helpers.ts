@@ -1,4 +1,4 @@
-import type { GetCommandPaths, PickCommandByName } from './type-utils.ts';
+import type { PickCommandByName, PossibleCommands } from './type-utils.ts';
 import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand, PadroneSchema } from './types.ts';
 
 /**
@@ -75,7 +75,7 @@ export type InferEnvOutput<T extends AnyPadroneCommand> = T['envSchema'] extends
  */
 export type InferCommand<
   T extends AnyPadroneCommand | AnyPadroneProgram,
-  TPath extends GetCommandPaths<T extends AnyPadroneCommand ? [T] : T['~types']['commands']>,
+  TPath extends PossibleCommands<T extends AnyPadroneCommand ? [T] : T['~types']['commands'], true, true>,
 > = T extends AnyPadroneProgram
   ? PickCommandByName<[PadroneCommand<'', '', any, any, T['~types']['commands']>], TPath>
   : T extends AnyPadroneCommand

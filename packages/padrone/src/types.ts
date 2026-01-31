@@ -3,10 +3,8 @@ import type { Tool } from 'ai';
 import type { HelpOptions } from './help.ts';
 import type { PadroneMeta } from './options.ts';
 import type {
-  FlattenCommands,
   FullCommandName,
-  GetCommandPaths,
-  IsUnknown,
+  IsGeneric,
   PickCommandByName,
   PickCommandByPossibleCommands,
   PossibleCommands,
@@ -320,11 +318,7 @@ export type PadroneProgram<
   /**
    * Runs a command programmatically by name with provided options (including positional args).
    */
-  run: <
-    const TCommand extends
-      | GetCommandPaths<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>
-      | FlattenCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>,
-  >(
+  run: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], true, true>>(
     name: TCommand | SafeString,
     options: NoInfer<GetOptions<'in', PickCommandByName<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>>,
   ) => PadroneCommandResult<PickCommandByName<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>;
@@ -332,7 +326,7 @@ export type PadroneProgram<
   /**
    * Runs the program as a CLI application, parsing `process.argv` or provided input.
    */
-  cli: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>>(
+  cli: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], true, true>>(
     input?: TCommand | SafeString,
     options?: PadroneParseOptions,
   ) => PadroneCommandResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>;
@@ -340,7 +334,7 @@ export type PadroneProgram<
   /**
    * Parses CLI input (or the provided input string) into command, args, and options without executing anything.
    */
-  parse: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>>(
+  parse: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], true, false>>(
     input?: TCommand | SafeString,
     options?: PadroneParseOptions,
   ) => PadroneParseResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>;
@@ -348,21 +342,17 @@ export type PadroneProgram<
   /**
    * Converts command and options back into a CLI string.
    */
-  stringify: <const TCommand extends GetCommandPaths<TCommands> = ''>(
-    command?: TCommand,
+  stringify: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], false, true>>(
+    command?: TCommand | SafeString,
     options?: GetOptions<'out', PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>,
   ) => string;
 
   /**
    * Finds a command by name, returning `undefined` if not found.
    */
-  find: <const TFind extends GetCommandPaths<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>>(
+  find: <const TFind extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], false, true>>(
     command: TFind | SafeString,
-  ) => IsUnknown<TFind> extends false
-    ? TFind extends string
-      ? PickCommandByName<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TFind>
-      : FlattenCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]> | undefined
-    : FlattenCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]> | undefined;
+  ) => PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TFind> | undefined;
 
   /**
    * Generates a type-safe API for invoking commands programmatically.
@@ -389,11 +379,7 @@ export type PadroneProgram<
   /**
    * Returns the help information for the program or a specific command.
    */
-  help: <
-    const TCommand extends
-      | GetCommandPaths<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>
-      | FlattenCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>]>,
-  >(
+  help: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], false, true>>(
     command?: TCommand,
     options?: HelpOptions,
   ) => string;
@@ -454,7 +440,7 @@ export type PadroneAPI<TCommand extends AnyPadroneCommand> = PadroneAPICommand<T
 
 type PadroneAPICommand<TCommand extends AnyPadroneCommand> = (options: GetOptions<'in', TCommand>) => GetResults<TCommand>;
 
-type NormalizeOptions<TOptions> = IsUnknown<TOptions> extends true ? void | EmptyRecord : TOptions;
+type NormalizeOptions<TOptions> = IsGeneric<TOptions> extends true ? void | EmptyRecord : TOptions;
 type GetOptions<TDir extends 'in' | 'out', TCommand extends AnyPadroneCommand> = TDir extends 'in'
   ? NormalizeOptions<TCommand['~types']['optionsInput']>
   : NormalizeOptions<TCommand['~types']['optionsOutput']>;
