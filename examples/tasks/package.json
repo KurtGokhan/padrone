@@ -1,0 +1,17 @@
+{
+  "name": "@padrone/tasks-example",
+  "version": "1.0.0-beta.6",
+  "private": true,
+  "type": "module",
+  "module": "src/tasks.ts",
+  "scripts": {
+    "start": "bun --conditions=padrone@dev src/tasks.ts",
+    "ai": "bun --conditions=padrone@dev run src/ai.ts",
+    "dev": "bun --conditions=padrone@dev run --watch src/tasks.ts"
+  },
+  "dependencies": {
+    "ai": "^6.0.64",
+    "padrone": "workspace:*",
+    "zod": "^4.3.6"
+  }
+}

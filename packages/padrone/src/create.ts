@@ -585,11 +585,22 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   };
 
   const tool: AnyPadroneProgram['tool'] = () => {
+    const helpText = generateHelp(existingCommand, undefined, { format: 'text', detail: 'full' });
+
+    const description = `\n
+This is a CLI tool created with Padrone. You can run any of the defined commands described in the help text below. If you need assistance, refer to the documentation or use the help command.
+
+<help_output>
+${helpText}
+</help_output>
+`;
+
     return {
       type: 'function',
       name: existingCommand.name,
-      description: generateHelp(existingCommand, undefined, { format: 'text', detail: 'full' }),
       strict: true,
+      title: existingCommand.description,
+      description,
       inputExamples: [{ input: { command: '<command> [args...] [options...]' } }],
       inputSchema: {
         [Symbol.for('vercel.ai.schema') as keyof Schema & symbol]: true,
@@ -605,7 +616,6 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           return { success: false, error: new Error('Expected an object with command property as string.') };
         },
       } satisfies Schema<{ command: string }> as Schema<{ command: string }>,
-      title: existingCommand.description,
       needsApproval: (input) => {
         const { command, options } = parse(input.command);
         if (typeof command.needsApproval === 'function') return command.needsApproval(options);

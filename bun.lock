@@ -51,6 +51,15 @@
         "zod": "^4.3.6",
       },
     },
+    "examples/tasks": {
+      "name": "@padrone/tasks-example",
+      "version": "1.0.0-beta.6",
+      "dependencies": {
+        "ai": "^6.0.64",
+        "padrone": "workspace:*",
+        "zod": "^4.3.6",
+      },
+    },
     "packages/padrone": {
       "name": "padrone",
       "version": "1.0.0-beta.6",
@@ -388,6 +397,8 @@
     "@padrone/docs": ["@padrone/docs@workspace:docs"],
 
     "@padrone/example": ["@padrone/example@workspace:examples/padrone-example"],
+
+    "@padrone/tasks-example": ["@padrone/tasks-example@workspace:examples/tasks"],
 
     "@pagefind/darwin-arm64": ["@pagefind/darwin-arm64@1.4.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-2vMqkbv3lbx1Awea90gTaBsvpzgRs7MuSgKDxW0m9oV1GPZCZbZBJg/qL83GIUEN2BFlY46dtUZi54pwH+/pTQ=="],
 
