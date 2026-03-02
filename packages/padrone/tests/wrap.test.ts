@@ -234,13 +234,15 @@ describe('wrap', () => {
         }),
       );
 
+      let errorThrown = false;
       try {
         const result = await program.run('notfound', undefined);
         await result.result;
-        expect(false).toBe(true); // Should not reach here
       } catch (error) {
+        errorThrown = true;
         expect(error).toBeDefined();
       }
+      expect(errorThrown).toBe(true);
     });
 
     it('should return non-zero exit code for failing commands', async () => {

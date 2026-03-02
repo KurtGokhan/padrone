@@ -119,6 +119,9 @@ function optionsToArgs(
 
 /**
  * Creates an action handler that wraps an external CLI tool.
+ * @param config - Configuration for wrapping the external command
+ * @param _optionsSchema - The options schema (currently unused, reserved for future enhancements like validation hints)
+ * @param positional - Array of positional argument names from meta.positional
  */
 export function createWrapHandler<TOpts extends PadroneSchema>(
   config: WrapConfig,
