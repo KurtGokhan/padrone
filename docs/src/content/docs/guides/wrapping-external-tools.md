@@ -40,20 +40,20 @@ const program = createPadrone('myapp')
 // Executes: echo World
 ```
 
-## Option Mapping
+## Option Mapping with Zod
 
-Padrone automatically converts your options to CLI arguments following these rules:
+Padrone converts options to CLI arguments using the option keys as-is with a `--` prefix. To map option names to different CLI flags, use Zod's `.transform()` method:
 
 ### Automatic Conversion
 
 1. **Boolean flags**: `{ verbose: true }` → `--verbose`
 2. **String/Number values**: `{ port: 3000 }` → `--port 3000`
 3. **Arrays**: `{ files: ['a.txt', 'b.txt'] }` → `--files a.txt --files b.txt`
-4. **camelCase to kebab-case**: `{ outputFile: 'out.txt' }` → `--output-file out.txt`
+4. **Keys are used as-is**: `{ v: true }` → `--v`
 
-### Custom Mappings
+### Mapping with Zod Transform
 
-Override the default mapping with `optionMapping`:
+Use Zod's `.transform()` to map friendly option names to the exact flags the external command expects:
 
 ```typescript
 program
@@ -63,21 +63,22 @@ program
         z.object({
           all: z.boolean().optional(),
           long: z.boolean().optional(),
-          human: z.boolean().optional(),
+          humanReadable: z.boolean().optional(),
         })
+        .transform((opts) => ({
+          a: opts.all,
+          l: opts.long,
+          h: opts.humanReadable,
+        }))
       )
       .wrap({
         command: 'ls',
-        optionMapping: {
-          all: '-a',
-          long: '-l',
-          human: '-h',
-        },
       })
   );
 
 // Usage: myapp list --all --long
-// Executes: ls -a -l
+// After transform: { a: true, l: true }
+// Executes: ls --a --l
 ```
 
 ## Positional Arguments
@@ -93,21 +94,24 @@ program
           source: z.string(),
           dest: z.string(),
           recursive: z.boolean().optional(),
-        }),
+        })
+        .transform((opts) => ({
+          source: opts.source,
+          dest: opts.dest,
+          r: opts.recursive,
+        })),
         {
           positional: ['source', 'dest'],
         }
       )
       .wrap({
         command: 'cp',
-        optionMapping: {
-          recursive: '-r',
-        },
       })
   );
 
 // Usage: myapp copy /src /dest --recursive
-// Executes: cp -r /src /dest
+// After transform: { source: '/src', dest: '/dest', r: true }
+// Executes: cp --r /src /dest
 ```
 
 ### Variadic Arguments
@@ -122,21 +126,23 @@ program
         z.object({
           files: z.string().array(),
           force: z.boolean().optional(),
-        }),
+        })
+        .transform((opts) => ({
+          files: opts.files,
+          f: opts.force,
+        })),
         {
           positional: ['...files'],
         }
       )
       .wrap({
         command: 'rm',
-        optionMapping: {
-          force: '-f',
-        },
       })
   );
 
 // Usage: myapp remove file1.txt file2.txt --force
-// Executes: rm -f file1.txt file2.txt
+// After transform: { files: ['file1.txt', 'file2.txt'], f: true }
+// Executes: rm --f file1.txt file2.txt
 ```
 
 ## Fixed Arguments
@@ -151,25 +157,24 @@ program
         z.object({
           message: z.string(),
           amend: z.boolean().optional(),
-        }),
+        })
+        .transform((opts) => ({
+          m: opts.message,
+          amend: opts.amend,
+        })),
         {
-          positional: ['message'],
-          options: {
-            message: { alias: 'm' },
-          },
+          positional: ['m'],
         }
       )
       .wrap({
         command: 'git',
         args: ['commit'],
-        optionMapping: {
-          amend: '--amend',
-        },
       })
   );
 
-// Usage: myapp commit "Initial commit"
-// Executes: git commit "Initial commit"
+// Usage: myapp commit "Initial commit" --amend
+// After transform: { m: 'Initial commit', amend: true }
+// Executes: git commit --amend "Initial commit"
 ```
 
 ## Capturing Output
@@ -225,7 +230,17 @@ const docker = createPadrone('docker-cli')
           port: z.string().array().optional().describe('Port mappings'),
           volume: z.string().array().optional().describe('Volume mounts'),
           env: z.string().array().optional().describe('Environment variables'),
-        }),
+        })
+        .transform((opts) => ({
+          image: opts.image,
+          name: opts.name,
+          d: opts.detach,
+          i: opts.interactive,
+          t: opts.tty,
+          p: opts.port,
+          v: opts.volume,
+          e: opts.env,
+        })),
         {
           positional: ['image'],
         }
@@ -233,15 +248,6 @@ const docker = createPadrone('docker-cli')
       .wrap({
         command: 'docker',
         args: ['run'],
-        optionMapping: {
-          detach: '-d',
-          interactive: '-i',
-          tty: '-t',
-          port: '-p',
-          volume: '-v',
-          env: '-e',
-          name: '--name',
-        },
       })
   )
   .command('ps', (c) =>
@@ -254,14 +260,14 @@ const docker = createPadrone('docker-cli')
           all: z.boolean().optional().describe('Show all containers'),
           quiet: z.boolean().optional().describe('Only show container IDs'),
         })
+        .transform((opts) => ({
+          a: opts.all,
+          q: opts.quiet,
+        }))
       )
       .wrap({
         command: 'docker',
         args: ['ps'],
-        optionMapping: {
-          all: '-a',
-          quiet: '-q',
-        },
       })
   )
   .command('stop', (c) =>
@@ -360,15 +366,17 @@ console.log('Deployment successful!');
 
 ## Best Practices
 
-1. **Use descriptive option names**: Choose clear, self-documenting names for your options
-2. **Add descriptions**: Use `.describe()` on Zod schemas to document each option
-3. **Provide defaults**: Use `.default()` for common values
-4. **Validate inputs**: Use Zod's validation features to ensure correct inputs before calling external commands
-5. **Handle errors**: Always check the exit code when capturing output
-6. **Use enums**: For fixed sets of values, use `z.enum()` or `z.union()`
+1. **Use descriptive option names**: Choose clear, self-documenting names for your options in the schema
+2. **Map to CLI flags with transform**: Use `.transform()` to map friendly option names to the exact flags the CLI expects
+3. **Add descriptions**: Use `.describe()` on Zod schemas to document each option
+4. **Provide defaults**: Use `.default()` for common values
+5. **Validate inputs**: Use Zod's validation features to ensure correct inputs before calling external commands
+6. **Handle errors**: Always check the exit code when capturing output
+7. **Use enums**: For fixed sets of values, use `z.enum()` or `z.union()`
 
 ## Limitations
 
 - The wrapped command must be available in the system's PATH or specified as an absolute path
 - Environment variables are not automatically passed to the wrapped command (you'll need to pass them explicitly if needed)
 - The wrap method uses `Bun.spawn()`, so it requires Bun runtime or a compatible environment
+- Option keys are used as-is with `--` prefix - use Zod's `.transform()` for custom mappings

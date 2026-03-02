@@ -99,8 +99,10 @@ program.action((options, context) => {
 
 Wrap an external CLI tool, automatically converting Padrone options to CLI arguments. This is a convenience method that combines `.arguments()` and `.action()` to proxy calls to external commands.
 
+Use Zod schemas with `.transform()` to map parsed options to the flags expected by the external command.
+
 ```typescript
-// Wrap git commit
+// Wrap git commit - use Zod to map option names to flags
 program
   .command('commit', (c) =>
     c
@@ -108,22 +110,18 @@ program
         z.object({
           message: z.string(),
           all: z.boolean().optional(),
-          amend: z.boolean().optional(),
-        }),
+        })
+        .transform((opts) => ({
+          m: opts.message,  // Map 'message' to 'm' flag
+          a: opts.all,      // Map 'all' to 'a' flag
+        })),
         {
-          positional: ['message'],
-          options: {
-            message: { alias: 'm' },
-          },
+          positional: ['m'],
         }
       )
       .wrap({
         command: 'git',
         args: ['commit'],
-        optionMapping: {
-          all: '-a',
-          amend: '--amend',
-        },
       })
   );
 ```
@@ -133,7 +131,6 @@ program
 |----------|------|---------|-------------|
 | `command` | `string` | required | The external command to execute (e.g., 'git', 'docker', 'npm') |
 | `args` | `string[]` | `[]` | Fixed arguments that always precede the options (e.g., `['commit']` for 'git commit') |
-| `optionMapping` | `Record<string, string>` | `{}` | Custom mapping for option names to CLI flags. By default, options are mapped to kebab-case (e.g., `myOption` → `--my-option`) |
 | `inheritStdio` | `boolean` | `true` | Whether to inherit stdio streams from the parent process. Set to `false` to capture stdout/stderr |
 
 **Returns:** The program builder with an action that executes the external command
@@ -151,7 +148,7 @@ type WrapResult = {
 **Examples:**
 
 ```typescript
-// Wrap docker run with custom option mapping
+// Wrap docker run - map option names using Zod transform
 program
   .command('run', (c) =>
     c
@@ -161,7 +158,13 @@ program
           detach: z.boolean().optional(),
           interactive: z.boolean().optional(),
           name: z.string().optional(),
-        }),
+        })
+        .transform((opts) => ({
+          [opts.image]: undefined,  // Positional arg
+          d: opts.detach,
+          i: opts.interactive,
+          name: opts.name,
+        })),
         {
           positional: ['image'],
         }
@@ -169,15 +172,12 @@ program
       .wrap({
         command: 'docker',
         args: ['run'],
-        optionMapping: {
-          detach: '-d',
-          interactive: '-i',
-        },
       })
   );
 
 // Usage: program.run('run', { image: 'nginx', detach: true })
-// Executes: docker run -d nginx
+// After transform: { image: 'nginx', d: true }
+// Executes: docker run --d nginx
 ```
 
 ```typescript
@@ -189,7 +189,11 @@ program
         z.object({
           packages: z.string().array(),
           saveDev: z.boolean().optional(),
-        }),
+        })
+        .transform((opts) => ({
+          ...opts.packages,
+          'save-dev': opts.saveDev,  // Map to exact flag name
+        })),
         {
           positional: ['...packages'],
         }
@@ -197,9 +201,6 @@ program
       .wrap({
         command: 'npm',
         args: ['install'],
-        optionMapping: {
-          saveDev: '--save-dev',
-        },
         inheritStdio: false,  // Capture output
       })
   );
@@ -207,7 +208,7 @@ program
 // Usage:
 const result = await program.run('install', {
   packages: ['react', 'react-dom'],
-  saveDev: false,
+  saveDev: true,
 });
 console.log(result.result.stdout);  // npm install output
 console.log(result.result.exitCode);  // 0 if successful
@@ -227,11 +228,12 @@ The `.wrap()` method maintains full type safety:
    - String/Number options: `{ port: 3000 }` → `--port 3000`
    - Array options: `{ files: ['a', 'b'] }` → `--files a --files b`
    - Positional arguments: Follow the order specified in `meta.positional`
-   - camelCase → kebab-case: `{ myOption: 'val' }` → `--my-option val`
+   - Option keys are used as-is with `--` prefix
 
-2. **Custom Mappings**: Override default flag names with `optionMapping`:
+2. **Option Mapping**: Use Zod's `.transform()` to map options to the exact flag names:
    ```typescript
-   optionMapping: { v: '-v', version: '--version' }
+   z.object({ verbose: z.boolean() })
+     .transform(opts => ({ v: opts.verbose }))
    ```
 
 3. **Process Execution**: Uses `Bun.spawn()` to execute the external command with the generated arguments

@@ -14,12 +14,6 @@ export type WrapConfig = {
    */
   args?: string[];
   /**
-   * Custom mapping for option names to CLI flags.
-   * By default, options are mapped to kebab-case (e.g., myOption -> --my-option).
-   * Use this to override specific mappings (e.g., { v: '-v', version: '--version' }).
-   */
-  optionMapping?: Record<string, string>;
-  /**
    * Whether to inherit stdio streams (stdin, stdout, stderr) from the parent process.
    * Default: true
    */
@@ -49,20 +43,9 @@ export type WrapResult = {
 };
 
 /**
- * Converts a camelCase or PascalCase string to kebab-case.
- */
-function toKebabCase(str: string): string {
-  return str.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`).replace(/^-/, '');
-}
-
-/**
  * Converts parsed options to CLI arguments for an external command.
  */
-function optionsToArgs(
-  options: Record<string, unknown> | undefined,
-  positional: string[] = [],
-  optionMapping: Record<string, string> = {},
-): string[] {
+function optionsToArgs(options: Record<string, unknown> | undefined, positional: string[] = []): string[] {
   const args: string[] = [];
 
   // Handle undefined or null options
@@ -84,8 +67,8 @@ function optionsToArgs(
   for (const [key, value] of Object.entries(regularOptions)) {
     if (value === undefined || value === null) continue;
 
-    // Get the flag name from mapping or convert to kebab-case
-    const flag = optionMapping[key] ?? `--${toKebabCase(key)}`;
+    // Use the key as-is with -- prefix
+    const flag = `--${key}`;
 
     if (typeof value === 'boolean') {
       if (value) args.push(flag);
@@ -129,10 +112,10 @@ export function createWrapHandler<TOpts extends PadroneSchema>(
   positional?: string[],
 ): (options: StandardSchemaV1.InferOutput<TOpts>) => Promise<WrapResult> {
   return async (options: StandardSchemaV1.InferOutput<TOpts>): Promise<WrapResult> => {
-    const { command, args: fixedArgs = [], optionMapping = {}, inheritStdio = true } = config;
+    const { command, args: fixedArgs = [], inheritStdio = true } = config;
 
     // Convert options to CLI arguments
-    const optionArgs = optionsToArgs(options as Record<string, unknown>, positional, optionMapping);
+    const optionArgs = optionsToArgs(options as Record<string, unknown>, positional);
 
     // Combine fixed args and option args
     const allArgs = [...fixedArgs, ...optionArgs];

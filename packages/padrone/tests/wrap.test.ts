@@ -61,7 +61,7 @@ describe('wrap', () => {
           .arguments(
             z.object({
               all: z.boolean().optional(),
-              longFormat: z.boolean().optional(),
+              long: z.boolean().optional(),
             }),
           )
           .wrap({
@@ -71,37 +71,12 @@ describe('wrap', () => {
           }),
       );
 
-      const result = await program.run('ls', { all: true, longFormat: true });
+      const result = await program.run('ls', { all: true, long: true });
       const wrapResult = await result.result;
 
       expect(wrapResult.success).toBe(true);
       expect(result.options?.all).toBe(true);
-      expect(result.options?.longFormat).toBe(true);
-    });
-
-    it('should use custom option mapping', async () => {
-      const program = createPadrone('test').command('test', (c) =>
-        c
-          .arguments(
-            z.object({
-              verbose: z.boolean().optional(),
-              output: z.string().optional(),
-            }),
-          )
-          .wrap({
-            command: 'echo',
-            optionMapping: {
-              verbose: '-v',
-              output: '-o',
-            },
-            inheritStdio: false,
-          }),
-      );
-
-      const result = await program.run('test', { verbose: true, output: 'file.txt' });
-      const wrapResult = await result.result;
-
-      expect(wrapResult.success).toBe(true);
+      expect(result.options?.long).toBe(true);
     });
 
     it('should handle array options', async () => {
@@ -124,26 +99,6 @@ describe('wrap', () => {
       expect(wrapResult.success).toBe(true);
       expect(wrapResult.stdout?.includes('file1.txt')).toBe(true);
       expect(wrapResult.stdout?.includes('file2.txt')).toBe(true);
-    });
-
-    it('should convert camelCase options to kebab-case', async () => {
-      const program = createPadrone('test').command('test', (c) =>
-        c
-          .arguments(
-            z.object({
-              myLongOption: z.string().optional(),
-            }),
-          )
-          .wrap({
-            command: 'echo',
-            inheritStdio: false,
-          }),
-      );
-
-      const result = await program.run('test', { myLongOption: 'value' });
-      const wrapResult = await result.result;
-
-      expect(wrapResult.success).toBe(true);
     });
   });
 
@@ -314,18 +269,17 @@ describe('wrap', () => {
         c
           .arguments(
             z.object({
-              short: z.boolean().optional(),
+              s: z.boolean().optional(),
             }),
           )
           .wrap({
             command: 'echo',
             args: ['git', 'status'],
-            optionMapping: { short: '-s' },
             inheritStdio: false,
           }),
       );
 
-      const result = await program.run('status', { short: true });
+      const result = await program.run('status', { s: true });
       const wrapResult = await result.result;
 
       // Note: This will succeed because we're using echo instead of actual git
