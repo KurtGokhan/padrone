@@ -10,6 +10,7 @@ import type {
   PossibleCommands,
   SafeString,
 } from './type-utils.ts';
+import type { WrapConfig, WrapResult } from './wrap.ts';
 
 type UnknownRecord = Record<string, unknown>;
 type EmptyRecord = Record<string, never>;
@@ -219,6 +220,49 @@ export type PadroneBuilderMethods<
   action: <TNewRes>(
     handler?: (options: StandardSchemaV1.InferOutput<TOpts>) => TNewRes,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TNewRes, TCommands, TParentOpts, TConfig, TEnv>;
+
+  /**
+   * Wraps an external CLI tool, automatically converting Padrone options to CLI arguments.
+   * This is a convenience method that combines arguments() and action() to proxy calls to external commands.
+   *
+   * @example
+   * ```ts
+   * // Wrap git commit command
+   * .wrap('commit', {
+   *   command: 'git',
+   *   args: ['commit'],
+   * })
+   * .arguments(z.object({
+   *   message: z.string(),
+   *   all: z.boolean().optional(),
+   * }), {
+   *   positional: ['message'],
+   *   options: {
+   *     message: { alias: 'm' },
+   *   },
+   * })
+   * ```
+   *
+   * @example
+   * ```ts
+   * // Wrap docker run with custom option mapping
+   * .wrap('run', {
+   *   command: 'docker',
+   *   args: ['run'],
+   *   optionMapping: { detach: '-d', interactive: '-i' },
+   * })
+   * .arguments(z.object({
+   *   image: z.string(),
+   *   detach: z.boolean().optional(),
+   *   interactive: z.boolean().optional(),
+   * }), {
+   *   positional: ['image'],
+   * })
+   * ```
+   */
+  wrap: (
+    config: WrapConfig,
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, Promise<WrapResult>, TCommands, TParentOpts, TConfig, TEnv>;
 
   /**
    * Creates a nested command within the current command with the given name and builder function.

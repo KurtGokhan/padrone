@@ -1,0 +1,167 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { PadroneSchema } from './types.ts';
+
+/**
+ * Configuration options for wrapping an external CLI tool.
+ */
+export type WrapConfig = {
+  /**
+   * The command to execute (e.g., 'git', 'docker', 'npm').
+   */
+  command: string;
+  /**
+   * Optional fixed arguments that always precede the options (e.g., ['commit'] for 'git commit').
+   */
+  args?: string[];
+  /**
+   * Custom mapping for option names to CLI flags.
+   * By default, options are mapped to kebab-case (e.g., myOption -> --my-option).
+   * Use this to override specific mappings (e.g., { v: '-v', version: '--version' }).
+   */
+  optionMapping?: Record<string, string>;
+  /**
+   * Whether to inherit stdio streams (stdin, stdout, stderr) from the parent process.
+   * Default: true
+   */
+  inheritStdio?: boolean;
+};
+
+/**
+ * Result from executing a wrapped CLI tool.
+ */
+export type WrapResult = {
+  /**
+   * The exit code of the process.
+   */
+  exitCode: number;
+  /**
+   * Standard output from the process (only if inheritStdio is false).
+   */
+  stdout?: string;
+  /**
+   * Standard error from the process (only if inheritStdio is false).
+   */
+  stderr?: string;
+  /**
+   * Whether the process exited successfully (exit code 0).
+   */
+  success: boolean;
+};
+
+/**
+ * Converts a camelCase or PascalCase string to kebab-case.
+ */
+function toKebabCase(str: string): string {
+  return str.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`).replace(/^-/, '');
+}
+
+/**
+ * Converts parsed options to CLI arguments for an external command.
+ */
+function optionsToArgs(
+  options: Record<string, unknown> | undefined,
+  positional: string[] = [],
+  optionMapping: Record<string, string> = {},
+): string[] {
+  const args: string[] = [];
+
+  // Handle undefined or null options
+  if (!options) return args;
+
+  const positionalValues: Record<string, unknown> = {};
+  const regularOptions: Record<string, unknown> = {};
+
+  // Separate positional and regular options
+  for (const [key, value] of Object.entries(options)) {
+    if (positional.includes(key) || positional.includes(`...${key}`)) {
+      positionalValues[key] = value;
+    } else {
+      regularOptions[key] = value;
+    }
+  }
+
+  // Add regular options first
+  for (const [key, value] of Object.entries(regularOptions)) {
+    if (value === undefined || value === null) continue;
+
+    // Get the flag name from mapping or convert to kebab-case
+    const flag = optionMapping[key] ?? `--${toKebabCase(key)}`;
+
+    if (typeof value === 'boolean') {
+      if (value) args.push(flag);
+    } else if (Array.isArray(value)) {
+      // For arrays, add the flag multiple times
+      for (const item of value) {
+        args.push(flag, String(item));
+      }
+    } else {
+      args.push(flag, String(value));
+    }
+  }
+
+  // Add positional arguments in the specified order
+  for (const posKey of positional) {
+    const isVariadic = posKey.startsWith('...');
+    const key = isVariadic ? posKey.slice(3) : posKey;
+    const value = positionalValues[key];
+
+    if (value === undefined || value === null) continue;
+
+    if (isVariadic && Array.isArray(value)) {
+      args.push(...value.map(String));
+    } else {
+      args.push(String(value));
+    }
+  }
+
+  return args;
+}
+
+/**
+ * Creates an action handler that wraps an external CLI tool.
+ */
+export function createWrapHandler<TOpts extends PadroneSchema>(
+  config: WrapConfig,
+  optionsSchema?: TOpts,
+  positional?: string[],
+): (options: StandardSchemaV1.InferOutput<TOpts>) => Promise<WrapResult> {
+  return async (options: StandardSchemaV1.InferOutput<TOpts>): Promise<WrapResult> => {
+    const { command, args: fixedArgs = [], optionMapping = {}, inheritStdio = true } = config;
+
+    // Convert options to CLI arguments
+    const optionArgs = optionsToArgs(options as Record<string, unknown>, positional, optionMapping);
+
+    // Combine fixed args and option args
+    const allArgs = [...fixedArgs, ...optionArgs];
+
+    // Execute the external command
+    const proc = Bun.spawn([command, ...allArgs], {
+      stdout: inheritStdio ? 'inherit' : 'pipe',
+      stderr: inheritStdio ? 'inherit' : 'pipe',
+      stdin: inheritStdio ? 'inherit' : 'ignore',
+    });
+
+    const exitCode = await proc.exited;
+
+    let stdout: string | undefined;
+    let stderr: string | undefined;
+
+    if (!inheritStdio) {
+      if (proc.stdout) {
+        const stdoutBuffer = await new Response(proc.stdout).arrayBuffer();
+        stdout = new TextDecoder().decode(stdoutBuffer);
+      }
+      if (proc.stderr) {
+        const stderrBuffer = await new Response(proc.stderr).arrayBuffer();
+        stderr = new TextDecoder().decode(stderrBuffer);
+      }
+    }
+
+    return {
+      exitCode,
+      stdout,
+      stderr,
+      success: exitCode === 0,
+    };
+  };
+}
