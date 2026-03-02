@@ -47,12 +47,12 @@ program.configure({
 
 ---
 
-### .options(schema, meta?)
+### .arguments(schema, meta?)
 
 Define options using a Zod schema.
 
 ```typescript
-program.options(
+program.arguments(
   z.object({
     port: z.number().default(3000).describe('Port number'),
     host: z.string().default('localhost'),
@@ -102,7 +102,7 @@ Add a subcommand.
 ```typescript
 program.command('serve', (c) =>
   c
-    .options(schema)
+    .arguments(schema)
     .action(handler)
 );
 ```

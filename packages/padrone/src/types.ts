@@ -162,7 +162,7 @@ export type PadroneBuilderMethods<
    * @example
    * ```ts
    * // Direct schema
-   * .options(z.object({
+   * .arguments(z.object({
    *   source: z.string(),
    *   files: z.string().array(),
    *   dest: z.string(),
@@ -175,7 +175,7 @@ export type PadroneBuilderMethods<
    * @example
    * ```ts
    * // Function-based schema extending parent options
-   * .options((parentOpts) => {
+   * .arguments((parentOpts) => {
    *   return z.object({
    *     ...parentOpts.shape,
    *     verbose: z.boolean().default(false),
@@ -183,7 +183,7 @@ export type PadroneBuilderMethods<
    * })
    * ```
    */
-  options: <TNewOpts extends PadroneSchema = PadroneSchema<void>>(
+  arguments: <TNewOpts extends PadroneSchema = PadroneSchema<void>>(
     options?: TNewOpts | ((parentOptions: TParentOpts) => TNewOpts),
     meta?: GetMeta<TNewOpts>,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TNewOpts, TRes, TCommands, TParentOpts, TConfig, TEnv>;

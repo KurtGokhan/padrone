@@ -229,7 +229,7 @@ describe('CLI', () => {
 
     it('should handle command with positional args', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
-        c.options(z.object({ id: z.string() }), { positional: ['id'] }).action((options) => ({ id: options.id })),
+        c.arguments(z.object({ id: z.string() }), { positional: ['id'] }).action((options) => ({ id: options.id })),
       );
 
       const result = program.run('test', { id: 'task-1' });
@@ -315,7 +315,7 @@ describe('CLI', () => {
     it('should resolve aliases to full option names when parsing', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               verbose: z
                 .boolean()
@@ -343,7 +343,7 @@ describe('CLI', () => {
     it('should resolve aliases with values', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               unit: z
                 .string()
@@ -367,7 +367,7 @@ describe('CLI', () => {
     it('should execute commands with aliases via CLI', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               verbose: z
                 .boolean()
@@ -389,7 +389,7 @@ describe('CLI', () => {
     it('should handle aliases mixed with full option names', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               verbose: z
                 .boolean()
@@ -418,7 +418,7 @@ describe('CLI', () => {
     it('should handle undefined aliases gracefully', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               verbose: z.boolean().optional(),
               v: z.boolean().optional(), // Include 'v' in schema to test without alias
@@ -437,7 +437,7 @@ describe('CLI', () => {
     it('should display aliases in help text', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               verbose: z
                 .boolean()
@@ -467,7 +467,7 @@ describe('CLI', () => {
         c
           .command('child', (c2) =>
             c2
-              .options(
+              .arguments(
                 z.object({
                   verbose: z
                     .boolean()
@@ -493,7 +493,7 @@ describe('CLI', () => {
         c
           .command('child', (c2) =>
             c2
-              .options(
+              .arguments(
                 z.object({
                   verbose: z.boolean().optional(),
                 }),
@@ -521,7 +521,7 @@ describe('CLI', () => {
     it('should handle multiple aliases for the same option', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               verbose: z
                 .boolean()
@@ -625,7 +625,7 @@ describe('CLI', () => {
     it('should stringify variadic options as multiple flags', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               include: z.array(z.string()).optional(),
             }),
@@ -642,7 +642,7 @@ describe('CLI', () => {
     it('should collect repeated options into an array', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               include: z.array(z.string()).optional(),
             }),
@@ -658,7 +658,7 @@ describe('CLI', () => {
     it('should work with aliases for variadic options', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               include: z.array(z.string()).optional(),
             }),
@@ -675,7 +675,7 @@ describe('CLI', () => {
     it('should handle variadic options with space-separated values', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               tag: z.array(z.string()).optional(),
             }),
@@ -691,7 +691,7 @@ describe('CLI', () => {
     it('should display variadic options in help text', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               include: z.array(z.string()).optional().describe('Files to include'),
             }),
@@ -710,7 +710,7 @@ describe('CLI', () => {
     it('should parse --no-<option> as false', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               verbose: z.boolean().optional().default(true),
             }),
@@ -726,7 +726,7 @@ describe('CLI', () => {
     it('should parse --<option> as true', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               verbose: z.boolean().optional().default(false),
             }),
@@ -742,7 +742,7 @@ describe('CLI', () => {
     it('should display negatable options in help text', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               verbose: z.boolean().optional().describe('Enable verbose output'),
             }),
@@ -758,7 +758,7 @@ describe('CLI', () => {
     it('should stringify false boolean to --no-<option>', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               verbose: z.boolean().optional(),
             }),
@@ -774,7 +774,7 @@ describe('CLI', () => {
     it('should not show --[no-] prefix when explicit noOption property exists', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               verbose: z.boolean().optional().describe('Enable verbose output'),
               noVerbose: z.boolean().optional().describe('Disable verbose output'),
@@ -796,7 +796,7 @@ describe('CLI', () => {
     it('should handle kebab-case no-option property', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               debug: z.boolean().optional().describe('Enable debug mode'),
               'no-debug': z.never(),
@@ -817,7 +817,7 @@ describe('CLI', () => {
     it('should apply env var when option is not provided', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               apiKey: z.string().optional(),
             }),
@@ -834,7 +834,7 @@ describe('CLI', () => {
     it('should prefer CLI value over env var', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               apiKey: z.string().optional(),
             }),
@@ -851,7 +851,7 @@ describe('CLI', () => {
     it('should support multiple env var names (fallback)', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               port: z.coerce.number().optional(),
             }),
@@ -873,7 +873,7 @@ describe('CLI', () => {
     it('should parse boolean env vars correctly', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               debug: z.boolean().optional(),
             }),
@@ -912,7 +912,7 @@ describe('CLI', () => {
 
     it('should handle escaped quotes within quoted strings', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
-        c.options(z.object({ message: z.string() }), { positional: ['message'] }).action((options) => ({ message: options.message })),
+        c.arguments(z.object({ message: z.string() }), { positional: ['message'] }).action((options) => ({ message: options.message })),
       );
 
       const result = program.parse('test "He said \\"hello\\""');
@@ -931,7 +931,7 @@ describe('CLI', () => {
     it('should apply config values when options are not provided', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               port: z.coerce.number().optional(),
               host: z.string().optional(),
@@ -960,7 +960,7 @@ describe('CLI', () => {
     it('should prefer CLI value over config value', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               port: z.coerce.number().optional(),
             }),
@@ -981,7 +981,7 @@ describe('CLI', () => {
     it('should prefer env value over config value', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               port: z.coerce.number().optional(),
             }),
@@ -1003,7 +1003,7 @@ describe('CLI', () => {
     it('should handle deeply nested config with schema transforms', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               timeout: z.coerce.number().optional(),
             }),
@@ -1037,7 +1037,7 @@ describe('CLI', () => {
     it('should validate config data against schema', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               port: z.number().optional(),
               host: z.string().optional(),
@@ -1057,7 +1057,7 @@ describe('CLI', () => {
     it('should throw error when config data fails validation', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               port: z.number().optional(),
             }),
@@ -1074,7 +1074,7 @@ describe('CLI', () => {
     it('should transform config data using schema', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               port: z.number().optional(),
             }),
@@ -1095,7 +1095,7 @@ describe('CLI', () => {
     it('should use function-based schema with access to options schema', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               port: z.number().optional(),
               host: z.string().optional(),
@@ -1114,7 +1114,7 @@ describe('CLI', () => {
     it('should set configFiles as array when given string', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(z.object({ name: z.string().optional() }))
+          .arguments(z.object({ name: z.string().optional() }))
           .configFile('myapp.config.json')
           .action((options) => options),
       );
@@ -1126,7 +1126,7 @@ describe('CLI', () => {
     it('should set configFiles as array when given array', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(z.object({ name: z.string().optional() }))
+          .arguments(z.object({ name: z.string().optional() }))
           .configFile(['myapp.config.json', '.myapprc'])
           .action((options) => options),
       );
@@ -1140,7 +1140,7 @@ describe('CLI', () => {
 
       const program = createPadrone('padrone-test')
         .configFile('config.json', configSchema)
-        .command('sub', (c) => c.options(z.object({ port: z.number().optional() })).action((options) => options));
+        .command('sub', (c) => c.arguments(z.object({ port: z.number().optional() })).action((options) => options));
 
       const configData = { port: 3000 };
       const result = program.cli('sub', { configData });
@@ -1151,7 +1151,7 @@ describe('CLI', () => {
     it('should allow CLI options to override validated config values', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               port: z.coerce.number().optional(),
             }),
@@ -1171,7 +1171,7 @@ describe('CLI', () => {
     it('should parse [a,b,c] as an array', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               tags: z.array(z.string()).optional(),
             }),
@@ -1187,7 +1187,7 @@ describe('CLI', () => {
     it('should parse empty brackets as empty array', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               tags: z.array(z.string()).optional(),
             }),
@@ -1203,7 +1203,7 @@ describe('CLI', () => {
     it('should handle quoted values within array brackets', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               names: z.array(z.string()).optional(),
             }),
@@ -1219,7 +1219,7 @@ describe('CLI', () => {
     it('should handle mixed quoted and unquoted values in array', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               items: z.array(z.string()).optional(),
             }),
@@ -1235,7 +1235,7 @@ describe('CLI', () => {
     it('should combine array syntax with variadic options', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               include: z.array(z.string()).optional(),
             }),
@@ -1251,7 +1251,7 @@ describe('CLI', () => {
     it('should work with short aliases', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               tags: z.array(z.string()).optional(),
             }),
@@ -1268,7 +1268,7 @@ describe('CLI', () => {
     it('should trim whitespace from array items', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               items: z.array(z.string()).optional(),
             }),
@@ -1306,7 +1306,7 @@ describe('CLI', () => {
     it('should show help for specific command with --help flag', () => {
       const program = createPadrone('test-cli').command('greet', (c) =>
         c
-          .options(z.object({ name: z.string().describe('Name to greet') }), { positional: ['name'] })
+          .arguments(z.object({ name: z.string().describe('Name to greet') }), { positional: ['name'] })
           .action((options) => `Hello, ${options.name}!`),
       );
 
@@ -1317,7 +1317,9 @@ describe('CLI', () => {
 
     it('should show help for nested command with --help flag', () => {
       const program = createPadrone('test-cli').command('git', (c) =>
-        c.command('commit', (c) => c.options(z.object({ message: z.string().describe('Commit message') })).action((opts) => opts?.message)),
+        c.command('commit', (c) =>
+          c.arguments(z.object({ message: z.string().describe('Commit message') })).action((opts) => opts?.message),
+        ),
       );
 
       const result = program.cli('git commit --help');
@@ -1339,7 +1341,7 @@ describe('CLI', () => {
     it('should show help for specific command with help command', () => {
       const program = createPadrone('test-cli').command('greet', (c) =>
         c
-          .options(z.object({ name: z.string().describe('Name to greet') }), { positional: ['name'] })
+          .arguments(z.object({ name: z.string().describe('Name to greet') }), { positional: ['name'] })
           .action((options) => `Hello, ${options.name}!`),
       );
 
@@ -1350,7 +1352,9 @@ describe('CLI', () => {
 
     it('should show help for nested command with help command', () => {
       const program = createPadrone('test-cli').command('git', (c) =>
-        c.command('commit', (c) => c.options(z.object({ message: z.string().describe('Commit message') })).action((opts) => opts?.message)),
+        c.command('commit', (c) =>
+          c.arguments(z.object({ message: z.string().describe('Commit message') })).action((opts) => opts?.message),
+        ),
       );
 
       const result = program.cli('help git commit');
@@ -1500,7 +1504,9 @@ describe('CLI', () => {
 
     it('should accept detail flag for subcommand help', () => {
       const program = createPadrone('test-cli').command('greet', (c) =>
-        c.options(z.object({ name: z.string().describe('Name') }), { positional: ['name'] }).action((options) => `Hello, ${options.name}!`),
+        c
+          .arguments(z.object({ name: z.string().describe('Name') }), { positional: ['name'] })
+          .action((options) => `Hello, ${options.name}!`),
       );
 
       const result = program.cli('greet --help --detail=full');
@@ -1566,7 +1572,7 @@ describe('CLI', () => {
       try {
         const program = createPadrone('test-cli').command('serve', (c) =>
           c
-            .options(z.object({ port: z.coerce.number().optional() }))
+            .arguments(z.object({ port: z.coerce.number().optional() }))
             .configFile(
               'config.json',
               z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
@@ -1595,7 +1601,7 @@ describe('CLI', () => {
       try {
         const program = createPadrone('test-cli').command('connect', (c) =>
           c
-            .options(z.object({ host: z.string().optional() }))
+            .arguments(z.object({ host: z.string().optional() }))
             .configFile('config.json', z.object({ host: z.string() }))
             .action((opts) => opts?.host),
         );
@@ -1621,7 +1627,7 @@ describe('CLI', () => {
       try {
         const program = createPadrone('test-cli').command('serve', (c) =>
           c
-            .options(z.object({ port: z.coerce.number().optional() }))
+            .arguments(z.object({ port: z.coerce.number().optional() }))
             .configFile(
               'config.json',
               z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
@@ -1643,7 +1649,7 @@ describe('CLI', () => {
   describe('nested object options (dot notation)', () => {
     it('should parse --key.nested=value as nested object', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.options(z.object({ user: z.object({ id: z.coerce.number() }).optional() })).action((options) => options),
+        c.arguments(z.object({ user: z.object({ id: z.coerce.number() }).optional() })).action((options) => options),
       );
 
       const result = program.parse('test --user.id=123');
@@ -1653,7 +1659,7 @@ describe('CLI', () => {
 
     it('should parse deeply nested options', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.options(z.object({ server: z.object({ database: z.object({ host: z.string() }) }).optional() })).action((options) => options),
+        c.arguments(z.object({ server: z.object({ database: z.object({ host: z.string() }) }).optional() })).action((options) => options),
       );
 
       const result = program.parse('test --server.database.host=localhost');
@@ -1663,7 +1669,7 @@ describe('CLI', () => {
 
     it('should combine multiple nested options into same object', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.options(z.object({ user: z.object({ name: z.string(), age: z.coerce.number() }).optional() })).action((options) => options),
+        c.arguments(z.object({ user: z.object({ name: z.string(), age: z.coerce.number() }).optional() })).action((options) => options),
       );
 
       const result = program.parse('test --user.name=John --user.age=30');
@@ -1673,7 +1679,7 @@ describe('CLI', () => {
 
     it('should handle nested boolean values', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.options(z.object({ config: z.object({ debug: z.boolean() }).optional() })).action((options) => options),
+        c.arguments(z.object({ config: z.object({ debug: z.boolean() }).optional() })).action((options) => options),
       );
 
       const result = program.parse('test --config.debug');
@@ -1683,7 +1689,7 @@ describe('CLI', () => {
 
     it('should handle negated nested boolean values', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.options(z.object({ config: z.object({ debug: z.boolean().default(true) }).optional() })).action((options) => options),
+        c.arguments(z.object({ config: z.object({ debug: z.boolean().default(true) }).optional() })).action((options) => options),
       );
 
       const result = program.parse('test --no-config.debug');
@@ -1693,7 +1699,7 @@ describe('CLI', () => {
 
     it('should stringify nested objects to dot notation', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.options(z.object({ user: z.object({ id: z.number(), name: z.string() }).optional() })).action((options) => options),
+        c.arguments(z.object({ user: z.object({ id: z.number(), name: z.string() }).optional() })).action((options) => options),
       );
 
       const result = program.stringify('test', { user: { id: 123, name: 'John' } });
@@ -1704,7 +1710,7 @@ describe('CLI', () => {
 
     it('should stringify deeply nested objects', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.options(z.object({ server: z.object({ db: z.object({ host: z.string() }) }).optional() })).action((options) => options),
+        c.arguments(z.object({ server: z.object({ db: z.object({ host: z.string() }) }).optional() })).action((options) => options),
       );
 
       const result = program.stringify('test', { server: { db: { host: 'localhost' } } });
@@ -1714,7 +1720,7 @@ describe('CLI', () => {
 
     it('should roundtrip nested objects through stringify and parse', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.options(z.object({ config: z.object({ port: z.coerce.number(), host: z.string() }).optional() })).action((options) => options),
+        c.arguments(z.object({ config: z.object({ port: z.coerce.number(), host: z.string() }).optional() })).action((options) => options),
       );
 
       const original = { config: { port: 8080, host: 'example.com' } };
@@ -1726,7 +1732,7 @@ describe('CLI', () => {
 
     it('should handle nested options with quoted string values', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.options(z.object({ message: z.object({ text: z.string() }).optional() })).action((options) => options),
+        c.arguments(z.object({ message: z.object({ text: z.string() }).optional() })).action((options) => options),
       );
 
       const result = program.parse('test --message.text="Hello World"');
@@ -1737,7 +1743,7 @@ describe('CLI', () => {
     it('should work with CLI execution', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
         c
-          .options(z.object({ settings: z.object({ verbose: z.boolean().default(false) }).optional() }))
+          .arguments(z.object({ settings: z.object({ verbose: z.boolean().default(false) }).optional() }))
           .action((options) => options?.settings),
       );
 

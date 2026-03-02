@@ -10,7 +10,7 @@ describe('Command Aliases', () => {
           title: 'List items',
           description: 'Show all available items',
         })
-        .options(
+        .arguments(
           z.object({
             format: z.enum(['json', 'table']).optional().default('table').describe('Output format'),
           }),
@@ -25,7 +25,7 @@ describe('Command Aliases', () => {
           title: 'Delete item',
           description: 'Remove an item',
         })
-        .options(
+        .arguments(
           z.object({
             name: z.string().describe('Item name'),
           }),
@@ -46,7 +46,7 @@ describe('Command Aliases', () => {
             .configure({
               title: 'Set config value',
             })
-            .options(
+            .arguments(
               z.object({
                 key: z.string(),
                 value: z.string(),
@@ -169,7 +169,7 @@ describe('Command Aliases', () => {
       const customProgram = createPadrone('testprog').command('test', (c) =>
         c
           .configure({})
-          .options(z.object({}))
+          .arguments(z.object({}))
           .action(() => ({ result: 'ok' })),
       );
 

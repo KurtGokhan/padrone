@@ -37,10 +37,10 @@ z.object({
 
 ## Options Configuration
 
-The second argument to `.options()` configures positional arguments and per-option metadata:
+The second argument to `.arguments()` configures positional arguments and per-option metadata:
 
 ```typescript
-.options(schema, {
+.arguments(schema, {
   positional: ['source', '...files', 'dest'],
   options: {
     verbose: { env: 'VERBOSE' },
@@ -107,7 +107,7 @@ z.string().meta({ env: 'API_KEY' })
 z.string().meta({ env: ['API_KEY', 'APP_API_KEY'] })
 
 // Via options config
-.options(schema, {
+.arguments(schema, {
   options: {
     apiKey: { env: 'API_KEY' },
   },
@@ -141,7 +141,7 @@ const program = createPadrone('app')
       '.apprc',
     ],
   })
-  .options(
+  .arguments(
     z.object({
       port: z.number().default(3000),
     }),

@@ -55,7 +55,7 @@ import * as z from 'zod/v4';
 const program = createPadrone('myapp')
   .command('greet', (c) =>
     c
-      .options(
+      .arguments(
         z.object({
           names: z.array(z.string()).describe('Names to greet'),
           prefix: z.string().optional().describe('Prefix').meta({ alias: 'p' }),

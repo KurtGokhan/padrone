@@ -27,7 +27,7 @@ export const tasksProgram = createPadrone('tasks')
   .command('add', (c) =>
     c
       .configure({ title: 'Add a new task' })
-      .options(
+      .arguments(
         z.object({
           title: z.string().describe('Task title'),
           priority: prioritySchema.optional().default('medium').describe('Task priority').meta({ alias: 'p' }),
@@ -50,7 +50,7 @@ export const tasksProgram = createPadrone('tasks')
   .command('list', (c) =>
     c
       .configure({ title: 'List all tasks' })
-      .options(
+      .arguments(
         z.object({
           status: statusSchema.optional().describe('Filter by status').meta({ alias: 's' }),
           priority: prioritySchema.optional().describe('Filter by priority').meta({ alias: 'p' }),
@@ -80,7 +80,7 @@ export const tasksProgram = createPadrone('tasks')
   .command('show', (c) =>
     c
       .configure({ title: 'Show task details' })
-      .options(
+      .arguments(
         z.object({
           id: z.string().describe('Task ID'),
         }),
@@ -110,7 +110,7 @@ export const tasksProgram = createPadrone('tasks')
   .command('complete', (c) =>
     c
       .configure({ title: 'Mark a task as completed' })
-      .options(
+      .arguments(
         z.object({
           id: z.string().describe('Task ID'),
         }),
@@ -131,7 +131,7 @@ export const tasksProgram = createPadrone('tasks')
   .command('start', (c) =>
     c
       .configure({ title: 'Mark a task as in progress' })
-      .options(
+      .arguments(
         z.object({
           id: z.string().describe('Task ID'),
         }),
@@ -152,7 +152,7 @@ export const tasksProgram = createPadrone('tasks')
   .command('edit', (c) =>
     c
       .configure({ title: 'Edit a task' })
-      .options(
+      .arguments(
         z.object({
           id: z.string().describe('Task ID'),
           title: z.string().optional().describe('New title'),
@@ -182,7 +182,7 @@ export const tasksProgram = createPadrone('tasks')
   .command('remove', (c) =>
     c
       .configure({ title: 'Remove a task' })
-      .options(
+      .arguments(
         z.object({
           id: z.string().describe('Task ID'),
         }),

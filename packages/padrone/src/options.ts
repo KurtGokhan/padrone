@@ -22,7 +22,7 @@ type PositionalArgs<TObj> =
  *
  * @example
  * ```ts
- * .options(schema, {
+ * .arguments(schema, {
  *   positional: ['source', '...files', 'dest'],  // '...files' is variadic
  * })
  * ```

@@ -51,7 +51,7 @@ import * as z from 'zod/v4';
 const program = createPadrone('myapp')
   .command('greet', (c) =>
     c
-      .options(
+      .arguments(
         z.object({
           names: z.array(z.string()).describe('Names to greet'),
           prefix: z
@@ -120,7 +120,7 @@ api.greet({ names: ['Alice', 'Bob'], prefix: 'Dr.' });
 const program = createPadrone('weather')
   .command('forecast', (c) =>
     c
-      .options(
+      .arguments(
         z.object({
           city: z.string().describe('City name'),
           days: z.number().optional().default(3).describe('Number of days'),
@@ -132,7 +132,7 @@ const program = createPadrone('weather')
       })
       .command('extended', (c) =>
         c
-          .options(
+          .arguments(
             z.object({
               city: z.string().describe('City name'),
             }),
@@ -154,7 +154,7 @@ program.cli('forecast extended London');
 const program = createPadrone('app')
   .command('serve', (c) =>
     c
-      .options(
+      .arguments(
         z.object({
           port: z
             .number()
@@ -187,7 +187,7 @@ Padrone supports loading options from environment variables and config files usi
 const program = createPadrone('app')
   .command('serve', (c) =>
     c
-      .options(
+      .arguments(
         z.object({
           port: z.number().default(3000).describe('Port to listen on'),
           apiKey: z.string().describe('API key for authentication'),
@@ -233,7 +233,7 @@ import * as z from 'zod/v4';
 const weatherCli = createPadrone('weather')
   .command('current', (c) =>
     c
-      .options(
+      .arguments(
         z.object({
           city: z.string().describe('City name'),
         }),
@@ -286,7 +286,7 @@ Creates a new CLI program with the given name.
 |--------|-------------|
 | `.configure(config)` | Configure program properties (title, description, version) |
 | `.command(name, builder)` | Add a command to the program |
-| `.options(schema, meta?)` | Define options schema with optional positional args |
+| `.arguments(schema, meta?)` | Define options schema with optional positional args |
 | `.env(schema)` | Define schema for parsing environment variables into options |
 | `.configFile(file, schema?)` | Configure config file path(s) and schema |
 | `.action(handler)` | Set the command handler function |
@@ -301,10 +301,10 @@ Creates a new CLI program with the given name.
 
 ### Options Meta
 
-Use the second argument of `.options()` to configure positional arguments and per-option metadata:
+Use the second argument of `.arguments()` to configure positional arguments and per-option metadata:
 
 ```typescript
-.options(schema, {
+.arguments(schema, {
   positional: ['source', '...files', 'dest'],  // '...files' is variadic
   options: {
     verbose: { alias: 'v' },

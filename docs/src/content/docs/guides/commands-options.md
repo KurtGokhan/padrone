@@ -14,7 +14,7 @@ import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 
 const program = createPadrone('app')
-  .options(
+  .arguments(
     z.object({
       port: z.number().default(3000).describe('Port to listen on'),
       host: z.string().default('localhost').describe('Host to bind to'),
@@ -71,7 +71,7 @@ z.string().meta({
 Positional arguments let users provide values without option names:
 
 ```typescript
-.options(
+.arguments(
   z.object({
     source: z.string().describe('Source file'),
     dest: z.string().describe('Destination file'),
@@ -91,7 +91,7 @@ app copy --source file.txt --dest backup.txt
 Use `...` prefix for variadic (rest) arguments that capture multiple values:
 
 ```typescript
-.options(
+.arguments(
   z.object({
     files: z.array(z.string()).describe('Files to process'),
     output: z.string().describe('Output directory'),
@@ -113,7 +113,7 @@ Add commands using the `.command()` method:
 const program = createPadrone('git')
   .command('clone', (c) =>
     c
-      .options(
+      .arguments(
         z.object({
           url: z.string().describe('Repository URL'),
           depth: z.number().optional().describe('Clone depth'),
@@ -142,7 +142,7 @@ Configure commands with `.configure()`:
       description: 'Start the development server',
       examples: ['serve --port 8080', 'serve -p 3000'],
     })
-    .options(schema)
+    .arguments(schema)
     .action(handler)
 )
 ```
@@ -160,7 +160,7 @@ const program = createPadrone('db')
       )
       .command('down', (c) =>
         c
-          .options(z.object({ steps: z.number().default(1) }))
+          .arguments(z.object({ steps: z.number().default(1) }))
           .action((opts) => console.log(`Rolling back ${opts.steps} migrations`))
       )
       .command('status', (c) =>
@@ -180,7 +180,7 @@ db migrate status
 Bind options to environment variables:
 
 ```typescript
-.options(
+.arguments(
   z.object({
     apiKey: z.string().describe('API key'),
     debug: z.boolean().optional(),
@@ -205,7 +205,7 @@ const program = createPadrone('app')
   .configure({
     configFiles: ['app.config.json', '.apprc', 'app.config.yaml'],
   })
-  .options(
+  .arguments(
     z.object({
       port: z.number().default(3000),
       host: z.string().default('localhost'),

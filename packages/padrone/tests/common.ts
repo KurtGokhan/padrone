@@ -14,7 +14,7 @@ export function createTasksProgram() {
   return createPadrone('padrone-test')
     .command('list', (c) =>
       c
-        .options(
+        .arguments(
           z.object({
             status: z.enum(['pending', 'in_progress', 'completed']).optional().describe('Filter by status'),
             limit: z.coerce.number().min(1).max(100).optional().default(10).describe('Maximum number of tasks'),
@@ -30,7 +30,7 @@ export function createTasksProgram() {
         })
         .command('extended', (c) =>
           c
-            .options(
+            .arguments(
               z.object({
                 status: z.enum(['pending', 'in_progress', 'completed']).optional().describe('Filter by status'),
                 priority: z.enum(['low', 'medium', 'high']).optional().default('medium').describe('Filter by priority'),
@@ -45,7 +45,7 @@ export function createTasksProgram() {
             })
             .command('extended', (c) =>
               c
-                .options(
+                .arguments(
                   z.object({
                     status: z.enum(['pending', 'in_progress', 'completed']).optional().describe('Filter by status'),
                   }),
@@ -61,7 +61,7 @@ export function createTasksProgram() {
     )
     .command('show', (c) =>
       c
-        .options(
+        .arguments(
           z.object({
             id: z.string().describe('Task ID'),
             priority: z.enum(['low', 'medium', 'high']).optional().default('medium').describe('Priority level'),
@@ -83,7 +83,7 @@ export function createTasksProgram() {
     )
     .command('filter', (c) =>
       c
-        .options(
+        .arguments(
           z.object({
             status: z.enum(['pending', 'in_progress', 'completed']).optional().describe('Filter by status'),
             priority: z.enum(['low', 'medium', 'high']).optional().describe('Filter by priority'),
@@ -100,7 +100,7 @@ export function createTasksProgram() {
     )
     .command('batch', (c) =>
       c
-        .options(
+        .arguments(
           z.object({
             ids: z.array(z.string()).min(2).describe('Task IDs to process'),
           }),
@@ -123,7 +123,7 @@ export function createTasksProgram() {
     .command('noop', (c) => c.action(() => undefined))
     .command('tags', (c) =>
       c
-        .options(
+        .arguments(
           z.object({
             verbose: z.boolean().optional(),
           }),
@@ -140,7 +140,7 @@ export function createTasksProgram() {
     )
     .command('deprecated-test', (c) =>
       c
-        .options(
+        .arguments(
           z.object({
             oldOption: z.string().optional().describe('Old option'),
             newOption: z.string().optional().describe('New option'),
@@ -166,7 +166,7 @@ export function createTasksProgram() {
     )
     .command('hidden-test', (c) =>
       c
-        .options(
+        .arguments(
           z.object({
             visibleOption: z.string().optional().describe('This option should be visible'),
             hiddenOption: z.string().optional().describe('This option should be hidden'),
@@ -191,7 +191,7 @@ export function createTasksProgram() {
     )
     .command('examples-test', (c) =>
       c
-        .options(
+        .arguments(
           z.object({
             output: z.string().optional().describe('Output file path'),
             format: z.enum(['json', 'yaml', 'xml']).optional().describe('Output format'),

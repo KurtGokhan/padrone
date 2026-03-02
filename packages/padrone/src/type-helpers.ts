@@ -65,8 +65,8 @@ export type InferEnvOutput<T extends AnyPadroneCommand> = T['envSchema'] extends
  * ```ts
  * const program = createPadrone('cli')
  *   .command('config', c => c
- *     .command('set', c => c.options(...).action(...))
- *     .command('get', c => c.options(...).action(...))
+ *     .command('set', c => c.arguments(...).action(...))
+ *     .command('get', c => c.arguments(...).action(...))
  *   );
  *
  * type SetCommand = InferCommand<typeof program, 'config set'>;
