@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import * as z from 'zod/v4';
-import { createPadrone } from '../src/index';
+import { createPadrone } from '../src/index.js';
 
 describe('wrap', () => {
   describe('basic wrapping', () => {

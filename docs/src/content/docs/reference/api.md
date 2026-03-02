@@ -95,6 +95,149 @@ program.action((options, context) => {
 
 ---
 
+### .wrap(config)
+
+Wrap an external CLI tool, automatically converting Padrone options to CLI arguments. This is a convenience method that combines `.arguments()` and `.action()` to proxy calls to external commands.
+
+```typescript
+// Wrap git commit
+program
+  .command('commit', (c) =>
+    c
+      .arguments(
+        z.object({
+          message: z.string(),
+          all: z.boolean().optional(),
+          amend: z.boolean().optional(),
+        }),
+        {
+          positional: ['message'],
+          options: {
+            message: { alias: 'm' },
+          },
+        }
+      )
+      .wrap({
+        command: 'git',
+        args: ['commit'],
+        optionMapping: {
+          all: '-a',
+          amend: '--amend',
+        },
+      })
+  );
+```
+
+**Config options:**
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `command` | `string` | required | The external command to execute (e.g., 'git', 'docker', 'npm') |
+| `args` | `string[]` | `[]` | Fixed arguments that always precede the options (e.g., `['commit']` for 'git commit') |
+| `optionMapping` | `Record<string, string>` | `{}` | Custom mapping for option names to CLI flags. By default, options are mapped to kebab-case (e.g., `myOption` → `--my-option`) |
+| `inheritStdio` | `boolean` | `true` | Whether to inherit stdio streams from the parent process. Set to `false` to capture stdout/stderr |
+
+**Returns:** The program builder with an action that executes the external command
+
+**Result Type:** `WrapResult` (when `inheritStdio` is `false`)
+```typescript
+type WrapResult = {
+  exitCode: number;      // The exit code of the process
+  stdout?: string;       // Standard output (only if inheritStdio is false)
+  stderr?: string;       // Standard error (only if inheritStdio is false)
+  success: boolean;      // Whether the process exited successfully (exit code 0)
+}
+```
+
+**Examples:**
+
+```typescript
+// Wrap docker run with custom option mapping
+program
+  .command('run', (c) =>
+    c
+      .arguments(
+        z.object({
+          image: z.string(),
+          detach: z.boolean().optional(),
+          interactive: z.boolean().optional(),
+          name: z.string().optional(),
+        }),
+        {
+          positional: ['image'],
+        }
+      )
+      .wrap({
+        command: 'docker',
+        args: ['run'],
+        optionMapping: {
+          detach: '-d',
+          interactive: '-i',
+        },
+      })
+  );
+
+// Usage: program.run('run', { image: 'nginx', detach: true })
+// Executes: docker run -d nginx
+```
+
+```typescript
+// Wrap npm install to capture output
+program
+  .command('install', (c) =>
+    c
+      .arguments(
+        z.object({
+          packages: z.string().array(),
+          saveDev: z.boolean().optional(),
+        }),
+        {
+          positional: ['...packages'],
+        }
+      )
+      .wrap({
+        command: 'npm',
+        args: ['install'],
+        optionMapping: {
+          saveDev: '--save-dev',
+        },
+        inheritStdio: false,  // Capture output
+      })
+  );
+
+// Usage:
+const result = await program.run('install', {
+  packages: ['react', 'react-dom'],
+  saveDev: false,
+});
+console.log(result.result.stdout);  // npm install output
+console.log(result.result.exitCode);  // 0 if successful
+```
+
+**Type Safety:**
+
+The `.wrap()` method maintains full type safety:
+- Options are validated against the schema defined in `.arguments()`
+- Return type is inferred as `Promise<WrapResult>`
+- TypeScript will enforce the correct option types when calling `.run()` or `.cli()`
+
+**How it works:**
+
+1. **Options → CLI Arguments**: Padrone automatically converts your typed options to CLI arguments:
+   - Boolean options: `{ verbose: true }` → `--verbose`
+   - String/Number options: `{ port: 3000 }` → `--port 3000`
+   - Array options: `{ files: ['a', 'b'] }` → `--files a --files b`
+   - Positional arguments: Follow the order specified in `meta.positional`
+   - camelCase → kebab-case: `{ myOption: 'val' }` → `--my-option val`
+
+2. **Custom Mappings**: Override default flag names with `optionMapping`:
+   ```typescript
+   optionMapping: { v: '-v', version: '--version' }
+   ```
+
+3. **Process Execution**: Uses `Bun.spawn()` to execute the external command with the generated arguments
+
+---
+
 ### .command(name, builder)
 
 Add a subcommand.

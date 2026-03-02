@@ -122,7 +122,7 @@ function optionsToArgs(
  */
 export function createWrapHandler<TOpts extends PadroneSchema>(
   config: WrapConfig,
-  optionsSchema?: TOpts,
+  _optionsSchema?: TOpts,
   positional?: string[],
 ): (options: StandardSchemaV1.InferOutput<TOpts>) => Promise<WrapResult> {
   return async (options: StandardSchemaV1.InferOutput<TOpts>): Promise<WrapResult> => {

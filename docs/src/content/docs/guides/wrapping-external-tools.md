@@ -1,0 +1,374 @@
+---
+title: Wrapping External CLI Tools
+description: Learn how to wrap external CLI tools with Padrone for type-safe command execution
+---
+
+## Overview
+
+Padrone's `.wrap()` method allows you to create type-safe wrappers around external CLI tools. This is useful when you want to:
+
+- Provide a typed interface to existing command-line tools
+- Combine multiple tools into a unified CLI
+- Add validation and preprocessing before calling external commands
+- Build CLI orchestrators or automation tools
+
+## Basic Usage
+
+The simplest way to wrap an external command is to define the options schema and call `.wrap()`:
+
+```typescript
+import { createPadrone } from 'padrone';
+import * as z from 'zod/v4';
+
+const program = createPadrone('myapp')
+  .command('hello', (c) =>
+    c
+      .arguments(
+        z.object({
+          name: z.string(),
+        }),
+        {
+          positional: ['name'],
+        }
+      )
+      .wrap({
+        command: 'echo',
+      })
+  );
+
+// Usage: myapp hello "World"
+// Executes: echo World
+```
+
+## Option Mapping
+
+Padrone automatically converts your options to CLI arguments following these rules:
+
+### Automatic Conversion
+
+1. **Boolean flags**: `{ verbose: true }` → `--verbose`
+2. **String/Number values**: `{ port: 3000 }` → `--port 3000`
+3. **Arrays**: `{ files: ['a.txt', 'b.txt'] }` → `--files a.txt --files b.txt`
+4. **camelCase to kebab-case**: `{ outputFile: 'out.txt' }` → `--output-file out.txt`
+
+### Custom Mappings
+
+Override the default mapping with `optionMapping`:
+
+```typescript
+program
+  .command('list', (c) =>
+    c
+      .arguments(
+        z.object({
+          all: z.boolean().optional(),
+          long: z.boolean().optional(),
+          human: z.boolean().optional(),
+        })
+      )
+      .wrap({
+        command: 'ls',
+        optionMapping: {
+          all: '-a',
+          long: '-l',
+          human: '-h',
+        },
+      })
+  );
+
+// Usage: myapp list --all --long
+// Executes: ls -a -l
+```
+
+## Positional Arguments
+
+Use the `positional` meta field to define positional arguments:
+
+```typescript
+program
+  .command('copy', (c) =>
+    c
+      .arguments(
+        z.object({
+          source: z.string(),
+          dest: z.string(),
+          recursive: z.boolean().optional(),
+        }),
+        {
+          positional: ['source', 'dest'],
+        }
+      )
+      .wrap({
+        command: 'cp',
+        optionMapping: {
+          recursive: '-r',
+        },
+      })
+  );
+
+// Usage: myapp copy /src /dest --recursive
+// Executes: cp -r /src /dest
+```
+
+### Variadic Arguments
+
+Use the `...` prefix for variadic (rest) arguments:
+
+```typescript
+program
+  .command('remove', (c) =>
+    c
+      .arguments(
+        z.object({
+          files: z.string().array(),
+          force: z.boolean().optional(),
+        }),
+        {
+          positional: ['...files'],
+        }
+      )
+      .wrap({
+        command: 'rm',
+        optionMapping: {
+          force: '-f',
+        },
+      })
+  );
+
+// Usage: myapp remove file1.txt file2.txt --force
+// Executes: rm -f file1.txt file2.txt
+```
+
+## Fixed Arguments
+
+Use the `args` option to prepend fixed arguments to every call:
+
+```typescript
+program
+  .command('commit', (c) =>
+    c
+      .arguments(
+        z.object({
+          message: z.string(),
+          amend: z.boolean().optional(),
+        }),
+        {
+          positional: ['message'],
+          options: {
+            message: { alias: 'm' },
+          },
+        }
+      )
+      .wrap({
+        command: 'git',
+        args: ['commit'],
+        optionMapping: {
+          amend: '--amend',
+        },
+      })
+  );
+
+// Usage: myapp commit "Initial commit"
+// Executes: git commit "Initial commit"
+```
+
+## Capturing Output
+
+By default, the wrapped command inherits stdio from the parent process (output goes directly to the terminal). Set `inheritStdio: false` to capture stdout and stderr:
+
+```typescript
+program
+  .command('version', (c) =>
+    c
+      .wrap({
+        command: 'node',
+        args: ['--version'],
+        inheritStdio: false,
+      })
+  );
+
+// Get the result
+const result = await program.run('version', undefined);
+const wrapResult = await result.result;
+
+console.log('Exit code:', wrapResult.exitCode);
+console.log('Output:', wrapResult.stdout);
+console.log('Success:', wrapResult.success);
+```
+
+## Complete Example: Docker Wrapper
+
+Here's a complete example wrapping common Docker commands:
+
+```typescript
+import { createPadrone } from 'padrone';
+import * as z from 'zod/v4';
+
+const docker = createPadrone('docker-cli')
+  .configure({
+    title: 'Docker CLI Wrapper',
+    description: 'Type-safe wrapper for Docker commands',
+    version: '1.0.0',
+  })
+  .command('run', (c) =>
+    c
+      .configure({
+        description: 'Run a container from an image',
+      })
+      .arguments(
+        z.object({
+          image: z.string().describe('Docker image name'),
+          name: z.string().optional().describe('Container name'),
+          detach: z.boolean().optional().describe('Run in background'),
+          interactive: z.boolean().optional().describe('Keep STDIN open'),
+          tty: z.boolean().optional().describe('Allocate a pseudo-TTY'),
+          port: z.string().array().optional().describe('Port mappings'),
+          volume: z.string().array().optional().describe('Volume mounts'),
+          env: z.string().array().optional().describe('Environment variables'),
+        }),
+        {
+          positional: ['image'],
+        }
+      )
+      .wrap({
+        command: 'docker',
+        args: ['run'],
+        optionMapping: {
+          detach: '-d',
+          interactive: '-i',
+          tty: '-t',
+          port: '-p',
+          volume: '-v',
+          env: '-e',
+          name: '--name',
+        },
+      })
+  )
+  .command('ps', (c) =>
+    c
+      .configure({
+        description: 'List containers',
+      })
+      .arguments(
+        z.object({
+          all: z.boolean().optional().describe('Show all containers'),
+          quiet: z.boolean().optional().describe('Only show container IDs'),
+        })
+      )
+      .wrap({
+        command: 'docker',
+        args: ['ps'],
+        optionMapping: {
+          all: '-a',
+          quiet: '-q',
+        },
+      })
+  )
+  .command('stop', (c) =>
+    c
+      .configure({
+        description: 'Stop running containers',
+      })
+      .arguments(
+        z.object({
+          containers: z.string().array().describe('Container IDs or names'),
+        }),
+        {
+          positional: ['...containers'],
+        }
+      )
+      .wrap({
+        command: 'docker',
+        args: ['stop'],
+      })
+  );
+
+// Type-safe usage
+await docker.run('run', {
+  image: 'nginx:latest',
+  detach: true,
+  port: ['80:80'],
+  name: 'my-nginx',
+});
+
+await docker.run('ps', { all: true });
+
+await docker.run('stop', { containers: ['my-nginx'] });
+```
+
+## Type Safety
+
+The `.wrap()` method maintains full type safety throughout:
+
+```typescript
+const program = createPadrone('app')
+  .command('deploy', (c) =>
+    c
+      .arguments(
+        z.object({
+          environment: z.enum(['dev', 'staging', 'prod']),
+          version: z.string(),
+          dryRun: z.boolean().default(false),
+        })
+      )
+      .wrap({
+        command: 'deploy-tool',
+        optionMapping: {
+          dryRun: '--dry-run',
+        },
+      })
+  );
+
+// ✅ TypeScript knows the correct types
+await program.run('deploy', {
+  environment: 'prod',
+  version: '1.2.3',
+  dryRun: true,
+});
+
+// ❌ TypeScript error: invalid environment
+await program.run('deploy', {
+  environment: 'production',  // Type error!
+  version: '1.2.3',
+});
+
+// ❌ TypeScript error: missing required field
+await program.run('deploy', {
+  environment: 'prod',
+  // version is missing!
+});
+```
+
+## Error Handling
+
+Wrapped commands can fail. Check the exit code or success flag:
+
+```typescript
+const result = await program.run('deploy', { environment: 'prod', version: '1.0.0' });
+const wrapResult = await result.result;
+
+if (!wrapResult.success) {
+  console.error('Deployment failed with exit code:', wrapResult.exitCode);
+  if (wrapResult.stderr) {
+    console.error('Error output:', wrapResult.stderr);
+  }
+  process.exit(1);
+}
+
+console.log('Deployment successful!');
+```
+
+## Best Practices
+
+1. **Use descriptive option names**: Choose clear, self-documenting names for your options
+2. **Add descriptions**: Use `.describe()` on Zod schemas to document each option
+3. **Provide defaults**: Use `.default()` for common values
+4. **Validate inputs**: Use Zod's validation features to ensure correct inputs before calling external commands
+5. **Handle errors**: Always check the exit code when capturing output
+6. **Use enums**: For fixed sets of values, use `z.enum()` or `z.union()`
+
+## Limitations
+
+- The wrapped command must be available in the system's PATH or specified as an absolute path
+- Environment variables are not automatically passed to the wrapped command (you'll need to pass them explicitly if needed)
+- The wrap method uses `Bun.spawn()`, so it requires Bun runtime or a compatible environment
