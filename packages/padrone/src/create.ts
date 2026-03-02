@@ -632,7 +632,7 @@ ${helpText}
     configure(config) {
       return createPadroneBuilder({ ...existingCommand, ...config }) as any;
     },
-    options(options, meta) {
+    arguments(options, meta) {
       // If options is a function, call it with parent's options as base
       const resolvedOptions = typeof options === 'function' ? options(existingCommand.options as any) : options;
       return createPadroneBuilder({ ...existingCommand, options: resolvedOptions, meta }) as any;

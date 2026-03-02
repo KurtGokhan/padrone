@@ -26,7 +26,7 @@ Padrone solves these problems by using **Zod schemas as the single source of tru
 Every option you define is fully typed from schema definition to action handler:
 
 ```typescript
-.options(
+.arguments(
   z.object({
     port: z.number().default(3000),
     host: z.string().default('localhost'),
@@ -45,8 +45,8 @@ Padrone uses a chainable builder pattern that reads naturally:
 ```typescript
 createPadrone('myapp')
   .configure({ version: '1.0.0' })
-  .command('serve', (c) => c.options(schema).action(handler))
-  .command('build', (c) => c.options(schema).action(handler))
+  .command('serve', (c) => c.arguments(schema).action(handler))
+  .command('build', (c) => c.arguments(schema).action(handler))
   .cli();
 ```
 

@@ -9,7 +9,7 @@ describe.skip('Types - Builder vs Program separation', async () => {
   // Builder should have these methods
   type BuilderKeys = keyof PadroneBuilder;
   expectTypeOf<'configure'>().toExtend<BuilderKeys>();
-  expectTypeOf<'options'>().toExtend<BuilderKeys>();
+  expectTypeOf<'arguments'>().toExtend<BuilderKeys>();
   expectTypeOf<'action'>().toExtend<BuilderKeys>();
   expectTypeOf<'command'>().toExtend<BuilderKeys>();
   expectTypeOf<'configFile'>().toExtend<BuilderKeys>();
@@ -23,7 +23,7 @@ describe.skip('Types - Builder vs Program separation', async () => {
   // Program should have all methods
   type ProgramKeys = keyof PadroneProgram;
   expectTypeOf<'configure'>().toExtend<ProgramKeys>();
-  expectTypeOf<'options'>().toExtend<ProgramKeys>();
+  expectTypeOf<'arguments'>().toExtend<ProgramKeys>();
   expectTypeOf<'action'>().toExtend<ProgramKeys>();
   expectTypeOf<'command'>().toExtend<ProgramKeys>();
   expectTypeOf<'run'>().toExtend<ProgramKeys>();
@@ -39,7 +39,7 @@ describe.skip('Types - Builder vs Program separation', async () => {
   // Verify builder chaining returns builder within command() callback
   createPadrone('test').command('cmd', (builder) => {
     // builder should be PadroneBuilder
-    const afterOptions = builder.options(z.object({ name: z.string() }));
+    const afterOptions = builder.arguments(z.object({ name: z.string() }));
     // afterOptions should also be PadroneBuilder - program methods should NOT exist
     type AfterOptionsKeys = keyof typeof afterOptions;
     expectTypeOf<'run'>().not.toMatchObjectType<AfterOptionsKeys>();
@@ -85,15 +85,15 @@ describe.skip('Types', async () => {
 describe.skip('Types - Aliases', async () => {
   const programWithAliases = createPadrone('test')
     .command(['list', 'ls', 'l'], (c) =>
-      c.options(z.object({ format: z.enum(['json', 'table']).default('table') })).action((opts) => ({ items: [], format: opts.format })),
+      c.arguments(z.object({ format: z.enum(['json', 'table']).default('table') })).action((opts) => ({ items: [], format: opts.format })),
     )
     .command(['delete', 'rm'], (c) =>
-      c.options(z.object({ name: z.string() }), { positional: ['name'] }).action((opts) => ({ deleted: opts.name })),
+      c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((opts) => ({ deleted: opts.name })),
     )
     .command('config', (c) =>
       c.command(['set', 's'], (sub) =>
         sub
-          .options(z.object({ key: z.string(), value: z.string() }), { positional: ['key', 'value'] })
+          .arguments(z.object({ key: z.string(), value: z.string() }), { positional: ['key', 'value'] })
           .action((opts) => ({ key: opts.key, value: opts.value })),
       ),
     );
@@ -119,7 +119,7 @@ describe.skip('Types - Parsed command type', async () => {
   const program = createPadrone('test')
     .command('greet', (c) =>
       c
-        .options(
+        .arguments(
           z.object({
             name: z.string().default('World'),
             excited: z.boolean().default(false),
@@ -132,7 +132,7 @@ describe.skip('Types - Parsed command type', async () => {
     )
     .command('sum', (c) =>
       c
-        .options(
+        .arguments(
           z.object({
             numbers: z.array(z.number()),
           }),

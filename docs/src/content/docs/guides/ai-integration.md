@@ -25,7 +25,7 @@ const weatherCli = createPadrone('weather')
   .command('current', (c) =>
     c
       .configure({ description: 'Get current weather for a city' })
-      .options(
+      .arguments(
         z.object({
           city: z.string().describe('City name'),
           units: z.enum(['celsius', 'fahrenheit']).default('celsius'),
@@ -45,7 +45,7 @@ const weatherCli = createPadrone('weather')
   .command('forecast', (c) =>
     c
       .configure({ description: 'Get weather forecast' })
-      .options(
+      .arguments(
         z.object({
           city: z.string().describe('City name'),
           days: z.number().default(3).describe('Number of days'),
@@ -177,7 +177,7 @@ const tasks = createPadrone('tasks')
   .command('add', (c) =>
     c
       .configure({ description: 'Add a new task' })
-      .options(
+      .arguments(
         z.object({
           title: z.string().describe('Task title'),
           priority: z.enum(['low', 'medium', 'high']).default('medium'),
@@ -193,7 +193,7 @@ const tasks = createPadrone('tasks')
   .command('list', (c) =>
     c
       .configure({ description: 'List all tasks' })
-      .options(
+      .arguments(
         z.object({
           status: z.enum(['all', 'pending', 'completed']).default('all'),
         })
@@ -211,7 +211,7 @@ const tasks = createPadrone('tasks')
   .command('complete', (c) =>
     c
       .configure({ description: 'Mark a task as completed' })
-      .options(
+      .arguments(
         z.object({
           id: z.string().describe('Task ID'),
         }),

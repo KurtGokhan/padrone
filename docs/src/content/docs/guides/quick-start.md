@@ -33,7 +33,7 @@ const program = createPadrone('greet')
     version: '1.0.0',
     description: 'A friendly greeting CLI',
   })
-  .options(
+  .arguments(
     z.object({
       name: z.string().describe('Name to greet'),
       excited: z.boolean().optional().describe('Add excitement'),
@@ -78,7 +78,7 @@ const program = createPadrone('todo')
   })
   .command('add', (c) =>
     c
-      .options(
+      .arguments(
         z.object({
           task: z.string().describe('Task description'),
           priority: z.enum(['low', 'medium', 'high']).default('medium'),
@@ -91,7 +91,7 @@ const program = createPadrone('todo')
   )
   .command('list', (c) =>
     c
-      .options(
+      .arguments(
         z.object({
           all: z.boolean().optional().describe('Show completed tasks'),
         })
