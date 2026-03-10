@@ -187,7 +187,7 @@ describe('wrap', () => {
     it('should handle command not found', async () => {
       const program = createPadrone('test').command('notfound', (c) =>
         c.arguments(z.object({})).wrap(
-          (cmdSchema) => cmdSchema, // Pass through schema
+          (cmdSchema) => cmdSchema, // Identity transform
           {
             command: 'this-command-does-not-exist-12345',
             inheritStdio: false,
@@ -209,7 +209,7 @@ describe('wrap', () => {
     it('should return non-zero exit code for failing commands', async () => {
       const program = createPadrone('test').command('false', (c) =>
         c.arguments(z.object({})).wrap(
-          (cmdSchema) => cmdSchema, // Pass through schema
+          (cmdSchema) => cmdSchema, // Identity transform
           {
             command: 'false',
             inheritStdio: false,

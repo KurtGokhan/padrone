@@ -130,7 +130,9 @@ export function createWrapHandler<TCommandOpts extends PadroneSchema, TWrapOpts 
       throw new Error('Async validation is not supported. Wrap schema validate() must return a synchronous result.');
     }
     if (result.issues) {
-      const issueMessages = result.issues.map((i: any) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`).join('\n');
+      const issueMessages = result.issues
+        .map((i) => `  - ${(i.path as (string | number)[] | undefined)?.join('.') || 'root'}: ${i.message}`)
+        .join('\n');
       throw new Error(`Wrap schema validation failed:\n${issueMessages}`);
     }
     const externalOptions = result.value;
