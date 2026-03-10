@@ -674,8 +674,8 @@ ${helpText}
     action(handler = noop) {
       return createPadroneBuilder({ ...existingCommand, handler }) as any;
     },
-    wrap(schema, config) {
-      const handler = createWrapHandler(schema, config, existingCommand.options as any, existingCommand.meta?.positional);
+    wrap(config) {
+      const handler = createWrapHandler(config, existingCommand.options as any, existingCommand.meta?.positional);
       return createPadroneBuilder({ ...existingCommand, handler }) as any;
     },
     command(nameOrNames, builderFn) {

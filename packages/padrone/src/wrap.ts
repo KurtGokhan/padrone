@@ -4,7 +4,7 @@ import type { PadroneSchema } from './types.ts';
 /**
  * Configuration options for wrapping an external CLI tool.
  */
-export type WrapConfig = {
+export type WrapConfig<TCommandOpts extends PadroneSchema = PadroneSchema, TWrapOpts extends PadroneSchema = TCommandOpts> = {
   /**
    * The command to execute (e.g., 'git', 'docker', 'npm').
    */
@@ -23,6 +23,13 @@ export type WrapConfig = {
    * Default: true
    */
   inheritStdio?: boolean;
+  /**
+   * Optional schema that transforms command options to external CLI arguments.
+   * The schema's input type should match the command options, and its output type defines
+   * the arguments expected by the external command.
+   * If not provided, command options are passed through as-is.
+   */
+  schema?: TWrapOpts | ((commandOptions: TCommandOpts) => TWrapOpts);
 };
 
 /**
@@ -107,22 +114,20 @@ function optionsToArgs(options: Record<string, unknown> | undefined, positional:
 
 /**
  * Creates an action handler that wraps an external CLI tool.
- * @param wrapSchema - The schema that transforms from command options (input) to external CLI arguments (output)
- * @param config - Configuration for wrapping the external command
+ * @param config - Configuration for wrapping the external command (includes optional schema)
  * @param commandOptions - The command's options schema
  * @param commandPositional - Default positional config from the wrapping command
  */
 export function createWrapHandler<TCommandOpts extends PadroneSchema, TWrapOpts extends PadroneSchema>(
-  wrapSchema: TWrapOpts | ((commandOptions: TCommandOpts) => TWrapOpts),
-  config: WrapConfig,
+  config: WrapConfig<TCommandOpts, TWrapOpts>,
   commandOptions: TCommandOpts,
   commandPositional?: string[],
 ): (options: StandardSchemaV1.InferOutput<TCommandOpts>) => Promise<WrapResult> {
   return async (options: StandardSchemaV1.InferOutput<TCommandOpts>): Promise<WrapResult> => {
-    const { command, args: fixedArgs = [], inheritStdio = true, positional = commandPositional } = config;
+    const { command, args: fixedArgs = [], inheritStdio = true, positional = commandPositional, schema: wrapSchema } = config;
 
     // Get the wrap schema (handle function or direct schema)
-    const schema = typeof wrapSchema === 'function' ? wrapSchema(commandOptions) : wrapSchema;
+    const schema = wrapSchema ? (typeof wrapSchema === 'function' ? wrapSchema(commandOptions) : wrapSchema) : commandOptions;
 
     // Transform command options to external CLI options using the wrap schema
     const result = schema['~standard'].validate(options);

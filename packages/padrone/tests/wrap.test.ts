@@ -15,12 +15,10 @@ describe('wrap', () => {
               positional: ['message'],
             },
           )
-          .wrap(
-            (cmdSchema) => cmdSchema, // Pass through options as-is
-            {
-              command: 'echo',
-            },
-          ),
+          .wrap({
+            command: 'echo',
+            schema: (cmdSchema) => cmdSchema, // Identity transform
+          }),
       );
 
       const result = await program.run('echo', { message: 'Hello World' });
@@ -43,9 +41,10 @@ describe('wrap', () => {
               positional: ['message'],
             },
           )
-          .wrap((cmdSchema) => cmdSchema, {
+          .wrap({
             command: 'echo',
             inheritStdio: false,
+            schema: (cmdSchema) => cmdSchema,
           }),
       );
 
@@ -67,7 +66,8 @@ describe('wrap', () => {
               long: z.boolean().optional(),
             }),
           )
-          .wrap((cmdSchema) => cmdSchema, {
+          .wrap({
+            schema: (cmdSchema) => cmdSchema,
             command: 'echo',
             args: ['ls', '/tmp'],
             inheritStdio: false,
@@ -90,7 +90,8 @@ describe('wrap', () => {
               files: z.string().array().optional(),
             }),
           )
-          .wrap((cmdSchema) => cmdSchema, {
+          .wrap({
+            schema: (cmdSchema) => cmdSchema,
             command: 'echo',
             inheritStdio: false,
           }),
@@ -117,7 +118,8 @@ describe('wrap', () => {
               positional: ['file'],
             },
           )
-          .wrap((cmdSchema) => cmdSchema, {
+          .wrap({
+            schema: (cmdSchema) => cmdSchema,
             command: 'echo',
             args: ['Reading:'],
             inheritStdio: false,
@@ -142,7 +144,8 @@ describe('wrap', () => {
               positional: ['...files'],
             },
           )
-          .wrap((cmdSchema) => cmdSchema, {
+          .wrap({
+            schema: (cmdSchema) => cmdSchema,
             command: 'echo',
             inheritStdio: false,
           }),
@@ -170,7 +173,8 @@ describe('wrap', () => {
               positional: ['pattern', 'file'],
             },
           )
-          .wrap((cmdSchema) => cmdSchema, {
+          .wrap({
+            schema: (cmdSchema) => cmdSchema,
             command: 'echo',
             inheritStdio: false,
           }),
@@ -186,13 +190,11 @@ describe('wrap', () => {
   describe('error handling', () => {
     it('should handle command not found', async () => {
       const program = createPadrone('test').command('notfound', (c) =>
-        c.arguments(z.object({})).wrap(
-          (cmdSchema) => cmdSchema, // Identity transform
-          {
-            command: 'this-command-does-not-exist-12345',
-            inheritStdio: false,
-          },
-        ),
+        c.arguments(z.object({})).wrap({
+          command: 'this-command-does-not-exist-12345',
+          inheritStdio: false,
+          schema: (cmdSchema) => cmdSchema, // Identity transform
+        }),
       );
 
       let errorThrown = false;
@@ -208,13 +210,11 @@ describe('wrap', () => {
 
     it('should return non-zero exit code for failing commands', async () => {
       const program = createPadrone('test').command('false', (c) =>
-        c.arguments(z.object({})).wrap(
-          (cmdSchema) => cmdSchema, // Identity transform
-          {
-            command: 'false',
-            inheritStdio: false,
-          },
-        ),
+        c.arguments(z.object({})).wrap({
+          command: 'false',
+          inheritStdio: false,
+          schema: (cmdSchema) => cmdSchema, // Identity transform
+        }),
       );
 
       const result = await program.run('false', {});
@@ -237,7 +237,8 @@ describe('wrap', () => {
               positional: ['message'],
             },
           )
-          .wrap((cmdSchema) => cmdSchema, {
+          .wrap({
+            schema: (cmdSchema) => cmdSchema,
             command: 'echo',
             inheritStdio: false,
           }),
@@ -259,7 +260,8 @@ describe('wrap', () => {
               file: z.string().optional(),
             }),
           )
-          .wrap((cmdSchema) => cmdSchema, {
+          .wrap({
+            schema: (cmdSchema) => cmdSchema,
             command: 'echo',
             inheritStdio: false,
           }),
@@ -281,7 +283,8 @@ describe('wrap', () => {
               s: z.boolean().optional(),
             }),
           )
-          .wrap((cmdSchema) => cmdSchema, {
+          .wrap({
+            schema: (cmdSchema) => cmdSchema,
             command: 'echo',
             args: ['git', 'status'],
             inheritStdio: false,
@@ -310,7 +313,8 @@ describe('wrap', () => {
               positional: ['message'],
             },
           )
-          .wrap((cmdSchema) => cmdSchema, {
+          .wrap({
+            schema: (cmdSchema) => cmdSchema,
             command: 'echo',
             inheritStdio: false,
           }),
@@ -338,8 +342,12 @@ describe('wrap', () => {
               positional: ['message'],
             },
           )
-          .wrap(
-            z
+          .wrap({
+            command: 'echo',
+            args: ['git', 'commit'],
+            positional: ['m'],
+            inheritStdio: false,
+            schema: z
               .object({
                 message: z.string(),
                 all: z.boolean().optional(),
@@ -348,13 +356,7 @@ describe('wrap', () => {
                 m: opts.message,
                 a: opts.all,
               })),
-            {
-              command: 'echo',
-              args: ['git', 'commit'],
-              positional: ['m'],
-              inheritStdio: false,
-            },
-          ),
+          }),
       );
 
       const result = await program.run('git-commit', { message: 'Initial commit', all: true });
@@ -375,8 +377,12 @@ describe('wrap', () => {
               detach: z.boolean().optional(),
             }),
           )
-          .wrap(
-            z
+          .wrap({
+            command: 'echo',
+            args: ['docker', 'run'],
+            positional: ['image'], // Custom positional for wrap
+            inheritStdio: false,
+            schema: z
               .object({
                 image: z.string(),
                 detach: z.boolean().optional(),
@@ -385,13 +391,7 @@ describe('wrap', () => {
                 image: opts.image,
                 d: opts.detach,
               })),
-            {
-              command: 'echo',
-              args: ['docker', 'run'],
-              positional: ['image'], // Custom positional for wrap
-              inheritStdio: false,
-            },
-          ),
+          }),
       );
 
       const result = await program.run('docker', { image: 'nginx', detach: true });

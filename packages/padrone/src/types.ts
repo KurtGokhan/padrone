@@ -222,60 +222,63 @@ export type PadroneBuilderMethods<
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TNewRes, TCommands, TParentOpts, TConfig, TEnv>;
 
   /**
-   * Wraps an external CLI tool with a schema that transforms command options to external CLI arguments.
-   * The schema's input type should match the current command's options, and its output type defines
-   * the arguments expected by the external command.
+   * Wraps an external CLI tool with optional schema transformation.
+   * The config can include a schema that transforms command options to external CLI arguments.
    *
    * @example
    * ```ts
-   * // Define command options, then wrap with transformation
+   * // No transformation - pass options as-is
+   * .arguments(z.object({
+   *   message: z.string(),
+   * }))
+   * .wrap({
+   *   command: 'echo',
+   * })
+   * ```
+   *
+   * @example
+   * ```ts
+   * // With transformation schema
    * .arguments(z.object({
    *   message: z.string(),
    *   all: z.boolean().optional(),
    * }), {
    *   positional: ['message'],
    * })
-   * .wrap(
-   *   // Transform to external CLI format
-   *   z.object({
+   * .wrap({
+   *   command: 'git',
+   *   args: ['commit'],
+   *   positional: ['m'],
+   *   schema: z.object({
    *     message: z.string(),
    *     all: z.boolean().optional(),
    *   }).transform(opts => ({
    *     m: opts.message,
    *     a: opts.all,
    *   })),
-   *   {
-   *     command: 'git',
-   *     args: ['commit'],
-   *     positional: ['m'],  // Optional: defaults to command's positional config
-   *   }
-   * )
+   * })
    * ```
    *
    * @example
    * ```ts
-   * // Using function-based schema for access to command options type
+   * // Using function-based schema for type inference
    * .arguments(z.object({
    *   image: z.string(),
    *   detach: z.boolean().optional(),
    * }))
-   * .wrap(
-   *   (cmdOpts) => cmdOpts.transform(opts => ({
+   * .wrap({
+   *   command: 'docker',
+   *   args: ['run'],
+   *   positional: ['image'],
+   *   schema: (cmdOpts) => cmdOpts.transform(opts => ({
    *     d: opts.detach,
-   *     // image stays as-is
    *     image: opts.image,
    *   })),
-   *   {
-   *     command: 'docker',
-   *     args: ['run'],
-   *     positional: ['image'],
-   *   }
-   * )
+   * })
    * ```
    */
   wrap: <TWrapOpts extends PadroneSchema = TOpts>(
-    schema: TWrapOpts | ((commandOptions: TOpts) => TWrapOpts),
-    config: WrapConfig,
+    config: WrapConfig<TOpts, TWrapOpts>,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, Promise<WrapResult>, TCommands, TParentOpts, TConfig, TEnv>;
 
   /**

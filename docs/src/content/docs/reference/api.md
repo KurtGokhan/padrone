@@ -95,11 +95,11 @@ program.action((options, context) => {
 
 ---
 
-### .wrap(schema, config)
+### .wrap(config)
 
-Wrap an external CLI tool with a schema that transforms command options to external CLI arguments.
+Wrap an external CLI tool with optional schema transformation in the config object.
 
-The schema's **input type** should match the current command's options (from `.arguments()`), and its **output type** defines the arguments expected by the external command.
+The config can include a `schema` property that transforms command options to external CLI arguments. The schema's **input type** should match the current command's options (from `.arguments()`), and its **output type** defines the arguments expected by the external command.
 
 ```typescript
 // Define command options first
@@ -115,21 +115,18 @@ program
           positional: ['message'],
         }
       )
-      .wrap(
-        // Transform schema: input = command options, output = CLI args
-        z.object({
+      .wrap({
+        command: 'git',
+        args: ['commit'],
+        positional: ['m'],  // Positional for external command
+        schema: z.object({
           message: z.string(),
           all: z.boolean().optional(),
         }).transform((opts) => ({
           m: opts.message,  // Map 'message' to 'm' flag
           a: opts.all,      // Map 'all' to 'a' flag
         })),
-        {
-          command: 'git',
-          args: ['commit'],
-          positional: ['m'],  // Positional for external command
-        }
-      )
+      })
   );
 ```
 
@@ -140,6 +137,7 @@ program
 | `args` | `string[]` | `[]` | Fixed arguments that always precede the options (e.g., `['commit']` for 'git commit') |
 | `positional` | `string[]` | command's positional | Positional argument configuration for the external command. Defaults to the wrapping command's positional config. |
 | `inheritStdio` | `boolean` | `true` | Whether to inherit stdio streams from the parent process. Set to `false` to capture stdout/stderr |
+| `schema` | `Schema \| (cmdSchema) => Schema` | identity | Optional transformation schema. If not provided, command options are passed through as-is. |
 
 **Returns:** The program builder with an action that executes the external command
 
@@ -156,15 +154,14 @@ type WrapResult = {
 **Examples:**
 
 ```typescript
-// Identity transform - pass options through as-is
+// No transformation - pass options through as-is
 program
   .command('echo', (c) =>
     c
       .arguments(z.object({ message: z.string() }))
-      .wrap(
-        (cmdSchema) => cmdSchema,  // No transformation
-        { command: 'echo' }
-      )
+      .wrap({
+        command: 'echo',
+      })
   );
 
 // Function-based schema for type safety
@@ -178,18 +175,16 @@ program
           interactive: z.boolean().optional(),
         })
       )
-      .wrap(
-        (cmdSchema) => cmdSchema.transform(opts => ({
+      .wrap({
+        command: 'docker',
+        args: ['run'],
+        positional: ['image'],
+        schema: (cmdSchema) => cmdSchema.transform(opts => ({
           image: opts.image,
           d: opts.detach,
           i: opts.interactive,
         })),
-        {
-          command: 'docker',
-          args: ['run'],
-          positional: ['image'],
-        }
-      )
+      })
   );
 
 // Usage: program.run('run', { image: 'nginx', detach: true })
@@ -211,21 +206,19 @@ program
           positional: ['...packages'],
         }
       )
-      .wrap(
-        z.object({
+      .wrap({
+        command: 'npm',
+        args: ['install'],
+        positional: ['...packages'],
+        inheritStdio: false,  // Capture output
+        schema: z.object({
           packages: z.string().array(),
           saveDev: z.boolean().optional(),
         }).transform(opts => ({
           packages: opts.packages,
           'save-dev': opts.saveDev,  // Map to exact flag name
         })),
-        {
-          command: 'npm',
-          args: ['install'],
-          positional: ['...packages'],
-          inheritStdio: false,  // Capture output
-        }
-      )
+      })
   );
 
 // Usage:
