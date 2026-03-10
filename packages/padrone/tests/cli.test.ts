@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, mock } from 'bun:test';
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 import { createTasksProgram } from './common.ts';
@@ -1750,6 +1750,72 @@ describe('CLI', () => {
       const result = program.cli('test --settings.verbose');
 
       expect(result.result).toEqual({ verbose: true });
+    });
+  });
+
+  describe('validation errors', () => {
+    it('should return result with issues when called with explicit input and option fails url validation', () => {
+      const handler = mock((options: any) => options);
+      const program = createPadrone('test-cli').command('fetch', (c) =>
+        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action(handler),
+      );
+
+      const result = program.cli('fetch --url not-a-valid-url');
+
+      expect(result.optionsResult?.issues).toBeDefined();
+      expect(result.options).toBeUndefined();
+      expect(result.result).toBeUndefined();
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('should return result with issues for enum option with invalid value', () => {
+      const program = createPadrone('test-cli').command('cmd', (c) =>
+        c.arguments(z.object({ priority: z.enum(['low', 'medium', 'high']).describe('Priority') })).action((options) => options),
+      );
+
+      const result = program.cli('cmd --priority invalid');
+
+      expect(result.optionsResult?.issues).toBeDefined();
+      expect(result.options).toBeUndefined();
+    });
+
+    it('should not call action when validation fails with explicit input', () => {
+      const handler = mock(() => 'called');
+      const program = createPadrone('test-cli').command('fetch', (c) =>
+        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action(handler),
+      );
+
+      program.cli('fetch --url not-a-valid-url');
+
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('should throw and print error when called without arguments and validation fails', () => {
+      const originalArgv = process.argv;
+      process.argv = ['node', 'test-cli', 'fetch', '--url', 'not-a-valid-url'];
+
+      const program = createPadrone('test-cli').command('fetch', (c) =>
+        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((options) => options),
+      );
+
+      try {
+        program.cli();
+        expect.unreachable('Expected cli() to throw');
+      } catch (e) {
+        expect(e).toBeInstanceOf(Error);
+        expect((e as Error).message).toContain('Validation error:');
+        expect(console.error).toHaveBeenCalledTimes(2);
+      } finally {
+        process.argv = originalArgv;
+      }
+    });
+
+    it('should not throw when validation passes', () => {
+      const program = createPadrone('test-cli').command('fetch', (c) =>
+        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((options) => options),
+      );
+
+      expect(() => program.cli('fetch --url https://example.com')).not.toThrow();
     });
   });
 });
