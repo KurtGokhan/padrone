@@ -199,7 +199,7 @@ describe('wrap', () => {
 
       let errorThrown = false;
       try {
-        const result = await program.run('notfound', undefined);
+        const result = await program.run('notfound', {});
         await result.result;
       } catch (error) {
         errorThrown = true;
