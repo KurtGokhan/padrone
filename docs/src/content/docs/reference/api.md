@@ -95,14 +95,14 @@ program.action((options, context) => {
 
 ---
 
-### .wrap(config)
+### .wrap(schema, config)
 
-Wrap an external CLI tool, automatically converting Padrone options to CLI arguments. This is a convenience method that combines `.arguments()` and `.action()` to proxy calls to external commands.
+Wrap an external CLI tool with a schema that transforms command options to external CLI arguments.
 
-Use Zod schemas with `.transform()` to map parsed options to the flags expected by the external command.
+The schema's **input type** should match the current command's options (from `.arguments()`), and its **output type** defines the arguments expected by the external command.
 
 ```typescript
-// Wrap git commit - use Zod to map option names to flags
+// Define command options first
 program
   .command('commit', (c) =>
     c
@@ -110,19 +110,26 @@ program
         z.object({
           message: z.string(),
           all: z.boolean().optional(),
-        })
-        .transform((opts) => ({
+        }),
+        {
+          positional: ['message'],
+        }
+      )
+      .wrap(
+        // Transform schema: input = command options, output = CLI args
+        z.object({
+          message: z.string(),
+          all: z.boolean().optional(),
+        }).transform((opts) => ({
           m: opts.message,  // Map 'message' to 'm' flag
           a: opts.all,      // Map 'all' to 'a' flag
         })),
         {
-          positional: ['m'],
+          command: 'git',
+          args: ['commit'],
+          positional: ['m'],  // Positional for external command
         }
       )
-      .wrap({
-        command: 'git',
-        args: ['commit'],
-      })
   );
 ```
 
@@ -131,6 +138,7 @@ program
 |----------|------|---------|-------------|
 | `command` | `string` | required | The external command to execute (e.g., 'git', 'docker', 'npm') |
 | `args` | `string[]` | `[]` | Fixed arguments that always precede the options (e.g., `['commit']` for 'git commit') |
+| `positional` | `string[]` | command's positional | Positional argument configuration for the external command. Defaults to the wrapping command's positional config. |
 | `inheritStdio` | `boolean` | `true` | Whether to inherit stdio streams from the parent process. Set to `false` to capture stdout/stderr |
 
 **Returns:** The program builder with an action that executes the external command
@@ -148,7 +156,18 @@ type WrapResult = {
 **Examples:**
 
 ```typescript
-// Wrap docker run - map option names using Zod transform
+// Identity transform - pass options through as-is
+program
+  .command('echo', (c) =>
+    c
+      .arguments(z.object({ message: z.string() }))
+      .wrap(
+        (cmdSchema) => cmdSchema,  // No transformation
+        { command: 'echo' }
+      )
+  );
+
+// Function-based schema for type safety
 program
   .command('run', (c) =>
     c
@@ -157,22 +176,20 @@ program
           image: z.string(),
           detach: z.boolean().optional(),
           interactive: z.boolean().optional(),
-          name: z.string().optional(),
         })
-        .transform((opts) => ({
-          [opts.image]: undefined,  // Positional arg
+      )
+      .wrap(
+        (cmdSchema) => cmdSchema.transform(opts => ({
+          image: opts.image,
           d: opts.detach,
           i: opts.interactive,
-          name: opts.name,
         })),
         {
+          command: 'docker',
+          args: ['run'],
           positional: ['image'],
         }
       )
-      .wrap({
-        command: 'docker',
-        args: ['run'],
-      })
   );
 
 // Usage: program.run('run', { image: 'nginx', detach: true })
@@ -181,7 +198,7 @@ program
 ```
 
 ```typescript
-// Wrap npm install to capture output
+// Direct schema with transform
 program
   .command('install', (c) =>
     c
@@ -189,20 +206,26 @@ program
         z.object({
           packages: z.string().array(),
           saveDev: z.boolean().optional(),
-        })
-        .transform((opts) => ({
-          ...opts.packages,
-          'save-dev': opts.saveDev,  // Map to exact flag name
-        })),
+        }),
         {
           positional: ['...packages'],
         }
       )
-      .wrap({
-        command: 'npm',
-        args: ['install'],
-        inheritStdio: false,  // Capture output
-      })
+      .wrap(
+        z.object({
+          packages: z.string().array(),
+          saveDev: z.boolean().optional(),
+        }).transform(opts => ({
+          packages: opts.packages,
+          'save-dev': opts.saveDev,  // Map to exact flag name
+        })),
+        {
+          command: 'npm',
+          args: ['install'],
+          positional: ['...packages'],
+          inheritStdio: false,  // Capture output
+        }
+      )
   );
 
 // Usage:
@@ -217,24 +240,23 @@ console.log(result.result.exitCode);  // 0 if successful
 **Type Safety:**
 
 The `.wrap()` method maintains full type safety:
-- Options are validated against the schema defined in `.arguments()`
+- Input schema matches command options from `.arguments()`
+- Output schema defines external CLI arguments structure
 - Return type is inferred as `Promise<WrapResult>`
-- TypeScript will enforce the correct option types when calling `.run()` or `.cli()`
+- TypeScript enforces correct types when calling `.run()` or `.cli()`
 
 **How it works:**
 
-1. **Options → CLI Arguments**: Padrone automatically converts your typed options to CLI arguments:
+1. **Schema Transformation**: The wrap schema transforms command options to external CLI arguments
+   - Input: Parsed command arguments (from `.arguments()`)
+   - Output: External program arguments
+
+2. **Options → CLI Arguments**: Padrone converts transformed options to CLI arguments:
    - Boolean options: `{ verbose: true }` → `--verbose`
    - String/Number options: `{ port: 3000 }` → `--port 3000`
    - Array options: `{ files: ['a', 'b'] }` → `--files a --files b`
-   - Positional arguments: Follow the order specified in `meta.positional`
+   - Positional arguments: Follow the order specified in `config.positional`
    - Option keys are used as-is with `--` prefix
-
-2. **Option Mapping**: Use Zod's `.transform()` to map options to the exact flag names:
-   ```typescript
-   z.object({ verbose: z.boolean() })
-     .transform(opts => ({ v: opts.verbose }))
-   ```
 
 3. **Process Execution**: Uses `Bun.spawn()` to execute the external command with the generated arguments
 

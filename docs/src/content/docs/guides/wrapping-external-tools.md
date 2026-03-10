@@ -14,7 +14,7 @@ Padrone's `.wrap()` method allows you to create type-safe wrappers around extern
 
 ## Basic Usage
 
-The simplest way to wrap an external command is to define the options schema and call `.wrap()`:
+The simplest way to wrap an external command is to define command options with `.arguments()`, then pass a transformation schema to `.wrap()`:
 
 ```typescript
 import { createPadrone } from 'padrone';
@@ -31,29 +31,34 @@ const program = createPadrone('myapp')
           positional: ['name'],
         }
       )
-      .wrap({
-        command: 'echo',
-      })
+      .wrap(
+        (cmdSchema) => cmdSchema,  // Identity transform
+        {
+          command: 'echo',
+        }
+      )
   );
 
 // Usage: myapp hello "World"
 // Executes: echo World
 ```
 
-## Option Mapping with Zod
+## Schema Transformation
 
-Padrone converts options to CLI arguments using the option keys as-is with a `--` prefix. To map option names to different CLI flags, use Zod's `.transform()` method:
+The `.wrap()` method takes a schema that transforms from **command options** (input) to **external CLI arguments** (output).
 
 ### Automatic Conversion
+
+After transformation, Padrone converts the output to CLI arguments:
 
 1. **Boolean flags**: `{ verbose: true }` → `--verbose`
 2. **String/Number values**: `{ port: 3000 }` → `--port 3000`
 3. **Arrays**: `{ files: ['a.txt', 'b.txt'] }` → `--files a.txt --files b.txt`
 4. **Keys are used as-is**: `{ v: true }` → `--v`
 
-### Mapping with Zod Transform
+### Mapping with Transform Schema
 
-Use Zod's `.transform()` to map friendly option names to the exact flags the external command expects:
+Use Zod's `.transform()` in the wrap schema to map friendly option names to the exact flags the external command expects:
 
 ```typescript
 program
@@ -65,15 +70,22 @@ program
           long: z.boolean().optional(),
           humanReadable: z.boolean().optional(),
         })
-        .transform((opts) => ({
+      )
+      .wrap(
+        // Transform command options to external CLI flags
+        z.object({
+          all: z.boolean().optional(),
+          long: z.boolean().optional(),
+          humanReadable: z.boolean().optional(),
+        }).transform((opts) => ({
           a: opts.all,
           l: opts.long,
           h: opts.humanReadable,
-        }))
+        })),
+        {
+          command: 'ls',
+        }
       )
-      .wrap({
-        command: 'ls',
-      })
   );
 
 // Usage: myapp list --all --long
@@ -81,9 +93,35 @@ program
 // Executes: ls --a --l
 ```
 
+### Function-Based Schema
+
+For better type safety, use a function that receives the command schema:
+
+```typescript
+program
+  .command('list', (c) =>
+    c
+      .arguments(
+        z.object({
+          all: z.boolean().optional(),
+          long: z.boolean().optional(),
+        })
+      )
+      .wrap(
+        (cmdSchema) => cmdSchema.transform((opts) => ({
+          a: opts.all,
+          l: opts.long,
+        })),
+        {
+          command: 'ls',
+        }
+      )
+  );
+```
+
 ## Positional Arguments
 
-Use the `positional` meta field to define positional arguments:
+Use the `positional` config in `.wrap()` to define positional arguments for the external command:
 
 ```typescript
 program
@@ -94,19 +132,26 @@ program
           source: z.string(),
           dest: z.string(),
           recursive: z.boolean().optional(),
-        })
-        .transform((opts) => ({
+        }),
+        {
+          positional: ['source', 'dest'],
+        }
+      )
+      .wrap(
+        z.object({
+          source: z.string(),
+          dest: z.string(),
+          recursive: z.boolean().optional(),
+        }).transform((opts) => ({
           source: opts.source,
           dest: opts.dest,
           r: opts.recursive,
         })),
         {
-          positional: ['source', 'dest'],
+          command: 'cp',
+          positional: ['source', 'dest'],  // Defaults to command's positional
         }
       )
-      .wrap({
-        command: 'cp',
-      })
   );
 
 // Usage: myapp copy /src /dest --recursive
@@ -126,18 +171,24 @@ program
         z.object({
           files: z.string().array(),
           force: z.boolean().optional(),
-        })
-        .transform((opts) => ({
-          files: opts.files,
-          f: opts.force,
-        })),
+        }),
         {
           positional: ['...files'],
         }
       )
-      .wrap({
-        command: 'rm',
-      })
+      .wrap(
+        z.object({
+          files: z.string().array(),
+          force: z.boolean().optional(),
+        }).transform((opts) => ({
+          files: opts.files,
+          f: opts.force,
+        })),
+        {
+          command: 'rm',
+          positional: ['...files'],
+        }
+      )
   );
 
 // Usage: myapp remove file1.txt file2.txt --force
@@ -157,19 +208,25 @@ program
         z.object({
           message: z.string(),
           amend: z.boolean().optional(),
-        })
-        .transform((opts) => ({
+        }),
+        {
+          positional: ['message'],
+        }
+      )
+      .wrap(
+        z.object({
+          message: z.string(),
+          amend: z.boolean().optional(),
+        }).transform((opts) => ({
           m: opts.message,
           amend: opts.amend,
         })),
         {
+          command: 'git',
+          args: ['commit'],
           positional: ['m'],
         }
       )
-      .wrap({
-        command: 'git',
-        args: ['commit'],
-      })
   );
 
 // Usage: myapp commit "Initial commit" --amend
@@ -185,15 +242,19 @@ By default, the wrapped command inherits stdio from the parent process (output g
 program
   .command('version', (c) =>
     c
-      .wrap({
-        command: 'node',
-        args: ['--version'],
-        inheritStdio: false,
-      })
+      .arguments(z.object({}))
+      .wrap(
+        (cmdSchema) => cmdSchema,
+        {
+          command: 'node',
+          args: ['--version'],
+          inheritStdio: false,
+        }
+      )
   );
 
 // Get the result
-const result = await program.run('version', undefined);
+const result = await program.run('version', {});
 const wrapResult = await result.result;
 
 console.log('Exit code:', wrapResult.exitCode);
@@ -230,8 +291,22 @@ const docker = createPadrone('docker-cli')
           port: z.string().array().optional().describe('Port mappings'),
           volume: z.string().array().optional().describe('Volume mounts'),
           env: z.string().array().optional().describe('Environment variables'),
-        })
-        .transform((opts) => ({
+        }),
+        {
+          positional: ['image'],
+        }
+      )
+      .wrap(
+        z.object({
+          image: z.string(),
+          name: z.string().optional(),
+          detach: z.boolean().optional(),
+          interactive: z.boolean().optional(),
+          tty: z.boolean().optional(),
+          port: z.string().array().optional(),
+          volume: z.string().array().optional(),
+          env: z.string().array().optional(),
+        }).transform((opts) => ({
           image: opts.image,
           name: opts.name,
           d: opts.detach,
@@ -242,13 +317,11 @@ const docker = createPadrone('docker-cli')
           e: opts.env,
         })),
         {
+          command: 'docker',
+          args: ['run'],
           positional: ['image'],
         }
       )
-      .wrap({
-        command: 'docker',
-        args: ['run'],
-      })
   )
   .command('ps', (c) =>
     c
@@ -260,15 +333,20 @@ const docker = createPadrone('docker-cli')
           all: z.boolean().optional().describe('Show all containers'),
           quiet: z.boolean().optional().describe('Only show container IDs'),
         })
-        .transform((opts) => ({
+      )
+      .wrap(
+        z.object({
+          all: z.boolean().optional(),
+          quiet: z.boolean().optional(),
+        }).transform((opts) => ({
           a: opts.all,
           q: opts.quiet,
-        }))
+        })),
+        {
+          command: 'docker',
+          args: ['ps'],
+        }
       )
-      .wrap({
-        command: 'docker',
-        args: ['ps'],
-      })
   )
   .command('stop', (c) =>
     c
@@ -283,10 +361,13 @@ const docker = createPadrone('docker-cli')
           positional: ['...containers'],
         }
       )
-      .wrap({
-        command: 'docker',
-        args: ['stop'],
-      })
+      .wrap(
+        (cmdSchema) => cmdSchema,  // Identity transform
+        {
+          command: 'docker',
+          args: ['stop'],
+        }
+      )
   );
 
 // Type-safe usage
