@@ -6,6 +6,7 @@ import { extractSchemaMetadata, parsePositionalConfig, preprocessOptions } from 
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
 import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneProgram } from './types.ts';
 import { findConfigFile, getVersion, loadConfigFile } from './utils.ts';
+import { createWrapHandler } from './wrap.ts';
 
 const commandSymbol = Symbol('padrone_command');
 
@@ -671,6 +672,10 @@ ${helpText}
       return createPadroneBuilder({ ...existingCommand, envSchema: resolvedEnv as any }) as any;
     },
     action(handler = noop) {
+      return createPadroneBuilder({ ...existingCommand, handler }) as any;
+    },
+    wrap(config) {
+      const handler = createWrapHandler(config, existingCommand.options as any, existingCommand.meta?.positional);
       return createPadroneBuilder({ ...existingCommand, handler }) as any;
     },
     command(nameOrNames, builderFn) {

@@ -10,6 +10,7 @@ import type {
   PossibleCommands,
   SafeString,
 } from './type-utils.ts';
+import type { WrapConfig, WrapResult } from './wrap.ts';
 
 type UnknownRecord = Record<string, unknown>;
 type EmptyRecord = Record<string, never>;
@@ -219,6 +220,66 @@ export type PadroneBuilderMethods<
   action: <TNewRes>(
     handler?: (options: StandardSchemaV1.InferOutput<TOpts>) => TNewRes,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TNewRes, TCommands, TParentOpts, TConfig, TEnv>;
+
+  /**
+   * Wraps an external CLI tool with optional schema transformation.
+   * The config can include a schema that transforms command options to external CLI arguments.
+   *
+   * @example
+   * ```ts
+   * // No transformation - pass options as-is
+   * .arguments(z.object({
+   *   message: z.string(),
+   * }))
+   * .wrap({
+   *   command: 'echo',
+   * })
+   * ```
+   *
+   * @example
+   * ```ts
+   * // With transformation schema
+   * .arguments(z.object({
+   *   message: z.string(),
+   *   all: z.boolean().optional(),
+   * }), {
+   *   positional: ['message'],
+   * })
+   * .wrap({
+   *   command: 'git',
+   *   args: ['commit'],
+   *   positional: ['m'],
+   *   schema: z.object({
+   *     message: z.string(),
+   *     all: z.boolean().optional(),
+   *   }).transform(opts => ({
+   *     m: opts.message,
+   *     a: opts.all,
+   *   })),
+   * })
+   * ```
+   *
+   * @example
+   * ```ts
+   * // Using function-based schema for type inference
+   * .arguments(z.object({
+   *   image: z.string(),
+   *   detach: z.boolean().optional(),
+   * }))
+   * .wrap({
+   *   command: 'docker',
+   *   args: ['run'],
+   *   positional: ['image'],
+   *   schema: (cmdOpts) => cmdOpts.transform(opts => ({
+   *     d: opts.detach,
+   *     image: opts.image,
+   *   })),
+   * })
+   * ```
+   */
+  wrap: <TWrapOpts extends PadroneSchema = TOpts>(
+    config: WrapConfig<TOpts, TWrapOpts>,
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, Promise<WrapResult>, TCommands, TParentOpts, TConfig, TEnv>;
 
   /**
    * Creates a nested command within the current command with the given name and builder function.

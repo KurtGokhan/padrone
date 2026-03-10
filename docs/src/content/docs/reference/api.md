@@ -95,6 +95,166 @@ program.action((options, context) => {
 
 ---
 
+### .wrap(config)
+
+Wrap an external CLI tool with optional schema transformation in the config object.
+
+The config can include a `schema` property that transforms command options to external CLI arguments. The schema's **input type** should match the current command's options (from `.arguments()`), and its **output type** defines the arguments expected by the external command.
+
+```typescript
+// Define command options first
+program
+  .command('commit', (c) =>
+    c
+      .arguments(
+        z.object({
+          message: z.string(),
+          all: z.boolean().optional(),
+        }),
+        {
+          positional: ['message'],
+        }
+      )
+      .wrap({
+        command: 'git',
+        args: ['commit'],
+        positional: ['m'],  // Positional for external command
+        schema: z.object({
+          message: z.string(),
+          all: z.boolean().optional(),
+        }).transform((opts) => ({
+          m: opts.message,  // Map 'message' to 'm' flag
+          a: opts.all,      // Map 'all' to 'a' flag
+        })),
+      })
+  );
+```
+
+**Config options:**
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `command` | `string` | required | The external command to execute (e.g., 'git', 'docker', 'npm') |
+| `args` | `string[]` | `[]` | Fixed arguments that always precede the options (e.g., `['commit']` for 'git commit') |
+| `positional` | `string[]` | command's positional | Positional argument configuration for the external command. Defaults to the wrapping command's positional config. |
+| `inheritStdio` | `boolean` | `true` | Whether to inherit stdio streams from the parent process. Set to `false` to capture stdout/stderr |
+| `schema` | `Schema \| (cmdSchema) => Schema` | identity | Optional transformation schema. If not provided, command options are passed through as-is. |
+
+**Returns:** The program builder with an action that executes the external command
+
+**Result Type:** `WrapResult` (when `inheritStdio` is `false`)
+```typescript
+type WrapResult = {
+  exitCode: number;      // The exit code of the process
+  stdout?: string;       // Standard output (only if inheritStdio is false)
+  stderr?: string;       // Standard error (only if inheritStdio is false)
+  success: boolean;      // Whether the process exited successfully (exit code 0)
+}
+```
+
+**Examples:**
+
+```typescript
+// No transformation - pass options through as-is
+program
+  .command('echo', (c) =>
+    c
+      .arguments(z.object({ message: z.string() }))
+      .wrap({
+        command: 'echo',
+      })
+  );
+
+// Function-based schema for type safety
+program
+  .command('run', (c) =>
+    c
+      .arguments(
+        z.object({
+          image: z.string(),
+          detach: z.boolean().optional(),
+          interactive: z.boolean().optional(),
+        })
+      )
+      .wrap({
+        command: 'docker',
+        args: ['run'],
+        positional: ['image'],
+        schema: (cmdSchema) => cmdSchema.transform(opts => ({
+          image: opts.image,
+          d: opts.detach,
+          i: opts.interactive,
+        })),
+      })
+  );
+
+// Usage: program.run('run', { image: 'nginx', detach: true })
+// After transform: { image: 'nginx', d: true }
+// Executes: docker run --d nginx
+```
+
+```typescript
+// Direct schema with transform
+program
+  .command('install', (c) =>
+    c
+      .arguments(
+        z.object({
+          packages: z.string().array(),
+          saveDev: z.boolean().optional(),
+        }),
+        {
+          positional: ['...packages'],
+        }
+      )
+      .wrap({
+        command: 'npm',
+        args: ['install'],
+        positional: ['...packages'],
+        inheritStdio: false,  // Capture output
+        schema: z.object({
+          packages: z.string().array(),
+          saveDev: z.boolean().optional(),
+        }).transform(opts => ({
+          packages: opts.packages,
+          'save-dev': opts.saveDev,  // Map to exact flag name
+        })),
+      })
+  );
+
+// Usage:
+const result = await program.run('install', {
+  packages: ['react', 'react-dom'],
+  saveDev: true,
+});
+console.log(result.result.stdout);  // npm install output
+console.log(result.result.exitCode);  // 0 if successful
+```
+
+**Type Safety:**
+
+The `.wrap()` method maintains full type safety:
+- Input schema matches command options from `.arguments()`
+- Output schema defines external CLI arguments structure
+- Return type is inferred as `Promise<WrapResult>`
+- TypeScript enforces correct types when calling `.run()` or `.cli()`
+
+**How it works:**
+
+1. **Schema Transformation**: The wrap schema transforms command options to external CLI arguments
+   - Input: Parsed command arguments (from `.arguments()`)
+   - Output: External program arguments
+
+2. **Options → CLI Arguments**: Padrone converts transformed options to CLI arguments:
+   - Boolean options: `{ verbose: true }` → `--verbose`
+   - String/Number options: `{ port: 3000 }` → `--port 3000`
+   - Array options: `{ files: ['a', 'b'] }` → `--files a --files b`
+   - Positional arguments: Follow the order specified in `config.positional`
+   - Option keys are used as-is with `--` prefix
+
+3. **Process Execution**: Uses `Bun.spawn()` to execute the external command with the generated arguments
+
+---
+
 ### .command(name, builder)
 
 Add a subcommand.
