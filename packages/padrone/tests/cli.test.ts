@@ -1752,4 +1752,54 @@ describe('CLI', () => {
       expect(result.result).toEqual({ verbose: true });
     });
   });
+
+  describe('validation errors', () => {
+    it('should throw and print error when option fails url validation', () => {
+      const program = createPadrone('test-cli').command('fetch', (c) =>
+        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((options) => options),
+      );
+
+      expect(() => program.cli('fetch --url not-a-valid-url')).toThrow('Validation error:');
+      expect(console.error).toHaveBeenCalled();
+    });
+
+    it('should include validation issue message in thrown error', () => {
+      const program = createPadrone('test-cli').command('fetch', (c) =>
+        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((options) => options),
+      );
+
+      expect(() => program.cli('fetch --url not-a-valid-url')).toThrow(/Validation error:/);
+    });
+
+    it('should print help for the command when validation fails', () => {
+      const program = createPadrone('test-cli').command('fetch', (c) =>
+        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((options) => options),
+      );
+
+      try {
+        program.cli('fetch --url not-a-valid-url');
+      } catch {
+        // expected
+      }
+
+      // console.error should be called twice: once for the error, once for the help
+      expect(console.error).toHaveBeenCalledTimes(2);
+    });
+
+    it('should throw validation error for enum option with invalid value', () => {
+      const program = createPadrone('test-cli').command('cmd', (c) =>
+        c.arguments(z.object({ priority: z.enum(['low', 'medium', 'high']).describe('Priority') })).action((options) => options),
+      );
+
+      expect(() => program.cli('cmd --priority invalid')).toThrow('Validation error:');
+    });
+
+    it('should not throw when validation passes', () => {
+      const program = createPadrone('test-cli').command('fetch', (c) =>
+        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((options) => options),
+      );
+
+      expect(() => program.cli('fetch --url https://example.com')).not.toThrow();
+    });
+  });
 });

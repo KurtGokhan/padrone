@@ -564,6 +564,15 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       configData,
     });
 
+    // Handle validation failures: print error + help and throw
+    if (optionsResult?.issues) {
+      const issueMessages = optionsResult.issues.map((i) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`).join('\n');
+      const helpText = generateHelp(existingCommand, command, { format: 'text' });
+      console.error(`Validation error:\n${issueMessages}`);
+      console.error(helpText);
+      throw new Error(`Validation error:\n${issueMessages}`);
+    }
+
     const res = run(command, options) as any;
     return {
       ...res,
