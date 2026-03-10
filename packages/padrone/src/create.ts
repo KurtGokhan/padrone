@@ -564,13 +564,25 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       configData,
     });
 
-    // Handle validation failures: print error + help and throw
+    // Handle validation failures
     if (optionsResult?.issues) {
       const issueMessages = optionsResult.issues.map((i) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`).join('\n');
-      const helpText = generateHelp(existingCommand, command, { format: 'text' });
-      console.error(`Validation error:\n${issueMessages}`);
-      console.error(helpText);
-      throw new Error(`Validation error:\n${issueMessages}`);
+
+      if (input === undefined) {
+        // Called without explicit input (using process.argv): print error + help and throw
+        const helpText = generateHelp(existingCommand, command, { format: 'text' });
+        console.error(`Validation error:\n${issueMessages}`);
+        console.error(helpText);
+        throw new Error(`Validation error:\n${issueMessages}`);
+      }
+
+      // Called with explicit input: return result with issues, skip the action
+      return {
+        command: command as any,
+        options: undefined,
+        optionsResult,
+        result: undefined,
+      } as any;
     }
 
     const res = run(command, options) as any;

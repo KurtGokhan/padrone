@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, mock } from 'bun:test';
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 import { createTasksProgram } from './common.ts';
@@ -1754,44 +1754,60 @@ describe('CLI', () => {
   });
 
   describe('validation errors', () => {
-    it('should throw and print error when option fails url validation', () => {
+    it('should return result with issues when called with explicit input and option fails url validation', () => {
+      const handler = mock((options: any) => options);
       const program = createPadrone('test-cli').command('fetch', (c) =>
-        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((options) => options),
+        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action(handler),
       );
 
-      expect(() => program.cli('fetch --url not-a-valid-url')).toThrow('Validation error:');
-      expect(console.error).toHaveBeenCalled();
+      const result = program.cli('fetch --url not-a-valid-url');
+
+      expect(result.optionsResult?.issues).toBeDefined();
+      expect(result.options).toBeUndefined();
+      expect(result.result).toBeUndefined();
+      expect(handler).not.toHaveBeenCalled();
     });
 
-    it('should include validation issue message in thrown error', () => {
-      const program = createPadrone('test-cli').command('fetch', (c) =>
-        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((options) => options),
+    it('should return result with issues for enum option with invalid value', () => {
+      const program = createPadrone('test-cli').command('cmd', (c) =>
+        c.arguments(z.object({ priority: z.enum(['low', 'medium', 'high']).describe('Priority') })).action((options) => options),
       );
 
-      expect(() => program.cli('fetch --url not-a-valid-url')).toThrow(/Validation error:/);
+      const result = program.cli('cmd --priority invalid');
+
+      expect(result.optionsResult?.issues).toBeDefined();
+      expect(result.options).toBeUndefined();
     });
 
-    it('should print help for the command when validation fails', () => {
+    it('should not call action when validation fails with explicit input', () => {
+      const handler = mock(() => 'called');
+      const program = createPadrone('test-cli').command('fetch', (c) =>
+        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action(handler),
+      );
+
+      program.cli('fetch --url not-a-valid-url');
+
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('should throw and print error when called without arguments and validation fails', () => {
+      const originalArgv = process.argv;
+      process.argv = ['node', 'test-cli', 'fetch', '--url', 'not-a-valid-url'];
+
       const program = createPadrone('test-cli').command('fetch', (c) =>
         c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((options) => options),
       );
 
       try {
-        program.cli('fetch --url not-a-valid-url');
-      } catch {
-        // expected
+        program.cli();
+        expect.unreachable('Expected cli() to throw');
+      } catch (e) {
+        expect(e).toBeInstanceOf(Error);
+        expect((e as Error).message).toContain('Validation error:');
+        expect(console.error).toHaveBeenCalledTimes(2);
+      } finally {
+        process.argv = originalArgv;
       }
-
-      // console.error should be called twice: once for the error, once for the help
-      expect(console.error).toHaveBeenCalledTimes(2);
-    });
-
-    it('should throw validation error for enum option with invalid value', () => {
-      const program = createPadrone('test-cli').command('cmd', (c) =>
-        c.arguments(z.object({ priority: z.enum(['low', 'medium', 'high']).describe('Priority') })).action((options) => options),
-      );
-
-      expect(() => program.cli('cmd --priority invalid')).toThrow('Validation error:');
     });
 
     it('should not throw when validation passes', () => {
