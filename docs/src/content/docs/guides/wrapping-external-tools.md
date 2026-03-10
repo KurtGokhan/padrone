@@ -14,7 +14,7 @@ Padrone's `.wrap()` method allows you to create type-safe wrappers around extern
 
 ## Basic Usage
 
-The simplest way to wrap an external command is to define command options with `.arguments()`, then pass a transformation schema to `.wrap()`:
+The simplest way to wrap an external command is to define command options with `.arguments()`, then call `.wrap()` with a config object:
 
 ```typescript
 import { createPadrone } from 'padrone';
@@ -31,12 +31,9 @@ const program = createPadrone('myapp')
           positional: ['name'],
         }
       )
-      .wrap(
-        (cmdSchema) => cmdSchema,  // Identity transform
-        {
-          command: 'echo',
-        }
-      )
+      .wrap({
+        command: 'echo',
+      })
   );
 
 // Usage: myapp hello "World"
@@ -45,7 +42,7 @@ const program = createPadrone('myapp')
 
 ## Schema Transformation
 
-The `.wrap()` method takes a schema that transforms from **command options** (input) to **external CLI arguments** (output).
+The `.wrap()` config can include an optional `schema` property that transforms from **command options** (input) to **external CLI arguments** (output).
 
 ### Automatic Conversion
 
@@ -58,7 +55,7 @@ After transformation, Padrone converts the output to CLI arguments:
 
 ### Mapping with Transform Schema
 
-Use Zod's `.transform()` in the wrap schema to map friendly option names to the exact flags the external command expects:
+Use Zod's `.transform()` in the wrap config's `schema` property to map friendly option names to the exact flags the external command expects:
 
 ```typescript
 program
@@ -71,9 +68,9 @@ program
           humanReadable: z.boolean().optional(),
         })
       )
-      .wrap(
-        // Transform command options to external CLI flags
-        z.object({
+      .wrap({
+        command: 'ls',
+        schema: z.object({
           all: z.boolean().optional(),
           long: z.boolean().optional(),
           humanReadable: z.boolean().optional(),
@@ -82,10 +79,7 @@ program
           l: opts.long,
           h: opts.humanReadable,
         })),
-        {
-          command: 'ls',
-        }
-      )
+      })
   );
 
 // Usage: myapp list --all --long
@@ -107,15 +101,13 @@ program
           long: z.boolean().optional(),
         })
       )
-      .wrap(
-        (cmdSchema) => cmdSchema.transform((opts) => ({
+      .wrap({
+        command: 'ls',
+        schema: (cmdSchema) => cmdSchema.transform((opts) => ({
           a: opts.all,
           l: opts.long,
         })),
-        {
-          command: 'ls',
-        }
-      )
+      })
   );
 ```
 
