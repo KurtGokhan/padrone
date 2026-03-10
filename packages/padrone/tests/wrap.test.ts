@@ -15,9 +15,12 @@ describe('wrap', () => {
               positional: ['message'],
             },
           )
-          .wrap({
-            command: 'echo',
-          }),
+          .wrap(
+            (cmdSchema) => cmdSchema, // Pass through options as-is
+            {
+              command: 'echo',
+            },
+          ),
       );
 
       const result = await program.run('echo', { message: 'Hello World' });
@@ -40,7 +43,7 @@ describe('wrap', () => {
               positional: ['message'],
             },
           )
-          .wrap({
+          .wrap((cmdSchema) => cmdSchema, {
             command: 'echo',
             inheritStdio: false,
           }),
@@ -64,7 +67,7 @@ describe('wrap', () => {
               long: z.boolean().optional(),
             }),
           )
-          .wrap({
+          .wrap((cmdSchema) => cmdSchema, {
             command: 'echo',
             args: ['ls', '/tmp'],
             inheritStdio: false,
@@ -87,7 +90,7 @@ describe('wrap', () => {
               files: z.string().array().optional(),
             }),
           )
-          .wrap({
+          .wrap((cmdSchema) => cmdSchema, {
             command: 'echo',
             inheritStdio: false,
           }),
@@ -114,7 +117,7 @@ describe('wrap', () => {
               positional: ['file'],
             },
           )
-          .wrap({
+          .wrap((cmdSchema) => cmdSchema, {
             command: 'echo',
             args: ['Reading:'],
             inheritStdio: false,
@@ -139,7 +142,7 @@ describe('wrap', () => {
               positional: ['...files'],
             },
           )
-          .wrap({
+          .wrap((cmdSchema) => cmdSchema, {
             command: 'echo',
             inheritStdio: false,
           }),
@@ -167,7 +170,7 @@ describe('wrap', () => {
               positional: ['pattern', 'file'],
             },
           )
-          .wrap({
+          .wrap((cmdSchema) => cmdSchema, {
             command: 'echo',
             inheritStdio: false,
           }),
@@ -183,10 +186,13 @@ describe('wrap', () => {
   describe('error handling', () => {
     it('should handle command not found', async () => {
       const program = createPadrone('test').command('notfound', (c) =>
-        c.wrap({
-          command: 'this-command-does-not-exist-12345',
-          inheritStdio: false,
-        }),
+        c.arguments(z.object({})).wrap(
+          (cmdSchema) => cmdSchema, // Pass through schema
+          {
+            command: 'this-command-does-not-exist-12345',
+            inheritStdio: false,
+          },
+        ),
       );
 
       let errorThrown = false;
@@ -202,13 +208,16 @@ describe('wrap', () => {
 
     it('should return non-zero exit code for failing commands', async () => {
       const program = createPadrone('test').command('false', (c) =>
-        c.wrap({
-          command: 'false',
-          inheritStdio: false,
-        }),
+        c.arguments(z.object({})).wrap(
+          (cmdSchema) => cmdSchema, // Pass through schema
+          {
+            command: 'false',
+            inheritStdio: false,
+          },
+        ),
       );
 
-      const result = await program.run('false', undefined);
+      const result = await program.run('false', {});
       const wrapResult = await result.result;
 
       expect(wrapResult.success).toBe(false);
@@ -228,7 +237,7 @@ describe('wrap', () => {
               positional: ['message'],
             },
           )
-          .wrap({
+          .wrap((cmdSchema) => cmdSchema, {
             command: 'echo',
             inheritStdio: false,
           }),
@@ -250,7 +259,7 @@ describe('wrap', () => {
               file: z.string().optional(),
             }),
           )
-          .wrap({
+          .wrap((cmdSchema) => cmdSchema, {
             command: 'echo',
             inheritStdio: false,
           }),
@@ -272,7 +281,7 @@ describe('wrap', () => {
               s: z.boolean().optional(),
             }),
           )
-          .wrap({
+          .wrap((cmdSchema) => cmdSchema, {
             command: 'echo',
             args: ['git', 'status'],
             inheritStdio: false,
@@ -301,7 +310,7 @@ describe('wrap', () => {
               positional: ['message'],
             },
           )
-          .wrap({
+          .wrap((cmdSchema) => cmdSchema, {
             command: 'echo',
             inheritStdio: false,
           }),
@@ -313,6 +322,84 @@ describe('wrap', () => {
       expect(result.options?.message).toBe('test');
       expect(result.options?.count).toBe(5);
       expect(wrapResult.success).toBe(true);
+    });
+  });
+
+  describe('schema transformation', () => {
+    it('should transform options using wrap schema', async () => {
+      const program = createPadrone('test').command('git-commit', (c) =>
+        c
+          .arguments(
+            z.object({
+              message: z.string(),
+              all: z.boolean().optional(),
+            }),
+            {
+              positional: ['message'],
+            },
+          )
+          .wrap(
+            z
+              .object({
+                message: z.string(),
+                all: z.boolean().optional(),
+              })
+              .transform((opts) => ({
+                m: opts.message,
+                a: opts.all,
+              })),
+            {
+              command: 'echo',
+              args: ['git', 'commit'],
+              positional: ['m'],
+              inheritStdio: false,
+            },
+          ),
+      );
+
+      const result = await program.run('git-commit', { message: 'Initial commit', all: true });
+      const wrapResult = await result.result;
+
+      expect(wrapResult.success).toBe(true);
+      // The echo output should contain the transformed flags
+      expect(wrapResult.stdout?.includes('--a')).toBe(true);
+      expect(wrapResult.stdout?.includes('Initial commit')).toBe(true);
+    });
+
+    it('should use custom positional config from wrap', async () => {
+      const program = createPadrone('test').command('docker', (c) =>
+        c
+          .arguments(
+            z.object({
+              image: z.string(),
+              detach: z.boolean().optional(),
+            }),
+          )
+          .wrap(
+            z
+              .object({
+                image: z.string(),
+                detach: z.boolean().optional(),
+              })
+              .transform((opts) => ({
+                image: opts.image,
+                d: opts.detach,
+              })),
+            {
+              command: 'echo',
+              args: ['docker', 'run'],
+              positional: ['image'], // Custom positional for wrap
+              inheritStdio: false,
+            },
+          ),
+      );
+
+      const result = await program.run('docker', { image: 'nginx', detach: true });
+      const wrapResult = await result.result;
+
+      expect(wrapResult.success).toBe(true);
+      expect(wrapResult.stdout?.includes('nginx')).toBe(true);
+      expect(wrapResult.stdout?.includes('--d')).toBe(true);
     });
   });
 });

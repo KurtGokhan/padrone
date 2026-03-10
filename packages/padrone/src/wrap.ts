@@ -14,6 +14,11 @@ export type WrapConfig = {
    */
   args?: string[];
   /**
+   * Positional argument configuration for the external command.
+   * If not provided, defaults to the wrapping command's positional configuration.
+   */
+  positional?: string[];
+  /**
    * Whether to inherit stdio streams (stdin, stdout, stderr) from the parent process.
    * Default: true
    */
@@ -102,20 +107,36 @@ function optionsToArgs(options: Record<string, unknown> | undefined, positional:
 
 /**
  * Creates an action handler that wraps an external CLI tool.
+ * @param wrapSchema - The schema that transforms from command options (input) to external CLI arguments (output)
  * @param config - Configuration for wrapping the external command
- * @param _optionsSchema - The options schema (currently unused, reserved for future enhancements like validation hints)
- * @param positional - Array of positional argument names from meta.positional
+ * @param commandOptions - The command's options schema
+ * @param commandPositional - Default positional config from the wrapping command
  */
-export function createWrapHandler<TOpts extends PadroneSchema>(
+export function createWrapHandler<TCommandOpts extends PadroneSchema, TWrapOpts extends PadroneSchema>(
+  wrapSchema: TWrapOpts | ((commandOptions: TCommandOpts) => TWrapOpts),
   config: WrapConfig,
-  _optionsSchema?: TOpts,
-  positional?: string[],
-): (options: StandardSchemaV1.InferOutput<TOpts>) => Promise<WrapResult> {
-  return async (options: StandardSchemaV1.InferOutput<TOpts>): Promise<WrapResult> => {
-    const { command, args: fixedArgs = [], inheritStdio = true } = config;
+  commandOptions: TCommandOpts,
+  commandPositional?: string[],
+): (options: StandardSchemaV1.InferOutput<TCommandOpts>) => Promise<WrapResult> {
+  return async (options: StandardSchemaV1.InferOutput<TCommandOpts>): Promise<WrapResult> => {
+    const { command, args: fixedArgs = [], inheritStdio = true, positional = commandPositional } = config;
+
+    // Get the wrap schema (handle function or direct schema)
+    const schema = typeof wrapSchema === 'function' ? wrapSchema(commandOptions) : wrapSchema;
+
+    // Transform command options to external CLI options using the wrap schema
+    const result = schema['~standard'].validate(options);
+    if (result instanceof Promise) {
+      throw new Error('Async validation is not supported. Wrap schema validate() must return a synchronous result.');
+    }
+    if (result.issues) {
+      const issueMessages = result.issues.map((i: any) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`).join('\n');
+      throw new Error(`Wrap schema validation failed:\n${issueMessages}`);
+    }
+    const externalOptions = result.value;
 
     // Convert options to CLI arguments
-    const optionArgs = optionsToArgs(options as Record<string, unknown>, positional);
+    const optionArgs = optionsToArgs(externalOptions as Record<string, unknown>, positional);
 
     // Combine fixed args and option args
     const allArgs = [...fixedArgs, ...optionArgs];
