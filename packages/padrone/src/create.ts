@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Schema } from 'ai';
 import { generateCompletionOutput, type ShellType } from './completion.ts';
 import { generateHelp } from './help.ts';
@@ -566,7 +567,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     // Handle validation failures
     if (optionsResult?.issues) {
-      const issueMessages = optionsResult.issues.map((i) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`).join('\n');
+      const issueMessages = optionsResult.issues
+        .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
+        .join('\n');
 
       if (input === undefined) {
         // Called without explicit input (using process.argv): print error + help and throw
