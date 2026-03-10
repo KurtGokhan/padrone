@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Schema } from 'ai';
 import { generateCompletionOutput, type ShellType } from './completion.ts';
 import { generateHelp } from './help.ts';
@@ -563,6 +564,29 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       envData,
       configData,
     });
+
+    // Handle validation failures
+    if (optionsResult?.issues) {
+      const issueMessages = optionsResult.issues
+        .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
+        .join('\n');
+
+      if (input === undefined) {
+        // Called without explicit input (using process.argv): print error + help and throw
+        const helpText = generateHelp(existingCommand, command, { format: 'text' });
+        console.error(`Validation error:\n${issueMessages}`);
+        console.error(helpText);
+        throw new Error(`Validation error:\n${issueMessages}`);
+      }
+
+      // Called with explicit input: return result with issues, skip the action
+      return {
+        command: command as any,
+        options: undefined,
+        optionsResult,
+        result: undefined,
+      } as any;
+    }
 
     const res = run(command, options) as any;
     return {
