@@ -140,6 +140,24 @@ The pre-commit hook will automatically run Biome on staged files.
 - Link related issues
 - Respond to review feedback promptly
 
+## Releasing a New Version
+
+To release a new version:
+
+1. Run the bump command with the target version:
+   ```bash
+   bun bump <version>
+   ```
+   For example, `bun bump 1.1.0` or `bun bump minor`. This uses [bumpp](https://github.com/antfu/bumpp) to:
+   - Update `version` in all workspace `package.json` files
+   - Create a `chore: release v<version>` commit
+   - Create a `v<version>` git tag
+
+2. Push the commit and tag to the remote:
+   ```bash
+   git push --follow-tags
+   ```
+
 ## Reporting Issues
 
 - Search existing issues before creating a new one
