@@ -1,6 +1,6 @@
 import { describe, expectTypeOf } from 'bun:test';
 import type { PadroneBuilder, PadroneProgram } from 'padrone';
-import { createPadrone } from 'padrone';
+import { asyncSchema, createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 import { createTasksProgram } from './common.ts';
 
@@ -148,4 +148,44 @@ describe.skip('Types - Parsed command type', async () => {
 
   const parsedString = await program.parse('sum --numbers 1 --numbers 2 --numbers 3' as string);
   expectTypeOf<(typeof parsedString)['command']['path']>().toExtend<'' | 'sum' | 'greet'>();
+});
+
+/** This test verifies that async commands return Promises and sync commands don't */
+describe.skip('Types - Async', () => {
+  const syncSchema = z.object({ name: z.string() });
+  const brandedSchema = asyncSchema(z.object({ name: z.string() }));
+
+  const program = createPadrone('test')
+    .command('sync-cmd', (c) => c.arguments(syncSchema).action((opts) => opts.name))
+    .command('async-branded', (c) => c.arguments(brandedSchema).action((opts) => opts.name))
+    .command('async-explicit', (c) =>
+      c
+        .arguments(syncSchema)
+        .async()
+        .action((opts) => opts.name),
+    );
+
+  // Sync command: parse and cli return plain values (not Promises)
+  const syncParsed = program.parse('sync-cmd --name hello');
+  expectTypeOf(syncParsed).not.toMatchTypeOf<Promise<any>>();
+
+  const syncCli = program.cli('sync-cmd --name hello');
+  expectTypeOf(syncCli).not.toMatchTypeOf<Promise<any>>();
+
+  // Async branded: parse and cli return Promises
+  const asyncBrandedParsed = program.parse('async-branded --name hello');
+  expectTypeOf(asyncBrandedParsed).toMatchTypeOf<Promise<any>>();
+
+  const asyncBrandedCli = program.cli('async-branded --name hello');
+  expectTypeOf(asyncBrandedCli).toMatchTypeOf<Promise<any>>();
+
+  // Async explicit: parse and cli return Promises
+  const asyncExplicitParsed = program.parse('async-explicit --name hello');
+  expectTypeOf(asyncExplicitParsed).toMatchTypeOf<Promise<any>>();
+
+  const asyncExplicitCli = program.cli('async-explicit --name hello');
+  expectTypeOf(asyncExplicitCli).toMatchTypeOf<Promise<any>>();
+
+  // Builder: .async() is available on builder
+  expectTypeOf<'async'>().toExtend<keyof PadroneBuilder>();
 });

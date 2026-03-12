@@ -1,4 +1,4 @@
-export { createPadrone } from './create.ts';
+export { asyncSchema, createPadrone } from './create.ts';
 export type { HelpArgumentInfo, HelpFormat, HelpInfo, HelpOptionInfo, HelpSubcommandInfo } from './formatter.ts';
 export type { HelpOptions } from './help.ts';
 export type { PadroneOptionsMeta } from './options.ts';
@@ -11,9 +11,11 @@ export type {
   InferOptionsInput,
   InferOptionsOutput,
 } from './type-helpers.ts';
+export type { IsAsyncSchema, MaybePromise, OrAsync } from './type-utils.ts';
 export type {
   AnyPadroneCommand,
   AnyPadroneProgram,
+  AsyncPadroneSchema,
   PadroneBuilder,
   PadroneCommand,
   PadroneCommandConfig,

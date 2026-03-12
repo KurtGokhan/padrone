@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { createPadrone } from 'padrone';
+import { asyncSchema, createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 import { createTasksProgram } from './common.ts';
 import { createConsoleMocker } from './console-mocker.ts';
@@ -1816,6 +1816,81 @@ describe('CLI', () => {
       );
 
       expect(() => program.cli('fetch --url https://example.com')).not.toThrow();
+    });
+  });
+
+  describe('async validation', () => {
+    it('should return a Promise when using asyncSchema()', async () => {
+      const schema = asyncSchema(
+        z.object({ name: z.string() }).check(async (_ctx) => {
+          // async refinement
+        }),
+      );
+
+      const program = createPadrone('test-async').command('greet', (c) => c.arguments(schema).action((opts) => `Hello, ${opts.name}!`));
+
+      const parseResult = program.parse('greet --name Alice');
+      expect(parseResult).toBeInstanceOf(Promise);
+      const resolved = await parseResult;
+      expect(resolved.options).toEqual({ name: 'Alice' });
+
+      const cliResult = program.cli('greet --name Alice');
+      expect(cliResult).toBeInstanceOf(Promise);
+      const resolvedCli = await cliResult;
+      expect(resolvedCli.result).toBe('Hello, Alice!');
+    });
+
+    it('should return a Promise when using .async()', async () => {
+      const program = createPadrone('test-async').command('greet', (c) =>
+        c
+          .arguments(z.object({ name: z.string() }))
+          .async()
+          .action((opts) => `Hello, ${opts.name}!`),
+      );
+
+      const result = program.parse('greet --name Bob');
+      // .async() marks the type as async, but if the schema is actually sync,
+      // thenMaybe will return synchronously at runtime
+      const resolved = await result;
+      expect(resolved.options).toEqual({ name: 'Bob' });
+    });
+
+    it('should return sync value for non-async commands', () => {
+      const program = createPadrone('test-sync').command('greet', (c) =>
+        c.arguments(z.object({ name: z.string() })).action((opts) => `Hello, ${opts.name}!`),
+      );
+
+      const result = program.parse('greet --name Charlie');
+      expect(result).not.toBeInstanceOf(Promise);
+      expect((result as any).options).toEqual({ name: 'Charlie' });
+    });
+
+    it('should warn when validation returns Promise but command not marked async', async () => {
+      const warnSpy = mock();
+      const originalWarn = console.warn;
+      console.warn = warnSpy;
+
+      try {
+        // Create a schema with async validation but DON'T brand it
+        const schema = z.object({ name: z.string() }).check(async (_ctx) => {
+          // async refinement without branding
+        });
+
+        const program = createPadrone('test-warn').command('greet', (c) =>
+          c.arguments(schema as any).action((opts: any) => `Hello, ${opts.name}!`),
+        );
+
+        const result = program.parse('greet --name Alice');
+        // Should still work, just with a warning
+        if (result instanceof Promise) {
+          await result;
+          expect(warnSpy).toHaveBeenCalledTimes(1);
+          expect(warnSpy.mock.calls[0]![0]).toContain('[padrone]');
+          expect(warnSpy.mock.calls[0]![0]).toContain('not marked as async');
+        }
+      } finally {
+        console.warn = originalWarn;
+      }
     });
   });
 });

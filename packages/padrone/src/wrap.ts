@@ -130,17 +130,20 @@ export function createWrapHandler<TCommandOpts extends PadroneSchema, TWrapOpts 
     const schema = wrapSchema ? (typeof wrapSchema === 'function' ? wrapSchema(commandOptions) : wrapSchema) : commandOptions;
 
     // Transform command options to external CLI options using the wrap schema
-    const result = schema['~standard'].validate(options);
-    if (result instanceof Promise) {
-      throw new Error('Async validation is not supported. Wrap schema validate() must return a synchronous result.');
-    }
-    if (result.issues) {
-      const issueMessages = result.issues
-        .map((i) => `  - ${(i.path as (string | number)[] | undefined)?.join('.') || 'root'}: ${i.message}`)
-        .join('\n');
-      throw new Error(`Wrap schema validation failed:\n${issueMessages}`);
-    }
-    const externalOptions = result.value;
+    const validationResult = schema['~standard'].validate(options);
+
+    const processResult = (result: StandardSchemaV1.Result<unknown>) => {
+      if (result.issues) {
+        const issueMessages = result.issues
+          .map((i: StandardSchemaV1.Issue) => `  - ${(i.path as (string | number)[] | undefined)?.join('.') || 'root'}: ${i.message}`)
+          .join('\n');
+        throw new Error(`Wrap schema validation failed:\n${issueMessages}`);
+      }
+      return result.value;
+    };
+
+    const externalOptions =
+      validationResult instanceof Promise ? await validationResult.then(processResult) : processResult(validationResult);
 
     // Convert options to CLI arguments
     const optionArgs = optionsToArgs(externalOptions as Record<string, unknown>, positional);

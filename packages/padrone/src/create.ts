@@ -4,13 +4,63 @@ import { generateCompletionOutput, type ShellType } from './completion.ts';
 import { generateHelp } from './help.ts';
 import { extractSchemaMetadata, parsePositionalConfig, preprocessOptions } from './options.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
-import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneProgram } from './types.ts';
+import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneProgram, PadroneSchema } from './types.ts';
 import { findConfigFile, getVersion, loadConfigFile } from './utils.ts';
 import { createWrapHandler } from './wrap.ts';
 
 const commandSymbol = Symbol('padrone_command');
 
 const noop = <TRes>() => undefined as TRes;
+
+/**
+ * Maps over a value that may or may not be a Promise.
+ * If the value is a Promise, chains with `.then()`. Otherwise, calls the function synchronously.
+ * This preserves sync behavior for sync schemas and async behavior for async schemas.
+ */
+function thenMaybe<T, U>(value: T | Promise<T>, fn: (v: T) => U | Promise<U>): U | Promise<U> {
+  if (value instanceof Promise) return value.then(fn);
+  return fn(value);
+}
+
+/**
+ * Brands a schema as async, signaling that its `validate()` may return a Promise.
+ * When an async-branded schema is passed to `.arguments()`, `.configFile()`, or `.env()`,
+ * the command's `parse()` and `cli()` will return Promises.
+ *
+ * @example
+ * ```ts
+ * const schema = asyncSchema(z.object({
+ *   name: z.string(),
+ * }).check(async (data) => {
+ *   // async validation logic
+ * }));
+ *
+ * const program = createPadrone('app')
+ *   .command('greet', (c) => c.arguments(schema).action((opts) => opts.name));
+ *
+ * // parse() now returns Promise<PadroneParseResult>
+ * const result = await program.parse('greet --name world');
+ * ```
+ */
+export function asyncSchema<T extends PadroneSchema>(schema: T): T & { '~async': true } {
+  return Object.assign(schema, { '~async': true as const });
+}
+
+function isAsyncBranded(schema: unknown): boolean {
+  return !!schema && typeof schema === 'object' && '~async' in schema && (schema as any)['~async'] === true;
+}
+
+function warnIfUnexpectedAsync<T>(value: T, command: AnyPadroneCommand): T {
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') return value;
+  if (value instanceof Promise && !command.isAsync) {
+    console.warn(
+      `[padrone] Command "${command.path || command.name}" returned a Promise from validation, ` +
+        `but was not marked as async. Use \`.async()\` on the builder or \`asyncSchema()\` to brand your schema. ` +
+        `Without this, TypeScript will infer a sync return type and the result will be a Promise at runtime.`,
+    );
+  }
+  return value;
+}
 
 export function createPadrone<TProgramName extends string>(name: TProgramName): PadroneProgram<TProgramName, '', ''> {
   return createPadroneBuilder({ name, path: '', commands: [] } as any) as unknown as PadroneProgram<TProgramName, '', ''>;
@@ -153,6 +203,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
   /**
    * Validates raw options against the command's schema and applies preprocessing.
+   * Returns sync or async result depending on the schema's validate method.
    */
   const validateOptions = (
     command: AnyPadroneCommand,
@@ -192,17 +243,15 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     const optionsParsed = command.options ? command.options['~standard'].validate(preprocessedOptions) : { value: preprocessedOptions };
 
-    if (optionsParsed instanceof Promise) {
-      throw new Error('Async validation is not supported. Schema validate() must return a synchronous result.');
-    }
-
     // Return undefined for options when there's no schema and no meaningful options
     const hasOptions = command.options || Object.keys(preprocessedOptions).length > 0;
 
-    return {
-      options: optionsParsed.issues ? undefined : hasOptions ? (optionsParsed.value as any) : undefined,
-      optionsResult: optionsParsed as any,
-    };
+    const buildResult = (parsed: StandardSchemaV1.Result<unknown>) => ({
+      options: parsed.issues ? undefined : hasOptions ? (parsed.value as any) : undefined,
+      optionsResult: parsed as any,
+    });
+
+    return thenMaybe(optionsParsed, buildResult);
   };
 
   const parse: AnyPadroneProgram['parse'] = (input, parseOptions) => {
@@ -216,30 +265,40 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     };
     const envSchema = resolveEnvSchema(command);
 
+    const finalize = (envData: Record<string, unknown> | undefined) => {
+      const validated = validateOptions(command, rawOptions, args, {
+        envData,
+        configData: parseOptions?.configData,
+      });
+
+      const toParseResult = (v: { options: any; optionsResult: any }) => ({
+        command: command as any,
+        options: v.options,
+        optionsResult: v.optionsResult,
+      });
+
+      return thenMaybe(validated, toParseResult);
+    };
+
     // Validate env vars against schema if provided
     let envData: Record<string, unknown> | undefined = parseOptions?.envData;
     if (envSchema && !envData) {
       const rawEnv = parseOptions?.env ?? (typeof process !== 'undefined' ? process.env : {});
       const envValidated = envSchema['~standard'].validate(rawEnv);
-      if (envValidated instanceof Promise) {
-        throw new Error('Async validation is not supported. Env schema validate() must return a synchronous result.');
-      }
-      // For env vars, we don't throw on validation errors - just use the transformed value if valid
-      if (!envValidated.issues) {
-        envData = envValidated.value as unknown as Record<string, unknown>;
-      }
+
+      return warnIfUnexpectedAsync(
+        thenMaybe(envValidated, (result) => {
+          // For env vars, we don't throw on validation errors - just use the transformed value if valid
+          if (!result.issues) {
+            envData = result.value as unknown as Record<string, unknown>;
+          }
+          return finalize(envData);
+        }),
+        command,
+      ) as any;
     }
 
-    const { options, optionsResult } = validateOptions(command, rawOptions, args, {
-      envData,
-      configData: parseOptions?.configData,
-    });
-
-    return {
-      command: command as any,
-      options,
-      optionsResult,
-    };
+    return warnIfUnexpectedAsync(finalize(envData), command) as any;
   };
 
   const stringify: AnyPadroneProgram['stringify'] = (command = '' as any, options) => {
@@ -532,68 +591,98 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       }
     }
 
-    // Validate config data against schema if provided
-    if (configData && configSchema) {
-      const configValidated = configSchema['~standard'].validate(configData);
-      if (configValidated instanceof Promise) {
-        throw new Error('Async validation is not supported. Config schema validate() must return a synchronous result.');
-      }
-      if (configValidated.issues) {
-        const issueMessages = configValidated.issues.map((i) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`).join('\n');
-        throw new Error(`Invalid config file:\n${issueMessages}`);
-      }
-      configData = configValidated.value as unknown as Record<string, unknown>;
-    }
+    /**
+     * Chains config → env → options validation, then runs the handler.
+     * Each validation step preserves sync/async behavior based on the schema.
+     */
+    const processValidation = () => {
+      // Step 1: Validate config data against schema if provided
+      const validateConfig = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
+        if (configData && configSchema) {
+          const configValidated = configSchema['~standard'].validate(configData);
+          return thenMaybe(configValidated, (result) => {
+            if (result.issues) {
+              const issueMessages = result.issues
+                .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
+                .join('\n');
+              throw new Error(`Invalid config file:\n${issueMessages}`);
+            }
+            return result.value as unknown as Record<string, unknown>;
+          });
+        }
+        return configData;
+      };
 
-    // Validate env vars against schema if provided
-    let envData: Record<string, unknown> | undefined = cliOptions?.envData;
-    if (envSchema) {
-      const rawEnv = cliOptions?.env ?? (typeof process !== 'undefined' ? process.env : {});
-      const envValidated = envSchema['~standard'].validate(rawEnv);
-      if (envValidated instanceof Promise) {
-        throw new Error('Async validation is not supported. Env schema validate() must return a synchronous result.');
-      }
-      // For env vars, we don't throw on validation errors - just use the transformed value if valid
-      // This is because the schema may use .optional() or .default() for missing env vars
-      if (!envValidated.issues) {
-        envData = envValidated.value as unknown as Record<string, unknown>;
-      }
-    }
+      // Step 2: Validate env vars
+      const validateEnv = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
+        let envData: Record<string, unknown> | undefined = cliOptions?.envData;
+        if (envSchema) {
+          const rawEnv = cliOptions?.env ?? (typeof process !== 'undefined' ? process.env : {});
+          const envValidated = envSchema['~standard'].validate(rawEnv);
+          return thenMaybe(envValidated, (result) => {
+            // For env vars, we don't throw on validation errors - just use the transformed value if valid
+            // This is because the schema may use .optional() or .default() for missing env vars
+            if (!result.issues) {
+              envData = result.value as unknown as Record<string, unknown>;
+            }
+            return envData;
+          });
+        }
+        return envData;
+      };
 
-    // Validate options with env and config data
-    const { options, optionsResult } = validateOptions(command, rawOptions, args, {
-      envData,
-      configData,
-    });
+      // Step 3: Validate options and run handler
+      const finalizeAndRun = (validatedConfigData: Record<string, unknown> | undefined, envData: Record<string, unknown> | undefined) => {
+        const validated = validateOptions(command, rawOptions, args, {
+          envData,
+          configData: validatedConfigData,
+        });
 
-    // Handle validation failures
-    if (optionsResult?.issues) {
-      const issueMessages = optionsResult.issues
-        .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
-        .join('\n');
+        const handleValidated = (v: { options: any; optionsResult: any }) => {
+          // Handle validation failures
+          if (v.optionsResult?.issues) {
+            const issueMessages = v.optionsResult.issues
+              .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
+              .join('\n');
 
-      if (input === undefined) {
-        // Called without explicit input (using process.argv): print error + help and throw
-        const helpText = generateHelp(existingCommand, command, { format: 'text' });
-        console.error(`Validation error:\n${issueMessages}`);
-        console.error(helpText);
-        throw new Error(`Validation error:\n${issueMessages}`);
-      }
+            if (input === undefined) {
+              // Called without explicit input (using process.argv): print error + help and throw
+              const helpText = generateHelp(existingCommand, command, { format: 'text' });
+              console.error(`Validation error:\n${issueMessages}`);
+              console.error(helpText);
+              throw new Error(`Validation error:\n${issueMessages}`);
+            }
 
-      // Called with explicit input: return result with issues, skip the action
-      return {
-        command: command as any,
-        options: undefined,
-        optionsResult,
-        result: undefined,
-      } as any;
-    }
+            // Called with explicit input: return result with issues, skip the action
+            return {
+              command: command as any,
+              options: undefined,
+              optionsResult: v.optionsResult,
+              result: undefined,
+            };
+          }
 
-    const res = run(command, options) as any;
-    return {
-      ...res,
-      optionsResult,
+          const res = run(command, v.options) as any;
+          return {
+            ...res,
+            optionsResult: v.optionsResult,
+          };
+        };
+
+        return thenMaybe(validated, handleValidated);
+      };
+
+      // Chain: config validation → env validation → options validation → run
+      const validatedConfig = validateConfig();
+      return thenMaybe(validatedConfig, (cfgData) => {
+        const validatedEnv = validateEnv();
+        return thenMaybe(validatedEnv, (envData) => {
+          return finalizeAndRun(cfgData, envData);
+        });
+      });
     };
+
+    return warnIfUnexpectedAsync(processValidation(), command) as any;
   };
 
   const run: AnyPadroneProgram['run'] = (command, options) => {
@@ -642,13 +731,14 @@ ${helpText}
           return { success: false, error: new Error('Expected an object with command property as string.') };
         },
       } satisfies Schema<{ command: string }> as Schema<{ command: string }>,
-      needsApproval: (input) => {
-        const { command, options } = parse(input.command);
-        if (typeof command.needsApproval === 'function') return command.needsApproval(options);
-        return !!command.needsApproval;
+      needsApproval: async (input) => {
+        const parsed = await parse(input.command);
+        if (typeof parsed.command.needsApproval === 'function') return parsed.command.needsApproval(parsed.options);
+        return !!parsed.command.needsApproval;
       },
-      execute: (input) => {
-        return cli(input.command).result;
+      execute: async (input) => {
+        const result = await cli(input.command);
+        return result.result;
       },
     };
   };
@@ -657,19 +747,25 @@ ${helpText}
     configure(config) {
       return createPadroneBuilder({ ...existingCommand, ...config }) as any;
     },
+    async() {
+      return createPadroneBuilder({ ...existingCommand, isAsync: true }) as any;
+    },
     arguments(options, meta) {
       // If options is a function, call it with parent's options as base
       const resolvedOptions = typeof options === 'function' ? options(existingCommand.options as any) : options;
-      return createPadroneBuilder({ ...existingCommand, options: resolvedOptions, meta }) as any;
+      const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedOptions);
+      return createPadroneBuilder({ ...existingCommand, options: resolvedOptions, meta, isAsync }) as any;
     },
     configFile(file, schema) {
       const configFiles = file === undefined ? undefined : Array.isArray(file) ? file : [file];
       const resolvedConfig = typeof schema === 'function' ? schema(existingCommand.options) : (schema ?? existingCommand.options);
-      return createPadroneBuilder({ ...existingCommand, configFiles, config: resolvedConfig as any }) as any;
+      const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedConfig);
+      return createPadroneBuilder({ ...existingCommand, configFiles, config: resolvedConfig as any, isAsync }) as any;
     },
     env(schema) {
       const resolvedEnv = typeof schema === 'function' ? schema(existingCommand.options) : schema;
-      return createPadroneBuilder({ ...existingCommand, envSchema: resolvedEnv as any }) as any;
+      const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedEnv);
+      return createPadroneBuilder({ ...existingCommand, envSchema: resolvedEnv as any, isAsync }) as any;
     },
     action(handler = noop) {
       return createPadroneBuilder({ ...existingCommand, handler }) as any;

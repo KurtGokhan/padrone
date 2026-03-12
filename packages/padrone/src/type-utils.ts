@@ -13,6 +13,34 @@ type IsNever<T> = [T] extends [never] ? true : false;
 
 export type IsGeneric<T> = IsAny<T> extends true ? true : IsUnknown<T> extends true ? true : IsNever<T> extends true ? true : false;
 
+/**
+ * Detects whether a schema has been branded as async via the `'~async'` property.
+ * Standard Schema V1's `validate()` always types its return as `Result | Promise<Result>`
+ * regardless of whether the schema is actually async, so we rely on an explicit brand instead.
+ *
+ * Use `asyncSchema(schema)` to brand a schema, or check for the `{ '~async': true }` property.
+ */
+export type IsAsyncSchema<T> = IsAny<T> extends true ? false : T extends { '~async': true } ? true : false;
+
+/**
+ * Computes the new TAsync flag when a schema is added to a builder.
+ * Once TAsync is `true`, it stays `true`. Otherwise, checks if the new schema is branded async.
+ */
+export type OrAsync<TExisting extends boolean, TSchema> = TExisting extends true
+  ? true
+  : IsAsyncSchema<TSchema> extends true
+    ? true
+    : false;
+
+/**
+ * Conditionally wraps a type in Promise based on the TAsync flag.
+ * - `true` → `Promise<T>`
+ * - `false` → `T`
+ * - `boolean` (union of true|false) → `Promise<T>` (safe default when async-ness is uncertain)
+ * - `any` → `T` (for generic/any typed commands like AnyPadroneCommand)
+ */
+export type MaybePromise<T, TAsync> = IsAny<TAsync> extends true ? T : true extends TAsync ? Promise<T> : T;
+
 type SplitString<TName extends string, TSplitBy extends string = ' '> = TName extends `${infer FirstPart}${TSplitBy}${infer RestParts}`
   ? [FirstPart, ...SplitString<RestParts, TSplitBy>]
   : [TName];

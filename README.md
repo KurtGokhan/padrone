@@ -221,6 +221,27 @@ const program = createPadrone('app')
 
 **Precedence order** (highest to lowest): CLI args > environment variables > config file
 
+### Async Validation
+
+If your schema uses async refinements (e.g. `z.check(async ...)`), mark the command as async so that `parse()` and `cli()` return Promises:
+
+```typescript
+import { asyncSchema, createPadrone } from 'padrone';
+
+const program = createPadrone('app')
+  .command('create', (c) =>
+    c
+      // Option 1: brand the schema with asyncSchema()
+      .arguments(asyncSchema(z.object({ name: z.string() }).check(async (ctx) => { /* ... */ })))
+      // Option 2: call .async() on the builder
+      .async()
+      .action((opts) => opts.name),
+  );
+
+// parse() and cli() now return Promises
+const result = await program.parse('create --name test');
+```
+
 ## 🤖 AI SDK Integration
 
 Padrone provides first-class support for the [Vercel AI SDK](https://ai-sdk.dev/), making it easy to expose your CLI as an AI tool:
@@ -287,6 +308,7 @@ Creates a new CLI program with the given name.
 | `.configure(config)` | Configure program properties (title, description, version) |
 | `.command(name, builder)` | Add a command to the program |
 | `.arguments(schema, meta?)` | Define options schema with optional positional args |
+| `.async()` | Mark command as async (for schemas with async validation) |
 | `.env(schema)` | Define schema for parsing environment variables into options |
 | `.configFile(file, schema?)` | Configure config file path(s) and schema |
 | `.action(handler)` | Set the command handler function |
