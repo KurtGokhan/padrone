@@ -1866,9 +1866,9 @@ describe('CLI', () => {
     });
 
     it('should warn when validation returns Promise but command not marked async', async () => {
-      const warnSpy = mock();
-      const originalWarn = console.warn;
-      console.warn = warnSpy;
+      const errorSpy = mock();
+      const originalError = console.error;
+      console.error = errorSpy;
 
       try {
         // Create a schema with async validation but DON'T brand it
@@ -1881,15 +1881,15 @@ describe('CLI', () => {
         );
 
         const result = program.parse('greet --name Alice');
-        // Should still work, just with a warning
+        // Should still work, just with a warning via runtime.error
         if (result instanceof Promise) {
           await result;
-          expect(warnSpy).toHaveBeenCalledTimes(1);
-          expect(warnSpy.mock.calls[0]![0]).toContain('[padrone]');
-          expect(warnSpy.mock.calls[0]![0]).toContain('not marked as async');
+          expect(errorSpy).toHaveBeenCalledTimes(1);
+          expect(errorSpy.mock.calls[0]![0]).toContain('[padrone]');
+          expect(errorSpy.mock.calls[0]![0]).toContain('not marked as async');
         }
       } finally {
-        console.warn = originalWarn;
+        console.error = originalError;
       }
     });
   });

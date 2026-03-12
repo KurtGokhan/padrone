@@ -2,6 +2,7 @@ import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/sp
 import type { Tool } from 'ai';
 import type { HelpOptions } from './help.ts';
 import type { PadroneMeta } from './options.ts';
+import type { PadroneRuntime } from './runtime.ts';
 import type {
   FullCommandName,
   IsGeneric,
@@ -75,6 +76,8 @@ export type PadroneCommand<
   configFiles?: string[];
   /** Runtime flag indicating this command uses async validation. Set by `.async()` or `asyncSchema()`. */
   isAsync?: boolean;
+  /** Runtime configuration for I/O abstraction. */
+  runtime?: PadroneRuntime;
 
   parent?: AnyPadroneCommand;
   commands?: TCommands;
@@ -172,6 +175,24 @@ export type PadroneBuilderMethods<
    */
   configure: (
     config: PadroneCommandConfig,
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv, TAsync>;
+
+  /**
+   * Configures the runtime adapter for I/O abstraction.
+   * Allows the CLI framework to work outside of a terminal (e.g., web UIs, chat interfaces, testing).
+   * Unspecified fields fall back to the Node.js/Bun defaults.
+   *
+   * @example
+   * ```ts
+   * .runtime({
+   *   output: (text) => panel.append(text),
+   *   error: (text) => panel.appendError(text),
+   *   format: 'html',
+   * })
+   * ```
+   */
+  runtime: (
+    runtime: PadroneRuntime,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv, TAsync>;
 
   /**

@@ -4,8 +4,9 @@ import { generateCompletionOutput, type ShellType } from './completion.ts';
 import { generateHelp } from './help.ts';
 import { extractSchemaMetadata, parsePositionalConfig, preprocessOptions } from './options.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
+import { type ResolvedPadroneRuntime, resolveRuntime } from './runtime.ts';
 import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneProgram, PadroneSchema } from './types.ts';
-import { findConfigFile, getVersion, loadConfigFile } from './utils.ts';
+import { getVersion } from './utils.ts';
 import { createWrapHandler } from './wrap.ts';
 
 const commandSymbol = Symbol('padrone_command');
@@ -46,6 +47,19 @@ export function asyncSchema<T extends PadroneSchema>(schema: T): T & { '~async':
   return Object.assign(schema, { '~async': true as const });
 }
 
+/**
+ * Resolves the runtime for a command by walking up the parent chain.
+ * Returns a fully resolved runtime with all defaults filled in.
+ */
+function getCommandRuntime(cmd: AnyPadroneCommand): ResolvedPadroneRuntime {
+  let current: AnyPadroneCommand | undefined = cmd;
+  while (current) {
+    if (current.runtime) return resolveRuntime(current.runtime);
+    current = current.parent;
+  }
+  return resolveRuntime();
+}
+
 function isAsyncBranded(schema: unknown): boolean {
   return !!schema && typeof schema === 'object' && '~async' in schema && (schema as any)['~async'] === true;
 }
@@ -53,7 +67,8 @@ function isAsyncBranded(schema: unknown): boolean {
 function warnIfUnexpectedAsync<T>(value: T, command: AnyPadroneCommand): T {
   if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') return value;
   if (value instanceof Promise && !command.isAsync) {
-    console.warn(
+    const runtime = getCommandRuntime(command);
+    runtime.error(
       `[padrone] Command "${command.path || command.name}" returned a Promise from validation, ` +
         `but was not marked as async. Use \`.async()\` on the builder or \`asyncSchema()\` to brand your schema. ` +
         `Without this, TypeScript will infer a sync return type and the result will be a Promise at runtime.`,
@@ -108,7 +123,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
    * Parses CLI input to find the command and extract raw options without validation.
    */
   const parseCommand = (input: string | undefined) => {
-    input ??= typeof process !== 'undefined' ? (process.argv.slice(2).join(' ') as any) : undefined;
+    input ??= getCommandRuntime(existingCommand).argv().join(' ') || undefined;
     if (!input) return { command: existingCommand, rawOptions: {} as Record<string, unknown>, args: [] as string[] };
 
     const parts = parseCliInputToParts(input);
@@ -283,7 +298,8 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     // Validate env vars against schema if provided
     let envData: Record<string, unknown> | undefined = parseOptions?.envData;
     if (envSchema && !envData) {
-      const rawEnv = parseOptions?.env ?? (typeof process !== 'undefined' ? process.env : {});
+      const runtime = getCommandRuntime(command);
+      const rawEnv = parseOptions?.env ?? runtime.env();
       const envValidated = envSchema['~standard'].validate(rawEnv);
 
       return warnIfUnexpectedAsync(
@@ -505,8 +521,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   };
 
   const cli: AnyPadroneProgram['cli'] = (input, cliOptions) => {
-    // Resolve input from process.argv if not provided
-    const resolvedInput = input ?? (typeof process !== 'undefined' ? (process.argv.slice(2).join(' ') as any) : undefined);
+    const runtime = getCommandRuntime(existingCommand);
+
+    // Resolve input from runtime.argv if not provided
+    const resolvedInput = (input ?? (runtime.argv().join(' ') || undefined)) as string | undefined;
 
     // Check for built-in help/version/completion commands and flags
     const builtin = checkBuiltinCommands(resolvedInput);
@@ -515,9 +533,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       if (builtin.type === 'help') {
         const helpText = generateHelp(existingCommand, builtin.command ?? existingCommand, {
           detail: builtin.detail,
-          format: builtin.format,
+          format: builtin.format ?? runtime.format,
         });
-        console.log(helpText);
+        runtime.output(helpText);
         return {
           command: existingCommand,
           args: undefined,
@@ -528,7 +546,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
       if (builtin.type === 'version') {
         const version = getVersion(existingCommand.version);
-        console.log(version);
+        runtime.output(version);
         return {
           command: existingCommand,
           options: undefined,
@@ -538,7 +556,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
       if (builtin.type === 'completion') {
         const completionScript = generateCompletionOutput(existingCommand, builtin.shell);
-        console.log(completionScript);
+        runtime.output(completionScript);
         return {
           command: existingCommand,
           options: undefined,
@@ -582,12 +600,12 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     let configData = cliOptions?.configData;
     if (configPath) {
       // Explicit config path takes precedence
-      configData = loadConfigFile(configPath);
+      configData = runtime.loadConfigFile(configPath);
     } else if (effectiveConfigFiles?.length) {
       // Search for config files if configFiles is configured (inherited or own)
-      const foundConfigPath = findConfigFile(effectiveConfigFiles);
+      const foundConfigPath = runtime.findFile(effectiveConfigFiles);
       if (foundConfigPath) {
-        configData = loadConfigFile(foundConfigPath) ?? configData;
+        configData = runtime.loadConfigFile(foundConfigPath) ?? configData;
       }
     }
 
@@ -617,7 +635,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       const validateEnv = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
         let envData: Record<string, unknown> | undefined = cliOptions?.envData;
         if (envSchema) {
-          const rawEnv = cliOptions?.env ?? (typeof process !== 'undefined' ? process.env : {});
+          const rawEnv = cliOptions?.env ?? runtime.env();
           const envValidated = envSchema['~standard'].validate(rawEnv);
           return thenMaybe(envValidated, (result) => {
             // For env vars, we don't throw on validation errors - just use the transformed value if valid
@@ -646,10 +664,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
               .join('\n');
 
             if (input === undefined) {
-              // Called without explicit input (using process.argv): print error + help and throw
-              const helpText = generateHelp(existingCommand, command, { format: 'text' });
-              console.error(`Validation error:\n${issueMessages}`);
-              console.error(helpText);
+              // Called without explicit input (using runtime.argv): print error + help and throw
+              const helpText = generateHelp(existingCommand, command, { format: runtime.format });
+              runtime.error(`Validation error:\n${issueMessages}`);
+              runtime.error(helpText);
               throw new Error(`Validation error:\n${issueMessages}`);
             }
 
@@ -747,6 +765,9 @@ ${helpText}
     configure(config) {
       return createPadroneBuilder({ ...existingCommand, ...config }) as any;
     },
+    runtime(runtimeConfig) {
+      return createPadroneBuilder({ ...existingCommand, runtime: { ...existingCommand.runtime, ...runtimeConfig } }) as any;
+    },
     async() {
       return createPadroneBuilder({ ...existingCommand, isAsync: true }) as any;
     },
@@ -818,7 +839,8 @@ ${helpText}
           ? findCommandByName(command, existingCommand.commands)
           : (command as AnyPadroneCommand);
       if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
-      return generateHelp(existingCommand, commandObj, options);
+      const runtime = getCommandRuntime(existingCommand);
+      return generateHelp(existingCommand, commandObj, { format: runtime.format, ...options });
     },
 
     completion(shell) {

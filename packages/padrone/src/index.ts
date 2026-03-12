@@ -2,6 +2,7 @@ export { asyncSchema, createPadrone } from './create.ts';
 export type { HelpArgumentInfo, HelpFormat, HelpInfo, HelpOptionInfo, HelpSubcommandInfo } from './formatter.ts';
 export type { HelpOptions } from './help.ts';
 export type { PadroneOptionsMeta } from './options.ts';
+export type { PadroneRuntime } from './runtime.ts';
 export type {
   InferCommand,
   InferConfigInput,
