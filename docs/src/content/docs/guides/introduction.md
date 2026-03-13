@@ -3,7 +3,7 @@ title: Introduction
 description: Learn what Padrone is and how it can help you build CLI applications
 ---
 
-Padrone is a TypeScript library for building **type-safe, interactive CLI applications** with Zod schema validation. It provides a fluent API for defining commands, options, and arguments while maintaining full type safety throughout your application.
+Padrone is a TypeScript library for building **type-safe, interactive CLI applications** with Zod schema validation. It provides a fluent API for defining commands and arguments while maintaining full type safety throughout your application.
 
 ## Why Padrone?
 
@@ -13,8 +13,8 @@ Building CLI applications in TypeScript often involves:
 - Separate documentation that gets out of sync
 - Boilerplate for help generation
 
-Padrone solves these problems by using **Zod schemas as the single source of truth** for your CLI's options. Your schema defines:
-- The types of your options (automatically inferred)
+Padrone solves these problems by using **Zod schemas as the single source of truth** for your CLI's arguments. Your schema defines:
+- The types of your arguments (automatically inferred)
 - Validation rules (enforced at runtime)
 - Documentation (generated from `.describe()` calls)
 - Default values
@@ -32,9 +32,9 @@ Every option you define is fully typed from schema definition to action handler:
     host: z.string().default('localhost'),
   })
 )
-.action((options) => {
-  // options is typed as { port: number; host: string }
-  console.log(`Server at ${options.host}:${options.port}`);
+.action((args) => {
+  // args is typed as { port: number; host: string }
+  console.log(`Server at ${args.host}:${args.port}`);
 })
 ```
 
@@ -62,7 +62,7 @@ const tool = program.tool();
 ### Multiple Execution Modes
 
 - **CLI mode**: Parse `process.argv` or a string input
-- **Programmatic mode**: Call commands with typed options
+- **Programmatic mode**: Call commands with typed arguments
 - **API mode**: Generate a typed function interface
 
 ## Requirements

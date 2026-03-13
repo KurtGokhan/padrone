@@ -57,7 +57,7 @@ describe('wrap', () => {
   });
 
   describe('option mapping', () => {
-    it('should convert boolean options to flags', async () => {
+    it('should convert boolean args to flags', async () => {
       const program = createPadrone('test').command('ls', (c) =>
         c
           .arguments(
@@ -82,7 +82,7 @@ describe('wrap', () => {
       expect(result.args?.long).toBe(true);
     });
 
-    it('should handle array options', async () => {
+    it('should handle array args', async () => {
       const program = createPadrone('test').command('test', (c) =>
         c
           .arguments(
@@ -251,7 +251,7 @@ describe('wrap', () => {
       expect(wrapResult.stdout?.includes('Hello from CLI')).toBe(true);
     });
 
-    it('should work with options from CLI', async () => {
+    it('should work with args from CLI', async () => {
       const program = createPadrone('test-cli').command('cmd', (c) =>
         c
           .arguments(
@@ -301,7 +301,7 @@ describe('wrap', () => {
   });
 
   describe('type safety', () => {
-    it('should enforce options schema', async () => {
+    it('should enforce args schema', async () => {
       const program = createPadrone('test').command('echo', (c) =>
         c
           .arguments(
@@ -330,7 +330,7 @@ describe('wrap', () => {
   });
 
   describe('schema transformation', () => {
-    it('should transform options using wrap schema', async () => {
+    it('should transform args using wrap schema', async () => {
       const program = createPadrone('test').command('git-commit', (c) =>
         c
           .arguments(

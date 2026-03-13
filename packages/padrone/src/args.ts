@@ -128,14 +128,14 @@ function preprocessAliases(data: Record<string, unknown>, aliases: Record<string
   return result;
 }
 
-interface ParseOptionsContext {
+interface ParseArgsContext {
   aliases?: Record<string, string>;
   envData?: Record<string, unknown>;
   configData?: Record<string, unknown>;
 }
 
 /**
- * Apply values directly to options.
+ * Apply values directly to arguments.
  * CLI values take precedence over the provided values.
  */
 function applyValues(data: Record<string, unknown>, values: Record<string, unknown>): Record<string, unknown> {
@@ -153,10 +153,10 @@ function applyValues(data: Record<string, unknown>, values: Record<string, unkno
 }
 
 /**
- * Combined preprocessing of options with all features.
+ * Combined preprocessing of arguments with all features.
  * Precedence order (highest to lowest): CLI args > env vars > config file
  */
-export function preprocessOptions(data: Record<string, unknown>, ctx: ParseOptionsContext): Record<string, unknown> {
+export function preprocessArgs(data: Record<string, unknown>, ctx: ParseArgsContext): Record<string, unknown> {
   let result = { ...data };
 
   // 1. Apply aliases first

@@ -1,4 +1,4 @@
-import { extractSchemaMetadata } from './options.ts';
+import { extractSchemaMetadata } from './args.ts';
 import type { AnyPadroneCommand } from './types.ts';
 
 export type ShellType = 'bash' | 'zsh' | 'fish' | 'powershell';
@@ -61,29 +61,29 @@ function collectAllCommands(cmd: AnyPadroneCommand): AnyPadroneCommand[] {
 }
 
 /**
- * Extracts all option names from a command's schema.
+ * Extracts all argument names from a command's schema.
  */
-function extractOptions(cmd: AnyPadroneCommand): { name: string; alias?: string; isBoolean: boolean }[] {
-  const options: { name: string; alias?: string; isBoolean: boolean }[] = [];
+function extractArguments(cmd: AnyPadroneCommand): { name: string; alias?: string; isBoolean: boolean }[] {
+  const argList: { name: string; alias?: string; isBoolean: boolean }[] = [];
 
-  if (!cmd.arguments) return options;
+  if (!cmd.arguments) return argList;
 
   try {
     const argsMeta = cmd.meta?.fields;
     const { aliases } = extractSchemaMetadata(cmd.arguments, argsMeta);
 
     // Reverse aliases map (alias -> option name)
-    const aliasToOption: Record<string, string> = {};
-    for (const [opt, alias] of Object.entries(aliases)) {
-      aliasToOption[alias] = opt;
+    const aliasToArgument: Record<string, string> = {};
+    for (const [arg, alias] of Object.entries(aliases)) {
+      aliasToArgument[alias] = arg;
     }
 
     const jsonSchema = cmd.arguments['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
 
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
       for (const [key, prop] of Object.entries(jsonSchema.properties as Record<string, any>)) {
-        const alias = Object.entries(aliases).find(([opt]) => opt === key)?.[1];
-        options.push({
+        const alias = Object.entries(aliases).find(([arg]) => arg === key)?.[1];
+        argList.push({
           name: key,
           alias: alias,
           isBoolean: prop?.type === 'boolean',
@@ -94,7 +94,7 @@ function extractOptions(cmd: AnyPadroneCommand): { name: string; alias?: string;
     // Ignore schema parsing errors
   }
 
-  return options;
+  return argList;
 }
 
 /**
@@ -105,19 +105,19 @@ export function generateBashCompletion(program: AnyPadroneCommand): string {
   const commands = collectAllCommands(program);
   const commandNames = commands.map((c) => c.name).join(' ');
 
-  // Collect all options from all commands
-  const allOptions = new Set<string>();
-  allOptions.add('--help');
-  allOptions.add('--version');
+  // Collect all args from all commands
+  const allArguments = new Set<string>();
+  allArguments.add('--help');
+  allArguments.add('--version');
 
   for (const cmd of [program, ...commands]) {
-    for (const opt of extractOptions(cmd)) {
-      allOptions.add(`--${opt.name}`);
-      if (opt.alias) allOptions.add(`-${opt.alias}`);
+    for (const arg of extractArguments(cmd)) {
+      allArguments.add(`--${arg.name}`);
+      if (arg.alias) allArguments.add(`-${arg.alias}`);
     }
   }
 
-  const optionsList = Array.from(allOptions).join(' ');
+  const argsList = Array.from(allArguments).join(' ');
 
   return `###-begin-${programName}-completion-###
 #
@@ -141,11 +141,11 @@ if type complete &>/dev/null; then
     prev="\${words[cword-1]}"
 
     local commands="${commandNames}"
-    local options="${optionsList}"
+    local args="${argsList}"
 
-    # Complete options when current word starts with -
+    # Complete args when current word starts with -
     if [[ "$cur" == -* ]]; then
-      COMPREPLY=($(compgen -W "$options" -- "$cur"))
+      COMPREPLY=($(compgen -W "$args" -- "$cur"))
       return 0
     fi
 
@@ -157,10 +157,10 @@ elif type compdef &>/dev/null; then
   _${programName}_completion() {
     local si=$IFS
     local commands="${commandNames}"
-    local options="${optionsList}"
+    local args="${argsList}"
 
     if [[ "\${words[CURRENT]}" == -* ]]; then
-      compadd -- \${=options}
+      compadd -- \${=args}
     else
       compadd -- \${=commands}
     fi
@@ -170,10 +170,10 @@ elif type compdef &>/dev/null; then
 elif type compctl &>/dev/null; then
   _${programName}_completion() {
     local commands="${commandNames}"
-    local options="${optionsList}"
+    local args="${argsList}"
 
     if [[ "\${words[CURRENT]}" == -* ]]; then
-      reply=(\${=options})
+      reply=(\${=args})
     else
       reply=(\${=commands})
     fi
@@ -199,25 +199,25 @@ export function generateZshCompletion(program: AnyPadroneCommand): string {
     })
     .join('\n');
 
-  // Collect all options with descriptions
-  const optionCompletions: string[] = [];
-  optionCompletions.push("      '--help[Show help information]'");
-  optionCompletions.push("      '--version[Show version number]'");
+  // Collect all args with descriptions
+  const argumentCompletions: string[] = [];
+  argumentCompletions.push("      '--help[Show help information]'");
+  argumentCompletions.push("      '--version[Show version number]'");
 
-  const seenOptions = new Set<string>(['help', 'version']);
+  const seenArgs = new Set<string>(['help', 'version']);
 
   for (const cmd of [program, ...commands]) {
-    for (const opt of extractOptions(cmd)) {
-      if (seenOptions.has(opt.name)) continue;
-      seenOptions.add(opt.name);
+    for (const arg of extractArguments(cmd)) {
+      if (seenArgs.has(arg.name)) continue;
+      seenArgs.add(arg.name);
 
-      const desc = cmd.meta?.fields?.[opt.name]?.description || '';
+      const desc = cmd.meta?.fields?.[arg.name]?.description || '';
       const escapedDesc = desc.replace(/'/g, "'\\''").replace(/\[/g, '\\[').replace(/\]/g, '\\]');
 
-      if (opt.alias) {
-        optionCompletions.push(`      {-${opt.alias},--${opt.name}}'[${escapedDesc}]'`);
+      if (arg.alias) {
+        argumentCompletions.push(`      {-${arg.alias},--${arg.name}}'[${escapedDesc}]'`);
       } else {
-        optionCompletions.push(`      '--${opt.name}[${escapedDesc}]'`);
+        argumentCompletions.push(`      '--${arg.name}[${escapedDesc}]'`);
       }
     }
   }
@@ -233,18 +233,18 @@ export function generateZshCompletion(program: AnyPadroneCommand): string {
 
 _${programName}() {
   local -a commands
-  local -a options
+  local -a args
 
   commands=(
 ${commandCompletions}
   )
 
-  options=(
-${optionCompletions.join('\n')}
+  args=(
+${argumentCompletions.join('\n')}
   )
 
   _arguments -s \\
-    $options \\
+    $args \\
     '1: :->command' \\
     '*::arg:->args'
 
@@ -287,24 +287,24 @@ export function generateFishCompletion(program: AnyPadroneCommand): string {
   }
 
   lines.push('');
-  lines.push('# Global options');
+  lines.push('# Global arguments');
   lines.push(`complete -c ${programName} -l help -d 'Show help information'`);
   lines.push(`complete -c ${programName} -l version -d 'Show version number'`);
 
-  const seenOptions = new Set<string>(['help', 'version']);
+  const seenArgs = new Set<string>(['help', 'version']);
 
   for (const cmd of [program, ...commands]) {
-    for (const opt of extractOptions(cmd)) {
-      if (seenOptions.has(opt.name)) continue;
-      seenOptions.add(opt.name);
+    for (const arg of extractArguments(cmd)) {
+      if (seenArgs.has(arg.name)) continue;
+      seenArgs.add(arg.name);
 
-      const desc = cmd.meta?.fields?.[opt.name]?.description || '';
+      const desc = cmd.meta?.fields?.[arg.name]?.description || '';
       const escapedDesc = desc.replace(/'/g, "\\'");
 
-      if (opt.alias) {
-        lines.push(`complete -c ${programName} -s ${opt.alias} -l ${opt.name} -d '${escapedDesc}'`);
+      if (arg.alias) {
+        lines.push(`complete -c ${programName} -s ${arg.alias} -l ${arg.name} -d '${escapedDesc}'`);
       } else {
-        lines.push(`complete -c ${programName} -l ${opt.name} -d '${escapedDesc}'`);
+        lines.push(`complete -c ${programName} -l ${arg.name} -d '${escapedDesc}'`);
       }
     }
   }
@@ -334,10 +334,10 @@ Register-ArgumentCompleter -Native -CommandName ${programName} -ScriptBlock {
   param($wordToComplete, $commandAst, $cursorPosition)
 
   $commands = @(${commandNames})
-  $options = @('--help', '--version')
+  $args = @('--help', '--version')
 
   if ($wordToComplete -like '-*') {
-    $options | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+    $args | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
       [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
     }
   } else {

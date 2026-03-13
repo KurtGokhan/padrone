@@ -21,11 +21,11 @@ export function createTasksProgram() {
             priority: z.enum(['low', 'medium', 'high']).optional().default('medium').describe('Filter by priority'),
           }),
         )
-        .action((options) => {
+        .action((args) => {
           return {
-            status: options.status || 'all',
-            limit: options?.limit || 10,
-            tasks: mockTaskData.tasks.slice(0, options?.limit || 10),
+            status: args.status || 'all',
+            limit: args?.limit || 10,
+            tasks: mockTaskData.tasks.slice(0, args?.limit || 10),
           };
         })
         .command('extended', (c) =>
@@ -36,11 +36,11 @@ export function createTasksProgram() {
                 priority: z.enum(['low', 'medium', 'high']).optional().default('medium').describe('Filter by priority'),
               }),
             )
-            .action((options) => {
+            .action((args) => {
               return {
-                status: options.status || 'all',
+                status: args.status || 'all',
                 extendedList: mockTaskData.tasks,
-                priority: options?.priority,
+                priority: args?.priority,
               };
             })
             .command('extended', (c) =>
@@ -50,9 +50,9 @@ export function createTasksProgram() {
                     status: z.enum(['pending', 'in_progress', 'completed']).optional().describe('Filter by status'),
                   }),
                 )
-                .action((options) => {
+                .action((args) => {
                   return {
-                    status: options.status || 'all',
+                    status: args.status || 'all',
                     extendedList: mockTaskData.tasks,
                   };
                 }),
@@ -71,13 +71,13 @@ export function createTasksProgram() {
             positional: ['id'],
           },
         )
-        .action((options) => {
-          const { id } = options;
+        .action((args) => {
+          const { id } = args;
           return {
             id,
-            title: options?.priority === 'high' ? 'Important Task' : 'Regular Task',
+            title: args?.priority === 'high' ? 'Important Task' : 'Regular Task',
             status: mockTaskData.tasks[0]?.status,
-            stats: options?.verbose ? mockTaskData.stats : undefined,
+            stats: args?.verbose ? mockTaskData.stats : undefined,
           };
         }),
     )
@@ -90,11 +90,11 @@ export function createTasksProgram() {
             ascending: z.boolean().optional().describe('Sort in ascending order'),
           }),
         )
-        .action((options) => {
+        .action((args) => {
           return {
-            status: options?.status || 'all',
+            status: args?.status || 'all',
             tasks: mockTaskData.tasks,
-            priority: options?.priority,
+            priority: args?.priority,
           };
         }),
     )
@@ -108,8 +108,8 @@ export function createTasksProgram() {
             positional: ['...ids'],
           },
         )
-        .action((options) => {
-          const { ids } = options;
+        .action((args) => {
+          const { ids } = args;
           return {
             ids,
             results: ids.map((id) => ({

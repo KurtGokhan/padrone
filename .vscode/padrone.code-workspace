@@ -26,11 +26,15 @@
     "[js][jsx][ts][tsx][typescript][typescriptreact][javascript][javascriptreact][json][jsonc][html][css][scss][markdown][mdx]": {
       "editor.defaultFormatter": "biomejs.biome"
     },
+    "files.readonlyInclude": {
+      "**/*.gen.ts": true,
+      "**/*.ts.snap": true
+    },
     "bun.test.customFlag": "--conditions=padrone@dev",
     "editor.formatOnSave": true,
-    "typescript.preferences.quoteStyle": "single",
+    "js/ts.preferences.quoteStyle": "single",
     "workbench.editor.labelFormat": "medium",
-    "typescript.tsdk": "🌴 Root/node_modules/typescript/lib",
-    "typescript.enablePromptUseWorkspaceTsdk": true
+    "js/ts.tsdk.path": "🌴 Root/node_modules/typescript/lib",
+    "js/ts.tsdk.promptToUseWorkspaceVersion": true
   }
 }

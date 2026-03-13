@@ -57,11 +57,11 @@ export const tasksProgram = createPadrone('tasks')
           tag: z.string().optional().describe('Filter by tag').meta({ alias: 't' }),
         }),
       )
-      .action((options) => {
+      .action((args) => {
         const tasks = getTasks({
-          status: options.status,
-          priority: options.priority,
-          tag: options.tag,
+          status: args.status,
+          priority: args.priority,
+          tag: args.tag,
         });
 
         if (tasks.length === 0) {
@@ -86,11 +86,11 @@ export const tasksProgram = createPadrone('tasks')
         }),
         { positional: ['id'] },
       )
-      .action((options) => {
-        const task = getTask(options.id);
+      .action((args) => {
+        const task = getTask(args.id);
 
         if (!task) {
-          console.error(`Task not found: ${options.id}`);
+          console.error(`Task not found: ${args.id}`);
           process.exit(1);
         }
 
@@ -116,11 +116,11 @@ export const tasksProgram = createPadrone('tasks')
         }),
         { positional: ['id'] },
       )
-      .action((options) => {
-        const task = setTaskStatus(options.id, 'completed');
+      .action((args) => {
+        const task = setTaskStatus(args.id, 'completed');
 
         if (!task) {
-          console.error(`Task not found: ${options.id}`);
+          console.error(`Task not found: ${args.id}`);
           process.exit(1);
         }
 
@@ -137,11 +137,11 @@ export const tasksProgram = createPadrone('tasks')
         }),
         { positional: ['id'] },
       )
-      .action((options) => {
-        const task = setTaskStatus(options.id, 'in_progress');
+      .action((args) => {
+        const task = setTaskStatus(args.id, 'in_progress');
 
         if (!task) {
-          console.error(`Task not found: ${options.id}`);
+          console.error(`Task not found: ${args.id}`);
           process.exit(1);
         }
 
@@ -162,16 +162,16 @@ export const tasksProgram = createPadrone('tasks')
         }),
         { positional: ['id'] },
       )
-      .action((options) => {
-        const task = updateTask(options.id, {
-          title: options.title,
-          priority: options.priority,
-          tags: options.tags,
-          dueDate: options.due,
+      .action((args) => {
+        const task = updateTask(args.id, {
+          title: args.title,
+          priority: args.priority,
+          tags: args.tags,
+          dueDate: args.due,
         });
 
         if (!task) {
-          console.error(`Task not found: ${options.id}`);
+          console.error(`Task not found: ${args.id}`);
           process.exit(1);
         }
 
@@ -188,16 +188,16 @@ export const tasksProgram = createPadrone('tasks')
         }),
         { positional: ['id'] },
       )
-      .action((options) => {
-        const removed = removeTask(options.id);
+      .action((args) => {
+        const removed = removeTask(args.id);
 
         if (!removed) {
-          console.error(`Task not found: ${options.id}`);
+          console.error(`Task not found: ${args.id}`);
           process.exit(1);
         }
 
-        console.log(`Task removed: ${options.id}`);
-        return { removed: true, id: options.id };
+        console.log(`Task removed: ${args.id}`);
+        return { removed: true, id: args.id };
       }),
   );
 

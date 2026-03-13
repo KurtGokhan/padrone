@@ -2,19 +2,19 @@ import type { PickCommandByName, PossibleCommands } from './type-utils.ts';
 import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand, PadroneSchema } from './types.ts';
 
 /**
- * Extracts the input type of the options schema from a command.
+ * Extracts the input type of the arguments schema from a command.
  * @example
  * ```ts
- * type Options = InferArgsInput<typeof myCommand>;
+ * type Args = InferArgsInput<typeof myCommand>;
  * ```
  */
 export type InferArgsInput<T extends AnyPadroneCommand> = T['~types']['argumentsInput'];
 
 /**
- * Extracts the output type of the options schema from a command.
+ * Extracts the output type of the arguments schema from a command.
  * @example
  * ```ts
- * type Options = InferArgsOutput<typeof myCommand>;
+ * type Args = InferArgsOutput<typeof myCommand>;
  * ```
  */
 export type InferArgsOutput<T extends AnyPadroneCommand> = T['~types']['argumentsOutput'];
@@ -30,7 +30,7 @@ export type InferConfigInput<T extends AnyPadroneCommand> = T['config'] extends 
 
 /**
  * Extracts the output type of the config schema from a command.
- * This is the type after transformation, which should match the options shape.
+ * This is the type after transformation, which should match the arguments shape.
  * @example
  * ```ts
  * type ConfigOutput = InferConfigOutput<typeof myCommand>;
@@ -50,7 +50,7 @@ export type InferEnvInput<T extends AnyPadroneCommand> = T['envSchema'] extends 
 
 /**
  * Extracts the output type of the env schema from a command.
- * This is the type after transformation, which should match the options shape.
+ * This is the type after transformation, which should match the arguments shape.
  * @example
  * ```ts
  * type EnvOutput = InferEnvOutput<typeof myCommand>;

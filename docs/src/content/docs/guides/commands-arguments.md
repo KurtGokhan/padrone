@@ -1,13 +1,13 @@
 ---
-title: Commands & Options
-description: Learn how to define commands, options, and arguments in Padrone
+title: Commands & Arguments
+description: Learn how to define commands and arguments in Padrone
 ---
 
-This guide covers how to work with commands, options, positional arguments, and nested command hierarchies in Padrone.
+This guide covers how to work with commands, argments, positional arguments, and nested command hierarchies in Padrone.
 
-## Defining Options
+## Defining Arguments
 
-Options are defined using Zod schemas. Each property in the schema becomes a CLI option:
+Arguments are defined using Zod schemas. Each property in the schema becomes a CLI option:
 
 ```typescript
 import { createPadrone } from 'padrone';
@@ -21,8 +21,8 @@ const program = createPadrone('app')
       verbose: z.boolean().optional().describe('Enable verbose logging'),
     })
   )
-  .action((options) => {
-    // options: { port: number; host: string; verbose?: boolean }
+  .action((args) => {
+    // args: { port: number; host: string; verbose?: boolean }
   });
 ```
 
@@ -120,8 +120,8 @@ const program = createPadrone('git')
         }),
         { positional: ['url'] }
       )
-      .action((options) => {
-        console.log(`Cloning ${options.url}`);
+      .action((args) => {
+        console.log(`Cloning ${args.url}`);
       })
   )
   .command('status', (c) =>
@@ -177,7 +177,7 @@ db migrate status
 
 ## Environment Variables
 
-Bind options to environment variables:
+Bind arguments to environment variables:
 
 ```typescript
 .arguments(
@@ -186,7 +186,7 @@ Bind options to environment variables:
     debug: z.boolean().optional(),
   }),
   {
-    options: {
+    fields: {
       apiKey: { env: 'API_KEY' },
       debug: { env: ['DEBUG', 'APP_DEBUG'] }, // Multiple env vars
     }
@@ -198,7 +198,7 @@ Priority order: CLI argument > Environment variable > Default value
 
 ## Config Files
 
-Load options from configuration files:
+Load arguments from configuration files:
 
 ```typescript
 const program = createPadrone('app')
@@ -211,7 +211,7 @@ const program = createPadrone('app')
       host: z.string().default('localhost'),
     }),
     {
-      options: {
+      fields: {
         port: { configKey: 'server.port' },
         host: { configKey: 'server.host' },
       }

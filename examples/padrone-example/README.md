@@ -52,7 +52,7 @@ Usage: **tasks add** *[positional...]* *[arguments]*
 
 
 
-### Options:
+### Arguments:
 
   `--priority, -p` `<string>` *(optional)* *(default: medium)* *(choices: low, medium, high)*  Task priority
 
@@ -64,7 +64,7 @@ Usage: **tasks add** *[positional...]* *[arguments]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **tasks list** *[options]*
+Usage: **tasks list** *[arguments]*
 
 
 
@@ -72,7 +72,7 @@ Usage: **tasks list** *[options]*
 
 
 
-### Options:
+### Arguments:
 
   `--status, -s` `<string>` *(optional)* *(choices: pending, in_progress, completed)*    Filter by status
 
@@ -84,7 +84,7 @@ Usage: **tasks list** *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **tasks show** *[args...]* *[options]*
+Usage: **tasks show** *[args...]* *[arguments]*
 
 
 
@@ -102,7 +102,7 @@ Usage: **tasks show** *[args...]* *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **tasks complete** *[args...]* *[options]*
+Usage: **tasks complete** *[args...]* *[arguments]*
 
 
 
@@ -120,7 +120,7 @@ Usage: **tasks complete** *[args...]* *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **tasks start** *[args...]* *[options]*
+Usage: **tasks start** *[args...]* *[arguments]*
 
 
 
@@ -138,7 +138,7 @@ Usage: **tasks start** *[args...]* *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **tasks edit** *[args...]* *[options]*
+Usage: **tasks edit** *[args...]* *[arguments]*
 
 
 
@@ -154,7 +154,7 @@ Usage: **tasks edit** *[args...]* *[options]*
 
 
 
-### Options:
+### Arguments:
 
   `--title` `<string>` *(optional)*     New title
 
@@ -168,7 +168,7 @@ Usage: **tasks edit** *[args...]* *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **tasks remove** *[args...]* *[options]*
+Usage: **tasks remove** *[args...]* *[arguments]*
 
 
 

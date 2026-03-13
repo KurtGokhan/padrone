@@ -39,7 +39,7 @@ export function TerminalRender() {
           }
 
           if (commandName === 'tasks') {
-            return async (options: any) => {
+            return async (args: any) => {
               const output: string[] = [];
               const originalLog = console.log;
               const originalError = console.error;
@@ -50,7 +50,7 @@ export function TerminalRender() {
               console.warn = (...args) => output.push(args.map(String).join(' '));
 
               try {
-                const result = await tasksProgram.cli(options.args.join(' '));
+                const result = await tasksProgram.cli(args.args.join(' '));
                 const consoleOutput = output.join('\n');
                 return consoleOutput + (result.result ? (consoleOutput ? '\n' : '') + result.result : '');
               } finally {
@@ -62,8 +62,8 @@ export function TerminalRender() {
           }
 
           if (commandName === 'test') {
-            const callbackCommand = async (options: any, wasmFs: any) => {
-              return `Test Working! Options: ${JSON.stringify(options, null, 2)}, fs: ${JSON.stringify(wasmFs, null, 2)}`;
+            const callbackCommand = async (args: any, wasmFs: any) => {
+              return `Test Working! Arguments: ${JSON.stringify(args, null, 2)}, fs: ${JSON.stringify(wasmFs, null, 2)}`;
             };
             return callbackCommand;
           }

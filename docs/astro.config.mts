@@ -27,7 +27,7 @@ export default defineConfig({
         {
           label: 'Guides',
           items: [
-            { label: 'Commands & Options', slug: 'guides/commands-options' },
+            { label: 'Commands & Arguments', slug: 'guides/commands-arguments' },
             { label: 'AI Integration', slug: 'guides/ai-integration' },
           ],
         },

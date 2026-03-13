@@ -35,22 +35,22 @@ describe('help', () => {
     expect(help).toMatchSnapshot();
   });
 
-  it('should generate help for a command with deprecated options', () => {
+  it('should generate help for a command with deprecated arguments', () => {
     const help = program.help('deprecated-test', { format: 'text' });
     expect(help).toMatchSnapshot();
   });
 
-  it('should generate help for a command with deprecated options and colors', () => {
+  it('should generate help for a command with deprecated arguments and colors', () => {
     const help = program.help('deprecated-test', { format: 'ansi' });
     expect(help).toMatchSnapshot();
   });
 
-  it('should generate help for a command with hidden options', () => {
+  it('should generate help for a command with hidden arguments', () => {
     const help = program.help('hidden-test', { format: 'text' });
     expect(help).toMatchSnapshot();
   });
 
-  it('should generate help for a command with hidden options and colors', () => {
+  it('should generate help for a command with hidden arguments and colors', () => {
     const help = program.help('hidden-test', { format: 'ansi' });
     expect(help).toMatchSnapshot();
   });
@@ -150,34 +150,34 @@ describe('help with minimal detail mode', () => {
     expect(help).toBe('padrone-test [command]');
   });
 
-  it('should generate minimal usage for command with args and options', () => {
+  it('should generate minimal usage for command with args and arguments', () => {
     const help = program.help('show', { detail: 'minimal' });
-    expect(help).toBe('padrone-test show [args...] [options]');
+    expect(help).toBe('padrone-test show [args...] [arguments]');
   });
 
   it('should generate minimal usage for command with subcommands', () => {
     const help = program.help('list', { detail: 'minimal' });
-    expect(help).toBe('padrone-test list [command] [options]');
+    expect(help).toBe('padrone-test list [command] [arguments]');
   });
 
   it('should generate minimal usage for nested command', () => {
     const help = program.help('list extended', { detail: 'minimal' });
-    expect(help).toBe('padrone-test list extended [command] [options]');
+    expect(help).toBe('padrone-test list extended [command] [arguments]');
   });
 
-  it('should generate minimal usage for command with args only (void options)', () => {
+  it('should generate minimal usage for command with args only (void arguments)', () => {
     const help = program.help('batch', { detail: 'minimal' });
     // batch has variadic args
-    expect(help).toBe('padrone-test batch [args...] [options]');
+    expect(help).toBe('padrone-test batch [args...] [arguments]');
   });
 
-  it('should generate minimal usage for command with options only (void args)', () => {
+  it('should generate minimal usage for command with arguments only (void args)', () => {
     const help = program.help('filter', { detail: 'minimal' });
-    // filter has options only
-    expect(help).toBe('padrone-test filter [options]');
+    // filter has arguments only
+    expect(help).toBe('padrone-test filter [arguments]');
   });
 
-  it('should generate minimal usage for noop command (void args and options)', () => {
+  it('should generate minimal usage for noop command (void args and arguments)', () => {
     const help = program.help('noop', { detail: 'minimal' });
     // noop has z.void() for both, which still counts as having schemas
     expect(help).toBe('padrone-test noop');

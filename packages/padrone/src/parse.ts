@@ -22,7 +22,7 @@ type ParseParts = {
    * An option provided to the command, prefixed with `--`.
    * If the option has an `=` sign, the value after it is used as the option's value.
    * Otherwise, the value is obtained from the next part or set to `true` if no value is provided.
-   * The key is an array representing the path for nested options (e.g., `--user.id=123` becomes `['user', 'id']`).
+   * The key is an array representing the path for nested args (e.g., `--user.id=123` becomes `['user', 'id']`).
    */
   option: {
     type: 'option';

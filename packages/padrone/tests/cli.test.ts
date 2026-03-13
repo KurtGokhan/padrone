@@ -9,7 +9,7 @@ describe('CLI', () => {
   createConsoleMocker();
 
   describe('programmatic execution', () => {
-    it('should execute a simple command with args and options', () => {
+    it('should execute a simple command with args and args', () => {
       const result = program.run('show', { id: 'task-1', priority: 'high', verbose: true });
 
       expect(result.command.path).toBe('show');
@@ -25,7 +25,7 @@ describe('CLI', () => {
       expect(result.result.stats?.total).toBe(5);
     });
 
-    it('should execute a command with default options', () => {
+    it('should execute a command with default args', () => {
       const result = program.run('show', { id: 'task-2' });
 
       expect(result.command.path).toBe('show');
@@ -52,7 +52,7 @@ describe('CLI', () => {
       expect(result.result.results).toHaveLength(3);
     });
 
-    it('should execute a command with void args and options', () => {
+    it('should execute a command with void args and args', () => {
       const result = program.run('noop', undefined);
 
       expect(result.command.path).toBe('noop');
@@ -70,7 +70,7 @@ describe('CLI', () => {
       expect(result.args?.priority).toEqual('medium');
     });
 
-    it('should parse command with options', () => {
+    it('should parse command with args', () => {
       const result = program.parse('show task-2 --priority high --verbose');
 
       expect(result.command.path).toBe('show');
@@ -102,7 +102,7 @@ describe('CLI', () => {
       expect(result.args?.ids).toEqual(['task-1', 'task-2', 'task-3', 'task-4']);
     });
 
-    it('should parse command with complex options', () => {
+    it('should parse command with complex args', () => {
       const result = program.parse('filter --status "in_progress" --priority high');
 
       expect(result.command.path).toBe('filter');
@@ -229,7 +229,7 @@ describe('CLI', () => {
 
     it('should handle command with positional args', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
-        c.arguments(z.object({ id: z.string() }), { positional: ['id'] }).action((options) => ({ id: options.id })),
+        c.arguments(z.object({ id: z.string() }), { positional: ['id'] }).action((args) => ({ id: args.id })),
       );
 
       const result = program.run('test', { id: 'task-1' });
@@ -252,14 +252,14 @@ describe('CLI', () => {
       expect(result.command.path).toBe('list extended');
     });
 
-    it('should handle options without values', () => {
+    it('should handle args without values', () => {
       const result = program.parse('filter --ascending');
 
       expect(result.command.path).toBe('filter');
       expect(result.args?.ascending).toBe(true);
     });
 
-    it('should handle multiple boolean options', () => {
+    it('should handle multiple boolean args', () => {
       const result = program.parse('show task-1 --verbose --priority high');
 
       expect(result.command.path).toBe('show');
@@ -299,7 +299,7 @@ describe('CLI', () => {
       });
     });
 
-    it('should handle filtering tasks with options', () => {
+    it('should handle filtering tasks with args', () => {
       const result = program.run('filter', {
         status: 'pending',
         priority: 'high',
@@ -327,9 +327,9 @@ describe('CLI', () => {
                 .meta({ alias: ['h'] }),
             }),
           )
-          .action((options) => ({
-            verbose: options?.verbose,
-            help: options?.help,
+          .action((args) => ({
+            verbose: args?.verbose,
+            help: args?.help,
           })),
       );
 
@@ -355,7 +355,7 @@ describe('CLI', () => {
                 .meta({ alias: ['c'] }),
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test -u celsius -c=5');
@@ -375,8 +375,8 @@ describe('CLI', () => {
                 .meta({ alias: ['v'] }),
             }),
           )
-          .action((options) => ({
-            verbose: options?.verbose || false,
+          .action((args) => ({
+            verbose: args?.verbose || false,
           })),
       );
 
@@ -405,7 +405,7 @@ describe('CLI', () => {
                 .meta({ alias: ['o'] }),
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test -v --help -o=file.txt');
@@ -424,7 +424,7 @@ describe('CLI', () => {
               v: z.boolean().optional(), // Include 'v' in schema to test without alias
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       // No aliases defined, -v should work as 'v' key if it's in the schema
@@ -475,8 +475,8 @@ describe('CLI', () => {
                     .meta({ alias: ['v'] }),
                 }),
               )
-              .action((options) => ({
-                verbose: options?.verbose || false,
+              .action((args) => ({
+                verbose: args?.verbose || false,
               })),
           )
           .action(),
@@ -505,8 +505,8 @@ describe('CLI', () => {
                   },
                 },
               )
-              .action((options) => ({
-                verbose: options?.verbose || false,
+              .action((args) => ({
+                verbose: args?.verbose || false,
               })),
           )
           .action(),
@@ -529,7 +529,7 @@ describe('CLI', () => {
                 .meta({ alias: ['v', 'verbose'] }),
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test -v');
@@ -545,7 +545,7 @@ describe('CLI', () => {
       expect(result).toBe('show "task 1" --priority=medium');
     });
 
-    it('should stringify a command with args and options', () => {
+    it('should stringify a command with args and args', () => {
       const result = program.stringify('show', { id: 'task-1', priority: 'high', verbose: true });
 
       expect(result).toBe('show task-1 --priority=high --verbose');
@@ -569,31 +569,31 @@ describe('CLI', () => {
       expect(result).toBe('batch "task one" "task two"');
     });
 
-    it('should stringify options with string values containing spaces', () => {
+    it('should stringify args with string values containing spaces', () => {
       const result = program.stringify('filter', { status: 'in_progress', priority: 'high' });
 
       expect(result).toBe('filter --status=in_progress --priority=high');
     });
 
-    it('should stringify false boolean options with no- prefix', () => {
+    it('should stringify false boolean args with no- prefix', () => {
       const result = program.stringify('filter', { ascending: false });
 
       expect(result).toBe('filter --no-ascending');
     });
 
-    it('should stringify numeric options', () => {
+    it('should stringify numeric args', () => {
       const result = program.stringify('list', { limit: 5, priority: 'high' });
 
       expect(result).toBe('list --limit=5 --priority=high');
     });
 
-    it('should omit undefined options', () => {
+    it('should omit undefined args', () => {
       const result = program.stringify('show', { id: 'task-1', priority: 'high', verbose: undefined });
 
       expect(result).toBe('show task-1 --priority=high');
     });
 
-    it('should handle command with no args and no options', () => {
+    it('should handle command with no args and no args', () => {
       const result = program.stringify('noop', undefined);
 
       expect(result).toBe('noop');
@@ -622,7 +622,7 @@ describe('CLI', () => {
       expect(parsed.args?.verbose).toBe(original.args.verbose);
     });
 
-    it('should stringify variadic options as multiple flags', () => {
+    it('should stringify variadic args as multiple flags', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -638,8 +638,8 @@ describe('CLI', () => {
     });
   });
 
-  describe('variadic options', () => {
-    it('should collect repeated options into an array', () => {
+  describe('variadic args', () => {
+    it('should collect repeated args into an array', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -647,7 +647,7 @@ describe('CLI', () => {
               include: z.array(z.string()).optional(),
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test --include=src --include=lib --include=tests');
@@ -655,7 +655,7 @@ describe('CLI', () => {
       expect(result.args?.include).toEqual(['src', 'lib', 'tests']);
     });
 
-    it('should work with aliases for variadic options', () => {
+    it('should work with aliases for variadic args', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -664,7 +664,7 @@ describe('CLI', () => {
             }),
             { fields: { include: { alias: ['i'] } } },
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test -i=src -i=lib --include=tests');
@@ -672,7 +672,7 @@ describe('CLI', () => {
       expect(result.args?.include).toEqual(['src', 'lib', 'tests']);
     });
 
-    it('should handle variadic options with space-separated values', () => {
+    it('should handle variadic args with space-separated values', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -680,7 +680,7 @@ describe('CLI', () => {
               tag: z.array(z.string()).optional(),
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test --tag one --tag two --tag three');
@@ -688,7 +688,7 @@ describe('CLI', () => {
       expect(result.args?.tag).toEqual(['one', 'two', 'three']);
     });
 
-    it('should display variadic options in help text', () => {
+    it('should display variadic args in help text', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -706,7 +706,7 @@ describe('CLI', () => {
     });
   });
 
-  describe('negatable boolean options', () => {
+  describe('negatable boolean args', () => {
     it('should parse --no-<option> as false', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
@@ -715,7 +715,7 @@ describe('CLI', () => {
               verbose: z.boolean().optional().default(true),
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test --no-verbose');
@@ -731,7 +731,7 @@ describe('CLI', () => {
               verbose: z.boolean().optional().default(false),
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test --verbose');
@@ -739,7 +739,7 @@ describe('CLI', () => {
       expect(result.args?.verbose).toBe(true);
     });
 
-    it('should display negatable options in help text', () => {
+    it('should display negatable args in help text', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -823,7 +823,7 @@ describe('CLI', () => {
             }),
           )
           .env(z.object({ API_KEY: z.string().optional() }).transform((env) => ({ apiKey: env.API_KEY })))
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test', { env: { API_KEY: 'secret123' } });
@@ -840,7 +840,7 @@ describe('CLI', () => {
             }),
           )
           .env(z.object({ API_KEY: z.string().optional() }).transform((env) => ({ apiKey: env.API_KEY })))
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test --apiKey=from-cli', { env: { API_KEY: 'from-env' } });
@@ -861,7 +861,7 @@ describe('CLI', () => {
               .object({ PORT: z.string().optional(), APP_PORT: z.string().optional() })
               .transform((env) => ({ port: env.PORT ? Number(env.PORT) : env.APP_PORT ? Number(env.APP_PORT) : undefined })),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       // First env var not set, second one is
@@ -879,7 +879,7 @@ describe('CLI', () => {
             }),
           )
           .env(z.object({ DEBUG: z.string().optional() }).transform((env) => ({ debug: env.DEBUG === 'true' ? true : undefined })))
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test', { env: { DEBUG: 'true' } });
@@ -912,7 +912,7 @@ describe('CLI', () => {
 
     it('should handle escaped quotes within quoted strings', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
-        c.arguments(z.object({ message: z.string() }), { positional: ['message'] }).action((options) => ({ message: options.message })),
+        c.arguments(z.object({ message: z.string() }), { positional: ['message'] }).action((args) => ({ message: args.message })),
       );
 
       const result = program.parse('test "He said \\"hello\\""');
@@ -928,7 +928,7 @@ describe('CLI', () => {
   });
 
   describe('config file support', () => {
-    it('should apply config values when options are not provided', () => {
+    it('should apply config values when args are not provided', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -941,7 +941,7 @@ describe('CLI', () => {
             'config.json',
             z.object({ server: z.object({ port: z.number(), host: z.string() }) }).transform((data) => data.server),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const configData = {
@@ -969,7 +969,7 @@ describe('CLI', () => {
             'config.json',
             z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const configData = { server: { port: 3000 } };
@@ -991,7 +991,7 @@ describe('CLI', () => {
             'config.json',
             z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const configData = { server: { port: 3000 } };
@@ -1014,7 +1014,7 @@ describe('CLI', () => {
               .object({ services: z.object({ api: z.object({ connection: z.object({ timeout: z.number() }) }) }) })
               .transform((data) => ({ timeout: data.services.api.connection.timeout })),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const configData = {
@@ -1044,7 +1044,7 @@ describe('CLI', () => {
             }),
           )
           .configFile('config.json', z.object({ port: z.number(), host: z.string() }))
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const configData = { port: 3000, host: 'localhost' };
@@ -1063,7 +1063,7 @@ describe('CLI', () => {
             }),
           )
           .configFile('config.json', z.object({ port: z.number() }))
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const configData = { port: 'not-a-number' };
@@ -1083,7 +1083,7 @@ describe('CLI', () => {
             'config.json',
             z.object({ serverPort: z.number() }).transform((data) => ({ port: data.serverPort })),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const configData = { serverPort: 8080 };
@@ -1092,7 +1092,7 @@ describe('CLI', () => {
       expect(result.args?.port).toBe(8080);
     });
 
-    it('should use function-based schema with access to options schema', () => {
+    it('should use function-based schema with access to args schema', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -1101,8 +1101,8 @@ describe('CLI', () => {
               host: z.string().optional(),
             }),
           )
-          .configFile('config.json', (optionsSchema) => optionsSchema.partial())
-          .action((options) => options),
+          .configFile('config.json', (argsSchema) => argsSchema.partial())
+          .action((args) => args),
       );
 
       const configData = { port: 3000 };
@@ -1116,7 +1116,7 @@ describe('CLI', () => {
         c
           .arguments(z.object({ name: z.string().optional() }))
           .configFile('myapp.config.json')
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const command = program.find('test');
@@ -1128,7 +1128,7 @@ describe('CLI', () => {
         c
           .arguments(z.object({ name: z.string().optional() }))
           .configFile(['myapp.config.json', '.myapprc'])
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const command = program.find('test');
@@ -1140,7 +1140,7 @@ describe('CLI', () => {
 
       const program = createPadrone('padrone-test')
         .configFile('config.json', configSchema)
-        .command('sub', (c) => c.arguments(z.object({ port: z.number().optional() })).action((options) => options));
+        .command('sub', (c) => c.arguments(z.object({ port: z.number().optional() })).action((args) => args));
 
       const configData = { port: 3000 };
       const result = program.cli('sub', { configData });
@@ -1148,7 +1148,7 @@ describe('CLI', () => {
       expect(result.args?.port).toBe(3000);
     });
 
-    it('should allow CLI options to override validated config values', () => {
+    it('should allow CLI args to override validated config values', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -1157,7 +1157,7 @@ describe('CLI', () => {
             }),
           )
           .configFile('config.json', z.object({ port: z.number() }))
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const configData = { port: 3000 };
@@ -1176,7 +1176,7 @@ describe('CLI', () => {
               tags: z.array(z.string()).optional(),
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test --tags=[a,b,c]');
@@ -1192,7 +1192,7 @@ describe('CLI', () => {
               tags: z.array(z.string()).optional(),
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test --tags=[]');
@@ -1208,7 +1208,7 @@ describe('CLI', () => {
               names: z.array(z.string()).optional(),
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test --names=["hello world","foo bar"]');
@@ -1224,7 +1224,7 @@ describe('CLI', () => {
               items: z.array(z.string()).optional(),
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test --items=[simple,"with space",another]');
@@ -1232,7 +1232,7 @@ describe('CLI', () => {
       expect(result.args?.items).toEqual(['simple', 'with space', 'another']);
     });
 
-    it('should combine array syntax with variadic options', () => {
+    it('should combine array syntax with variadic args', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -1240,7 +1240,7 @@ describe('CLI', () => {
               include: z.array(z.string()).optional(),
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test --include=[a,b] --include=c --include=[d,e]');
@@ -1257,7 +1257,7 @@ describe('CLI', () => {
             }),
             { fields: { tags: { alias: ['t'] } } },
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test -t=[one,two,three]');
@@ -1273,7 +1273,7 @@ describe('CLI', () => {
               items: z.array(z.string()).optional(),
             }),
           )
-          .action((options) => options),
+          .action((args) => args),
       );
 
       const result = program.parse('test --items=[  a  ,  b  ,  c  ]');
@@ -1307,7 +1307,7 @@ describe('CLI', () => {
       const program = createPadrone('test-cli').command('greet', (c) =>
         c
           .arguments(z.object({ name: z.string().describe('Name to greet') }), { positional: ['name'] })
-          .action((options) => `Hello, ${options.name}!`),
+          .action((args) => `Hello, ${args.name}!`),
       );
 
       const result = program.cli('greet --help');
@@ -1342,7 +1342,7 @@ describe('CLI', () => {
       const program = createPadrone('test-cli').command('greet', (c) =>
         c
           .arguments(z.object({ name: z.string().describe('Name to greet') }), { positional: ['name'] })
-          .action((options) => `Hello, ${options.name}!`),
+          .action((args) => `Hello, ${args.name}!`),
       );
 
       const result = program.cli('help greet');
@@ -1504,9 +1504,7 @@ describe('CLI', () => {
 
     it('should accept detail flag for subcommand help', () => {
       const program = createPadrone('test-cli').command('greet', (c) =>
-        c
-          .arguments(z.object({ name: z.string().describe('Name') }), { positional: ['name'] })
-          .action((options) => `Hello, ${options.name}!`),
+        c.arguments(z.object({ name: z.string().describe('Name') }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
       );
 
       const result = program.cli('greet --help --detail=full');
@@ -1615,7 +1613,7 @@ describe('CLI', () => {
       }
     });
 
-    it('should allow CLI options to override config file values', () => {
+    it('should allow CLI args to override config file values', () => {
       const fs = require('node:fs');
       const path = require('node:path');
       const os = require('node:os');
@@ -1646,10 +1644,10 @@ describe('CLI', () => {
     });
   });
 
-  describe('nested object options (dot notation)', () => {
+  describe('nested object args (dot notation)', () => {
     it('should parse --key.nested=value as nested object', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.arguments(z.object({ user: z.object({ id: z.coerce.number() }).optional() })).action((options) => options),
+        c.arguments(z.object({ user: z.object({ id: z.coerce.number() }).optional() })).action((args) => args),
       );
 
       const result = program.parse('test --user.id=123');
@@ -1657,9 +1655,9 @@ describe('CLI', () => {
       expect(result.args?.user).toEqual({ id: 123 });
     });
 
-    it('should parse deeply nested options', () => {
+    it('should parse deeply nested args', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.arguments(z.object({ server: z.object({ database: z.object({ host: z.string() }) }).optional() })).action((options) => options),
+        c.arguments(z.object({ server: z.object({ database: z.object({ host: z.string() }) }).optional() })).action((args) => args),
       );
 
       const result = program.parse('test --server.database.host=localhost');
@@ -1667,9 +1665,9 @@ describe('CLI', () => {
       expect(result.args?.server).toEqual({ database: { host: 'localhost' } });
     });
 
-    it('should combine multiple nested options into same object', () => {
+    it('should combine multiple nested args into same object', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.arguments(z.object({ user: z.object({ name: z.string(), age: z.coerce.number() }).optional() })).action((options) => options),
+        c.arguments(z.object({ user: z.object({ name: z.string(), age: z.coerce.number() }).optional() })).action((args) => args),
       );
 
       const result = program.parse('test --user.name=John --user.age=30');
@@ -1679,7 +1677,7 @@ describe('CLI', () => {
 
     it('should handle nested boolean values', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.arguments(z.object({ config: z.object({ debug: z.boolean() }).optional() })).action((options) => options),
+        c.arguments(z.object({ config: z.object({ debug: z.boolean() }).optional() })).action((args) => args),
       );
 
       const result = program.parse('test --config.debug');
@@ -1689,7 +1687,7 @@ describe('CLI', () => {
 
     it('should handle negated nested boolean values', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.arguments(z.object({ config: z.object({ debug: z.boolean().default(true) }).optional() })).action((options) => options),
+        c.arguments(z.object({ config: z.object({ debug: z.boolean().default(true) }).optional() })).action((args) => args),
       );
 
       const result = program.parse('test --no-config.debug');
@@ -1699,7 +1697,7 @@ describe('CLI', () => {
 
     it('should stringify nested objects to dot notation', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.arguments(z.object({ user: z.object({ id: z.number(), name: z.string() }).optional() })).action((options) => options),
+        c.arguments(z.object({ user: z.object({ id: z.number(), name: z.string() }).optional() })).action((args) => args),
       );
 
       const result = program.stringify('test', { user: { id: 123, name: 'John' } });
@@ -1710,7 +1708,7 @@ describe('CLI', () => {
 
     it('should stringify deeply nested objects', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.arguments(z.object({ server: z.object({ db: z.object({ host: z.string() }) }).optional() })).action((options) => options),
+        c.arguments(z.object({ server: z.object({ db: z.object({ host: z.string() }) }).optional() })).action((args) => args),
       );
 
       const result = program.stringify('test', { server: { db: { host: 'localhost' } } });
@@ -1720,7 +1718,7 @@ describe('CLI', () => {
 
     it('should roundtrip nested objects through stringify and parse', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.arguments(z.object({ config: z.object({ port: z.coerce.number(), host: z.string() }).optional() })).action((options) => options),
+        c.arguments(z.object({ config: z.object({ port: z.coerce.number(), host: z.string() }).optional() })).action((args) => args),
       );
 
       const original = { config: { port: 8080, host: 'example.com' } };
@@ -1730,9 +1728,9 @@ describe('CLI', () => {
       expect(parsed.args?.config).toEqual(original.config);
     });
 
-    it('should handle nested options with quoted string values', () => {
+    it('should handle nested args with quoted string values', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c.arguments(z.object({ message: z.object({ text: z.string() }).optional() })).action((options) => options),
+        c.arguments(z.object({ message: z.object({ text: z.string() }).optional() })).action((args) => args),
       );
 
       const result = program.parse('test --message.text="Hello World"');
@@ -1742,9 +1740,7 @@ describe('CLI', () => {
 
     it('should work with CLI execution', () => {
       const program = createPadrone('test-cli').command('test', (c) =>
-        c
-          .arguments(z.object({ settings: z.object({ verbose: z.boolean().default(false) }).optional() }))
-          .action((options) => options?.settings),
+        c.arguments(z.object({ settings: z.object({ verbose: z.boolean().default(false) }).optional() })).action((args) => args?.settings),
       );
 
       const result = program.cli('test --settings.verbose');
@@ -1755,7 +1751,7 @@ describe('CLI', () => {
 
   describe('validation errors', () => {
     it('should return result with issues when called with explicit input and option fails url validation', () => {
-      const handler = mock((options: any) => options);
+      const handler = mock((args: any) => args);
       const program = createPadrone('test-cli').command('fetch', (c) =>
         c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action(handler),
       );
@@ -1770,7 +1766,7 @@ describe('CLI', () => {
 
     it('should return result with issues for enum option with invalid value', () => {
       const program = createPadrone('test-cli').command('cmd', (c) =>
-        c.arguments(z.object({ priority: z.enum(['low', 'medium', 'high']).describe('Priority') })).action((options) => options),
+        c.arguments(z.object({ priority: z.enum(['low', 'medium', 'high']).describe('Priority') })).action((args) => args),
       );
 
       const result = program.cli('cmd --priority invalid');
@@ -1795,7 +1791,7 @@ describe('CLI', () => {
       process.argv = ['node', 'test-cli', 'fetch', '--url', 'not-a-valid-url'];
 
       const program = createPadrone('test-cli').command('fetch', (c) =>
-        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((options) => options),
+        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((args) => args),
       );
 
       try {
@@ -1812,7 +1808,7 @@ describe('CLI', () => {
 
     it('should not throw when validation passes', () => {
       const program = createPadrone('test-cli').command('fetch', (c) =>
-        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((options) => options),
+        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((args) => args),
       );
 
       expect(() => program.cli('fetch --url https://example.com')).not.toThrow();

@@ -156,7 +156,7 @@ it('should match snapshot', () => {
 
 ### Inline Snapshots
 ```typescript
-expect(result.options).toMatchInlineSnapshot(`
+expect(result.args).toMatchInlineSnapshot(`
   {
     "city": "New York",
     "unit": "celsius",

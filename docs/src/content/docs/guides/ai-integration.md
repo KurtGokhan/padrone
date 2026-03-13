@@ -32,12 +32,12 @@ const weatherCli = createPadrone('weather')
         }),
         { positional: ['city'] }
       )
-      .action(async (options) => {
+      .action(async (args) => {
         // Fetch weather data...
         return {
-          city: options.city,
+          city: args.city,
           temperature: 22,
-          units: options.units,
+          units: args.units,
           condition: 'Sunny',
         };
       })
@@ -52,14 +52,14 @@ const weatherCli = createPadrone('weather')
         }),
         { positional: ['city'] }
       )
-      .action(async (options) => {
+      .action(async (args) => {
         return {
-          city: options.city,
+          city: args.city,
           forecast: [
             { day: 'Mon', temp: 22 },
             { day: 'Tue', temp: 24 },
             { day: 'Wed', temp: 20 },
-          ].slice(0, options.days),
+          ].slice(0, args.days),
         };
       })
   );
@@ -92,7 +92,7 @@ for await (const chunk of result.textStream) {
 The AI model will:
 1. Understand the available commands from the tool schema
 2. Choose the appropriate command (`weather current`)
-3. Provide the required options (`city: 'London'`)
+3. Provide the required args (`city: 'London'`)
 4. Execute the command and use the response
 
 ## Return Values
@@ -100,7 +100,7 @@ The AI model will:
 Your action handlers should return data that the AI can use:
 
 ```typescript
-.action(async (options) => {
+.action(async (args) => {
   // Return structured data for the AI
   return {
     status: 'success',
@@ -151,14 +151,14 @@ Good descriptions improve AI accuracy when selecting and using your tools.
 Handle errors gracefully so the AI can respond appropriately:
 
 ```typescript
-.action(async (options) => {
+.action(async (args) => {
   try {
-    const data = await fetchWeather(options.city);
+    const data = await fetchWeather(args.city);
     return { success: true, data };
   } catch (error) {
     return {
       success: false,
-      error: `Could not fetch weather for ${options.city}`,
+      error: `Could not fetch weather for ${args.city}`,
     };
   }
 })

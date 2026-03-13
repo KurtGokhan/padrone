@@ -10,7 +10,7 @@ export type HelpDetail = 'minimal' | 'standard' | 'full';
 /**
  * Information about a single positional argument.
  */
-export type HelpArgumentInfo = {
+export type HelpPositionalInfo = {
   name: string;
   description?: string;
   optional: boolean;
@@ -19,9 +19,9 @@ export type HelpArgumentInfo = {
 };
 
 /**
- * Information about a single option/flag.
+ * Information about a single argument/flag.
  */
-export type HelpOptionInfo = {
+export type HelpArgumentInfo = {
   name: string;
   description?: string;
   optional: boolean;
@@ -75,15 +75,15 @@ export type HelpInfo = {
   usage: {
     command: string;
     hasSubcommands: boolean;
+    hasPositionals: boolean;
     hasArguments: boolean;
-    hasOptions: boolean;
   };
   /** List of subcommands */
   subcommands?: HelpSubcommandInfo[];
   /** Positional arguments */
+  positionals?: HelpPositionalInfo[];
+  /** Arguments/flags (only visible ones, hidden filtered out) */
   arguments?: HelpArgumentInfo[];
-  /** Options/flags (only visible ones, hidden filtered out) */
-  options?: HelpOptionInfo[];
   /** Full help info for nested commands (used in 'full' detail mode) */
   nestedCommands?: HelpInfo[];
 };
@@ -272,8 +272,8 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     const usageParts: string[] = [
       styler.command(info.usage.command),
       info.usage.hasSubcommands ? styler.meta('[command]') : '',
-      info.usage.hasArguments ? styler.meta('[args...]') : '',
-      info.usage.hasOptions ? styler.meta('[options]') : '',
+      info.usage.hasPositionals ? styler.meta('[args...]') : '',
+      info.usage.hasArguments ? styler.meta('[arguments]') : '',
     ];
     return [`${usageLabel} ${join(usageParts)}`];
   }
@@ -317,9 +317,9 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     return lines;
   }
 
-  function formatArgumentsSection(info: HelpInfo): string[] {
+  function formatPositionalsSection(info: HelpInfo): string[] {
     const lines: string[] = [];
-    const args = info.arguments!;
+    const args = info.positionals!;
 
     lines.push(styler.label('Arguments:'));
 
@@ -337,54 +337,54 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     return lines;
   }
 
-  function formatOptionsSection(info: HelpInfo): string[] {
+  function formatArgumentsSection(info: HelpInfo): string[] {
     const lines: string[] = [];
-    const options = info.options!;
+    const argList = info.arguments || [];
 
-    lines.push(styler.label('Options:'));
+    lines.push(styler.label('Arguments:'));
 
-    const maxNameLength = Math.max(...options.map((opt) => opt.name.length));
+    const maxNameLength = Math.max(...argList.map((arg) => arg.name.length));
 
-    for (const opt of options) {
+    for (const arg of argList) {
       // Format option name: --[no-]option for booleans, --option otherwise
-      const optionName = opt.negatable ? `--[no-]${opt.name}` : `--${opt.name}`;
-      const aliasNames = opt.aliases && opt.aliases.length > 0 ? opt.aliases.map((a) => `-${a}`).join(', ') : '';
+      const optionName = arg.negatable ? `--[no-]${arg.name}` : `--${arg.name}`;
+      const aliasNames = arg.aliases && arg.aliases.length > 0 ? arg.aliases.map((a) => `-${a}`).join(', ') : '';
       const fullOptionName = aliasNames ? `${optionName}, ${aliasNames}` : optionName;
-      const padding = ' '.repeat(Math.max(0, maxNameLength - opt.name.length + 2));
-      const isDeprecated = !!opt.deprecated;
+      const padding = ' '.repeat(Math.max(0, maxNameLength - arg.name.length + 2));
+      const isDeprecated = !!arg.deprecated;
       const formattedOptionName = isDeprecated ? styler.deprecated(fullOptionName) : styler.option(fullOptionName);
 
       const parts: string[] = [formattedOptionName];
-      if (opt.type) parts.push(styler.type(`<${opt.type}>`));
-      if (opt.optional && !opt.deprecated) parts.push(styler.meta('(optional)'));
-      if (opt.default !== undefined) parts.push(styler.meta(`(default: ${String(opt.default)})`));
-      if (opt.enum) parts.push(styler.meta(`(choices: ${opt.enum.join(', ')})`));
-      if (opt.variadic) parts.push(styler.meta('(repeatable)'));
+      if (arg.type) parts.push(styler.type(`<${arg.type}>`));
+      if (arg.optional && !arg.deprecated) parts.push(styler.meta('(optional)'));
+      if (arg.default !== undefined) parts.push(styler.meta(`(default: ${String(arg.default)})`));
+      if (arg.enum) parts.push(styler.meta(`(choices: ${arg.enum.join(', ')})`));
+      if (arg.variadic) parts.push(styler.meta('(repeatable)'));
       if (isDeprecated) {
         const deprecatedMeta =
-          typeof opt.deprecated === 'string' ? styler.meta(`(deprecated: ${opt.deprecated})`) : styler.meta('(deprecated)');
+          typeof arg.deprecated === 'string' ? styler.meta(`(deprecated: ${arg.deprecated})`) : styler.meta('(deprecated)');
         parts.push(deprecatedMeta);
       }
 
-      const description = opt.description ? styler.description(opt.description) : '';
+      const description = arg.description ? styler.description(arg.description) : '';
       lines.push(indent(1) + join(parts) + padding + description);
 
       // Environment variable line
-      if (opt.env) {
-        const envVars = typeof opt.env === 'string' ? [opt.env] : opt.env;
+      if (arg.env) {
+        const envVars = typeof arg.env === 'string' ? [arg.env] : arg.env;
         const envParts: string[] = [styler.example('Env:'), styler.exampleValue(envVars.join(', '))];
         lines.push(indent(3) + join(envParts));
       }
 
       // Config key line
-      if (opt.configKey) {
-        const configParts: string[] = [styler.example('Config:'), styler.exampleValue(opt.configKey)];
+      if (arg.configKey) {
+        const configParts: string[] = [styler.example('Config:'), styler.exampleValue(arg.configKey)];
         lines.push(indent(3) + join(configParts));
       }
 
       // Examples line
-      if (opt.examples && opt.examples.length > 0) {
-        const exampleValues = opt.examples.map((example) => (typeof example === 'string' ? example : JSON.stringify(example))).join(', ');
+      if (arg.examples && arg.examples.length > 0) {
+        const exampleValues = arg.examples.map((example) => (typeof example === 'string' ? example : JSON.stringify(example))).join(', ');
         const exampleParts: string[] = [styler.example('Example:'), styler.exampleValue(exampleValues)];
         lines.push(indent(3) + join(exampleParts));
       }
@@ -433,15 +433,13 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
         lines.push('');
       }
 
-      // Arguments section
-      if (info.arguments && info.arguments.length > 0) {
-        lines.push(...formatArgumentsSection(info));
+      if (info.positionals && info.positionals.length > 0) {
+        lines.push(...formatPositionalsSection(info));
         lines.push('');
       }
 
-      // Options section
-      if (info.options && info.options.length > 0) {
-        lines.push(...formatOptionsSection(info));
+      if (info.arguments && info.arguments.length > 0) {
+        lines.push(...formatArgumentsSection(info));
         lines.push('');
       }
 
@@ -497,8 +495,8 @@ function createMinimalFormatter(): Formatter {
     format(info: HelpInfo): string {
       const parts: string[] = [info.usage.command];
       if (info.usage.hasSubcommands) parts.push('[command]');
-      if (info.usage.hasArguments) parts.push('[args...]');
-      if (info.usage.hasOptions) parts.push('[options]');
+      if (info.usage.hasPositionals) parts.push('[args...]');
+      if (info.usage.hasArguments) parts.push('[arguments]');
       return parts.join(' ');
     },
   };

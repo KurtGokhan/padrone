@@ -1,8 +1,8 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Schema } from 'ai';
+import { extractSchemaMetadata, parsePositionalConfig, preprocessArgs } from './args.ts';
 import { generateCompletionOutput, type ShellType } from './completion.ts';
 import { generateHelp } from './help.ts';
-import { extractSchemaMetadata, parsePositionalConfig, preprocessOptions } from './options.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
 import { type ResolvedPadroneRuntime, resolveRuntime } from './runtime.ts';
 import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneProgram, PadroneSchema } from './types.ts';
@@ -170,23 +170,23 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       }
     }
 
-    const opts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
+    const argParts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
     const rawArgs: Record<string, unknown> = {};
 
-    for (const opt of opts) {
+    for (const arg of argParts) {
       // For aliases, resolve to the full key name (aliases map single char to full key name)
-      // opt.key is now a string[] - for aliases it's always single element like ['v']
-      const key: string[] = opt.type === 'alias' && opt.key.length === 1 && aliases[opt.key[0]!] ? [aliases[opt.key[0]!]!] : opt.key;
+      // arg.key is now a string[] - for aliases it's always single element like ['v']
+      const key: string[] = arg.type === 'alias' && arg.key.length === 1 && aliases[arg.key[0]!] ? [aliases[arg.key[0]!]!] : arg.key;
 
       const rootKey = key[0]!;
 
       // Handle negated boolean options (--no-verbose)
-      if (opt.type === 'option' && opt.negated) {
+      if (arg.type === 'option' && arg.negated) {
         setNestedValue(rawArgs, key, false);
         continue;
       }
 
-      const value = opt.value ?? true;
+      const value = arg.value ?? true;
 
       // Handle array options - accumulate values into arrays (arrays are always variadic)
       if (arrayOptions.has(rootKey)) {
@@ -227,7 +227,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     parseOptions?: { envData?: Record<string, unknown>; configData?: Record<string, unknown> },
   ) => {
     // Apply preprocessing (env and config bindings)
-    const preprocessedArgs = preprocessOptions(rawArgs, {
+    const preprocessedArgs = preprocessArgs(rawArgs, {
       aliases: {}, // Already resolved aliases in parseCommand
       envData: parseOptions?.envData,
       configData: parseOptions?.configData,
@@ -413,15 +413,15 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     // Extract detail level from --detail=<level> or -d <level>
     const getDetailLevel = (): DetailLevel | undefined => {
-      for (const opt of args) {
-        if (opt.type === 'option' && keyIs(opt.key, 'detail') && typeof opt.value === 'string') {
-          if (opt.value === 'minimal' || opt.value === 'standard' || opt.value === 'full') {
-            return opt.value;
+      for (const arg of args) {
+        if (arg.type === 'option' && keyIs(arg.key, 'detail') && typeof arg.value === 'string') {
+          if (arg.value === 'minimal' || arg.value === 'standard' || arg.value === 'full') {
+            return arg.value;
           }
         }
-        if (opt.type === 'alias' && keyIs(opt.key, 'd') && typeof opt.value === 'string') {
-          if (opt.value === 'minimal' || opt.value === 'standard' || opt.value === 'full') {
-            return opt.value;
+        if (arg.type === 'alias' && keyIs(arg.key, 'd') && typeof arg.value === 'string') {
+          if (arg.value === 'minimal' || arg.value === 'standard' || arg.value === 'full') {
+            return arg.value;
           }
         }
       }
@@ -432,15 +432,15 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     // Extract format from --format=<value> or -f <value>
     const getFormat = (): FormatLevel | undefined => {
       const validFormats: FormatLevel[] = ['text', 'ansi', 'console', 'markdown', 'html', 'json', 'auto'];
-      for (const opt of args) {
-        if (opt.type === 'option' && keyIs(opt.key, 'format') && typeof opt.value === 'string') {
-          if (validFormats.includes(opt.value as FormatLevel)) {
-            return opt.value as FormatLevel;
+      for (const arg of args) {
+        if (arg.type === 'option' && keyIs(arg.key, 'format') && typeof arg.value === 'string') {
+          if (validFormats.includes(arg.value as FormatLevel)) {
+            return arg.value as FormatLevel;
           }
         }
-        if (opt.type === 'alias' && keyIs(opt.key, 'f') && typeof opt.value === 'string') {
-          if (validFormats.includes(opt.value as FormatLevel)) {
-            return opt.value as FormatLevel;
+        if (arg.type === 'alias' && keyIs(arg.key, 'f') && typeof arg.value === 'string') {
+          if (validFormats.includes(arg.value as FormatLevel)) {
+            return arg.value as FormatLevel;
           }
         }
       }
@@ -509,12 +509,12 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const parts = parseCliInputToParts(input);
     const args = parts.filter((p) => p.type === 'option' || p.type === 'alias');
 
-    for (const opt of args) {
-      if (opt.type === 'option' && opt.key.length === 1 && opt.key[0] === 'config' && typeof opt.value === 'string') {
-        return opt.value;
+    for (const arg of args) {
+      if (arg.type === 'option' && arg.key.length === 1 && arg.key[0] === 'config' && typeof arg.value === 'string') {
+        return arg.value;
       }
-      if (opt.type === 'alias' && opt.key.length === 1 && opt.key[0] === 'c' && typeof opt.value === 'string') {
-        return opt.value;
+      if (arg.type === 'alias' && arg.key.length === 1 && arg.key[0] === 'c' && typeof arg.value === 'string') {
+        return arg.value;
       }
     }
     return undefined;

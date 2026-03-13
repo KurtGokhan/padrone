@@ -2,7 +2,7 @@ import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { PadroneSchema } from './types.ts';
 
 /**
- * Configuration options for wrapping an external CLI tool.
+ * Configuration for wrapping an external CLI tool.
  */
 export type WrapConfig<TCommandArgs extends PadroneSchema = PadroneSchema, TWrapArgs extends PadroneSchema = TCommandArgs> = {
   /**
@@ -10,7 +10,7 @@ export type WrapConfig<TCommandArgs extends PadroneSchema = PadroneSchema, TWrap
    */
   command: string;
   /**
-   * Optional fixed arguments that always precede the options (e.g., ['commit'] for 'git commit').
+   * Optional fixed arguments that always precede the arguments (e.g., ['commit'] for 'git commit').
    */
   args?: string[];
   /**
@@ -24,10 +24,10 @@ export type WrapConfig<TCommandArgs extends PadroneSchema = PadroneSchema, TWrap
    */
   inheritStdio?: boolean;
   /**
-   * Optional schema that transforms command options to external CLI arguments.
-   * The schema's input type should match the command options, and its output type defines
+   * Optional schema that transforms command arguments to external CLI arguments.
+   * The schema's input type should match the command arguments, and its output type defines
    * the arguments expected by the external command.
-   * If not provided, command options are passed through as-is.
+   * If not provided, command arguments are passed through as-is.
    */
   schema?: TWrapArgs | ((commandArguments: TCommandArgs) => TWrapArgs);
 };
@@ -55,7 +55,7 @@ export type WrapResult = {
 };
 
 /**
- * Converts parsed options to CLI arguments for an external command.
+ * Converts parsed arguments to CLI arguments for an external command.
  */
 function argsToCliArgs(input: Record<string, unknown> | undefined, positional: string[] = []): string[] {
   const args: string[] = [];
@@ -64,19 +64,19 @@ function argsToCliArgs(input: Record<string, unknown> | undefined, positional: s
   if (!input) return args;
 
   const positionalValues: Record<string, unknown> = {};
-  const regularOptions: Record<string, unknown> = {};
+  const regularArguments: Record<string, unknown> = {};
 
-  // Separate positional and regular options
+  // Separate positional and regular arguments
   for (const [key, value] of Object.entries(input)) {
     if (positional.includes(key) || positional.includes(`...${key}`)) {
       positionalValues[key] = value;
     } else {
-      regularOptions[key] = value;
+      regularArguments[key] = value;
     }
   }
 
-  // Add regular options first
-  for (const [key, value] of Object.entries(regularOptions)) {
+  // Add regular arguments first
+  for (const [key, value] of Object.entries(regularArguments)) {
     if (value === undefined || value === null) continue;
 
     // Use the key as-is with -- prefix
@@ -115,7 +115,7 @@ function argsToCliArgs(input: Record<string, unknown> | undefined, positional: s
 /**
  * Creates an action handler that wraps an external CLI tool.
  * @param config - Configuration for wrapping the external command (includes optional schema)
- * @param commandArguments - The command's options schema
+ * @param commandArguments - The command's arguments schema
  * @param commandPositional - Default positional config from the wrapping command
  */
 export function createWrapHandler<TCommandArgs extends PadroneSchema, TWrapArgs extends PadroneSchema>(
@@ -129,7 +129,7 @@ export function createWrapHandler<TCommandArgs extends PadroneSchema, TWrapArgs 
     // Get the wrap schema (handle function or direct schema)
     const schema = wrapSchema ? (typeof wrapSchema === 'function' ? wrapSchema(commandArguments) : wrapSchema) : commandArguments;
 
-    // Transform command options to external CLI options using the wrap schema
+    // Transform command arguments to external CLI arguments using the wrap schema
     const validationResult = schema['~standard'].validate(args);
 
     const processResult = (result: StandardSchemaV1.Result<unknown>) => {
@@ -142,14 +142,14 @@ export function createWrapHandler<TCommandArgs extends PadroneSchema, TWrapArgs 
       return result.value;
     };
 
-    const externalOptions =
+    const externalArguments =
       validationResult instanceof Promise ? await validationResult.then(processResult) : processResult(validationResult);
 
-    // Convert options to CLI arguments
-    const optionArgs = argsToCliArgs(externalOptions as Record<string, unknown>, positional);
+    // Convert arguments to CLI arguments
+    const regularArgs = argsToCliArgs(externalArguments as Record<string, unknown>, positional);
 
-    // Combine fixed args and option args
-    const allArgs = [...fixedArgs, ...optionArgs];
+    // Combine fixed args and regular args
+    const allArgs = [...fixedArgs, ...regularArgs];
 
     // Execute the external command
     const proc = Bun.spawn([command, ...allArgs], {

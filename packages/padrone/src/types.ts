@@ -1,7 +1,7 @@
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec';
 import type { Tool } from 'ai';
-import type { HelpOptions } from './help.ts';
-import type { PadroneArgsSchemaMeta } from './options.ts';
+import type { PadroneArgsSchemaMeta } from './args.ts';
+import type { HelpPreferences } from './help.ts';
 import type { PadroneRuntime, ResolvedPadroneRuntime } from './runtime.ts';
 import type {
   FullCommandName,
@@ -66,7 +66,7 @@ export type PadroneCommand<
   aliases?: TAliases;
   deprecated?: boolean | string;
   hidden?: boolean;
-  needsApproval?: boolean | ((options: TArgs) => Promise<boolean> | boolean);
+  needsApproval?: boolean | ((args: TArgs) => Promise<boolean> | boolean);
   arguments?: TArgs;
   config?: TConfig;
   envSchema?: TEnv;
@@ -560,7 +560,7 @@ export type PadroneProgram<
    */
   help: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], false, true>>(
     command?: TCommand,
-    options?: HelpOptions,
+    options?: HelpPreferences,
   ) => string;
 
   /**
@@ -597,7 +597,7 @@ export type PadroneParseOptions = {
   env?: Record<string, string | undefined>;
   /**
    * Pre-parsed environment data to use directly (bypasses env schema validation).
-   * Keys should match option names.
+   * Keys should match argument names.
    */
   envData?: Record<string, unknown>;
   /**

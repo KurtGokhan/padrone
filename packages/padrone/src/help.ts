@@ -1,17 +1,17 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
+import { extractSchemaMetadata, type PadroneArgsSchemaMeta, parsePositionalConfig } from './args.ts';
 import {
   createFormatter,
   type HelpArgumentInfo,
   type HelpDetail,
   type HelpFormat,
   type HelpInfo,
-  type HelpOptionInfo,
+  type HelpPositionalInfo,
 } from './formatter.ts';
-import { extractSchemaMetadata, type PadroneArgsSchemaMeta, parsePositionalConfig } from './options.ts';
 import type { AnyPadroneCommand } from './types.ts';
 import { getRootCommand } from './utils.ts';
 
-export type HelpOptions = {
+export type HelpPreferences = {
   format?: HelpFormat | 'auto';
   detail?: HelpDetail;
 };
@@ -22,8 +22,8 @@ export type HelpOptions = {
 function extractPositionalArgsInfo(
   schema: StandardJSONSchemaV1,
   meta?: PadroneArgsSchemaMeta,
-): { args: HelpArgumentInfo[]; positionalNames: Set<string> } {
-  const args: HelpArgumentInfo[] = [];
+): { args: HelpPositionalInfo[]; positionalNames: Set<string> } {
+  const args: HelpPositionalInfo[] = [];
   const positionalNames = new Set<string>();
 
   if (!schema || !meta?.positional || meta.positional.length === 0) {
@@ -62,8 +62,8 @@ function extractPositionalArgsInfo(
   return { args, positionalNames };
 }
 
-function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaMeta, positionalNames?: Set<string>) {
-  const result: HelpOptionInfo[] = [];
+function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaMeta, positionalNames?: Set<string>) {
+  const result: HelpArgumentInfo[] = [];
   if (!schema) return result;
 
   const vendor = schema['~standard'].vendor;
@@ -151,16 +151,16 @@ function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSche
  * @param cmd - The command to build help info for
  * @param detail - The level of detail ('minimal', 'standard', or 'full')
  */
-function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'standard'): HelpInfo {
+function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] = 'standard'): HelpInfo {
   const rootCmd = getRootCommand(cmd);
   const commandName = cmd.path || cmd.name || 'program';
 
-  // Extract positional args from options schema based on meta.positional
+  // Extract positional args from schema based on meta.positional
   const { args: positionalArgs, positionalNames } = cmd.arguments
     ? extractPositionalArgsInfo(cmd.arguments, cmd.meta)
     : { args: [], positionalNames: new Set<string>() };
 
-  const hasArguments = positionalArgs.length > 0;
+  const hasPositionals = positionalArgs.length > 0;
 
   const helpInfo: HelpInfo = {
     name: commandName,
@@ -172,8 +172,8 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
     usage: {
       command: rootCmd === cmd ? commandName : `${rootCmd.name} ${commandName}`,
       hasSubcommands: !!(cmd.commands && cmd.commands.length > 0),
-      hasArguments,
-      hasOptions: !!cmd.arguments,
+      hasPositionals,
+      hasArguments: !!cmd.arguments,
     },
   };
 
@@ -197,28 +197,28 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
     }
   }
 
-  // Build arguments info from positional options
-  if (hasArguments) {
-    helpInfo.arguments = positionalArgs;
+  // Build arguments info from positionals
+  if (hasPositionals) {
+    helpInfo.positionals = positionalArgs;
   }
 
-  // Build options info with aliases (excluding positional args)
+  // Build arguments info with aliases (excluding positional args)
   if (cmd.arguments) {
-    const optionsInfo = extractOptionsInfo(cmd.arguments, cmd.meta, positionalNames);
-    const optMap: Record<string, HelpOptionInfo> = Object.fromEntries(optionsInfo.map((opt) => [opt.name, opt]));
+    const argsInfo = extractArgsInfo(cmd.arguments, cmd.meta, positionalNames);
+    const argMap: Record<string, HelpArgumentInfo> = Object.fromEntries(argsInfo.map((arg) => [arg.name, arg]));
 
-    // Merge aliases into options
+    // Merge aliases into arguments
     const { aliases } = extractSchemaMetadata(cmd.arguments, cmd.meta?.fields);
     for (const [alias, name] of Object.entries(aliases)) {
-      const opt = optMap[name];
-      if (!opt) continue;
-      opt.aliases = [...(opt.aliases || []), alias];
+      const arg = argMap[name];
+      if (!arg) continue;
+      arg.aliases = [...(arg.aliases || []), alias];
     }
 
-    // Filter out hidden options
-    const visibleOptions = optionsInfo.filter((opt) => !opt.hidden);
-    if (visibleOptions.length > 0) {
-      helpInfo.options = visibleOptions;
+    // Filter out hidden arguments
+    const visibleArgs = argsInfo.filter((arg) => !arg.hidden);
+    if (visibleArgs.length > 0) {
+      helpInfo.arguments = visibleArgs;
     }
   }
 
@@ -229,8 +229,8 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
 // Main Entry Point
 // ============================================================================
 
-export function generateHelp(rootCommand: AnyPadroneCommand, commandObj: AnyPadroneCommand = rootCommand, options?: HelpOptions): string {
-  const helpInfo = getHelpInfo(commandObj, options?.detail);
-  const formatter = createFormatter(options?.format ?? 'auto', options?.detail);
+export function generateHelp(rootCommand: AnyPadroneCommand, commandObj: AnyPadroneCommand = rootCommand, prefs?: HelpPreferences): string {
+  const helpInfo = getHelpInfo(commandObj, prefs?.detail);
+  const formatter = createFormatter(prefs?.format ?? 'auto', prefs?.detail);
   return formatter.format(helpInfo);
 }

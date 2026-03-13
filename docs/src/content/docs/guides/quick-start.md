@@ -40,9 +40,9 @@ const program = createPadrone('greet')
     }),
     { positional: ['name'] }
   )
-  .action((options) => {
-    const greeting = `Hello, ${options.name}`;
-    console.log(options.excited ? `${greeting}!` : greeting);
+  .action((args) => {
+    const greeting = `Hello, ${args.name}`;
+    console.log(args.excited ? `${greeting}!` : greeting);
   });
 
 program.cli();
@@ -85,8 +85,8 @@ const program = createPadrone('todo')
         }),
         { positional: ['task'] }
       )
-      .action((options) => {
-        console.log(`Added: ${options.task} [${options.priority}]`);
+      .action((args) => {
+        console.log(`Added: ${args.task} [${args.priority}]`);
       })
   )
   .command('list', (c) =>
@@ -96,8 +96,8 @@ const program = createPadrone('todo')
           all: z.boolean().optional().describe('Show completed tasks'),
         })
       )
-      .action((options) => {
-        console.log('Listing tasks...', { showAll: options.all });
+      .action((args) => {
+        console.log('Listing tasks...', { showAll: args.all });
       })
   );
 
@@ -112,9 +112,9 @@ bun cli.ts add "Buy groceries" --priority high
 bun cli.ts list --all
 ```
 
-## Use Option Aliases
+## Use Argument Aliases
 
-Add short aliases for frequently used options:
+Add short aliases for frequently used arguments:
 
 ```typescript
 z.object({
@@ -140,11 +140,11 @@ api.add({ task: 'Buy eggs', priority: 'low' });
 // Parse without executing
 const parsed = program.parse('add "Clean room" --priority medium');
 console.log(parsed.command); // 'add'
-console.log(parsed.options); // { task: 'Clean room', priority: 'medium' }
+console.log(parsed.args); // { task: 'Clean room', priority: 'medium' }
 ```
 
 ## Next Steps
 
-- Learn about [Commands & Options](../commands-options/) in depth
+- Learn about [Commands & Arguments](../commands-arguments/) in depth
 - Integrate with [AI tools](../ai-integration/)
 - Explore the [API Reference](../../reference/api/)

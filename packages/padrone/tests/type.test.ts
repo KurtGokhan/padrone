@@ -39,14 +39,14 @@ describe.skip('Types - Builder vs Program separation', async () => {
   // Verify builder chaining returns builder within command() callback
   createPadrone('test').command('cmd', (builder) => {
     // builder should be PadroneBuilder
-    const afterOptions = builder.arguments(z.object({ name: z.string() }));
-    // afterOptions should also be PadroneBuilder - program methods should NOT exist
-    type AfterOptionsKeys = keyof typeof afterOptions;
-    expectTypeOf<'run'>().not.toMatchObjectType<AfterOptionsKeys>();
-    expectTypeOf<'cli'>().not.toMatchObjectType<AfterOptionsKeys>();
-    expectTypeOf<'parse'>().not.toMatchObjectType<AfterOptionsKeys>();
+    const afterargs = builder.arguments(z.object({ name: z.string() }));
+    // afterargs should also be PadroneBuilder - program methods should NOT exist
+    type AfterargsKeys = keyof typeof afterargs;
+    expectTypeOf<'run'>().not.toMatchObjectType<AfterargsKeys>();
+    expectTypeOf<'cli'>().not.toMatchObjectType<AfterargsKeys>();
+    expectTypeOf<'parse'>().not.toMatchObjectType<AfterargsKeys>();
 
-    return afterOptions.action((args) => args.name);
+    return afterargs.action((args) => args.name);
   });
 });
 

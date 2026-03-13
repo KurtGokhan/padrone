@@ -15,8 +15,8 @@ describe('Command Aliases', () => {
             format: z.enum(['json', 'table']).optional().default('table').describe('Output format'),
           }),
         )
-        .action((options) => {
-          return { items: ['item1', 'item2'], format: options?.format };
+        .action((args) => {
+          return { items: ['item1', 'item2'], format: args?.format };
         }),
     )
     .command(['delete', 'rm'], (c) =>
@@ -31,8 +31,8 @@ describe('Command Aliases', () => {
           }),
           { positional: ['name'] },
         )
-        .action((options) => {
-          return { deleted: options?.name };
+        .action((args) => {
+          return { deleted: args?.name };
         }),
     )
     .command('config', (c) =>
@@ -53,8 +53,8 @@ describe('Command Aliases', () => {
               }),
               { positional: ['key', 'value'] },
             )
-            .action((options) => {
-              return { key: options?.key, value: options?.value };
+            .action((args) => {
+              return { key: args?.key, value: args?.value };
             }),
         ),
     );
@@ -86,7 +86,7 @@ describe('Command Aliases', () => {
       expect(result.result.format).toBe('table');
     });
 
-    it('should execute command with options using alias', () => {
+    it('should execute command with args using alias', () => {
       const result = program.cli('ls --format json');
       expect(result.command.name).toBe('list');
       expect(result.args?.format).toBe('json');

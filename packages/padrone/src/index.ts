@@ -1,7 +1,13 @@
+export type { PadroneFieldMeta as PadroneArgsMeta } from './args.ts';
 export { asyncSchema, createPadrone } from './create.ts';
-export type { HelpArgumentInfo, HelpFormat, HelpInfo, HelpOptionInfo, HelpSubcommandInfo } from './formatter.ts';
-export type { HelpOptions } from './help.ts';
-export type { PadroneFieldMeta as PadroneArgsMeta } from './options.ts';
+export type {
+  HelpArgumentInfo as HelpOptionInfo,
+  HelpFormat,
+  HelpInfo,
+  HelpPositionalInfo as HelpArgumentInfo,
+  HelpSubcommandInfo,
+} from './formatter.ts';
+export type { HelpPreferences } from './help.ts';
 export type { PadroneRuntime, ResolvedPadroneRuntime } from './runtime.ts';
 export type {
   InferArgsInput,

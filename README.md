@@ -285,7 +285,7 @@ console.log(program.help());
 
 Example output:
 ```
-Usage: myapp greet [names...] [options]
+Usage: myapp greet [names...] [arguments]
 
 Arguments:
   names...    Names to greet
