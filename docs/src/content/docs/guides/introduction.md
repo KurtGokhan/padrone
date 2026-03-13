@@ -23,7 +23,7 @@ Padrone solves these problems by using **Zod schemas as the single source of tru
 
 ### Type Safety
 
-Every option you define is fully typed from schema definition to action handler:
+Every argument you define is fully typed from schema definition to action handler:
 
 ```typescript
 .arguments(

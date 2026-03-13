@@ -56,7 +56,7 @@ describe('wrap', () => {
     });
   });
 
-  describe('option mapping', () => {
+  describe('arg mapping', () => {
     it('should convert boolean args to flags', async () => {
       const program = createPadrone('test').command('ls', (c) =>
         c
@@ -160,7 +160,7 @@ describe('wrap', () => {
       expect(wrapResult.stdout?.includes('file3.txt')).toBe(true);
     });
 
-    it('should handle mixed positional and option arguments', async () => {
+    it('should handle mixed positional and arg arguments', async () => {
       const program = createPadrone('test').command('grep', (c) =>
         c
           .arguments(

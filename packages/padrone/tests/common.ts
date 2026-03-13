@@ -142,22 +142,22 @@ export function createTasksProgram() {
       c
         .arguments(
           z.object({
-            oldOption: z.string().optional().describe('Old option'),
-            newOption: z.string().optional().describe('New option'),
-            deprecatedWithMessage: z.boolean().optional().describe('Deprecated option with message'),
+            oldArg: z.string().optional().describe('Old arg'),
+            newArg: z.string().optional().describe('New arg'),
+            deprecatedWithMessage: z.boolean().optional().describe('Deprecated arg with message'),
           }),
           {
             fields: {
-              oldOption: {
+              oldArg: {
                 deprecated: true,
-                description: 'This option is deprecated',
+                description: 'This arg is deprecated',
               },
-              newOption: {
-                description: 'This is the new option',
+              newArg: {
+                description: 'This is the new arg',
               },
               deprecatedWithMessage: {
-                deprecated: 'Use newOption instead',
-                description: 'This option is deprecated with a message',
+                deprecated: 'Use newArg instead',
+                description: 'This arg is deprecated with a message',
               },
             },
           },
@@ -168,21 +168,21 @@ export function createTasksProgram() {
       c
         .arguments(
           z.object({
-            visibleOption: z.string().optional().describe('This option should be visible'),
-            hiddenOption: z.string().optional().describe('This option should be hidden'),
-            anotherVisible: z.boolean().optional().describe('Another visible option'),
+            visibleArg: z.string().optional().describe('This arg should be visible'),
+            hiddenArg: z.string().optional().describe('This arg should be hidden'),
+            anotherVisible: z.boolean().optional().describe('Another visible arg'),
           }),
           {
             fields: {
-              visibleOption: {
-                description: 'This option is visible in help',
+              visibleArg: {
+                description: 'This arg is visible in help',
               },
-              hiddenOption: {
+              hiddenArg: {
                 hidden: true,
-                description: 'This option should not appear in help',
+                description: 'This arg should not appear in help',
               },
               anotherVisible: {
-                description: 'This option is also visible',
+                description: 'This arg is also visible',
               },
             },
           },

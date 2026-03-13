@@ -19,7 +19,7 @@
 ## ✨ Features
 
 - 🔒 **Type-safe** - Full TypeScript support with Zod schema validation
-- 🎯 **Fluent API** - Chain commands, arguments, and options with a clean builder pattern
+- 🎯 **Fluent API** - Chain commands and arguments with a clean builder pattern
 - 🤖 **AI-Ready** - First-class support for Vercel AI SDK tool integration
 - 📚 **Auto Help** - Automatic help generation from your schema definitions
 - 🧩 **Nested Commands** - Support for deeply nested subcommands
@@ -62,9 +62,9 @@ const program = createPadrone('myapp')
         }),
         { positional: ['...names'] },
       )
-      .action((options) => {
-        const prefix = options?.prefix ? `${options.prefix} ` : '';
-        options.names.forEach((name) => {
+      .action((args) => {
+        const prefix = args?.prefix ? `${args.prefix} ` : '';
+        args.names.forEach((name) => {
           console.log(`Hello, ${prefix}${name}!`);
         });
       }),
@@ -95,12 +95,12 @@ Hello, Mr. Jane!
 ### Programmatic Execution
 
 ```typescript
-// Run a command directly with typed options
+// Run a command directly with typed arguments
 program.run('greet', { names: ['John', 'Jane'], prefix: 'Dr.' });
 
 // Parse CLI input without executing
 const parsed = program.parse('greet John --prefix Mr.');
-console.log(parsed.options); // { names: ['John'], prefix: 'Mr.' }
+console.log(parsed.args); // { names: ['John'], prefix: 'Mr.' }
 ```
 
 ### API Mode
@@ -127,8 +127,8 @@ const program = createPadrone('weather')
         }),
         { positional: ['city'] },
       )
-      .action((options) => {
-        console.log(`Forecast for ${options.city}: ${options.days} days`);
+      .action((args) => {
+        console.log(`Forecast for ${args.city}: ${args.days} days`);
       })
       .command('extended', (c) =>
         c
@@ -138,8 +138,8 @@ const program = createPadrone('weather')
             }),
             { positional: ['city'] },
           )
-          .action((options) => {
-            console.log(`Extended forecast for ${options.city}`);
+          .action((args) => {
+            console.log(`Extended forecast for ${args.city}`);
           }),
       ),
   );
@@ -173,15 +173,15 @@ const program = createPadrone('app')
             .meta({ alias: 'v', deprecated: 'Use --debug instead' }),
         }),
       )
-      .action((options) => {
-        console.log(`Server running at ${options.host}:${options.port}`);
+      .action((args) => {
+        console.log(`Server running at ${args.host}:${args.port}`);
       }),
   );
 ```
 
 ### Environment Variables and Config Files
 
-Padrone supports loading options from environment variables and config files using dedicated schema methods:
+Padrone supports loading arguments from environment variables and config files using dedicated schema methods:
 
 ```typescript
 const program = createPadrone('app')
@@ -193,7 +193,7 @@ const program = createPadrone('app')
           apiKey: z.string().describe('API key for authentication'),
         }),
       )
-      // Map environment variables to options
+      // Map environment variables to arguments
       .env(
         z
           .object({
@@ -213,8 +213,8 @@ const program = createPadrone('app')
           apiKey: z.string().optional(),
         }),
       )
-      .action((options) => {
-        console.log(`Server running on port ${options.port}`);
+      .action((args) => {
+        console.log(`Server running on port ${args.port}`);
       }),
   );
 ```
@@ -260,8 +260,8 @@ const weatherCli = createPadrone('weather')
         }),
         { positional: ['city'] },
       )
-      .action((options) => {
-        return { city: options.city, temperature: 72, condition: 'Sunny' };
+      .action((args) => {
+        return { city: args.city, temperature: 72, condition: 'Sunny' };
       }),
   );
 
@@ -287,10 +287,10 @@ Example output:
 ```
 Usage: myapp greet [names...] [arguments]
 
-Arguments:
+Positionals:
   names...    Names to greet
 
-Options:
+Arguments:
   -p, --prefix <string>   Prefix to use in greeting
   -h, --help              Show help
 ```
@@ -307,35 +307,35 @@ Creates a new CLI program with the given name.
 |--------|-------------|
 | `.configure(config)` | Configure program properties (title, description, version) |
 | `.command(name, builder)` | Add a command to the program |
-| `.arguments(schema, meta?)` | Define options schema with optional positional args |
+| `.arguments(schema, meta?)` | Define arguments schema with optional positional args |
 | `.async()` | Mark command as async (for schemas with async validation) |
-| `.env(schema)` | Define schema for parsing environment variables into options |
+| `.env(schema)` | Define schema for parsing environment variables into arguments |
 | `.configFile(file, schema?)` | Configure config file path(s) and schema |
 | `.action(handler)` | Set the command handler function |
 | `.cli(input?)` | Run as CLI (parses `process.argv` or input string) |
-| `.run(command, options)` | Run a command programmatically |
+| `.run(command, args?)` | Run a command programmatically |
 | `.parse(input?)` | Parse input without executing |
-| `.stringify(command?, options?)` | Convert command and options back to CLI string |
+| `.stringify(command?, args?)` | Convert command and arguments back to CLI string |
 | `.api()` | Generate a typed API object |
 | `.help(command?)` | Generate help text |
 | `.tool()` | Generate a Vercel AI SDK tool |
 | `.find(command)` | Find a command by name |
 
-### Options Meta
+### Arguments Meta
 
-Use the second argument of `.arguments()` to configure positional arguments and per-option metadata:
+Use the second argument of `.arguments()` to configure positional arguments and per-argument metadata:
 
 ```typescript
 .arguments(schema, {
   positional: ['source', '...files', 'dest'],  // '...files' is variadic
-  options: {
+  fields: {
     verbose: { alias: 'v' },
     format: { deprecated: 'Use --output instead' },
   },
 })
 ```
 
-### Zod Meta Options
+### Zod Metadata
 
 Use `.meta()` on Zod schemas to provide additional CLI metadata:
 

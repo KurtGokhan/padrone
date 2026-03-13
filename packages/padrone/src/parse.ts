@@ -19,20 +19,20 @@ type ParseParts = {
     value: string;
   };
   /**
-   * An option provided to the command, prefixed with `--`.
-   * If the option has an `=` sign, the value after it is used as the option's value.
+   * An arg provided to the command, prefixed with `--`.
+   * If the arg has an `=` sign, the value after it is used as the arg's value.
    * Otherwise, the value is obtained from the next part or set to `true` if no value is provided.
    * The key is an array representing the path for nested args (e.g., `--user.id=123` becomes `['user', 'id']`).
    */
-  option: {
-    type: 'option';
+  named: {
+    type: 'named';
     key: string[];
     value?: string | string[];
     negated?: boolean;
   };
   /**
-   * An alias option provided to the command, prefixed with `-`.
-   * Which option it maps to cannot be determined until the command structure is known.
+   * An alias arg provided to the command, prefixed with `-`.
+   * Which arg it maps to cannot be determined until the command structure is known.
    * Aliases cannot be nested, so the key is always a single-element array.
    */
   alias: {
@@ -112,7 +112,7 @@ export function parseCliInputToParts(input: string): ParsePart[] {
   const parts = tokenizeInput(input.trim());
   const result: ParsePart[] = [];
 
-  let pendingValue: ParseParts['option'] | ParseParts['alias'] | undefined;
+  let pendingValue: ParseParts['named'] | ParseParts['alias'] | undefined;
   let allowTerm = true;
 
   for (const part of parts) {
@@ -121,22 +121,22 @@ export function parseCliInputToParts(input: string): ParsePart[] {
     pendingValue = undefined;
 
     if (part.startsWith('--no-') && part.length > 5) {
-      // Negated boolean option (--no-verbose or --no-config.debug)
+      // Negated boolean arg (--no-verbose or --no-config.debug)
       const keyStr = part.slice(5);
       const key = keyStr.split('.');
-      const p = { type: 'option' as const, key, value: undefined, negated: true };
+      const p = { type: 'named' as const, key, value: undefined, negated: true };
       result.push(p);
     } else if (part.startsWith('--')) {
-      const [keyStr = '', value] = splitOptionValue(part.slice(2));
+      const [keyStr = '', value] = splitNamedArgValue(part.slice(2));
       const key = keyStr.split('.');
 
-      const p = { type: 'option' as const, key, value };
+      const p = { type: 'named' as const, key, value };
       if (typeof value === 'undefined') pendingValue = p;
       result.push(p);
     } else if (part.startsWith('-') && part.length > 1 && !/^-\d/.test(part)) {
-      // Short option (but not negative numbers like -5)
+      // Short arg (but not negative numbers like -5)
       // Aliases cannot be nested, so key is always a single-element array
-      const [keyStr = '', value] = splitOptionValue(part.slice(1));
+      const [keyStr = '', value] = splitNamedArgValue(part.slice(1));
       const key = [keyStr];
 
       const p = { type: 'alias' as const, key, value };
@@ -155,9 +155,9 @@ export function parseCliInputToParts(input: string): ParsePart[] {
 }
 
 /**
- * Split option key and value, handling quoted values after =.
+ * Split named arg key and value, handling quoted values after =.
  */
-function splitOptionValue(str: string): [string, string | string[] | undefined] {
+function splitNamedArgValue(str: string): [string, string | string[] | undefined] {
   const eqIndex = str.indexOf('=');
   if (eqIndex === -1) return [str, undefined];
 

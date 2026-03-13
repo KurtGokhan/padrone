@@ -14,7 +14,7 @@ Padrone's `.wrap()` method allows you to create type-safe wrappers around extern
 
 ## Basic Usage
 
-The simplest way to wrap an external command is to define command options with `.arguments()`, then call `.wrap()` with a config object:
+The simplest way to wrap an external command is to define command arguments with `.arguments()`, then call `.wrap()` with a config object:
 
 ```typescript
 import { createPadrone } from 'padrone';
@@ -42,7 +42,7 @@ const program = createPadrone('myapp')
 
 ## Schema Transformation
 
-The `.wrap()` config can include an optional `schema` property that transforms from **command options** (input) to **external CLI arguments** (output).
+The `.wrap()` config can include an optional `schema` property that transforms from **command arguments** (input) to **external CLI arguments** (output).
 
 ### Automatic Conversion
 
@@ -55,7 +55,7 @@ After transformation, Padrone converts the output to CLI arguments:
 
 ### Mapping with Transform Schema
 
-Use Zod's `.transform()` in the wrap config's `schema` property to map friendly option names to the exact flags the external command expects:
+Use Zod's `.transform()` in the wrap config's `schema` property to map friendly argument names to the exact flags the external command expects:
 
 ```typescript
 program
@@ -190,7 +190,7 @@ program
 
 ## Fixed Arguments
 
-Use the `args` option to prepend fixed arguments to every call:
+Use the `args` parameter to prepend fixed arguments to every call:
 
 ```typescript
 program
@@ -439,9 +439,9 @@ console.log('Deployment successful!');
 
 ## Best Practices
 
-1. **Use descriptive option names**: Choose clear, self-documenting names for your options in the schema
-2. **Map to CLI flags with transform**: Use `.transform()` to map friendly option names to the exact flags the CLI expects
-3. **Add descriptions**: Use `.describe()` on Zod schemas to document each option
+1. **Use descriptive argument names**: Choose clear, self-documenting names for your arguments in the schema
+2. **Map to CLI flags with transform**: Use `.transform()` to map friendly argument names to the exact flags the CLI expects
+3. **Add descriptions**: Use `.describe()` on Zod schemas to document each argument
 4. **Provide defaults**: Use `.default()` for common values
 5. **Validate inputs**: Use Zod's validation features to ensure correct inputs before calling external commands
 6. **Handle errors**: Always check the exit code when capturing output
@@ -452,4 +452,4 @@ console.log('Deployment successful!');
 - The wrapped command must be available in the system's PATH or specified as an absolute path
 - Environment variables are not automatically passed to the wrapped command (you'll need to pass them explicitly if needed)
 - The wrap method uses `Bun.spawn()`, so it requires Bun runtime or a compatible environment
-- Option keys are used as-is with `--` prefix - use Zod's `.transform()` for custom mappings
+- Argument keys are used as-is with `--` prefix - use Zod's `.transform()` for custom mappings

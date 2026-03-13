@@ -88,9 +88,9 @@ exports[`help should generate help for a command with deprecated arguments 1`] =
 "Usage: padrone-test deprecated-test [arguments]
 
 Arguments:
-  --oldOption <string> (deprecated)              This option is deprecated
-  --newOption <string> (optional)              This is the new option
-  --[no-]deprecatedWithMessage <boolean> (deprecated: Use newOption instead)  This option is deprecated with a message
+  --oldArg <string> (deprecated)                 This arg is deprecated
+  --newArg <string> (optional)                 This is the new arg
+  --[no-]deprecatedWithMessage <boolean> (deprecated: Use newArg instead)  This arg is deprecated with a message
 "
 `;
 
@@ -98,9 +98,9 @@ exports[`help should generate help for a command with deprecated arguments and c
 "Usage: \x1B[36m\x1B[1mpadrone-test deprecated-test\x1B[0m \x1B[90m[arguments]\x1B[0m
 
 \x1B[1mArguments:\x1B[0m
-  \x1B[9m\x1B[90m--oldOption\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(deprecated)\x1B[0m              \x1B[2mThis option is deprecated\x1B[0m
-  \x1B[32m--newOption\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m              \x1B[2mThis is the new option\x1B[0m
-  \x1B[9m\x1B[90m--[no-]deprecatedWithMessage\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(deprecated: Use newOption instead)\x1B[0m  \x1B[2mThis option is deprecated with a message\x1B[0m
+  \x1B[9m\x1B[90m--oldArg\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(deprecated)\x1B[0m                 \x1B[2mThis arg is deprecated\x1B[0m
+  \x1B[32m--newArg\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m                 \x1B[2mThis is the new arg\x1B[0m
+  \x1B[9m\x1B[90m--[no-]deprecatedWithMessage\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(deprecated: Use newArg instead)\x1B[0m  \x1B[2mThis arg is deprecated with a message\x1B[0m
 "
 `;
 
@@ -108,8 +108,8 @@ exports[`help should generate help for a command with hidden arguments 1`] = `
 "Usage: padrone-test hidden-test [arguments]
 
 Arguments:
-  --visibleOption <string> (optional)   This option is visible in help
-  --[no-]anotherVisible <boolean> (optional)  This option is also visible
+  --visibleArg <string> (optional)      This arg is visible in help
+  --[no-]anotherVisible <boolean> (optional)  This arg is also visible
 "
 `;
 
@@ -117,8 +117,8 @@ exports[`help should generate help for a command with hidden arguments and color
 "Usage: \x1B[36m\x1B[1mpadrone-test hidden-test\x1B[0m \x1B[90m[arguments]\x1B[0m
 
 \x1B[1mArguments:\x1B[0m
-  \x1B[32m--visibleOption\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m   \x1B[2mThis option is visible in help\x1B[0m
-  \x1B[32m--[no-]anotherVisible\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mThis option is also visible\x1B[0m
+  \x1B[32m--visibleArg\x1B[0m \x1B[33m<string>\x1B[0m \x1B[90m(optional)\x1B[0m      \x1B[2mThis arg is visible in help\x1B[0m
+  \x1B[32m--[no-]anotherVisible\x1B[0m \x1B[33m<boolean>\x1B[0m \x1B[90m(optional)\x1B[0m  \x1B[2mThis arg is also visible\x1B[0m
 "
 `;
 
@@ -325,16 +325,16 @@ Arguments:
 Usage: padrone-test deprecated-test [arguments]
 
 Arguments:
-  --oldOption <string> (deprecated)              This option is deprecated
-  --newOption <string> (optional)              This is the new option
-  --[no-]deprecatedWithMessage <boolean> (deprecated: Use newOption instead)  This option is deprecated with a message
+  --oldArg <string> (deprecated)                 This arg is deprecated
+  --newArg <string> (optional)                 This is the new arg
+  --[no-]deprecatedWithMessage <boolean> (deprecated: Use newArg instead)  This arg is deprecated with a message
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test hidden-test [arguments]
 
 Arguments:
-  --visibleOption <string> (optional)   This option is visible in help
-  --[no-]anotherVisible <boolean> (optional)  This option is also visible
+  --visibleArg <string> (optional)      This arg is visible in help
+  --[no-]anotherVisible <boolean> (optional)  This arg is also visible
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test examples-test [arguments]
@@ -657,8 +657,8 @@ exports[`help with full detail mode should generate full help with all nested co
       },
       "arguments": [
         {
-          "name": "oldOption",
-          "description": "This option is deprecated",
+          "name": "oldArg",
+          "description": "This arg is deprecated",
           "optional": true,
           "type": "string",
           "deprecated": true,
@@ -666,8 +666,8 @@ exports[`help with full detail mode should generate full help with all nested co
           "negatable": false
         },
         {
-          "name": "newOption",
-          "description": "This is the new option",
+          "name": "newArg",
+          "description": "This is the new arg",
           "optional": true,
           "type": "string",
           "variadic": false,
@@ -675,10 +675,10 @@ exports[`help with full detail mode should generate full help with all nested co
         },
         {
           "name": "deprecatedWithMessage",
-          "description": "This option is deprecated with a message",
+          "description": "This arg is deprecated with a message",
           "optional": true,
           "type": "boolean",
-          "deprecated": "Use newOption instead",
+          "deprecated": "Use newArg instead",
           "variadic": false,
           "negatable": true
         }
@@ -694,8 +694,8 @@ exports[`help with full detail mode should generate full help with all nested co
       },
       "arguments": [
         {
-          "name": "visibleOption",
-          "description": "This option is visible in help",
+          "name": "visibleArg",
+          "description": "This arg is visible in help",
           "optional": true,
           "type": "string",
           "variadic": false,
@@ -703,7 +703,7 @@ exports[`help with full detail mode should generate full help with all nested co
         },
         {
           "name": "anotherVisible",
-          "description": "This option is also visible",
+          "description": "This arg is also visible",
           "optional": true,
           "type": "boolean",
           "variadic": false,
@@ -961,11 +961,11 @@ Usage: **padrone-test deprecated-test** *[arguments]*
 
 ### Arguments:
 
-  ~~--oldOption~~ \`<string>\` *(deprecated)*              This option is deprecated
+  ~~--oldArg~~ \`<string>\` *(deprecated)*                 This arg is deprecated
 
-  \`--newOption\` \`<string>\` *(optional)*              This is the new option
+  \`--newArg\` \`<string>\` *(optional)*                 This is the new arg
 
-  ~~--[no-]deprecatedWithMessage~~ \`<boolean>\` *(deprecated: Use newOption instead)*  This option is deprecated with a message
+  ~~--[no-]deprecatedWithMessage~~ \`<boolean>\` *(deprecated: Use newArg instead)*  This arg is deprecated with a message
 
 
 
@@ -977,9 +977,9 @@ Usage: **padrone-test hidden-test** *[arguments]*
 
 ### Arguments:
 
-  \`--visibleOption\` \`<string>\` *(optional)*   This option is visible in help
+  \`--visibleArg\` \`<string>\` *(optional)*      This arg is visible in help
 
-  \`--[no-]anotherVisible\` \`<boolean>\` *(optional)*  This option is also visible
+  \`--[no-]anotherVisible\` \`<boolean>\` *(optional)*  This arg is also visible
 
 
 

@@ -32,13 +32,13 @@ export type HelpArgumentInfo = {
   deprecated?: boolean | string;
   hidden?: boolean;
   examples?: unknown[];
-  /** Environment variable(s) this option can be set from */
+  /** Environment variable(s) this arg can be set from */
   env?: string | string[];
-  /** Whether this option is an array type (shown as <type...>) */
+  /** Whether this arg is an array type (shown as <type...>) */
   variadic?: boolean;
-  /** Whether this option is a boolean (shown as --[no-]option) */
+  /** Whether this arg is a boolean (shown as --[no-]arg) */
   negatable?: boolean;
-  /** Config file key that maps to this option */
+  /** Config file key that maps to this arg */
   configKey?: string;
 };
 
@@ -110,7 +110,7 @@ export type Formatter = {
  */
 type Styler = {
   command: (text: string) => string;
-  option: (text: string) => string;
+  arg: (text: string) => string;
   type: (text: string) => string;
   description: (text: string) => string;
   label: (text: string) => string;
@@ -138,7 +138,7 @@ type LayoutConfig = {
 function createTextStyler(): Styler {
   return {
     command: (text) => text,
-    option: (text) => text,
+    arg: (text) => text,
     type: (text) => text,
     description: (text) => text,
     label: (text) => text,
@@ -153,7 +153,7 @@ function createAnsiStyler(): Styler {
   const colorizer = createColorizer();
   return {
     command: colorizer.command,
-    option: colorizer.option,
+    arg: colorizer.arg,
     type: colorizer.type,
     description: colorizer.description,
     label: colorizer.label,
@@ -179,7 +179,7 @@ function createConsoleStyler(): Styler {
   };
   return {
     command: (text) => `${colors.cyan}${colors.bold}${text}${colors.reset}`,
-    option: (text) => `${colors.green}${text}${colors.reset}`,
+    arg: (text) => `${colors.green}${text}${colors.reset}`,
     type: (text) => `${colors.yellow}${text}${colors.reset}`,
     description: (text) => `${colors.dim}${text}${colors.reset}`,
     label: (text) => `${colors.bold}${text}${colors.reset}`,
@@ -193,7 +193,7 @@ function createConsoleStyler(): Styler {
 function createMarkdownStyler(): Styler {
   return {
     command: (text) => `**${text}**`,
-    option: (text) => `\`${text}\``,
+    arg: (text) => `\`${text}\``,
     type: (text) => `\`${text}\``,
     description: (text) => text,
     label: (text) => `### ${text}`,
@@ -211,7 +211,7 @@ function escapeHtml(text: string): string {
 function createHtmlStyler(): Styler {
   return {
     command: (text) => `<strong style="color: #00bcd4;">${escapeHtml(text)}</strong>`,
-    option: (text) => `<code style="color: #4caf50;">${escapeHtml(text)}</code>`,
+    arg: (text) => `<code style="color: #4caf50;">${escapeHtml(text)}</code>`,
     type: (text) => `<code style="color: #ff9800;">${escapeHtml(text)}</code>`,
     description: (text) => `<span style="color: #666;">${escapeHtml(text)}</span>`,
     label: (text) => `<h3>${escapeHtml(text)}</h3>`,
@@ -324,7 +324,7 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     lines.push(styler.label('Arguments:'));
 
     for (const arg of args) {
-      const parts: string[] = [styler.option(arg.name)];
+      const parts: string[] = [styler.arg(arg.name)];
       if (arg.optional) parts.push(styler.meta('(optional)'));
       if (arg.default !== undefined) parts.push(styler.meta(`(default: ${String(arg.default)})`));
       lines.push(indent(1) + join(parts));
@@ -346,15 +346,15 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     const maxNameLength = Math.max(...argList.map((arg) => arg.name.length));
 
     for (const arg of argList) {
-      // Format option name: --[no-]option for booleans, --option otherwise
-      const optionName = arg.negatable ? `--[no-]${arg.name}` : `--${arg.name}`;
+      // Format arg name: --[no-]arg for booleans, --arg otherwise
+      const argName = arg.negatable ? `--[no-]${arg.name}` : `--${arg.name}`;
       const aliasNames = arg.aliases && arg.aliases.length > 0 ? arg.aliases.map((a) => `-${a}`).join(', ') : '';
-      const fullOptionName = aliasNames ? `${optionName}, ${aliasNames}` : optionName;
+      const fullArgName = aliasNames ? `${argName}, ${aliasNames}` : argName;
       const padding = ' '.repeat(Math.max(0, maxNameLength - arg.name.length + 2));
       const isDeprecated = !!arg.deprecated;
-      const formattedOptionName = isDeprecated ? styler.deprecated(fullOptionName) : styler.option(fullOptionName);
+      const formattedArgName = isDeprecated ? styler.deprecated(fullArgName) : styler.arg(fullArgName);
 
-      const parts: string[] = [formattedOptionName];
+      const parts: string[] = [formattedArgName];
       if (arg.type) parts.push(styler.type(`<${arg.type}>`));
       if (arg.optional && !arg.deprecated) parts.push(styler.meta('(optional)'));
       if (arg.default !== undefined) parts.push(styler.meta(`(default: ${String(arg.default)})`));

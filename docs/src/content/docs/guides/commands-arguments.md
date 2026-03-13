@@ -7,7 +7,7 @@ This guide covers how to work with commands, argments, positional arguments, and
 
 ## Defining Arguments
 
-Arguments are defined using Zod schemas. Each property in the schema becomes a CLI option:
+Arguments are defined using Zod schemas. Each property in the schema becomes a CLI argument:
 
 ```typescript
 import { createPadrone } from 'padrone';
@@ -38,7 +38,7 @@ Padrone supports these Zod types:
 | `z.enum(['a', 'b'])` | `--level high` |
 | `z.array(z.string())` | `--tags foo --tags bar` or `--tags=[foo,bar]` |
 
-### Option Aliases
+### Argument Aliases
 
 Add short aliases using `.meta()`:
 
@@ -51,7 +51,7 @@ z.object({
 
 Users can now use `-p 8080` instead of `--port 8080`.
 
-### Option Metadata
+### Argument Metadata
 
 The `.meta()` method supports several properties:
 
@@ -68,7 +68,7 @@ z.string().meta({
 
 ## Positional Arguments
 
-Positional arguments let users provide values without option names:
+Positional arguments let users provide values without argument names:
 
 ```typescript
 .arguments(

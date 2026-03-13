@@ -36,7 +36,7 @@ program.configure({
 });
 ```
 
-**Config options:**
+**Configuration:**
 | Property | Type | Description |
 |----------|------|-------------|
 | `title` | `string` | Display title for help output |
@@ -49,7 +49,7 @@ program.configure({
 
 ### .arguments(schema, meta?)
 
-Define options using a Zod schema.
+Define arguments using a Zod schema.
 
 ```typescript
 program.arguments(
@@ -59,7 +59,7 @@ program.arguments(
   }),
   {
     positional: ['port'],
-    options: {
+    fields: {
       host: { env: 'HOST', configKey: 'server.host' },
     },
   }
@@ -67,10 +67,10 @@ program.arguments(
 ```
 
 **Parameters:**
-- `schema`: Zod object schema defining the options
+- `schema`: Zod object schema defining the arguments
 - `meta` (optional): Additional configuration
-  - `positional`: Array of option names to treat as positional arguments
-  - `options`: Per-option metadata (env, configKey)
+  - `positional`: Array of argument names to treat as positional arguments
+  - `fields`: Per-argument metadata (env, configKey)
 
 ---
 
@@ -79,16 +79,16 @@ program.arguments(
 Set the handler function for the command.
 
 ```typescript
-program.action((options, context) => {
-  console.log('Options:', options);
+program.action((args, context) => {
+  console.log('Arguments:', args);
   console.log('Command:', context.command);
   return { success: true };
 });
 ```
 
 **Parameters:**
-- `handler`: Function receiving `(options, context)`
-  - `options`: Parsed and validated options object
+- `handler`: Function receiving `(args, context)`
+  - `args`: Parsed and validated arguments object
   - `context`: Execution context with `command` name
 
 **Returns:** The program builder (chainable)
@@ -99,10 +99,10 @@ program.action((options, context) => {
 
 Wrap an external CLI tool with optional schema transformation in the config object.
 
-The config can include a `schema` property that transforms command options to external CLI arguments. The schema's **input type** should match the current command's options (from `.arguments()`), and its **output type** defines the arguments expected by the external command.
+The config can include a `schema` property that transforms command arguments to external CLI arguments. The schema's **input type** should match the current command's arguments (from `.arguments()`), and its **output type** defines the arguments expected by the external command.
 
 ```typescript
-// Define command options first
+// Define command arguments first
 program
   .command('commit', (c) =>
     c
@@ -130,14 +130,14 @@ program
   );
 ```
 
-**Config options:**
+**Configuration:**
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `command` | `string` | required | The external command to execute (e.g., 'git', 'docker', 'npm') |
-| `args` | `string[]` | `[]` | Fixed arguments that always precede the options (e.g., `['commit']` for 'git commit') |
+| `args` | `string[]` | `[]` | Fixed arguments that always precede the arguments (e.g., `['commit']` for 'git commit') |
 | `positional` | `string[]` | command's positional | Positional argument configuration for the external command. Defaults to the wrapping command's positional config. |
 | `inheritStdio` | `boolean` | `true` | Whether to inherit stdio streams from the parent process. Set to `false` to capture stdout/stderr |
-| `schema` | `Schema \| (cmdSchema) => Schema` | identity | Optional transformation schema. If not provided, command options are passed through as-is. |
+| `schema` | `Schema \| (cmdSchema) => Schema` | identity | Optional transformation schema. If not provided, command arguments are passed through as-is. |
 
 **Returns:** The program builder with an action that executes the external command
 
@@ -154,7 +154,7 @@ type WrapResult = {
 **Examples:**
 
 ```typescript
-// No transformation - pass options through as-is
+// No transformation - pass arguments through as-is
 program
   .command('echo', (c) =>
     c
@@ -233,23 +233,23 @@ console.log(result.result.exitCode);  // 0 if successful
 **Type Safety:**
 
 The `.wrap()` method maintains full type safety:
-- Input schema matches command options from `.arguments()`
+- Input schema matches command arguments from `.arguments()`
 - Output schema defines external CLI arguments structure
 - Return type is inferred as `Promise<WrapResult>`
 - TypeScript enforces correct types when calling `.run()` or `.cli()`
 
 **How it works:**
 
-1. **Schema Transformation**: The wrap schema transforms command options to external CLI arguments
+1. **Schema Transformation**: The wrap schema transforms command arguments to external CLI arguments
    - Input: Parsed command arguments (from `.arguments()`)
    - Output: External program arguments
 
-2. **Options → CLI Arguments**: Padrone converts transformed options to CLI arguments:
-   - Boolean options: `{ verbose: true }` → `--verbose`
-   - String/Number options: `{ port: 3000 }` → `--port 3000`
-   - Array options: `{ files: ['a', 'b'] }` → `--files a --files b`
+2. **Arguments → CLI Arguments**: Padrone converts transformed arguments to CLI arguments:
+   - Boolean arguments: `{ verbose: true }` → `--verbose`
+   - String/Number arguments: `{ port: 3000 }` → `--port 3000`
+   - Array arguments: `{ files: ['a', 'b'] }` → `--files a --files b`
    - Positional arguments: Follow the order specified in `config.positional`
-   - Option keys are used as-is with `--` prefix
+   - Argument keys are used as-is with `--` prefix
 
 3. **Process Execution**: Uses `Bun.spawn()` to execute the external command with the generated arguments
 
@@ -295,9 +295,9 @@ program.cli(['serve', '--port', '8080']);
 
 ---
 
-### .run(command, options)
+### .run(command, args)
 
-Run a command programmatically with typed options.
+Run a command programmatically with typed arguments.
 
 ```typescript
 const result = program.run('serve', {
@@ -308,7 +308,7 @@ const result = program.run('serve', {
 
 **Parameters:**
 - `command`: Command path (e.g., `'serve'` or `'db migrate up'`)
-- `options`: Options object matching the command's schema
+- `args`: Arguments object matching the command's schema
 
 **Returns:** The action handler's return value
 
@@ -322,20 +322,20 @@ Parse input without executing the action.
 const result = program.parse('serve --port 8080');
 
 console.log(result.command);  // 'serve'
-console.log(result.options);  // { port: 8080, host: 'localhost' }
+console.log(result.args);     // { port: 8080, host: 'localhost' }
 console.log(result.rest);     // Any unparsed arguments
 ```
 
 **Parameters:**
 - `input` (optional): String or string array to parse
 
-**Returns:** Parse result object with `command`, `options`, and `rest` properties
+**Returns:** Parse result object with `command`, `args`, and `rest` properties
 
 ---
 
-### .stringify(command?, options?)
+### .stringify(command?, args?)
 
-Convert a command and options back to a CLI string.
+Convert a command and arguments back to a CLI string.
 
 ```typescript
 const cliString = program.stringify('serve', { port: 8080 });
@@ -344,7 +344,7 @@ const cliString = program.stringify('serve', { port: 8080 });
 
 **Parameters:**
 - `command` (optional): Command name
-- `options` (optional): Options object
+- `args` (optional): Arguments object
 
 **Returns:** CLI string representation
 
@@ -366,7 +366,7 @@ api.db.migrate.up({ steps: 1 });
 
 ---
 
-### .help(command?, options?)
+### .help(command?, preferences?)
 
 Generate help text.
 
@@ -383,7 +383,7 @@ program.help('', { format: 'markdown' });
 
 **Parameters:**
 - `command` (optional): Command to get help for
-- `options` (optional): `{ format: 'text' | 'ansi' | 'markdown' | 'html' | 'json' }`
+- `preferences` (optional): `{ format: 'text' | 'ansi' | 'markdown' | 'html' | 'json' }`
 
 **Returns:** Help text string (or object for JSON format)
 

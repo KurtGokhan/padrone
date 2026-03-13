@@ -6,7 +6,7 @@ Initial stable release of Padrone - a TypeScript CLI framework with Zod schema s
 
 ### Features
 
-- Type-safe argument and option parsing with Zod schemas
+- Type-safe argument parsing with Zod schemas
 - Interactive prompts with validation
 - AI integration support via Vercel AI SDK
 - Standard Schema compatibility

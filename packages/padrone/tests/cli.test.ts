@@ -79,7 +79,7 @@ describe('CLI', () => {
       expect(result.args?.verbose).toBe(true);
     });
 
-    it('should parse command with option values', () => {
+    it('should parse command with arg values', () => {
       const result = program.parse('list --limit=5 --priority high');
 
       expect(result.command.path).toBe('list');
@@ -312,7 +312,7 @@ describe('CLI', () => {
   });
 
   describe('alias functionality', () => {
-    it('should resolve aliases to full option names when parsing', () => {
+    it('should resolve aliases to full arg names when parsing', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -386,7 +386,7 @@ describe('CLI', () => {
       expect(result?.result.verbose).toBe(true);
     });
 
-    it('should handle aliases mixed with full option names', () => {
+    it('should handle aliases mixed with full arg names', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -518,7 +518,7 @@ describe('CLI', () => {
       expect(result.args?.verbose).toBe(true);
     });
 
-    it('should handle multiple aliases for the same option', () => {
+    it('should handle multiple aliases for the same arg', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -707,7 +707,7 @@ describe('CLI', () => {
   });
 
   describe('negatable boolean args', () => {
-    it('should parse --no-<option> as false', () => {
+    it('should parse --no-<arg> as false', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -723,7 +723,7 @@ describe('CLI', () => {
       expect(result.args?.verbose).toBe(false);
     });
 
-    it('should parse --<option> as true', () => {
+    it('should parse --<arg> as true', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -755,7 +755,7 @@ describe('CLI', () => {
       expect(helpText).toContain('--[no-]verbose');
     });
 
-    it('should stringify false boolean to --no-<option>', () => {
+    it('should stringify false boolean to --no-<arg>', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -771,7 +771,7 @@ describe('CLI', () => {
       expect(result).toBe('test --no-verbose');
     });
 
-    it('should not show --[no-] prefix when explicit noOption property exists', () => {
+    it('should not show --[no-] prefix when explicit noArg property exists', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -793,7 +793,7 @@ describe('CLI', () => {
       expect(helpText).not.toContain('--[no-]noVerbose');
     });
 
-    it('should handle kebab-case no-option property', () => {
+    it('should handle kebab-case no-arg property', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -814,7 +814,7 @@ describe('CLI', () => {
   });
 
   describe('environment variable binding', () => {
-    it('should apply env var when option is not provided', () => {
+    it('should apply env var when arg is not provided', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -903,7 +903,7 @@ describe('CLI', () => {
       expect(result.args?.priority).toBe('high');
     });
 
-    it('should parse quoted option values', () => {
+    it('should parse quoted arg values', () => {
       const result = program.parse('filter --status="in_progress" --priority high');
 
       expect(result.args?.status).toBe('in_progress');
@@ -1639,7 +1639,7 @@ describe('CLI', () => {
 
         const result = program.cli(`serve --config=${configPath} --port=8080`);
 
-        // CLI option should override config file
+        // CLI arg should override config file
         expect(result.result).toBe(8080);
       } finally {
         fs.unlinkSync(configPath);
@@ -1754,7 +1754,7 @@ describe('CLI', () => {
   });
 
   describe('validation errors', () => {
-    it('should return result with issues when called with explicit input and option fails url validation', () => {
+    it('should return result with issues when called with explicit input and arg fails url validation', () => {
       const handler = mock((args: any) => args);
       const program = createPadrone('test-cli').command('fetch', (c) =>
         c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action(handler),
@@ -1768,7 +1768,7 @@ describe('CLI', () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
-    it('should return result with issues for enum option with invalid value', () => {
+    it('should return result with issues for enum arg with invalid value', () => {
       const program = createPadrone('test-cli').command('cmd', (c) =>
         c.arguments(z.object({ priority: z.enum(['low', 'medium', 'high']).describe('Priority') })).action((args) => args),
       );

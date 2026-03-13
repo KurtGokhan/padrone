@@ -72,7 +72,7 @@ function extractArguments(cmd: AnyPadroneCommand): { name: string; alias?: strin
     const argsMeta = cmd.meta?.fields;
     const { aliases } = extractSchemaMetadata(cmd.arguments, argsMeta);
 
-    // Reverse aliases map (alias -> option name)
+    // Reverse aliases map (alias -> arg name)
     const aliasToArgument: Record<string, string> = {};
     for (const [arg, alias] of Object.entries(aliases)) {
       aliasToArgument[alias] = arg;

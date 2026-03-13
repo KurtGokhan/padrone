@@ -21,7 +21,7 @@ type DefaultArgs = UnknownRecord | void;
 
 /**
  * A schema that supports both validation (StandardSchemaV1) and JSON schema generation (StandardJSONSchemaV1).
- * This is the type required for command arguments and options in Padrone.
+ * This is the type required for command arguments in Padrone.
  */
 export type PadroneSchema<Input = unknown, Output = Input> = StandardSchemaV1<Input, Output> & StandardJSONSchemaV1<Input, Output>;
 
@@ -109,7 +109,7 @@ type CommandTypesBase = {
 };
 
 /**
- * Configuration options for a command.
+ * Configuration for a command.
  */
 export type PadroneCommandConfig = {
   /** A short title for the command, displayed in help. */
@@ -146,7 +146,7 @@ type BuilderOrProgram<
 
 /**
  * Base builder methods shared between PadroneBuilder and PadroneProgram.
- * These methods are used for defining command structure (options, config, env, action, subcommands).
+ * These methods are used for defining command structure (arguments, config, env, action, subcommands).
  */
 export type PadroneBuilderMethods<
   TProgramName extends string,
@@ -213,9 +213,9 @@ export type PadroneBuilderMethods<
   async: () => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, true>;
 
   /**
-   * Defines the options schema for the command, including positional arguments.
-   * Can accept either a schema directly or a function that takes parent options as a base and returns a schema.
-   * Use the `positional` array in meta to specify which options are positional args.
+   * Defines the arguments schema for the command, including positional arguments.
+   * Can accept either a schema directly or a function that takes parent args schema as a base and returns a schema.
+   * Use the `positional` array in meta to specify which arguments are positional args.
    * Use '...name' prefix for variadic (rest) arguments, matching JS/TS rest syntax.
    *
    * @example
@@ -233,7 +233,7 @@ export type PadroneBuilderMethods<
    *
    * @example
    * ```ts
-   * // Function-based schema extending parent options
+   * // Function-based schema extending parent arguments
    * .arguments((parentArgs) => {
    *   return z.object({
    *     ...parentArgs.shape,
@@ -268,7 +268,7 @@ export type PadroneBuilderMethods<
    */
   configFile: <TNewConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = TArgs>(
     file: string | string[] | undefined,
-    schema?: TNewConfig | ((optionsSchema: TArgs) => TNewConfig),
+    schema?: TNewConfig | ((argsSchema: TArgs) => TNewConfig),
   ) => BuilderOrProgram<
     TReturn,
     TProgramName,
@@ -284,16 +284,16 @@ export type PadroneBuilderMethods<
   >;
 
   /**
-   * Configures environment variable schema for parsing env vars into options.
+   * Configures environment variable schema for parsing env vars into arguments.
    * The schema should transform environment variables (typically SCREAMING_SNAKE_CASE)
-   * into the option names used by the command.
+   * into the argument names used by the command.
    * @example
    * ```ts
    * .env(z.object({ MY_APP_PORT: z.coerce.number() }).transform(e => ({ port: e.MY_APP_PORT })))
    * ```
    */
   env: <TNewEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = TArgs>(
-    schema: TNewEnv | ((optionsSchema: TArgs) => TNewEnv),
+    schema: TNewEnv | ((argsSchema: TArgs) => TNewEnv),
   ) => BuilderOrProgram<
     TReturn,
     TProgramName,
@@ -317,11 +317,11 @@ export type PadroneBuilderMethods<
 
   /**
    * Wraps an external CLI tool with optional schema transformation.
-   * The config can include a schema that transforms command options to external CLI arguments.
+   * The config can include a schema that transforms command arguments to external CLI arguments.
    *
    * @example
    * ```ts
-   * // No transformation - pass options as-is
+   * // No transformation - pass arguments as-is
    * .arguments(z.object({
    *   message: z.string(),
    * }))
@@ -489,7 +489,7 @@ export type PadroneProgram<
   TAsync extends boolean = false,
 > = PadroneBuilderMethods<TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync, 'program'> & {
   /**
-   * Runs a command programmatically by name with provided options (including positional args).
+   * Runs a command programmatically by name with provided arguments (including positional args).
    */
   run: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, true>>(
     name: TCommand | SafeString,
@@ -507,7 +507,7 @@ export type PadroneProgram<
   >;
 
   /**
-   * Parses CLI input (or the provided input string) into command, args, and options without executing anything.
+   * Parses CLI input (or the provided input string) into command and arguments without executing anything.
    */
   parse: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, false>>(
     input?: TCommand | SafeString,
@@ -517,7 +517,7 @@ export type PadroneProgram<
   >;
 
   /**
-   * Converts command and options back into a CLI string.
+   * Converts command and arguments back into a CLI string.
    */
   stringify: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], false, true>>(
     command?: TCommand | SafeString,
@@ -558,7 +558,7 @@ export type PadroneProgram<
    */
   help: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], false, true>>(
     command?: TCommand,
-    options?: HelpPreferences,
+    prefs?: HelpPreferences,
   ) => string;
 
   /**
@@ -596,7 +596,7 @@ export type PadroneAPI<TCommand extends AnyPadroneCommand> = PadroneAPICommand<T
 
 type PadroneAPICommand<TCommand extends AnyPadroneCommand> = (args: GetArguments<'in', TCommand>) => GetResults<TCommand>;
 
-type NormalizeArguments<TOptions> = IsGeneric<TOptions> extends true ? void | EmptyRecord : TOptions;
+type NormalizeArguments<TArgs> = IsGeneric<TArgs> extends true ? void | EmptyRecord : TArgs;
 type GetArguments<TDir extends 'in' | 'out', TCommand extends AnyPadroneCommand> = TDir extends 'in'
   ? NormalizeArguments<TCommand['~types']['argumentsInput']>
   : NormalizeArguments<TCommand['~types']['argumentsOutput']>;

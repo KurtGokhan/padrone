@@ -133,7 +133,7 @@ const result = await streamText({
 
 ## Tool Schema
 
-The `.tool()` method generates a JSON schema from your Zod definitions. The descriptions you provide with `.describe()` help the AI understand how to use each option:
+The `.tool()` method generates a JSON schema from your Zod definitions. The descriptions you provide with `.describe()` help the AI understand how to use each argument:
 
 ```typescript
 z.object({

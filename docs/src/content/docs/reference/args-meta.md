@@ -1,11 +1,11 @@
 ---
-title: Options Metadata
-description: Reference for Zod meta options and positional argument configuration
+title: Arguments Metadata
+description: Reference for Zod meta arguments and positional argument configuration
 ---
 
-Padrone uses Zod schemas with `.meta()` to configure CLI-specific behavior. This reference covers all available metadata options.
+Padrone uses Zod schemas with `.meta()` to configure CLI-specific behavior. This reference covers all available metadata configuration.
 
-## Zod Meta Options
+## Zod Meta Configuration
 
 Use `.meta()` on individual Zod schema properties to configure their CLI behavior:
 
@@ -35,14 +35,14 @@ z.object({
 
 ---
 
-## Options Configuration
+## Meta Configuration
 
-The second argument to `.arguments()` configures positional arguments and per-option metadata:
+The second argument to `.arguments()` configures positional arguments and per-argument metadata:
 
 ```typescript
 .arguments(schema, {
   positional: ['source', '...files', 'dest'],
-  options: {
+  fields: {
     verbose: { env: 'VERBOSE' },
     config: { configKey: 'settings.config' },
   },
@@ -51,7 +51,7 @@ The second argument to `.arguments()` configures positional arguments and per-op
 
 ### positional
 
-Array of option names to accept as positional arguments.
+Array of argument names to accept as positional arguments.
 
 ```typescript
 { positional: ['source', 'dest'] }
@@ -76,13 +76,13 @@ Array of option names to accept as positional arguments.
 // output = last arg
 ```
 
-### options
+### fields
 
-Per-option configuration that supplements or overrides `.meta()`:
+Per-argument configuration that supplements or overrides `.meta()`:
 
 ```typescript
 {
-  options: {
+  fields: {
     apiKey: {
       env: 'API_KEY',           // Environment variable
       configKey: 'auth.apiKey', // Config file path
@@ -97,7 +97,7 @@ This is equivalent to using `.meta()` on the schema property but allows configur
 
 ## Environment Variables
 
-Bind options to environment variables:
+Bind arguments to environment variables:
 
 ```typescript
 // Single env var
@@ -106,9 +106,9 @@ z.string().meta({ env: 'API_KEY' })
 // Multiple env vars (first found wins)
 z.string().meta({ env: ['API_KEY', 'APP_API_KEY'] })
 
-// Via options config
+// Via arguments config
 .arguments(schema, {
-  options: {
+  fields: {
     apiKey: { env: 'API_KEY' },
   },
 })
@@ -130,7 +130,7 @@ z.string().meta({ env: ['API_KEY', 'APP_API_KEY'] })
 
 ## Config Files
 
-Load options from configuration files:
+Load arguments from configuration files:
 
 ```typescript
 const program = createPadrone('app')
@@ -146,7 +146,7 @@ const program = createPadrone('app')
       port: z.number().default(3000),
     }),
     {
-      options: {
+      fields: {
         port: { configKey: 'server.port' },
       },
     }
@@ -179,7 +179,7 @@ Files are searched in order specified. The first existing file is used.
 
 ## Aliases
 
-Short option aliases allow single-character shortcuts:
+Short argument aliases allow single-character shortcuts:
 
 ```typescript
 z.object({
@@ -206,7 +206,7 @@ app -vp 8080
 
 ## Deprecation
 
-Mark options as deprecated to warn users:
+Mark arguments as deprecated to warn users:
 
 ```typescript
 z.object({
@@ -215,18 +215,18 @@ z.object({
 
   // With migration message
   legacy: z.string().optional().meta({
-    deprecated: 'Use --new-option instead',
+    deprecated: 'Use --new-arg instead',
   }),
 })
 ```
 
-Deprecated options still work but display a warning when used.
+Deprecated arguments still work but display a warning when used.
 
 ---
 
-## Hidden Options
+## Hidden Arguments
 
-Hide options from help output while keeping them functional:
+Hide arguments from help output while keeping them functional:
 
 ```typescript
 z.object({
@@ -239,7 +239,7 @@ z.object({
 })
 ```
 
-Hidden options:
+Hidden arguments:
 - Don't appear in `--help` output
 - Still work when specified
 - Useful for internal/experimental features

@@ -80,7 +80,7 @@ function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaM
       const required = (jsonSchema.required as string[]) || [];
       const propertyNames = new Set(Object.keys(properties));
 
-      // Helper to check if a negated version of an option exists
+      // Helper to check if a negated version of an arg exists
       const hasExplicitNegation = (key: string): boolean => {
         // Check for noVerbose style (camelCase)
         const camelNegated = `no${key.charAt(0).toUpperCase()}${key.slice(1)}`;
@@ -91,7 +91,7 @@ function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaM
         return false;
       };
 
-      // Helper to check if this option is itself a negation of another option
+      // Helper to check if this arg is itself a negation of another arg
       const isNegationOf = (key: string): boolean => {
         // Check for noVerbose -> verbose (camelCase)
         if (key.startsWith('no') && key.length > 2 && key[2] === key[2]?.toUpperCase()) {
@@ -115,8 +115,8 @@ function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaM
         const optMeta = argsMeta?.[key];
         const propType = prop.type as string;
 
-        // Booleans are negatable unless there's an explicit noOption property
-        // or this option is itself a negation of another option
+        // Booleans are negatable unless there's an explicit noArg property
+        // or this arg is itself a negation of another arg
         const isNegatable = propType === 'boolean' && !hasExplicitNegation(key) && !isNegationOf(key);
 
         result.push({

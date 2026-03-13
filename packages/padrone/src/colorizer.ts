@@ -16,7 +16,7 @@ const colors = {
 
 export type Colorizer = {
   command: (text: string) => string;
-  option: (text: string) => string;
+  arg: (text: string) => string;
   type: (text: string) => string;
   description: (text: string) => string;
   label: (text: string) => string;
@@ -29,7 +29,7 @@ export type Colorizer = {
 export function createColorizer(): Colorizer {
   return {
     command: (text: string) => `${colors.cyan}${colors.bold}${text}${colors.reset}`,
-    option: (text: string) => `${colors.green}${text}${colors.reset}`,
+    arg: (text: string) => `${colors.green}${text}${colors.reset}`,
     type: (text: string) => `${colors.yellow}${text}${colors.reset}`,
     description: (text: string) => `${colors.dim}${text}${colors.reset}`,
     label: (text: string) => `${colors.bold}${text}${colors.reset}`,

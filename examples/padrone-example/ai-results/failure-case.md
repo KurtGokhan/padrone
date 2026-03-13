@@ -77,4 +77,4 @@ Here are all the tasks with **high** priority (the highest priority level availa
 - Due: 2024-01-17
 - Created: 2024-01-14
 
-Note: The task manager only supports three priority levels: "low", "medium", and "high". There is no "critical" priority option available.
+Note: The task manager only supports three priority levels: "low", "medium", and "high". There is no "critical" priority available.

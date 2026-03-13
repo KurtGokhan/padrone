@@ -59,7 +59,7 @@ interface SchemaMetadataResult {
 }
 
 /**
- * Extract all option metadata from schema and meta in a single pass.
+ * Extract all arg metadata from schema and meta in a single pass.
  * This consolidates aliases, env bindings, and config keys extraction.
  */
 export function extractSchemaMetadata(
@@ -116,11 +116,11 @@ export function extractSchemaMetadata(
 function preprocessAliases(data: Record<string, unknown>, aliases: Record<string, string>): Record<string, unknown> {
   const result = { ...data };
 
-  for (const [aliasKey, fullOptionName] of Object.entries(aliases)) {
-    if (aliasKey in data && aliasKey !== fullOptionName) {
+  for (const [aliasKey, fullArgName] of Object.entries(aliases)) {
+    if (aliasKey in data && aliasKey !== fullArgName) {
       const aliasValue = data[aliasKey];
-      // Prefer full option name if it exists
-      if (!(fullOptionName in result)) result[fullOptionName] = aliasValue;
+      // Prefer full arg name if it exists
+      if (!(fullArgName in result)) result[fullArgName] = aliasValue;
       delete result[aliasKey];
     }
   }
@@ -142,7 +142,7 @@ function applyValues(data: Record<string, unknown>, values: Record<string, unkno
   const result = { ...data };
 
   for (const [key, value] of Object.entries(values)) {
-    // Only apply value if option wasn't already set
+    // Only apply value if arg wasn't already set
     if (key in result && result[key] !== undefined) continue;
     if (value !== undefined) {
       result[key] = value;
@@ -165,13 +165,13 @@ export function preprocessArgs(data: Record<string, unknown>, ctx: ParseArgsCont
   }
 
   // 2. Apply environment variables (higher precedence than config)
-  // These only apply if CLI didn't set the option
+  // These only apply if CLI didn't set the arg
   if (ctx.envData) {
     result = applyValues(result, ctx.envData);
   }
 
   // 3. Apply config file values (lowest precedence)
-  // These only apply if neither CLI nor env set the option
+  // These only apply if neither CLI nor env set the arg
   if (ctx.configData) {
     result = applyValues(result, ctx.configData);
   }

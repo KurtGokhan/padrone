@@ -183,7 +183,7 @@ describe('help with minimal detail mode', () => {
     expect(help).toBe('padrone-test noop');
   });
 
-  it('should ignore format option in minimal mode', () => {
+  it('should ignore format in minimal mode', () => {
     // Minimal mode should return the same output regardless of format
     const textHelp = program.help('show', { format: 'text', detail: 'minimal' });
     const jsonHelp = program.help('show', { format: 'json', detail: 'minimal' });
