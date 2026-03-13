@@ -128,7 +128,7 @@ export function createTasksProgram() {
             verbose: z.boolean().optional(),
           }),
           {
-            options: {
+            fields: {
               verbose: {
                 alias: 'v',
                 description: 'Show detailed information',
@@ -147,7 +147,7 @@ export function createTasksProgram() {
             deprecatedWithMessage: z.boolean().optional().describe('Deprecated option with message'),
           }),
           {
-            options: {
+            fields: {
               oldOption: {
                 deprecated: true,
                 description: 'This option is deprecated',
@@ -173,7 +173,7 @@ export function createTasksProgram() {
             anotherVisible: z.boolean().optional().describe('Another visible option'),
           }),
           {
-            options: {
+            fields: {
               visibleOption: {
                 description: 'This option is visible in help',
               },
@@ -199,7 +199,7 @@ export function createTasksProgram() {
             config: z.string().optional().describe('Configuration file'),
           }),
           {
-            options: {
+            fields: {
               output: {
                 description: 'Specify the output file path',
                 examples: ['output.txt', './dist/result.json'],

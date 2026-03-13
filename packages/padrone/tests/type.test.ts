@@ -46,7 +46,7 @@ describe.skip('Types - Builder vs Program separation', async () => {
     expectTypeOf<'cli'>().not.toMatchObjectType<AfterOptionsKeys>();
     expectTypeOf<'parse'>().not.toMatchObjectType<AfterOptionsKeys>();
 
-    return afterOptions.action((opts) => opts.name);
+    return afterOptions.action((args) => args.name);
   });
 });
 
@@ -85,16 +85,16 @@ describe.skip('Types', async () => {
 describe.skip('Types - Aliases', async () => {
   const programWithAliases = createPadrone('test')
     .command(['list', 'ls', 'l'], (c) =>
-      c.arguments(z.object({ format: z.enum(['json', 'table']).default('table') })).action((opts) => ({ items: [], format: opts.format })),
+      c.arguments(z.object({ format: z.enum(['json', 'table']).default('table') })).action((args) => ({ items: [], format: args.format })),
     )
     .command(['delete', 'rm'], (c) =>
-      c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((opts) => ({ deleted: opts.name })),
+      c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => ({ deleted: args.name })),
     )
     .command('config', (c) =>
       c.command(['set', 's'], (sub) =>
         sub
           .arguments(z.object({ key: z.string(), value: z.string() }), { positional: ['key', 'value'] })
-          .action((opts) => ({ key: opts.key, value: opts.value })),
+          .action((args) => ({ key: args.key, value: args.value })),
       ),
     );
 
@@ -125,8 +125,8 @@ describe.skip('Types - Parsed command type', async () => {
             excited: z.boolean().default(false),
           }),
         )
-        .action((opts) => {
-          const greeting = `Hello, ${opts.name}${opts.excited ? '!' : '.'}`;
+        .action((args) => {
+          const greeting = `Hello, ${args.name}${args.excited ? '!' : '.'}`;
           return { greeting };
         }),
     )
@@ -137,8 +137,8 @@ describe.skip('Types - Parsed command type', async () => {
             numbers: z.array(z.number()),
           }),
         )
-        .action((opts) => {
-          const total = opts.numbers.reduce((a, b) => a + b, 0);
+        .action((args) => {
+          const total = args.numbers.reduce((a, b) => a + b, 0);
           return { total };
         }),
     );
@@ -156,13 +156,13 @@ describe.skip('Types - Async', () => {
   const brandedSchema = asyncSchema(z.object({ name: z.string() }));
 
   const program = createPadrone('test')
-    .command('sync-cmd', (c) => c.arguments(syncSchema).action((opts) => opts.name))
-    .command('async-branded', (c) => c.arguments(brandedSchema).action((opts) => opts.name))
+    .command('sync-cmd', (c) => c.arguments(syncSchema).action((args) => args.name))
+    .command('async-branded', (c) => c.arguments(brandedSchema).action((args) => args.name))
     .command('async-explicit', (c) =>
       c
         .arguments(syncSchema)
         .async()
-        .action((opts) => opts.name),
+        .action((args) => args.name),
     );
 
   // Sync command: parse and cli return plain values (not Promises)

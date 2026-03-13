@@ -4,7 +4,7 @@ import type { PadroneSchema } from './types.ts';
 /**
  * Configuration options for wrapping an external CLI tool.
  */
-export type WrapConfig<TCommandOpts extends PadroneSchema = PadroneSchema, TWrapOpts extends PadroneSchema = TCommandOpts> = {
+export type WrapConfig<TCommandArgs extends PadroneSchema = PadroneSchema, TWrapArgs extends PadroneSchema = TCommandArgs> = {
   /**
    * The command to execute (e.g., 'git', 'docker', 'npm').
    */
@@ -29,7 +29,7 @@ export type WrapConfig<TCommandOpts extends PadroneSchema = PadroneSchema, TWrap
    * the arguments expected by the external command.
    * If not provided, command options are passed through as-is.
    */
-  schema?: TWrapOpts | ((commandOptions: TCommandOpts) => TWrapOpts);
+  schema?: TWrapArgs | ((commandArguments: TCommandArgs) => TWrapArgs);
 };
 
 /**
@@ -57,17 +57,17 @@ export type WrapResult = {
 /**
  * Converts parsed options to CLI arguments for an external command.
  */
-function optionsToArgs(options: Record<string, unknown> | undefined, positional: string[] = []): string[] {
+function argsToCliArgs(input: Record<string, unknown> | undefined, positional: string[] = []): string[] {
   const args: string[] = [];
 
-  // Handle undefined or null options
-  if (!options) return args;
+  // Handle undefined or null input
+  if (!input) return args;
 
   const positionalValues: Record<string, unknown> = {};
   const regularOptions: Record<string, unknown> = {};
 
   // Separate positional and regular options
-  for (const [key, value] of Object.entries(options)) {
+  for (const [key, value] of Object.entries(input)) {
     if (positional.includes(key) || positional.includes(`...${key}`)) {
       positionalValues[key] = value;
     } else {
@@ -115,22 +115,22 @@ function optionsToArgs(options: Record<string, unknown> | undefined, positional:
 /**
  * Creates an action handler that wraps an external CLI tool.
  * @param config - Configuration for wrapping the external command (includes optional schema)
- * @param commandOptions - The command's options schema
+ * @param commandArguments - The command's options schema
  * @param commandPositional - Default positional config from the wrapping command
  */
-export function createWrapHandler<TCommandOpts extends PadroneSchema, TWrapOpts extends PadroneSchema>(
-  config: WrapConfig<TCommandOpts, TWrapOpts>,
-  commandOptions: TCommandOpts,
+export function createWrapHandler<TCommandArgs extends PadroneSchema, TWrapArgs extends PadroneSchema>(
+  config: WrapConfig<TCommandArgs, TWrapArgs>,
+  commandArguments: TCommandArgs,
   commandPositional?: string[],
-): (options: StandardSchemaV1.InferOutput<TCommandOpts>) => Promise<WrapResult> {
-  return async (options: StandardSchemaV1.InferOutput<TCommandOpts>): Promise<WrapResult> => {
+): (args: StandardSchemaV1.InferOutput<TCommandArgs>) => Promise<WrapResult> {
+  return async (args: StandardSchemaV1.InferOutput<TCommandArgs>): Promise<WrapResult> => {
     const { command, args: fixedArgs = [], inheritStdio = true, positional = commandPositional, schema: wrapSchema } = config;
 
     // Get the wrap schema (handle function or direct schema)
-    const schema = wrapSchema ? (typeof wrapSchema === 'function' ? wrapSchema(commandOptions) : wrapSchema) : commandOptions;
+    const schema = wrapSchema ? (typeof wrapSchema === 'function' ? wrapSchema(commandArguments) : wrapSchema) : commandArguments;
 
     // Transform command options to external CLI options using the wrap schema
-    const validationResult = schema['~standard'].validate(options);
+    const validationResult = schema['~standard'].validate(args);
 
     const processResult = (result: StandardSchemaV1.Result<unknown>) => {
       if (result.issues) {
@@ -146,7 +146,7 @@ export function createWrapHandler<TCommandOpts extends PadroneSchema, TWrapOpts 
       validationResult instanceof Promise ? await validationResult.then(processResult) : processResult(validationResult);
 
     // Convert options to CLI arguments
-    const optionArgs = optionsToArgs(externalOptions as Record<string, unknown>, positional);
+    const optionArgs = argsToCliArgs(externalOptions as Record<string, unknown>, positional);
 
     // Combine fixed args and option args
     const allArgs = [...fixedArgs, ...optionArgs];

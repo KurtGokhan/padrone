@@ -1,5 +1,5 @@
-import type { PadroneOptionsMeta } from './options.ts';
+import type { PadroneFieldMeta } from './options.ts';
 
 declare module 'zod/v4/core' {
-  export interface GlobalMeta extends PadroneOptionsMeta {}
+  export interface GlobalMeta extends PadroneFieldMeta {}
 }

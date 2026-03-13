@@ -66,11 +66,11 @@ function collectAllCommands(cmd: AnyPadroneCommand): AnyPadroneCommand[] {
 function extractOptions(cmd: AnyPadroneCommand): { name: string; alias?: string; isBoolean: boolean }[] {
   const options: { name: string; alias?: string; isBoolean: boolean }[] = [];
 
-  if (!cmd.options) return options;
+  if (!cmd.arguments) return options;
 
   try {
-    const optionsMeta = cmd.meta?.options;
-    const { aliases } = extractSchemaMetadata(cmd.options, optionsMeta);
+    const argsMeta = cmd.meta?.fields;
+    const { aliases } = extractSchemaMetadata(cmd.arguments, argsMeta);
 
     // Reverse aliases map (alias -> option name)
     const aliasToOption: Record<string, string> = {};
@@ -78,7 +78,7 @@ function extractOptions(cmd: AnyPadroneCommand): { name: string; alias?: string;
       aliasToOption[alias] = opt;
     }
 
-    const jsonSchema = cmd.options['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+    const jsonSchema = cmd.arguments['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
 
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
       for (const [key, prop] of Object.entries(jsonSchema.properties as Record<string, any>)) {
@@ -211,7 +211,7 @@ export function generateZshCompletion(program: AnyPadroneCommand): string {
       if (seenOptions.has(opt.name)) continue;
       seenOptions.add(opt.name);
 
-      const desc = cmd.meta?.options?.[opt.name]?.description || '';
+      const desc = cmd.meta?.fields?.[opt.name]?.description || '';
       const escapedDesc = desc.replace(/'/g, "'\\''").replace(/\[/g, '\\[').replace(/\]/g, '\\]');
 
       if (opt.alias) {
@@ -298,7 +298,7 @@ export function generateFishCompletion(program: AnyPadroneCommand): string {
       if (seenOptions.has(opt.name)) continue;
       seenOptions.add(opt.name);
 
-      const desc = cmd.meta?.options?.[opt.name]?.description || '';
+      const desc = cmd.meta?.fields?.[opt.name]?.description || '';
       const escapedDesc = desc.replace(/'/g, "\\'");
 
       if (opt.alias) {

@@ -25,7 +25,7 @@ describe('wrap', () => {
       const wrapResult = await result.result;
 
       expect(result.command.path).toBe('echo');
-      expect(result.options?.message).toBe('Hello World');
+      expect(result.args?.message).toBe('Hello World');
       expect(wrapResult.success).toBe(true);
       expect(wrapResult.exitCode).toBe(0);
     });
@@ -78,8 +78,8 @@ describe('wrap', () => {
       const wrapResult = await result.result;
 
       expect(wrapResult.success).toBe(true);
-      expect(result.options?.all).toBe(true);
-      expect(result.options?.long).toBe(true);
+      expect(result.args?.all).toBe(true);
+      expect(result.args?.long).toBe(true);
     });
 
     it('should handle array options', async () => {
@@ -323,8 +323,8 @@ describe('wrap', () => {
       const result = await program.run('echo', { message: 'test', count: 5 });
       const wrapResult = await result.result;
 
-      expect(result.options?.message).toBe('test');
-      expect(result.options?.count).toBe(5);
+      expect(result.args?.message).toBe('test');
+      expect(result.args?.count).toBe(5);
       expect(wrapResult.success).toBe(true);
     });
   });
@@ -352,9 +352,9 @@ describe('wrap', () => {
                 message: z.string(),
                 all: z.boolean().optional(),
               })
-              .transform((opts) => ({
-                m: opts.message,
-                a: opts.all,
+              .transform((args) => ({
+                m: args.message,
+                a: args.all,
               })),
           }),
       );
@@ -387,9 +387,9 @@ describe('wrap', () => {
                 image: z.string(),
                 detach: z.boolean().optional(),
               })
-              .transform((opts) => ({
-                image: opts.image,
-                d: opts.detach,
+              .transform((args) => ({
+                image: args.image,
+                d: args.detach,
               })),
           }),
       );

@@ -7,7 +7,7 @@ import {
   type HelpInfo,
   type HelpOptionInfo,
 } from './formatter.ts';
-import { extractSchemaMetadata, type PadroneMeta, parsePositionalConfig } from './options.ts';
+import { extractSchemaMetadata, type PadroneArgsSchemaMeta, parsePositionalConfig } from './options.ts';
 import type { AnyPadroneCommand } from './types.ts';
 import { getRootCommand } from './utils.ts';
 
@@ -21,7 +21,7 @@ export type HelpOptions = {
  */
 function extractPositionalArgsInfo(
   schema: StandardJSONSchemaV1,
-  meta?: PadroneMeta,
+  meta?: PadroneArgsSchemaMeta,
 ): { args: HelpArgumentInfo[]; positionalNames: Set<string> } {
   const args: HelpArgumentInfo[] = [];
   const positionalNames = new Set<string>();
@@ -44,7 +44,7 @@ function extractPositionalArgsInfo(
         if (!prop) continue;
 
         positionalNames.add(name);
-        const optMeta = meta.options?.[name];
+        const optMeta = meta.fields?.[name];
 
         args.push({
           name: variadic ? `...${name}` : name,
@@ -62,14 +62,14 @@ function extractPositionalArgsInfo(
   return { args, positionalNames };
 }
 
-function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: PadroneMeta, positionalNames?: Set<string>) {
+function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaMeta, positionalNames?: Set<string>) {
   const result: HelpOptionInfo[] = [];
   if (!schema) return result;
 
   const vendor = schema['~standard'].vendor;
   if (!vendor.includes('zod')) return result;
 
-  const optionsMeta = meta?.options;
+  const argsMeta = meta?.fields;
 
   try {
     const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
@@ -112,7 +112,7 @@ function extractOptionsInfo(schema: StandardJSONSchemaV1, meta?: PadroneMeta, po
 
         const isOptional = !required.includes(key);
         const enumValues = prop.enum as string[] | undefined;
-        const optMeta = optionsMeta?.[key];
+        const optMeta = argsMeta?.[key];
         const propType = prop.type as string;
 
         // Booleans are negatable unless there's an explicit noOption property
@@ -156,8 +156,8 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
   const commandName = cmd.path || cmd.name || 'program';
 
   // Extract positional args from options schema based on meta.positional
-  const { args: positionalArgs, positionalNames } = cmd.options
-    ? extractPositionalArgsInfo(cmd.options, cmd.meta)
+  const { args: positionalArgs, positionalNames } = cmd.arguments
+    ? extractPositionalArgsInfo(cmd.arguments, cmd.meta)
     : { args: [], positionalNames: new Set<string>() };
 
   const hasArguments = positionalArgs.length > 0;
@@ -173,7 +173,7 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
       command: rootCmd === cmd ? commandName : `${rootCmd.name} ${commandName}`,
       hasSubcommands: !!(cmd.commands && cmd.commands.length > 0),
       hasArguments,
-      hasOptions: !!cmd.options,
+      hasOptions: !!cmd.arguments,
     },
   };
 
@@ -203,12 +203,12 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpOptions['detail'] = 'st
   }
 
   // Build options info with aliases (excluding positional args)
-  if (cmd.options) {
-    const optionsInfo = extractOptionsInfo(cmd.options, cmd.meta, positionalNames);
+  if (cmd.arguments) {
+    const optionsInfo = extractOptionsInfo(cmd.arguments, cmd.meta, positionalNames);
     const optMap: Record<string, HelpOptionInfo> = Object.fromEntries(optionsInfo.map((opt) => [opt.name, opt]));
 
     // Merge aliases into options
-    const { aliases } = extractSchemaMetadata(cmd.options, cmd.meta?.options);
+    const { aliases } = extractSchemaMetadata(cmd.arguments, cmd.meta?.fields);
     for (const [alias, name] of Object.entries(aliases)) {
       const opt = optMap[name];
       if (!opt) continue;

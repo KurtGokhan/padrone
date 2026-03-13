@@ -36,12 +36,12 @@ export const tasksProgram = createPadrone('tasks')
         }),
         { positional: ['title'] },
       )
-      .action((options) => {
+      .action((args) => {
         const task = addTask({
-          title: options.title,
-          priority: options.priority,
-          tags: options.tags,
-          dueDate: options.due,
+          title: args.title,
+          priority: args.priority,
+          tags: args.tags,
+          dueDate: args.due,
         });
         console.log(`Task added: ${formatTask(task)}`);
         return task;

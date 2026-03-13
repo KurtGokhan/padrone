@@ -74,10 +74,10 @@ program
           all: z.boolean().optional(),
           long: z.boolean().optional(),
           humanReadable: z.boolean().optional(),
-        }).transform((opts) => ({
-          a: opts.all,
-          l: opts.long,
-          h: opts.humanReadable,
+        }).transform((args) => ({
+          a: args.all,
+          l: args.long,
+          h: args.humanReadable,
         })),
       })
   );
@@ -103,9 +103,9 @@ program
       )
       .wrap({
         command: 'ls',
-        schema: (cmdSchema) => cmdSchema.transform((opts) => ({
-          a: opts.all,
-          l: opts.long,
+        schema: (cmdSchema) => cmdSchema.transform((args) => ({
+          a: args.all,
+          l: args.long,
         })),
       })
   );
@@ -134,10 +134,10 @@ program
           source: z.string(),
           dest: z.string(),
           recursive: z.boolean().optional(),
-        }).transform((opts) => ({
-          source: opts.source,
-          dest: opts.dest,
-          r: opts.recursive,
+        }).transform((args) => ({
+          source: args.source,
+          dest: args.dest,
+          r: args.recursive,
         })),
         {
           command: 'cp',
@@ -172,9 +172,9 @@ program
         z.object({
           files: z.string().array(),
           force: z.boolean().optional(),
-        }).transform((opts) => ({
-          files: opts.files,
-          f: opts.force,
+        }).transform((args) => ({
+          files: args.files,
+          f: args.force,
         })),
         {
           command: 'rm',
@@ -209,9 +209,9 @@ program
         z.object({
           message: z.string(),
           amend: z.boolean().optional(),
-        }).transform((opts) => ({
-          m: opts.message,
-          amend: opts.amend,
+        }).transform((args) => ({
+          m: args.message,
+          amend: args.amend,
         })),
         {
           command: 'git',
@@ -298,15 +298,15 @@ const docker = createPadrone('docker-cli')
           port: z.string().array().optional(),
           volume: z.string().array().optional(),
           env: z.string().array().optional(),
-        }).transform((opts) => ({
-          image: opts.image,
-          name: opts.name,
-          d: opts.detach,
-          i: opts.interactive,
-          t: opts.tty,
-          p: opts.port,
-          v: opts.volume,
-          e: opts.env,
+        }).transform((args) => ({
+          image: args.image,
+          name: args.name,
+          d: args.detach,
+          i: args.interactive,
+          t: args.tty,
+          p: args.port,
+          v: args.volume,
+          e: args.env,
         })),
         {
           command: 'docker',
@@ -330,9 +330,9 @@ const docker = createPadrone('docker-cli')
         z.object({
           all: z.boolean().optional(),
           quiet: z.boolean().optional(),
-        }).transform((opts) => ({
-          a: opts.all,
-          q: opts.quiet,
+        }).transform((args) => ({
+          a: args.all,
+          q: args.quiet,
         })),
         {
           command: 'docker',

@@ -1,7 +1,7 @@
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec';
 import type { Tool } from 'ai';
 import type { HelpOptions } from './help.ts';
-import type { PadroneMeta } from './options.ts';
+import type { PadroneArgsSchemaMeta } from './options.ts';
 import type { PadroneRuntime, ResolvedPadroneRuntime } from './runtime.ts';
 import type {
   FullCommandName,
@@ -17,7 +17,7 @@ import type { WrapConfig, WrapResult } from './wrap.ts';
 
 type UnknownRecord = Record<string, unknown>;
 type EmptyRecord = Record<string, never>;
-type DefaultOpts = UnknownRecord | void;
+type DefaultArgs = UnknownRecord | void;
 
 /**
  * A schema that supports both validation (StandardSchemaV1) and JSON schema generation (StandardJSONSchemaV1).
@@ -49,12 +49,12 @@ type WithAliases<TCommand extends AnyPadroneCommand, TAliases extends string[]> 
 export type PadroneCommand<
   TName extends string = string,
   TParentName extends string = '',
-  TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
+  TArgs extends PadroneSchema = PadroneSchema<DefaultArgs>,
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
   TAliases extends string[] = string[],
-  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
-  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
+  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = PadroneSchema<void>,
+  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = PadroneSchema<void>,
   TAsync extends boolean = false,
 > = {
   name: TName;
@@ -66,12 +66,12 @@ export type PadroneCommand<
   aliases?: TAliases;
   deprecated?: boolean | string;
   hidden?: boolean;
-  needsApproval?: boolean | ((options: TOpts) => Promise<boolean> | boolean);
-  options?: TOpts;
+  needsApproval?: boolean | ((options: TArgs) => Promise<boolean> | boolean);
+  arguments?: TArgs;
   config?: TConfig;
   envSchema?: TEnv;
-  meta?: GetMeta<TOpts>;
-  handler?: (options: StandardSchemaV1.InferOutput<TOpts>, runtime: ResolvedPadroneRuntime) => TRes;
+  meta?: GetArgsMeta<TArgs>;
+  handler?: (args: StandardSchemaV1.InferOutput<TArgs>, runtime: ResolvedPadroneRuntime) => TRes;
   /** List of possible config file names to search for. */
   configFiles?: string[];
   /** Runtime flag indicating this command uses async validation. Set by `.async()` or `asyncSchema()`. */
@@ -88,8 +88,8 @@ export type PadroneCommand<
     parentName: TParentName;
     path: FullCommandName<TName, TParentName>;
     aliases: TAliases;
-    optionsInput: StandardSchemaV1.InferInput<TOpts>;
-    optionsOutput: StandardSchemaV1.InferOutput<TOpts>;
+    argumentsInput: StandardSchemaV1.InferInput<TArgs>;
+    argumentsOutput: StandardSchemaV1.InferOutput<TArgs>;
     result: TRes;
     commands: TCommands;
     async: TAsync;
@@ -133,16 +133,16 @@ type BuilderOrProgram<
   TProgramName extends string,
   TName extends string,
   TParentName extends string,
-  TOpts extends PadroneSchema,
+  TArgs extends PadroneSchema,
   TRes,
   TCommands extends [...AnyPadroneCommand[]],
-  TParentOpts extends PadroneSchema,
-  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>>,
-  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>>,
+  TParentArgs extends PadroneSchema,
+  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>>,
+  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>>,
   TAsync extends boolean,
 > = TReturn extends 'builder'
-  ? PadroneBuilder<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv, TAsync>
-  : PadroneProgram<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv, TAsync>;
+  ? PadroneBuilder<TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync>
+  : PadroneProgram<TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync>;
 
 /**
  * Base builder methods shared between PadroneBuilder and PadroneProgram.
@@ -152,12 +152,12 @@ export type PadroneBuilderMethods<
   TProgramName extends string,
   TName extends string,
   TParentName extends string,
-  TOpts extends PadroneSchema,
+  TArgs extends PadroneSchema,
   TRes,
   TCommands extends [...AnyPadroneCommand[]],
-  TParentOpts extends PadroneSchema,
-  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>>,
-  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>>,
+  TParentArgs extends PadroneSchema,
+  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>>,
+  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>>,
   TAsync extends boolean,
   /** The return type for builder methods - either PadroneBuilder or PadroneProgram */
   TReturn extends 'builder' | 'program',
@@ -175,7 +175,7 @@ export type PadroneBuilderMethods<
    */
   configure: (
     config: PadroneCommandConfig,
-  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv, TAsync>;
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync>;
 
   /**
    * Configures the runtime adapter for I/O abstraction.
@@ -193,7 +193,7 @@ export type PadroneBuilderMethods<
    */
   runtime: (
     runtime: PadroneRuntime,
-  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv, TAsync>;
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync>;
 
   /**
    * Explicitly marks this command as using async validation.
@@ -207,10 +207,10 @@ export type PadroneBuilderMethods<
    * ```ts
    * .arguments(z.object({ name: z.string() }).check(async (v) => { ... }))
    * .async()
-   * .action((opts) => { ... })
+   * .action((args) => { ... })
    * ```
    */
-  async: () => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv, true>;
+  async: () => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, true>;
 
   /**
    * Defines the options schema for the command, including positional arguments.
@@ -234,29 +234,29 @@ export type PadroneBuilderMethods<
    * @example
    * ```ts
    * // Function-based schema extending parent options
-   * .arguments((parentOpts) => {
+   * .arguments((parentArgs) => {
    *   return z.object({
-   *     ...parentOpts.shape,
+   *     ...parentArgs.shape,
    *     verbose: z.boolean().default(false),
    *   });
    * })
    * ```
    */
-  arguments: <TNewOpts extends PadroneSchema = PadroneSchema<void>>(
-    options?: TNewOpts | ((parentOptions: TParentOpts) => TNewOpts),
-    meta?: GetMeta<TNewOpts>,
+  arguments: <TNewArgs extends PadroneSchema = PadroneSchema<void>>(
+    schema?: TNewArgs | ((parentSchema: TParentArgs) => TNewArgs),
+    meta?: GetArgsMeta<TNewArgs>,
   ) => BuilderOrProgram<
     TReturn,
     TProgramName,
     TName,
     TParentName,
-    TNewOpts,
+    TNewArgs,
     TRes,
     TCommands,
-    TParentOpts,
+    TParentArgs,
     TConfig,
     TEnv,
-    OrAsync<TAsync, TNewOpts>
+    OrAsync<TAsync, TNewArgs>
   >;
 
   /**
@@ -266,18 +266,18 @@ export type PadroneBuilderMethods<
    * .configFile('config.json', z.object({ port: z.number() }))
    * ```
    */
-  configFile: <TNewConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = TOpts>(
+  configFile: <TNewConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = TArgs>(
     file: string | string[] | undefined,
-    schema?: TNewConfig | ((optionsSchema: TOpts) => TNewConfig),
+    schema?: TNewConfig | ((optionsSchema: TArgs) => TNewConfig),
   ) => BuilderOrProgram<
     TReturn,
     TProgramName,
     TName,
     TParentName,
-    TOpts,
+    TArgs,
     TRes,
     TCommands,
-    TParentOpts,
+    TParentArgs,
     TNewConfig,
     TEnv,
     OrAsync<TAsync, TNewConfig>
@@ -292,17 +292,17 @@ export type PadroneBuilderMethods<
    * .env(z.object({ MY_APP_PORT: z.coerce.number() }).transform(e => ({ port: e.MY_APP_PORT })))
    * ```
    */
-  env: <TNewEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = TOpts>(
-    schema: TNewEnv | ((optionsSchema: TOpts) => TNewEnv),
+  env: <TNewEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = TArgs>(
+    schema: TNewEnv | ((optionsSchema: TArgs) => TNewEnv),
   ) => BuilderOrProgram<
     TReturn,
     TProgramName,
     TName,
     TParentName,
-    TOpts,
+    TArgs,
     TRes,
     TCommands,
-    TParentOpts,
+    TParentArgs,
     TConfig,
     TNewEnv,
     OrAsync<TAsync, TNewEnv>
@@ -312,8 +312,8 @@ export type PadroneBuilderMethods<
    * Defines the handler function to be executed when the command is run.
    */
   action: <TNewRes>(
-    handler?: (options: StandardSchemaV1.InferOutput<TOpts>, runtime: ResolvedPadroneRuntime) => TNewRes,
-  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TNewRes, TCommands, TParentOpts, TConfig, TEnv, TAsync>;
+    handler?: (args: StandardSchemaV1.InferOutput<TArgs>, runtime: ResolvedPadroneRuntime) => TNewRes,
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TNewRes, TCommands, TParentArgs, TConfig, TEnv, TAsync>;
 
   /**
    * Wraps an external CLI tool with optional schema transformation.
@@ -346,9 +346,9 @@ export type PadroneBuilderMethods<
    *   schema: z.object({
    *     message: z.string(),
    *     all: z.boolean().optional(),
-   *   }).transform(opts => ({
-   *     m: opts.message,
-   *     a: opts.all,
+   *   }).transform(args => ({
+   *     m: args.message,
+   *     a: args.all,
    *   })),
    * })
    * ```
@@ -364,24 +364,24 @@ export type PadroneBuilderMethods<
    *   command: 'docker',
    *   args: ['run'],
    *   positional: ['image'],
-   *   schema: (cmdOpts) => cmdOpts.transform(opts => ({
-   *     d: opts.detach,
-   *     image: opts.image,
+   *   schema: (schema) => schema.transform(args => ({
+   *     d: args.detach,
+   *     image: args.image,
    *   })),
    * })
    * ```
    */
-  wrap: <TWrapOpts extends PadroneSchema = TOpts>(
-    config: WrapConfig<TOpts, TWrapOpts>,
+  wrap: <TWrapArgs extends PadroneSchema = TArgs>(
+    config: WrapConfig<TArgs, TWrapArgs>,
   ) => BuilderOrProgram<
     TReturn,
     TProgramName,
     TName,
     TParentName,
-    TOpts,
+    TArgs,
     Promise<WrapResult>,
     TCommands,
-    TParentOpts,
+    TParentArgs,
     TConfig,
     TEnv,
     TAsync
@@ -409,7 +409,7 @@ export type PadroneBuilderMethods<
       any,
       void,
       [],
-      TOpts,
+      TArgs,
       any,
       any,
       false
@@ -424,7 +424,7 @@ export type PadroneBuilderMethods<
         PadroneSchema<void>,
         void,
         [],
-        TOpts,
+        TArgs,
         PadroneSchema<void>,
         PadroneSchema<void>,
         false
@@ -435,14 +435,14 @@ export type PadroneBuilderMethods<
     TProgramName,
     TName,
     TParentName,
-    TOpts,
+    TArgs,
     TRes,
     TCommands extends []
       ? [WithAliases<TBuilder['~types']['command'], TAliases>]
       : AnyPadroneCommand[] extends TCommands
         ? [WithAliases<TBuilder['~types']['command'], TAliases>]
         : [...TCommands, WithAliases<TBuilder['~types']['command'], TAliases>],
-    TParentOpts,
+    TParentArgs,
     TConfig,
     TEnv,
     TAsync
@@ -455,11 +455,11 @@ export type PadroneBuilderMethods<
     parentName: TParentName;
     path: FullCommandName<TName, TParentName>;
     aliases: [];
-    options: TOpts;
+    arguments: TArgs;
     result: TRes;
     commands: TCommands;
     async: TAsync;
-    command: PadroneCommand<TName, TParentName, TOpts, TRes, TCommands, [], TConfig, TEnv, TAsync>;
+    command: PadroneCommand<TName, TParentName, TArgs, TRes, TCommands, [], TConfig, TEnv, TAsync>;
   };
 };
 
@@ -467,76 +467,76 @@ export type PadroneBuilder<
   TProgramName extends string = '',
   TName extends string = string,
   TParentName extends string = '',
-  TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
+  TArgs extends PadroneSchema = PadroneSchema<DefaultArgs>,
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
-  TParentOpts extends PadroneSchema = PadroneSchema<void>,
-  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
-  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
+  TParentArgs extends PadroneSchema = PadroneSchema<void>,
+  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = PadroneSchema<void>,
+  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = PadroneSchema<void>,
   TAsync extends boolean = false,
-> = PadroneBuilderMethods<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv, TAsync, 'builder'>;
+> = PadroneBuilderMethods<TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync, 'builder'>;
 
 export type PadroneProgram<
   TProgramName extends string = '',
   TName extends string = string,
   TParentName extends string = '',
-  TOpts extends PadroneSchema = PadroneSchema<DefaultOpts>,
+  TArgs extends PadroneSchema = PadroneSchema<DefaultArgs>,
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
-  TParentOpts extends PadroneSchema = PadroneSchema<void>,
-  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
-  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TOpts>> = PadroneSchema<void>,
+  TParentArgs extends PadroneSchema = PadroneSchema<void>,
+  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = PadroneSchema<void>,
+  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = PadroneSchema<void>,
   TAsync extends boolean = false,
-> = PadroneBuilderMethods<TProgramName, TName, TParentName, TOpts, TRes, TCommands, TParentOpts, TConfig, TEnv, TAsync, 'program'> & {
+> = PadroneBuilderMethods<TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync, 'program'> & {
   /**
    * Runs a command programmatically by name with provided options (including positional args).
    */
-  run: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], true, true>>(
+  run: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, true>>(
     name: TCommand | SafeString,
-    options: NoInfer<GetOptions<'in', PickCommandByName<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>>,
-  ) => PadroneCommandResult<PickCommandByName<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>;
+    args: NoInfer<GetArguments<'in', PickCommandByName<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>>,
+  ) => PadroneCommandResult<PickCommandByName<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>;
 
   /**
    * Runs the program as a CLI application, parsing `process.argv` or provided input.
    */
-  cli: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], true, true>>(
+  cli: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, true>>(
     input?: TCommand | SafeString,
     options?: PadroneParseOptions,
   ) => MaybePromise<
-    PadroneCommandResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>,
-    PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>['~types']['async']
+    PadroneCommandResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>,
+    PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>['~types']['async']
   >;
 
   /**
    * Parses CLI input (or the provided input string) into command, args, and options without executing anything.
    */
-  parse: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], true, false>>(
+  parse: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, false>>(
     input?: TCommand | SafeString,
     options?: PadroneParseOptions,
   ) => MaybePromise<
-    PadroneParseResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>,
-    PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>['~types']['async']
+    PadroneParseResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>,
+    PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>['~types']['async']
   >;
 
   /**
    * Converts command and options back into a CLI string.
    */
-  stringify: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], false, true>>(
+  stringify: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], false, true>>(
     command?: TCommand | SafeString,
-    options?: GetOptions<'out', PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TCommand>>,
+    args?: GetArguments<'out', PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>,
   ) => string;
 
   /**
    * Finds a command by name, returning `undefined` if not found.
    */
-  find: <const TFind extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], false, true>>(
+  find: <const TFind extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], false, true>>(
     command: TFind | SafeString,
-  ) => PickCommandByPossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], TFind> | undefined;
+  ) => PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TFind> | undefined;
 
   /**
    * Generates a type-safe API for invoking commands programmatically.
    */
-  api: () => PadroneAPI<PadroneCommand<'', '', TOpts, TRes, TCommands>>;
+  api: () => PadroneAPI<PadroneCommand<'', '', TArgs, TRes, TCommands>>;
 
   // TODO: implement interactive and repl methods
 
@@ -558,7 +558,7 @@ export type PadroneProgram<
   /**
    * Returns the help information for the program or a specific command.
    */
-  help: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TOpts, TRes, TCommands>], false, true>>(
+  help: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], false, true>>(
     command?: TCommand,
     options?: HelpOptions,
   ) => string;
@@ -609,21 +609,21 @@ export type PadroneParseOptions = {
 
 export type PadroneParseResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> = {
   command: TCommand;
-  options?: GetOptions<'out', TCommand>;
-  optionsResult?: StandardSchemaV1.Result<GetOptions<'out', TCommand>>;
+  args?: GetArguments<'out', TCommand>;
+  argsResult?: StandardSchemaV1.Result<GetArguments<'out', TCommand>>;
 };
 
 export type PadroneAPI<TCommand extends AnyPadroneCommand> = PadroneAPICommand<TCommand> & {
   [K in TCommand['~types']['commands'][number] as K['name']]: PadroneAPI<K>;
 };
 
-type PadroneAPICommand<TCommand extends AnyPadroneCommand> = (options: GetOptions<'in', TCommand>) => GetResults<TCommand>;
+type PadroneAPICommand<TCommand extends AnyPadroneCommand> = (args: GetArguments<'in', TCommand>) => GetResults<TCommand>;
 
-type NormalizeOptions<TOptions> = IsGeneric<TOptions> extends true ? void | EmptyRecord : TOptions;
-type GetOptions<TDir extends 'in' | 'out', TCommand extends AnyPadroneCommand> = TDir extends 'in'
-  ? NormalizeOptions<TCommand['~types']['optionsInput']>
-  : NormalizeOptions<TCommand['~types']['optionsOutput']>;
+type NormalizeArguments<TOptions> = IsGeneric<TOptions> extends true ? void | EmptyRecord : TOptions;
+type GetArguments<TDir extends 'in' | 'out', TCommand extends AnyPadroneCommand> = TDir extends 'in'
+  ? NormalizeArguments<TCommand['~types']['argumentsInput']>
+  : NormalizeArguments<TCommand['~types']['argumentsOutput']>;
 
 type GetResults<TCommand extends AnyPadroneCommand> = ReturnType<NonNullable<TCommand['handler']>>;
 
-type GetMeta<TOpts extends PadroneSchema> = PadroneMeta<NonNullable<StandardSchemaV1.InferInput<TOpts>>>;
+type GetArgsMeta<TArgs extends PadroneSchema> = PadroneArgsSchemaMeta<NonNullable<StandardSchemaV1.InferInput<TArgs>>>;

@@ -36,7 +36,7 @@ A task manager CLI for managing your todos with support for priorities, tags, an
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **tasks add** *[args...]* *[options]*
+Usage: **tasks add** *[positional...]* *[arguments]*
 
 
 

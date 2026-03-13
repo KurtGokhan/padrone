@@ -161,7 +161,7 @@ const program = createPadrone('db')
       .command('down', (c) =>
         c
           .arguments(z.object({ steps: z.number().default(1) }))
-          .action((opts) => console.log(`Rolling back ${opts.steps} migrations`))
+          .action((args) => console.log(`Rolling back ${args.steps} migrations`))
       )
       .command('status', (c) =>
         c.action(() => console.log('Migration status'))

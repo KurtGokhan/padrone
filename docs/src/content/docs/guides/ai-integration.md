@@ -185,9 +185,9 @@ const tasks = createPadrone('tasks')
         }),
         { positional: ['title'] }
       )
-      .action((opts) => {
+      .action((args) => {
         // Save task to database...
-        return { id: 'task-1', ...opts, status: 'created' };
+        return { id: 'task-1', ...args, status: 'created' };
       })
   )
   .command('list', (c) =>
@@ -198,7 +198,7 @@ const tasks = createPadrone('tasks')
           status: z.enum(['all', 'pending', 'completed']).default('all'),
         })
       )
-      .action((opts) => {
+      .action((args) => {
         // Fetch from database...
         return {
           tasks: [
@@ -217,8 +217,8 @@ const tasks = createPadrone('tasks')
         }),
         { positional: ['id'] }
       )
-      .action((opts) => {
-        return { id: opts.id, status: 'completed' };
+      .action((args) => {
+        return { id: args.id, status: 'completed' };
       })
   );
 

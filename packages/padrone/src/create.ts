@@ -37,7 +37,7 @@ function thenMaybe<T, U>(value: T | Promise<T>, fn: (v: T) => U | Promise<U>): U
  * }));
  *
  * const program = createPadrone('app')
- *   .command('greet', (c) => c.arguments(schema).action((opts) => opts.name));
+ *   .command('greet', (c) => c.arguments(schema).action((args) => args.name));
  *
  * // parse() now returns Promise<PadroneParseResult>
  * const result = await program.parse('greet --name world');
@@ -124,7 +124,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
    */
   const parseCommand = (input: string | undefined) => {
     input ??= getCommandRuntime(existingCommand).argv().join(' ') || undefined;
-    if (!input) return { command: existingCommand, rawOptions: {} as Record<string, unknown>, args: [] as string[] };
+    if (!input) return { command: existingCommand, rawArgs: {} as Record<string, unknown>, args: [] as string[] };
 
     const parts = parseCliInputToParts(input);
 
@@ -148,18 +148,18 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       }
     }
 
-    if (!curCommand) return { command: existingCommand, rawOptions: {} as Record<string, unknown>, args };
+    if (!curCommand) return { command: existingCommand, rawArgs: {} as Record<string, unknown>, args };
 
     // Extract option metadata from the nested options object in meta
-    const optionsMeta = curCommand.meta?.options;
-    const schemaMetadata = curCommand.options ? extractSchemaMetadata(curCommand.options, optionsMeta) : { aliases: {} };
+    const argsMeta = curCommand.meta?.fields;
+    const schemaMetadata = curCommand.arguments ? extractSchemaMetadata(curCommand.arguments, argsMeta) : { aliases: {} };
     const { aliases } = schemaMetadata;
 
     // Get array options from schema (arrays are always variadic)
     const arrayOptions = new Set<string>();
-    if (curCommand.options) {
+    if (curCommand.arguments) {
       try {
-        const jsonSchema = curCommand.options['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+        const jsonSchema = curCommand.arguments['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
         if (jsonSchema.type === 'object' && jsonSchema.properties) {
           for (const [key, prop] of Object.entries(jsonSchema.properties as Record<string, any>)) {
             if (prop?.type === 'array') arrayOptions.add(key);
@@ -171,7 +171,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     }
 
     const opts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
-    const rawOptions: Record<string, unknown> = {};
+    const rawArgs: Record<string, unknown> = {};
 
     for (const opt of opts) {
       // For aliases, resolve to the full key name (aliases map single char to full key name)
@@ -182,7 +182,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
       // Handle negated boolean options (--no-verbose)
       if (opt.type === 'option' && opt.negated) {
-        setNestedValue(rawOptions, key, false);
+        setNestedValue(rawArgs, key, false);
         continue;
       }
 
@@ -190,7 +190,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
       // Handle array options - accumulate values into arrays (arrays are always variadic)
       if (arrayOptions.has(rootKey)) {
-        const existing = getNestedValue(rawOptions, key);
+        const existing = getNestedValue(rawArgs, key);
         if (existing !== undefined) {
           if (Array.isArray(existing)) {
             if (Array.isArray(value)) {
@@ -200,34 +200,34 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             }
           } else {
             if (Array.isArray(value)) {
-              setNestedValue(rawOptions, key, [existing, ...value]);
+              setNestedValue(rawArgs, key, [existing, ...value]);
             } else {
-              setNestedValue(rawOptions, key, [existing, value]);
+              setNestedValue(rawArgs, key, [existing, value]);
             }
           }
         } else {
-          setNestedValue(rawOptions, key, Array.isArray(value) ? value : [value]);
+          setNestedValue(rawArgs, key, Array.isArray(value) ? value : [value]);
         }
       } else {
-        setNestedValue(rawOptions, key, value);
+        setNestedValue(rawArgs, key, value);
       }
     }
 
-    return { command: curCommand, rawOptions, args };
+    return { command: curCommand, rawArgs, args };
   };
 
   /**
    * Validates raw options against the command's schema and applies preprocessing.
    * Returns sync or async result depending on the schema's validate method.
    */
-  const validateOptions = (
+  const validateArgs = (
     command: AnyPadroneCommand,
-    rawOptions: Record<string, unknown>,
+    rawArgs: Record<string, unknown>,
     args: string[],
     parseOptions?: { envData?: Record<string, unknown>; configData?: Record<string, unknown> },
   ) => {
     // Apply preprocessing (env and config bindings)
-    const preprocessedOptions = preprocessOptions(rawOptions, {
+    const preprocessedArgs = preprocessOptions(rawArgs, {
       aliases: {}, // Already resolved aliases in parseCommand
       envData: parseOptions?.envData,
       configData: parseOptions?.configData,
@@ -247,30 +247,30 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           const remainingPositionals = positionalConfig.slice(positionalConfig.indexOf({ name, variadic }) + 1);
           const nonVariadicAfter = remainingPositionals.filter((p) => !p.variadic).length;
           const variadicEnd = args.length - nonVariadicAfter;
-          preprocessedOptions[name] = args.slice(argIndex, variadicEnd);
+          preprocessedArgs[name] = args.slice(argIndex, variadicEnd);
           argIndex = variadicEnd;
         } else {
-          preprocessedOptions[name] = args[argIndex];
+          preprocessedArgs[name] = args[argIndex];
           argIndex++;
         }
       }
     }
 
-    const optionsParsed = command.options ? command.options['~standard'].validate(preprocessedOptions) : { value: preprocessedOptions };
+    const argsParsed = command.arguments ? command.arguments['~standard'].validate(preprocessedArgs) : { value: preprocessedArgs };
 
-    // Return undefined for options when there's no schema and no meaningful options
-    const hasOptions = command.options || Object.keys(preprocessedOptions).length > 0;
+    // Return undefined for args when there's no schema and no meaningful args
+    const hasArgs = command.arguments || Object.keys(preprocessedArgs).length > 0;
 
     const buildResult = (parsed: StandardSchemaV1.Result<unknown>) => ({
-      options: parsed.issues ? undefined : hasOptions ? (parsed.value as any) : undefined,
-      optionsResult: parsed as any,
+      args: parsed.issues ? undefined : hasArgs ? (parsed.value as any) : undefined,
+      argsResult: parsed as any,
     });
 
-    return thenMaybe(optionsParsed, buildResult);
+    return thenMaybe(argsParsed, buildResult);
   };
 
   const parse: AnyPadroneProgram['parse'] = (input, parseOptions) => {
-    const { command, rawOptions, args } = parseCommand(input);
+    const { command, rawArgs, args } = parseCommand(input);
 
     // Resolve env schema: command's own envSchema > inherited from parent/root
     const resolveEnvSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['envSchema'] => {
@@ -281,15 +281,15 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const envSchema = resolveEnvSchema(command);
 
     const finalize = (envData: Record<string, unknown> | undefined) => {
-      const validated = validateOptions(command, rawOptions, args, {
+      const validated = validateArgs(command, rawArgs, args, {
         envData,
         configData: parseOptions?.configData,
       });
 
-      const toParseResult = (v: { options: any; optionsResult: any }) => ({
+      const toParseResult = (v: { args: any; argsResult: any }) => ({
         command: command as any,
-        options: v.options,
-        optionsResult: v.optionsResult,
+        args: v.args,
+        argsResult: v.argsResult,
       });
 
       return thenMaybe(validated, toParseResult);
@@ -317,7 +317,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     return warnIfUnexpectedAsync(finalize(envData), command) as any;
   };
 
-  const stringify: AnyPadroneProgram['stringify'] = (command = '' as any, options) => {
+  const stringify: AnyPadroneProgram['stringify'] = (command = '' as any, args) => {
     const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyPadroneCommand);
     if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
 
@@ -325,14 +325,14 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     if (commandObj.path) parts.push(commandObj.path);
 
-    // Get positional config to determine which options are positional
+    // Get positional config to determine which args are positional
     const positionalConfig = commandObj.meta?.positional ? parsePositionalConfig(commandObj.meta.positional) : [];
     const positionalNames = new Set(positionalConfig.map((p) => p.name));
 
     // Output positional arguments first in order
-    if (options && typeof options === 'object') {
+    if (args && typeof args === 'object') {
       for (const { name, variadic } of positionalConfig) {
-        const value = (options as Record<string, unknown>)[name];
+        const value = (args as Record<string, unknown>)[name];
         if (value === undefined) continue;
 
         if (variadic && Array.isArray(value)) {
@@ -376,7 +376,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       };
 
       // Output remaining options (non-positional)
-      for (const [key, value] of Object.entries(options)) {
+      for (const [key, value] of Object.entries(args)) {
         if (value === undefined || positionalNames.has(key)) continue;
         stringifyValue(key, value);
       }
@@ -403,17 +403,17 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     const parts = parseCliInputToParts(input);
     const terms = parts.filter((p) => p.type === 'term').map((p) => p.value);
-    const opts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
+    const args = parts.filter((p) => p.type === 'option' || p.type === 'alias');
 
     // Helper to check if a key array matches a single key string
     const keyIs = (key: string[], name: string) => key.length === 1 && key[0] === name;
 
     // Check for --help, -h flags (these take precedence over commands)
-    const hasHelpFlag = opts.some((p) => (p.type === 'option' && keyIs(p.key, 'help')) || (p.type === 'alias' && keyIs(p.key, 'h')));
+    const hasHelpFlag = args.some((p) => (p.type === 'option' && keyIs(p.key, 'help')) || (p.type === 'alias' && keyIs(p.key, 'h')));
 
     // Extract detail level from --detail=<level> or -d <level>
     const getDetailLevel = (): DetailLevel | undefined => {
-      for (const opt of opts) {
+      for (const opt of args) {
         if (opt.type === 'option' && keyIs(opt.key, 'detail') && typeof opt.value === 'string') {
           if (opt.value === 'minimal' || opt.value === 'standard' || opt.value === 'full') {
             return opt.value;
@@ -432,7 +432,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     // Extract format from --format=<value> or -f <value>
     const getFormat = (): FormatLevel | undefined => {
       const validFormats: FormatLevel[] = ['text', 'ansi', 'console', 'markdown', 'html', 'json', 'auto'];
-      for (const opt of opts) {
+      for (const opt of args) {
         if (opt.type === 'option' && keyIs(opt.key, 'format') && typeof opt.value === 'string') {
           if (validFormats.includes(opt.value as FormatLevel)) {
             return opt.value as FormatLevel;
@@ -449,7 +449,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const format = getFormat();
 
     // Check for --version, -v, -V flags
-    const hasVersionFlag = opts.some(
+    const hasVersionFlag = args.some(
       (p) => (p.type === 'option' && keyIs(p.key, 'version')) || (p.type === 'alias' && (keyIs(p.key, 'v') || keyIs(p.key, 'V'))),
     );
 
@@ -507,9 +507,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     if (!input) return undefined;
 
     const parts = parseCliInputToParts(input);
-    const opts = parts.filter((p) => p.type === 'option' || p.type === 'alias');
+    const args = parts.filter((p) => p.type === 'option' || p.type === 'alias');
 
-    for (const opt of opts) {
+    for (const opt of args) {
       if (opt.type === 'option' && opt.key.length === 1 && opt.key[0] === 'config' && typeof opt.value === 'string') {
         return opt.value;
       }
@@ -539,7 +539,6 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         return {
           command: existingCommand,
           args: undefined,
-          options: undefined,
           result: helpText,
         } as any;
       }
@@ -549,7 +548,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         runtime.output(version);
         return {
           command: existingCommand,
-          options: undefined,
+          args: undefined,
           result: version,
         } as any;
       }
@@ -559,14 +558,14 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         runtime.output(completionScript);
         return {
           command: existingCommand,
-          options: undefined,
+          args: undefined,
           result: completionScript,
         } as any;
       }
     }
 
     // Parse the command first (without validating options)
-    const { command, rawOptions, args } = parseCommand(resolvedInput);
+    const { command, rawArgs, args } = parseCommand(resolvedInput);
 
     // Extract config file path from --config or -c flag
     const configPath = extractConfigPath(resolvedInput);
@@ -651,15 +650,15 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
       // Step 3: Validate options and run handler
       const finalizeAndRun = (validatedConfigData: Record<string, unknown> | undefined, envData: Record<string, unknown> | undefined) => {
-        const validated = validateOptions(command, rawOptions, args, {
+        const validated = validateArgs(command, rawArgs, args, {
           envData,
           configData: validatedConfigData,
         });
 
-        const handleValidated = (v: { options: any; optionsResult: any }) => {
+        const handleValidated = (v: { args: any; argsResult: any }) => {
           // Handle validation failures
-          if (v.optionsResult?.issues) {
-            const issueMessages = v.optionsResult.issues
+          if (v.argsResult?.issues) {
+            const issueMessages = v.argsResult.issues
               .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
               .join('\n');
 
@@ -674,16 +673,16 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             // Called with explicit input: return result with issues, skip the action
             return {
               command: command as any,
-              options: undefined,
-              optionsResult: v.optionsResult,
+              args: undefined,
+              argsResult: v.argsResult,
               result: undefined,
             };
           }
 
-          const res = run(command, v.options) as any;
+          const res = run(command, v.args) as any;
           return {
             ...res,
-            optionsResult: v.optionsResult,
+            argsResult: v.argsResult,
           };
         };
 
@@ -703,16 +702,16 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     return warnIfUnexpectedAsync(processValidation(), command) as any;
   };
 
-  const run: AnyPadroneProgram['run'] = (command, options) => {
+  const run: AnyPadroneProgram['run'] = (command, args) => {
     const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyPadroneCommand);
     if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
     if (!commandObj.handler) throw new Error(`Command "${commandObj.path}" has no handler`);
 
-    const result = commandObj.handler(options as any, getCommandRuntime(commandObj));
+    const result = commandObj.handler(args as any, getCommandRuntime(commandObj));
 
     return {
       command: commandObj as any,
-      options: options as any,
+      args: args as any,
       result,
     };
   };
@@ -751,7 +750,7 @@ ${helpText}
       } satisfies Schema<{ command: string }> as Schema<{ command: string }>,
       needsApproval: async (input) => {
         const parsed = await parse(input.command);
-        if (typeof parsed.command.needsApproval === 'function') return parsed.command.needsApproval(parsed.options);
+        if (typeof parsed.command.needsApproval === 'function') return parsed.command.needsApproval(parsed.args);
         return !!parsed.command.needsApproval;
       },
       execute: async (input) => {
@@ -771,20 +770,20 @@ ${helpText}
     async() {
       return createPadroneBuilder({ ...existingCommand, isAsync: true }) as any;
     },
-    arguments(options, meta) {
-      // If options is a function, call it with parent's options as base
-      const resolvedOptions = typeof options === 'function' ? options(existingCommand.options as any) : options;
-      const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedOptions);
-      return createPadroneBuilder({ ...existingCommand, options: resolvedOptions, meta, isAsync }) as any;
+    arguments(schema, meta) {
+      // If schema is a function, call it with parent's arguments as base
+      const resolvedArgs = typeof schema === 'function' ? schema(existingCommand.arguments as any) : schema;
+      const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedArgs);
+      return createPadroneBuilder({ ...existingCommand, arguments: resolvedArgs, meta, isAsync }) as any;
     },
     configFile(file, schema) {
       const configFiles = file === undefined ? undefined : Array.isArray(file) ? file : [file];
-      const resolvedConfig = typeof schema === 'function' ? schema(existingCommand.options) : (schema ?? existingCommand.options);
+      const resolvedConfig = typeof schema === 'function' ? schema(existingCommand.arguments) : (schema ?? existingCommand.arguments);
       const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedConfig);
       return createPadroneBuilder({ ...existingCommand, configFiles, config: resolvedConfig as any, isAsync }) as any;
     },
     env(schema) {
-      const resolvedEnv = typeof schema === 'function' ? schema(existingCommand.options) : schema;
+      const resolvedEnv = typeof schema === 'function' ? schema(existingCommand.arguments) : schema;
       const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedEnv);
       return createPadroneBuilder({ ...existingCommand, envSchema: resolvedEnv as any, isAsync }) as any;
     },
@@ -792,7 +791,7 @@ ${helpText}
       return createPadroneBuilder({ ...existingCommand, handler }) as any;
     },
     wrap(config) {
-      const handler = createWrapHandler(config, existingCommand.options as any, existingCommand.meta?.positional);
+      const handler = createWrapHandler(config, existingCommand.arguments as any, existingCommand.meta?.positional);
       return createPadroneBuilder({ ...existingCommand, handler }) as any;
     },
     command(nameOrNames, builderFn) {
@@ -823,7 +822,7 @@ ${helpText}
 
     api() {
       function buildApi(command: AnyPadroneCommand) {
-        const runCommand = ((options) => run(command, options).result) as PadroneAPI<AnyPadroneCommand>;
+        const runCommand = ((args) => run(command, args).result) as PadroneAPI<AnyPadroneCommand>;
         if (!command.commands) return runCommand;
         for (const cmd of command.commands) runCommand[cmd.name] = buildApi(cmd);
         return runCommand;

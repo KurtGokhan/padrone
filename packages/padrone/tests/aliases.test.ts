@@ -89,7 +89,7 @@ describe('Command Aliases', () => {
     it('should execute command with options using alias', () => {
       const result = program.cli('ls --format json');
       expect(result.command.name).toBe('list');
-      expect(result.options?.format).toBe('json');
+      expect(result.args?.format).toBe('json');
       expect(result.result.format).toBe('json');
     });
   });
@@ -199,14 +199,14 @@ describe('Command Aliases', () => {
     it('should parse nested command with alias', () => {
       const result = program.parse('config cfg key value');
       expect(result.command.name).toBe('set');
-      expect(result.options?.key).toBe('key');
+      expect(result.args?.key).toBe('key');
     });
   });
 
   describe('Stringify method preserves command name', () => {
     it('should stringify using actual command name, not alias', () => {
       const result = program.cli('ls --format json');
-      const stringified = program.stringify('list', result.options);
+      const stringified = program.stringify('list', result.args);
       expect(stringified).toContain('list');
       expect(stringified).toContain('format');
       expect(stringified).toContain('json');

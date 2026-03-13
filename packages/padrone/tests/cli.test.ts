@@ -13,7 +13,7 @@ describe('CLI', () => {
       const result = program.run('show', { id: 'task-1', priority: 'high', verbose: true });
 
       expect(result.command.path).toBe('show');
-      expect(result.options).toMatchInlineSnapshot(`
+      expect(result.args).toMatchInlineSnapshot(`
         {
           "id": "task-1",
           "priority": "high",
@@ -37,8 +37,8 @@ describe('CLI', () => {
       const result = program.run('list extended', { status: 'pending', priority: 'high' });
 
       expect(result.command.path).toBe('list extended');
-      expect(result.options?.status).toEqual('pending');
-      expect(result.options?.priority).toEqual('high');
+      expect(result.args?.status).toEqual('pending');
+      expect(result.args?.priority).toEqual('high');
       expect(result.result.status).toBe('pending');
       expect(result.result.extendedList).toBeDefined();
     });
@@ -47,7 +47,7 @@ describe('CLI', () => {
       const result = program.run('batch', { ids: ['task-1', 'task-2', 'task-3'] });
 
       expect(result.command.path).toBe('batch');
-      expect(result.options?.ids).toEqual(['task-1', 'task-2', 'task-3']);
+      expect(result.args?.ids).toEqual(['task-1', 'task-2', 'task-3']);
       expect(result.result.ids).toEqual(['task-1', 'task-2', 'task-3']);
       expect(result.result.results).toHaveLength(3);
     });
@@ -56,7 +56,7 @@ describe('CLI', () => {
       const result = program.run('noop', undefined);
 
       expect(result.command.path).toBe('noop');
-      expect(result.options).toBeUndefined();
+      expect(result.args).toBeUndefined();
       expect(result.result).toBeUndefined();
     });
   });
@@ -66,54 +66,54 @@ describe('CLI', () => {
       const result = program.parse('show task-1');
 
       expect(result.command.path).toBe('show');
-      expect(result.options?.id).toEqual('task-1');
-      expect(result.options?.priority).toEqual('medium');
+      expect(result.args?.id).toEqual('task-1');
+      expect(result.args?.priority).toEqual('medium');
     });
 
     it('should parse command with options', () => {
       const result = program.parse('show task-2 --priority high --verbose');
 
       expect(result.command.path).toBe('show');
-      expect(result.options?.id).toEqual('task-2');
-      expect(result.options?.priority).toEqual('high');
-      expect(result.options?.verbose).toBe(true);
+      expect(result.args?.id).toEqual('task-2');
+      expect(result.args?.priority).toEqual('high');
+      expect(result.args?.verbose).toBe(true);
     });
 
     it('should parse command with option values', () => {
       const result = program.parse('list --limit=5 --priority high');
 
       expect(result.command.path).toBe('list');
-      expect(result.options?.limit).toEqual(5);
-      expect(result.options?.priority).toEqual('high');
+      expect(result.args?.limit).toEqual(5);
+      expect(result.args?.priority).toEqual('high');
     });
 
     it('should parse nested commands', () => {
       const result = program.parse('list extended --status pending --priority high');
 
       expect(result.command.path).toBe('list extended');
-      expect(result.options?.status).toEqual('pending');
-      expect(result.options?.priority).toEqual('high');
+      expect(result.args?.status).toEqual('pending');
+      expect(result.args?.priority).toEqual('high');
     });
 
     it('should parse command with multiple args', () => {
       const result = program.parse('batch task-1 task-2 task-3 task-4');
 
       expect(result.command.path).toBe('batch');
-      expect(result.options?.ids).toEqual(['task-1', 'task-2', 'task-3', 'task-4']);
+      expect(result.args?.ids).toEqual(['task-1', 'task-2', 'task-3', 'task-4']);
     });
 
     it('should parse command with complex options', () => {
       const result = program.parse('filter --status "in_progress" --priority high');
 
       expect(result.command.path).toBe('filter');
-      expect(result.options).toEqual({ status: 'in_progress', priority: 'high' }); // Note: quotes are now properly parsed
+      expect(result.args).toEqual({ status: 'in_progress', priority: 'high' }); // Note: quotes are now properly parsed
     });
 
     it('should handle empty input', () => {
       const result = program.parse('');
 
       expect(result.command.path).toBe('');
-      expect(result.options).toBeUndefined();
+      expect(result.args).toBeUndefined();
     });
   });
 
@@ -124,7 +124,7 @@ describe('CLI', () => {
       expect(result).toBeDefined();
       if (!result) throw new Error('Result is undefined');
       expect(result.command.path).toBe('show');
-      expect(result.options?.id).toEqual('task-1');
+      expect(result.args?.id).toEqual('task-1');
       expect(result.result.id).toBe('task-1');
       expect(result.result.title).toBe('Important Task');
     });
@@ -256,15 +256,15 @@ describe('CLI', () => {
       const result = program.parse('filter --ascending');
 
       expect(result.command.path).toBe('filter');
-      expect(result.options?.ascending).toBe(true);
+      expect(result.args?.ascending).toBe(true);
     });
 
     it('should handle multiple boolean options', () => {
       const result = program.parse('show task-1 --verbose --priority high');
 
       expect(result.command.path).toBe('show');
-      expect(result.options?.verbose).toBe(true);
-      expect(result.options?.priority).toBe('high');
+      expect(result.args?.verbose).toBe(true);
+      expect(result.args?.priority).toBe('high');
     });
   });
 
@@ -336,8 +336,8 @@ describe('CLI', () => {
       const result = program.parse('test -v -h');
 
       expect(result.command.path).toBe('test');
-      expect(result.options?.verbose).toBe(true);
-      expect(result.options?.help).toBe(true);
+      expect(result.args?.verbose).toBe(true);
+      expect(result.args?.help).toBe(true);
     });
 
     it('should resolve aliases with values', () => {
@@ -360,8 +360,8 @@ describe('CLI', () => {
 
       const result = program.parse('test -u celsius -c=5');
 
-      expect(result.options?.unit).toBe('celsius');
-      expect(result.options?.count).toBe(5);
+      expect(result.args?.unit).toBe('celsius');
+      expect(result.args?.count).toBe(5);
     });
 
     it('should execute commands with aliases via CLI', () => {
@@ -382,7 +382,7 @@ describe('CLI', () => {
 
       const result = program.cli('test -v');
 
-      expect(result?.options?.verbose).toBe(true);
+      expect(result?.args?.verbose).toBe(true);
       expect(result?.result.verbose).toBe(true);
     });
 
@@ -410,9 +410,9 @@ describe('CLI', () => {
 
       const result = program.parse('test -v --help -o=file.txt');
 
-      expect(result.options?.verbose).toBe(true);
-      expect(result.options?.help).toBe(true);
-      expect(result.options?.output).toBe('file.txt');
+      expect(result.args?.verbose).toBe(true);
+      expect(result.args?.help).toBe(true);
+      expect(result.args?.output).toBe('file.txt');
     });
 
     it('should handle undefined aliases gracefully', () => {
@@ -430,8 +430,8 @@ describe('CLI', () => {
       // No aliases defined, -v should work as 'v' key if it's in the schema
       const result = program.parse('test -v');
 
-      expect(result.options?.v).toBe(true);
-      expect(result.options?.verbose).toBeUndefined();
+      expect(result.args?.v).toBe(true);
+      expect(result.args?.verbose).toBeUndefined();
     });
 
     it('should display aliases in help text', () => {
@@ -485,7 +485,7 @@ describe('CLI', () => {
       const result = program.parse('parent child -v');
 
       expect(result.command.path).toBe('parent child');
-      expect(result.options?.verbose).toBe(true);
+      expect(result.args?.verbose).toBe(true);
     });
 
     it('should work with meta object', () => {
@@ -498,7 +498,7 @@ describe('CLI', () => {
                   verbose: z.boolean().optional(),
                 }),
                 {
-                  options: {
+                  fields: {
                     verbose: {
                       alias: ['v'],
                     },
@@ -515,7 +515,7 @@ describe('CLI', () => {
       const result = program.parse('parent child -v');
 
       expect(result.command.path).toBe('parent child');
-      expect(result.options?.verbose).toBe(true);
+      expect(result.args?.verbose).toBe(true);
     });
 
     it('should handle multiple aliases for the same option', () => {
@@ -534,7 +534,7 @@ describe('CLI', () => {
 
       const result = program.parse('test -v');
 
-      expect(result.options?.verbose).toBe(true);
+      expect(result.args?.verbose).toBe(true);
     });
   });
 
@@ -612,14 +612,14 @@ describe('CLI', () => {
     });
 
     it('should roundtrip: stringify then parse produces same result', () => {
-      const original = { command: 'show' as const, options: { id: 'task-1', priority: 'high' as const, verbose: true } };
-      const stringified = program.stringify(original.command, original.options);
+      const original = { command: 'show' as const, args: { id: 'task-1', priority: 'high' as const, verbose: true } };
+      const stringified = program.stringify(original.command, original.args);
       const parsed = program.parse<'show'>(stringified);
 
       expect(parsed.command.path).toBe(original.command);
-      expect(parsed.options?.id).toEqual(original.options.id);
-      expect(parsed.options?.priority).toBe(original.options.priority);
-      expect(parsed.options?.verbose).toBe(original.options.verbose);
+      expect(parsed.args?.id).toEqual(original.args.id);
+      expect(parsed.args?.priority).toBe(original.args.priority);
+      expect(parsed.args?.verbose).toBe(original.args.verbose);
     });
 
     it('should stringify variadic options as multiple flags', () => {
@@ -652,7 +652,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --include=src --include=lib --include=tests');
 
-      expect(result.options?.include).toEqual(['src', 'lib', 'tests']);
+      expect(result.args?.include).toEqual(['src', 'lib', 'tests']);
     });
 
     it('should work with aliases for variadic options', () => {
@@ -662,14 +662,14 @@ describe('CLI', () => {
             z.object({
               include: z.array(z.string()).optional(),
             }),
-            { options: { include: { alias: ['i'] } } },
+            { fields: { include: { alias: ['i'] } } },
           )
           .action((options) => options),
       );
 
       const result = program.parse('test -i=src -i=lib --include=tests');
 
-      expect(result.options?.include).toEqual(['src', 'lib', 'tests']);
+      expect(result.args?.include).toEqual(['src', 'lib', 'tests']);
     });
 
     it('should handle variadic options with space-separated values', () => {
@@ -685,7 +685,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --tag one --tag two --tag three');
 
-      expect(result.options?.tag).toEqual(['one', 'two', 'three']);
+      expect(result.args?.tag).toEqual(['one', 'two', 'three']);
     });
 
     it('should display variadic options in help text', () => {
@@ -720,7 +720,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --no-verbose');
 
-      expect(result.options?.verbose).toBe(false);
+      expect(result.args?.verbose).toBe(false);
     });
 
     it('should parse --<option> as true', () => {
@@ -736,7 +736,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --verbose');
 
-      expect(result.options?.verbose).toBe(true);
+      expect(result.args?.verbose).toBe(true);
     });
 
     it('should display negatable options in help text', () => {
@@ -828,7 +828,7 @@ describe('CLI', () => {
 
       const result = program.parse('test', { env: { API_KEY: 'secret123' } });
 
-      expect(result.options?.apiKey).toBe('secret123');
+      expect(result.args?.apiKey).toBe('secret123');
     });
 
     it('should prefer CLI value over env var', () => {
@@ -845,7 +845,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --apiKey=from-cli', { env: { API_KEY: 'from-env' } });
 
-      expect(result.options?.apiKey).toBe('from-cli');
+      expect(result.args?.apiKey).toBe('from-cli');
     });
 
     it('should support multiple env var names (fallback)', () => {
@@ -867,7 +867,7 @@ describe('CLI', () => {
       // First env var not set, second one is
       const result = program.parse('test', { env: { APP_PORT: '8080' } });
 
-      expect(result.options?.port).toBe(8080);
+      expect(result.args?.port).toBe(8080);
     });
 
     it('should parse boolean env vars correctly', () => {
@@ -884,7 +884,7 @@ describe('CLI', () => {
 
       const result = program.parse('test', { env: { DEBUG: 'true' } });
 
-      expect(result.options?.debug).toBe(true);
+      expect(result.args?.debug).toBe(true);
     });
   });
 
@@ -892,22 +892,22 @@ describe('CLI', () => {
     it('should parse double-quoted strings with spaces', () => {
       const result = program.parse('show "task one" --priority high');
 
-      expect(result.options?.id).toEqual('task one');
-      expect(result.options?.priority).toBe('high');
+      expect(result.args?.id).toEqual('task one');
+      expect(result.args?.priority).toBe('high');
     });
 
     it('should parse single-quoted strings with spaces', () => {
       const result = program.parse("show 'task two' --priority high");
 
-      expect(result.options?.id).toEqual('task two');
-      expect(result.options?.priority).toBe('high');
+      expect(result.args?.id).toEqual('task two');
+      expect(result.args?.priority).toBe('high');
     });
 
     it('should parse quoted option values', () => {
       const result = program.parse('filter --status="in_progress" --priority high');
 
-      expect(result.options?.status).toBe('in_progress');
-      expect(result.options?.priority).toBe('high');
+      expect(result.args?.status).toBe('in_progress');
+      expect(result.args?.priority).toBe('high');
     });
 
     it('should handle escaped quotes within quoted strings', () => {
@@ -917,13 +917,13 @@ describe('CLI', () => {
 
       const result = program.parse('test "He said \\"hello\\""');
 
-      expect(result.options?.message).toBe('He said "hello"');
+      expect(result.args?.message).toBe('He said "hello"');
     });
 
     it('should handle multiple quoted arguments', () => {
       const result = program.parse('batch "task one" "task two" "task three"');
 
-      expect(result.options?.ids).toEqual(['task one', 'task two', 'task three']);
+      expect(result.args?.ids).toEqual(['task one', 'task two', 'task three']);
     });
   });
 
@@ -953,8 +953,8 @@ describe('CLI', () => {
 
       const result = program.cli('test', { configData });
 
-      expect(result.options?.port).toBe(3000);
-      expect(result.options?.host).toBe('localhost');
+      expect(result.args?.port).toBe(3000);
+      expect(result.args?.host).toBe('localhost');
     });
 
     it('should prefer CLI value over config value', () => {
@@ -975,7 +975,7 @@ describe('CLI', () => {
       const configData = { server: { port: 3000 } };
       const result = program.cli('test --port=8080', { configData });
 
-      expect(result.options?.port).toBe(8080);
+      expect(result.args?.port).toBe(8080);
     });
 
     it('should prefer env value over config value', () => {
@@ -997,7 +997,7 @@ describe('CLI', () => {
       const configData = { server: { port: 3000 } };
       const result = program.cli('test', { configData, env: { PORT: '9000' } });
 
-      expect(result.options?.port).toBe(9000);
+      expect(result.args?.port).toBe(9000);
     });
 
     it('should handle deeply nested config with schema transforms', () => {
@@ -1029,7 +1029,7 @@ describe('CLI', () => {
 
       const result = program.cli('test', { configData });
 
-      expect(result.options?.timeout).toBe(5000);
+      expect(result.args?.timeout).toBe(5000);
     });
   });
 
@@ -1050,8 +1050,8 @@ describe('CLI', () => {
       const configData = { port: 3000, host: 'localhost' };
       const result = program.cli('test', { configData });
 
-      expect(result.options?.port).toBe(3000);
-      expect(result.options?.host).toBe('localhost');
+      expect(result.args?.port).toBe(3000);
+      expect(result.args?.host).toBe('localhost');
     });
 
     it('should throw error when config data fails validation', () => {
@@ -1089,7 +1089,7 @@ describe('CLI', () => {
       const configData = { serverPort: 8080 };
       const result = program.cli('test', { configData });
 
-      expect(result.options?.port).toBe(8080);
+      expect(result.args?.port).toBe(8080);
     });
 
     it('should use function-based schema with access to options schema', () => {
@@ -1108,7 +1108,7 @@ describe('CLI', () => {
       const configData = { port: 3000 };
       const result = program.cli('test', { configData });
 
-      expect(result.options?.port).toBe(3000);
+      expect(result.args?.port).toBe(3000);
     });
 
     it('should set configFiles as array when given string', () => {
@@ -1145,7 +1145,7 @@ describe('CLI', () => {
       const configData = { port: 3000 };
       const result = program.cli('sub', { configData });
 
-      expect(result.options?.port).toBe(3000);
+      expect(result.args?.port).toBe(3000);
     });
 
     it('should allow CLI options to override validated config values', () => {
@@ -1163,7 +1163,7 @@ describe('CLI', () => {
       const configData = { port: 3000 };
       const result = program.cli('test --port=8080', { configData });
 
-      expect(result.options?.port).toBe(8080);
+      expect(result.args?.port).toBe(8080);
     });
   });
 
@@ -1181,7 +1181,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --tags=[a,b,c]');
 
-      expect(result.options?.tags).toEqual(['a', 'b', 'c']);
+      expect(result.args?.tags).toEqual(['a', 'b', 'c']);
     });
 
     it('should parse empty brackets as empty array', () => {
@@ -1197,7 +1197,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --tags=[]');
 
-      expect(result.options?.tags).toEqual([]);
+      expect(result.args?.tags).toEqual([]);
     });
 
     it('should handle quoted values within array brackets', () => {
@@ -1213,7 +1213,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --names=["hello world","foo bar"]');
 
-      expect(result.options?.names).toEqual(['hello world', 'foo bar']);
+      expect(result.args?.names).toEqual(['hello world', 'foo bar']);
     });
 
     it('should handle mixed quoted and unquoted values in array', () => {
@@ -1229,7 +1229,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --items=[simple,"with space",another]');
 
-      expect(result.options?.items).toEqual(['simple', 'with space', 'another']);
+      expect(result.args?.items).toEqual(['simple', 'with space', 'another']);
     });
 
     it('should combine array syntax with variadic options', () => {
@@ -1245,7 +1245,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --include=[a,b] --include=c --include=[d,e]');
 
-      expect(result.options?.include).toEqual(['a', 'b', 'c', 'd', 'e']);
+      expect(result.args?.include).toEqual(['a', 'b', 'c', 'd', 'e']);
     });
 
     it('should work with short aliases', () => {
@@ -1255,14 +1255,14 @@ describe('CLI', () => {
             z.object({
               tags: z.array(z.string()).optional(),
             }),
-            { options: { tags: { alias: ['t'] } } },
+            { fields: { tags: { alias: ['t'] } } },
           )
           .action((options) => options),
       );
 
       const result = program.parse('test -t=[one,two,three]');
 
-      expect(result.options?.tags).toEqual(['one', 'two', 'three']);
+      expect(result.args?.tags).toEqual(['one', 'two', 'three']);
     });
 
     it('should trim whitespace from array items', () => {
@@ -1278,7 +1278,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --items=[  a  ,  b  ,  c  ]');
 
-      expect(result.options?.items).toEqual(['a', 'b', 'c']);
+      expect(result.args?.items).toEqual(['a', 'b', 'c']);
     });
   });
 
@@ -1318,7 +1318,7 @@ describe('CLI', () => {
     it('should show help for nested command with --help flag', () => {
       const program = createPadrone('test-cli').command('git', (c) =>
         c.command('commit', (c) =>
-          c.arguments(z.object({ message: z.string().describe('Commit message') })).action((opts) => opts?.message),
+          c.arguments(z.object({ message: z.string().describe('Commit message') })).action((args) => args?.message),
         ),
       );
 
@@ -1353,7 +1353,7 @@ describe('CLI', () => {
     it('should show help for nested command with help command', () => {
       const program = createPadrone('test-cli').command('git', (c) =>
         c.command('commit', (c) =>
-          c.arguments(z.object({ message: z.string().describe('Commit message') })).action((opts) => opts?.message),
+          c.arguments(z.object({ message: z.string().describe('Commit message') })).action((args) => args?.message),
         ),
       );
 
@@ -1577,7 +1577,7 @@ describe('CLI', () => {
               'config.json',
               z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
             )
-            .action((opts) => opts?.port),
+            .action((args) => args?.port),
         );
 
         const result = program.cli(`serve --config=${configPath}`);
@@ -1603,7 +1603,7 @@ describe('CLI', () => {
           c
             .arguments(z.object({ host: z.string().optional() }))
             .configFile('config.json', z.object({ host: z.string() }))
-            .action((opts) => opts?.host),
+            .action((args) => args?.host),
         );
 
         const result = program.cli(`connect -c ${configPath}`);
@@ -1632,7 +1632,7 @@ describe('CLI', () => {
               'config.json',
               z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
             )
-            .action((opts) => opts?.port),
+            .action((args) => args?.port),
         );
 
         const result = program.cli(`serve --config=${configPath} --port=8080`);
@@ -1654,7 +1654,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --user.id=123');
 
-      expect(result.options?.user).toEqual({ id: 123 });
+      expect(result.args?.user).toEqual({ id: 123 });
     });
 
     it('should parse deeply nested options', () => {
@@ -1664,7 +1664,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --server.database.host=localhost');
 
-      expect(result.options?.server).toEqual({ database: { host: 'localhost' } });
+      expect(result.args?.server).toEqual({ database: { host: 'localhost' } });
     });
 
     it('should combine multiple nested options into same object', () => {
@@ -1674,7 +1674,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --user.name=John --user.age=30');
 
-      expect(result.options?.user).toEqual({ name: 'John', age: 30 });
+      expect(result.args?.user).toEqual({ name: 'John', age: 30 });
     });
 
     it('should handle nested boolean values', () => {
@@ -1684,7 +1684,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --config.debug');
 
-      expect(result.options?.config).toEqual({ debug: true });
+      expect(result.args?.config).toEqual({ debug: true });
     });
 
     it('should handle negated nested boolean values', () => {
@@ -1694,7 +1694,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --no-config.debug');
 
-      expect(result.options?.config).toEqual({ debug: false });
+      expect(result.args?.config).toEqual({ debug: false });
     });
 
     it('should stringify nested objects to dot notation', () => {
@@ -1727,7 +1727,7 @@ describe('CLI', () => {
       const stringified = program.stringify('test', original);
       const parsed = program.parse(stringified);
 
-      expect(parsed.options?.config).toEqual(original.config);
+      expect(parsed.args?.config).toEqual(original.config);
     });
 
     it('should handle nested options with quoted string values', () => {
@@ -1737,7 +1737,7 @@ describe('CLI', () => {
 
       const result = program.parse('test --message.text="Hello World"');
 
-      expect(result.options?.message).toEqual({ text: 'Hello World' });
+      expect(result.args?.message).toEqual({ text: 'Hello World' });
     });
 
     it('should work with CLI execution', () => {
@@ -1762,8 +1762,8 @@ describe('CLI', () => {
 
       const result = program.cli('fetch --url not-a-valid-url');
 
-      expect(result.optionsResult?.issues).toBeDefined();
-      expect(result.options).toBeUndefined();
+      expect(result.argsResult?.issues).toBeDefined();
+      expect(result.args).toBeUndefined();
       expect(result.result).toBeUndefined();
       expect(handler).not.toHaveBeenCalled();
     });
@@ -1775,8 +1775,8 @@ describe('CLI', () => {
 
       const result = program.cli('cmd --priority invalid');
 
-      expect(result.optionsResult?.issues).toBeDefined();
-      expect(result.options).toBeUndefined();
+      expect(result.argsResult?.issues).toBeDefined();
+      expect(result.args).toBeUndefined();
     });
 
     it('should not call action when validation fails with explicit input', () => {
@@ -1827,12 +1827,12 @@ describe('CLI', () => {
         }),
       );
 
-      const program = createPadrone('test-async').command('greet', (c) => c.arguments(schema).action((opts) => `Hello, ${opts.name}!`));
+      const program = createPadrone('test-async').command('greet', (c) => c.arguments(schema).action((args) => `Hello, ${args.name}!`));
 
       const parseResult = program.parse('greet --name Alice');
       expect(parseResult).toBeInstanceOf(Promise);
       const resolved = await parseResult;
-      expect(resolved.options).toEqual({ name: 'Alice' });
+      expect(resolved.args).toEqual({ name: 'Alice' });
 
       const cliResult = program.cli('greet --name Alice');
       expect(cliResult).toBeInstanceOf(Promise);
@@ -1845,24 +1845,24 @@ describe('CLI', () => {
         c
           .arguments(z.object({ name: z.string() }))
           .async()
-          .action((opts) => `Hello, ${opts.name}!`),
+          .action((args) => `Hello, ${args.name}!`),
       );
 
       const result = program.parse('greet --name Bob');
       // .async() marks the type as async, but if the schema is actually sync,
       // thenMaybe will return synchronously at runtime
       const resolved = await result;
-      expect(resolved.options).toEqual({ name: 'Bob' });
+      expect(resolved.args).toEqual({ name: 'Bob' });
     });
 
     it('should return sync value for non-async commands', () => {
       const program = createPadrone('test-sync').command('greet', (c) =>
-        c.arguments(z.object({ name: z.string() })).action((opts) => `Hello, ${opts.name}!`),
+        c.arguments(z.object({ name: z.string() })).action((args) => `Hello, ${args.name}!`),
       );
 
       const result = program.parse('greet --name Charlie');
       expect(result).not.toBeInstanceOf(Promise);
-      expect((result as any).options).toEqual({ name: 'Charlie' });
+      expect((result as any).args).toEqual({ name: 'Charlie' });
     });
 
     it('should warn when validation returns Promise but command not marked async', async () => {
@@ -1877,7 +1877,7 @@ describe('CLI', () => {
         });
 
         const program = createPadrone('test-warn').command('greet', (c) =>
-          c.arguments(schema as any).action((opts: any) => `Hello, ${opts.name}!`),
+          c.arguments(schema as any).action((args: any) => `Hello, ${args.name}!`),
         );
 
         const result = program.parse('greet --name Alice');

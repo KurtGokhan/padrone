@@ -1,6 +1,6 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
 
-export interface PadroneOptionsMeta {
+export interface PadroneFieldMeta {
   description?: string;
   alias?: string[] | string;
   deprecated?: boolean | string;
@@ -16,8 +16,8 @@ type PositionalArgs<TObj> =
     : string;
 
 /**
- * Meta configuration for options including positional arguments.
- * The `positional` array defines which options are positional arguments and their order.
+ * Meta configuration for arguments, including positional arguments.
+ * The `positional` array defines which arguments are positional and their order.
  * Use '...name' prefix to indicate variadic (rest) arguments, matching JS/TS rest syntax.
  *
  * @example
@@ -27,17 +27,17 @@ type PositionalArgs<TObj> =
  * })
  * ```
  */
-export interface PadroneMeta<TObj = Record<string, any>> {
+export interface PadroneArgsSchemaMeta<TObj = Record<string, any>> {
   /**
-   * Array of option names that should be treated as positional arguments.
+   * Array of argument names that should be treated as positional arguments.
    * Order in array determines position. Use '...name' prefix for variadic args.
    * @example ['source', '...files', 'dest'] - 'files' captures multiple values
    */
   positional?: PositionalArgs<TObj>[];
   /**
-   * Per-option metadata.
+   * Per-argument metadata.
    */
-  options?: { [K in keyof TObj]?: PadroneOptionsMeta };
+  fields?: { [K in keyof TObj]?: PadroneFieldMeta };
 }
 
 /**
@@ -64,7 +64,7 @@ interface SchemaMetadataResult {
  */
 export function extractSchemaMetadata(
   schema: StandardJSONSchemaV1,
-  meta?: Record<string, PadroneOptionsMeta | undefined>,
+  meta?: Record<string, PadroneFieldMeta | undefined>,
 ): SchemaMetadataResult {
   const aliases: Record<string, string> = {};
 

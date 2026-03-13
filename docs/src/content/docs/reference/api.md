@@ -122,9 +122,9 @@ program
         schema: z.object({
           message: z.string(),
           all: z.boolean().optional(),
-        }).transform((opts) => ({
-          m: opts.message,  // Map 'message' to 'm' flag
-          a: opts.all,      // Map 'all' to 'a' flag
+        }).transform((args) => ({
+          m: args.message,  // Map 'message' to 'm' flag
+          a: args.all,      // Map 'all' to 'a' flag
         })),
       })
   );
@@ -179,10 +179,10 @@ program
         command: 'docker',
         args: ['run'],
         positional: ['image'],
-        schema: (cmdSchema) => cmdSchema.transform(opts => ({
-          image: opts.image,
-          d: opts.detach,
-          i: opts.interactive,
+        schema: (cmdSchema) => cmdSchema.transform(args => ({
+          image: args.image,
+          d: args.detach,
+          i: args.interactive,
         })),
       })
   );
@@ -214,9 +214,9 @@ program
         schema: z.object({
           packages: z.string().array(),
           saveDev: z.boolean().optional(),
-        }).transform(opts => ({
-          packages: opts.packages,
-          'save-dev': opts.saveDev,  // Map to exact flag name
+        }).transform(args => ({
+          packages: args.packages,
+          'save-dev': args.saveDev,  // Map to exact flag name
         })),
       })
   );

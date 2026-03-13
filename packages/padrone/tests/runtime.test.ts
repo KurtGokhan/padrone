@@ -39,7 +39,7 @@ describe('runtime', () => {
       const error = mock();
       const program = createPadrone('app')
         .runtime({ error, argv: () => ['greet'] })
-        .command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((opts) => `Hello, ${opts.name}!`));
+        .command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((args) => `Hello, ${args.name}!`));
 
       // cli() without explicit input uses runtime.argv, and validation failure prints to runtime.error
       expect(() => program.cli()).toThrow('Validation error');
@@ -50,7 +50,7 @@ describe('runtime', () => {
     it('should use custom argv', () => {
       const program = createPadrone('app')
         .runtime({ argv: () => ['greet', '--name', 'Alice'] })
-        .command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((opts) => `Hello, ${opts.name}!`));
+        .command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((args) => `Hello, ${args.name}!`));
 
       const result = program.cli();
       expect(result.result).toBe('Hello, Alice!');
@@ -60,10 +60,10 @@ describe('runtime', () => {
       const program = createPadrone('app')
         .runtime({ env: () => ({ APP_NAME: 'TestApp' }) })
         .env(z.object({ APP_NAME: z.string() }).transform((e) => ({ name: e.APP_NAME })))
-        .command('greet', (c) => c.arguments(z.object({ name: z.string().optional() })).action((opts) => `Hello, ${opts.name}!`));
+        .command('greet', (c) => c.arguments(z.object({ name: z.string().optional() })).action((args) => `Hello, ${args.name}!`));
 
       const result = program.cli('greet');
-      expect(result.options).toEqual({ name: 'TestApp' });
+      expect(result.args).toEqual({ name: 'TestApp' });
     });
 
     it('should use custom format as default for help()', () => {
@@ -84,7 +84,7 @@ describe('runtime', () => {
           c
             .arguments(z.object({ port: z.coerce.number().default(3000) }))
             .configFile('config.json')
-            .action((opts) => opts.port),
+            .action((args) => args.port),
         );
 
       program.cli('serve --config=my.json');
@@ -100,7 +100,7 @@ describe('runtime', () => {
           c
             .arguments(z.object({ port: z.coerce.number().default(3000) }))
             .configFile(['config.json', 'config.yaml'])
-            .action((opts) => opts.port),
+            .action((args) => args.port),
         );
 
       const result = program.cli('serve');
@@ -118,7 +118,7 @@ describe('runtime', () => {
       const program = createPadrone('app')
         .runtime({ output })
         .runtime({ error })
-        .command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((opts) => `Hello, ${opts.name}!`));
+        .command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((args) => `Hello, ${args.name}!`));
 
       // output should still be the custom one from the first call
       program.cli('--help');
@@ -128,7 +128,7 @@ describe('runtime', () => {
       // Use argv so cli() runs without explicit input, which triggers throw on validation error
       const program2 = createPadrone('app')
         .runtime({ error, argv: () => ['greet'] })
-        .command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((opts) => `Hello, ${opts.name}!`));
+        .command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((args) => `Hello, ${args.name}!`));
 
       expect(() => program2.cli()).toThrow('Validation error');
       expect(error).toHaveBeenCalled();
@@ -156,11 +156,11 @@ describe('runtime', () => {
       const program = createPadrone('app')
         .runtime({ env })
         .env(z.object({ GREETING: z.string() }).transform((e) => ({ greeting: e.GREETING })))
-        .command('greet', (c) => c.arguments(z.object({ greeting: z.string().optional() })).action((opts) => opts.greeting));
+        .command('greet', (c) => c.arguments(z.object({ greeting: z.string().optional() })).action((args) => args.greeting));
 
       const result = program.cli('greet');
       expect(env).toHaveBeenCalled();
-      expect(result.options).toEqual({ greeting: 'Hi' });
+      expect(result.args).toEqual({ greeting: 'Hi' });
     });
   });
 
@@ -168,7 +168,7 @@ describe('runtime', () => {
     it('should fall back to default runtime when none is set', () => {
       // This just verifies the program works without any runtime config
       const program = createPadrone('app').command('greet', (c) =>
-        c.arguments(z.object({ name: z.string() })).action((opts) => `Hello, ${opts.name}!`),
+        c.arguments(z.object({ name: z.string() })).action((args) => `Hello, ${args.name}!`),
       );
 
       const result = program.cli('greet --name World');

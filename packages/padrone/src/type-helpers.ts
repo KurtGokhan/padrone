@@ -5,19 +5,19 @@ import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand, PadroneSchem
  * Extracts the input type of the options schema from a command.
  * @example
  * ```ts
- * type Options = InferOptionsInput<typeof myCommand>;
+ * type Options = InferArgsInput<typeof myCommand>;
  * ```
  */
-export type InferOptionsInput<T extends AnyPadroneCommand> = T['~types']['optionsInput'];
+export type InferArgsInput<T extends AnyPadroneCommand> = T['~types']['argumentsInput'];
 
 /**
  * Extracts the output type of the options schema from a command.
  * @example
  * ```ts
- * type Options = InferOptionsOutput<typeof myCommand>;
+ * type Options = InferArgsOutput<typeof myCommand>;
  * ```
  */
-export type InferOptionsOutput<T extends AnyPadroneCommand> = T['~types']['optionsOutput'];
+export type InferArgsOutput<T extends AnyPadroneCommand> = T['~types']['argumentsOutput'];
 
 /**
  * Extracts the input type of the config schema from a command.

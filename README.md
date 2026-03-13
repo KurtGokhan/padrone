@@ -235,7 +235,7 @@ const program = createPadrone('app')
       .arguments(asyncSchema(z.object({ name: z.string() }).check(async (ctx) => { /* ... */ })))
       // Option 2: call .async() on the builder
       .async()
-      .action((opts) => opts.name),
+      .action((args) => args.name),
   );
 
 // parse() and cli() now return Promises
