@@ -2,7 +2,7 @@ import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/sp
 import type { Tool } from 'ai';
 import type { HelpOptions } from './help.ts';
 import type { PadroneMeta } from './options.ts';
-import type { PadroneRuntime } from './runtime.ts';
+import type { PadroneRuntime, ResolvedPadroneRuntime } from './runtime.ts';
 import type {
   FullCommandName,
   IsGeneric,
@@ -71,7 +71,7 @@ export type PadroneCommand<
   config?: TConfig;
   envSchema?: TEnv;
   meta?: GetMeta<TOpts>;
-  handler?: (options: StandardSchemaV1.InferOutput<TOpts>) => TRes;
+  handler?: (options: StandardSchemaV1.InferOutput<TOpts>, runtime: ResolvedPadroneRuntime) => TRes;
   /** List of possible config file names to search for. */
   configFiles?: string[];
   /** Runtime flag indicating this command uses async validation. Set by `.async()` or `asyncSchema()`. */
@@ -312,7 +312,7 @@ export type PadroneBuilderMethods<
    * Defines the handler function to be executed when the command is run.
    */
   action: <TNewRes>(
-    handler?: (options: StandardSchemaV1.InferOutput<TOpts>) => TNewRes,
+    handler?: (options: StandardSchemaV1.InferOutput<TOpts>, runtime: ResolvedPadroneRuntime) => TNewRes,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TOpts, TNewRes, TCommands, TParentOpts, TConfig, TEnv, TAsync>;
 
   /**

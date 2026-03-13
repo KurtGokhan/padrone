@@ -708,7 +708,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
     if (!commandObj.handler) throw new Error(`Command "${commandObj.path}" has no handler`);
 
-    const result = commandObj.handler(options as any);
+    const result = commandObj.handler(options as any, getCommandRuntime(commandObj));
 
     return {
       command: commandObj as any,
