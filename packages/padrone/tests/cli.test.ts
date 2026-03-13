@@ -826,7 +826,7 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.parse('test', { env: { API_KEY: 'secret123' } });
+      const result = program.runtime({ env: () => ({ API_KEY: 'secret123' }) }).parse('test');
 
       expect(result.args?.apiKey).toBe('secret123');
     });
@@ -843,7 +843,7 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.parse('test --apiKey=from-cli', { env: { API_KEY: 'from-env' } });
+      const result = program.runtime({ env: () => ({ API_KEY: 'from-env' }) }).parse('test --apiKey=from-cli');
 
       expect(result.args?.apiKey).toBe('from-cli');
     });
@@ -865,7 +865,7 @@ describe('CLI', () => {
       );
 
       // First env var not set, second one is
-      const result = program.parse('test', { env: { APP_PORT: '8080' } });
+      const result = program.runtime({ env: () => ({ APP_PORT: '8080' }) }).parse('test');
 
       expect(result.args?.port).toBe(8080);
     });
@@ -882,7 +882,7 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.parse('test', { env: { DEBUG: 'true' } });
+      const result = program.runtime({ env: () => ({ DEBUG: 'true' }) }).parse('test');
 
       expect(result.args?.debug).toBe(true);
     });
@@ -951,7 +951,7 @@ describe('CLI', () => {
         },
       };
 
-      const result = program.cli('test', { configData });
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test');
 
       expect(result.args?.port).toBe(3000);
       expect(result.args?.host).toBe('localhost');
@@ -973,7 +973,7 @@ describe('CLI', () => {
       );
 
       const configData = { server: { port: 3000 } };
-      const result = program.cli('test --port=8080', { configData });
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test --port=8080');
 
       expect(result.args?.port).toBe(8080);
     });
@@ -995,7 +995,9 @@ describe('CLI', () => {
       );
 
       const configData = { server: { port: 3000 } };
-      const result = program.cli('test', { configData, env: { PORT: '9000' } });
+      const result = program
+        .runtime({ findFile: () => 'config.json', loadConfigFile: () => configData, env: () => ({ PORT: '9000' }) })
+        .cli('test');
 
       expect(result.args?.port).toBe(9000);
     });
@@ -1027,7 +1029,7 @@ describe('CLI', () => {
         },
       };
 
-      const result = program.cli('test', { configData });
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test');
 
       expect(result.args?.timeout).toBe(5000);
     });
@@ -1048,7 +1050,7 @@ describe('CLI', () => {
       );
 
       const configData = { port: 3000, host: 'localhost' };
-      const result = program.cli('test', { configData });
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test');
 
       expect(result.args?.port).toBe(3000);
       expect(result.args?.host).toBe('localhost');
@@ -1068,7 +1070,9 @@ describe('CLI', () => {
 
       const configData = { port: 'not-a-number' };
 
-      expect(() => program.cli('test', { configData })).toThrow(/Invalid config file/);
+      expect(() => program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test')).toThrow(
+        /Invalid config file/,
+      );
     });
 
     it('should transform config data using schema', () => {
@@ -1087,7 +1091,7 @@ describe('CLI', () => {
       );
 
       const configData = { serverPort: 8080 };
-      const result = program.cli('test', { configData });
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test');
 
       expect(result.args?.port).toBe(8080);
     });
@@ -1106,7 +1110,7 @@ describe('CLI', () => {
       );
 
       const configData = { port: 3000 };
-      const result = program.cli('test', { configData });
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test');
 
       expect(result.args?.port).toBe(3000);
     });
@@ -1143,7 +1147,7 @@ describe('CLI', () => {
         .command('sub', (c) => c.arguments(z.object({ port: z.number().optional() })).action((args) => args));
 
       const configData = { port: 3000 };
-      const result = program.cli('sub', { configData });
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('sub');
 
       expect(result.args?.port).toBe(3000);
     });
@@ -1161,7 +1165,7 @@ describe('CLI', () => {
       );
 
       const configData = { port: 3000 };
-      const result = program.cli('test --port=8080', { configData });
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test --port=8080');
 
       expect(result.args?.port).toBe(8080);
     });

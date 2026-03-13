@@ -501,7 +501,6 @@ export type PadroneProgram<
    */
   cli: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, true>>(
     input?: TCommand | SafeString,
-    options?: PadroneParseOptions,
   ) => MaybePromise<
     PadroneCommandResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>,
     PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>['~types']['async']
@@ -512,7 +511,6 @@ export type PadroneProgram<
    */
   parse: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, false>>(
     input?: TCommand | SafeString,
-    options?: PadroneParseOptions,
   ) => MaybePromise<
     PadroneParseResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>,
     PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>['~types']['async']
@@ -584,27 +582,6 @@ export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any,
 
 export type PadroneCommandResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> = PadroneParseResult<TCommand> & {
   result: GetResults<TCommand>;
-};
-
-/**
- * Options for parsing CLI input.
- */
-export type PadroneParseOptions = {
-  /**
-   * Raw environment variables to use for env schema validation.
-   * If not provided, process.env will be used.
-   */
-  env?: Record<string, string | undefined>;
-  /**
-   * Pre-parsed environment data to use directly (bypasses env schema validation).
-   * Keys should match argument names.
-   */
-  envData?: Record<string, unknown>;
-  /**
-   * Config file data to use for config binding.
-   * This should be the parsed content of a config file (JSON, YAML, etc.).
-   */
-  configData?: Record<string, unknown>;
 };
 
 export type PadroneParseResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> = {

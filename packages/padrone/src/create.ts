@@ -224,13 +224,13 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     command: AnyPadroneCommand,
     rawArgs: Record<string, unknown>,
     args: string[],
-    parseOptions?: { envData?: Record<string, unknown>; configData?: Record<string, unknown> },
+    context?: { envData?: Record<string, unknown>; configData?: Record<string, unknown> },
   ) => {
     // Apply preprocessing (env and config bindings)
     const preprocessedArgs = preprocessArgs(rawArgs, {
       aliases: {}, // Already resolved aliases in parseCommand
-      envData: parseOptions?.envData,
-      configData: parseOptions?.configData,
+      envData: context?.envData,
+      configData: context?.configData,
     });
 
     // Parse positional configuration
@@ -269,7 +269,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     return thenMaybe(argsParsed, buildResult);
   };
 
-  const parse: AnyPadroneProgram['parse'] = (input, parseOptions) => {
+  const parse: AnyPadroneProgram['parse'] = (input) => {
     const { command, rawArgs, args } = parseCommand(input);
 
     // Resolve env schema: command's own envSchema > inherited from parent/root
@@ -281,10 +281,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const envSchema = resolveEnvSchema(command);
 
     const finalize = (envData: Record<string, unknown> | undefined) => {
-      const validated = validateArgs(command, rawArgs, args, {
-        envData,
-        configData: parseOptions?.configData,
-      });
+      const validated = validateArgs(command, rawArgs, args, { envData });
 
       const toParseResult = (v: { args: any; argsResult: any }) => ({
         command: command as any,
@@ -296,10 +293,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     };
 
     // Validate env vars against schema if provided
-    let envData: Record<string, unknown> | undefined = parseOptions?.envData;
-    if (envSchema && !envData) {
-      const runtime = getCommandRuntime(command);
-      const rawEnv = parseOptions?.env ?? runtime.env();
+    let envData: Record<string, unknown> | undefined;
+    if (envSchema) {
+      const runtime = getCommandRuntime(existingCommand);
+      const rawEnv = runtime.env();
       const envValidated = envSchema['~standard'].validate(rawEnv);
 
       return warnIfUnexpectedAsync(
@@ -520,7 +517,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     return undefined;
   };
 
-  const cli: AnyPadroneProgram['cli'] = (input, cliOptions) => {
+  const cli: AnyPadroneProgram['cli'] = (input) => {
     const runtime = getCommandRuntime(existingCommand);
 
     // Resolve input from runtime.argv if not provided
@@ -595,8 +592,8 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     };
     const envSchema = resolveEnvSchema(command);
 
-    // Determine config data: explicit --config flag > auto-discovered config > provided configData
-    let configData = cliOptions?.configData;
+    // Determine config data: explicit --config flag > auto-discovered config
+    let configData: Record<string, unknown> | undefined;
     if (configPath) {
       // Explicit config path takes precedence
       configData = runtime.loadConfigFile(configPath);
@@ -632,9 +629,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
       // Step 2: Validate env vars
       const validateEnv = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
-        let envData: Record<string, unknown> | undefined = cliOptions?.envData;
+        let envData: Record<string, unknown> | undefined;
         if (envSchema) {
-          const rawEnv = cliOptions?.env ?? runtime.env();
+          const rawEnv = runtime.env();
           const envValidated = envSchema['~standard'].validate(rawEnv);
           return thenMaybe(envValidated, (result) => {
             // For env vars, we don't throw on validation errors - just use the transformed value if valid

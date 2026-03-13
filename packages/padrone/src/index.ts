@@ -27,7 +27,6 @@ export type {
   PadroneCommand,
   PadroneCommandConfig,
   PadroneCommandResult,
-  PadroneParseOptions,
   PadroneParseResult,
   PadroneProgram,
   PadroneSchema,
