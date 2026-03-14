@@ -574,8 +574,6 @@ export type PadroneProgram<
    * TODO: REPL future enhancements:
    * - History persistence: save/load history across sessions (currently in-memory only)
    * - Middleware/hooks: onBeforeCommand, onAfterCommand, error interceptors (design alongside general middleware system)
-   * - stdin fragility: Node's readline + stdin is a shared mutable resource; any feature touching stdin
-   *   (confirmations, multi-line input, password prompts) needs careful coordination with Enquirer/interactive prompts
    */
   repl: (
     options?: PadroneReplPreferences<PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>>,

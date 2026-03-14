@@ -780,10 +780,28 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const userCompletionCommand = findCommandByName('completion', existingCommand.commands);
 
     // Check for 'help' command (only if user hasn't defined one)
+    // Supports both 'help <command>' and '<command> help' forms
     if (!userHelpCommand && normalizedTerms[0] === 'help') {
       // help <command> - get help for specific command
       const commandName = normalizedTerms.slice(1).join(' ');
       const targetCommand = commandName ? findCommandByName(commandName, existingCommand.commands) : undefined;
+      return { type: 'help', command: targetCommand, detail, format };
+    }
+    if (!userHelpCommand && normalizedTerms.length > 0 && normalizedTerms[normalizedTerms.length - 1] === 'help') {
+      // <command> help - get help for specific command (trailing form)
+      const commandTerms = normalizedTerms.slice(0, -1);
+      // Walk the command tree to find the deepest matching command
+      let targetCommand: AnyPadroneCommand | undefined;
+      let current = existingCommand;
+      for (const term of commandTerms) {
+        const found = findCommandByName(term, current.commands);
+        if (found) {
+          targetCommand = found;
+          current = found;
+        } else {
+          break;
+        }
+      }
       return { type: 'help', command: targetCommand, detail, format };
     }
 

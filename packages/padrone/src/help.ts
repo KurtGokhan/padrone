@@ -7,6 +7,7 @@ import {
   type HelpFormat,
   type HelpInfo,
   type HelpPositionalInfo,
+  type HelpSubcommandInfo,
 } from './formatter.ts';
 import type { AnyPadroneCommand } from './types.ts';
 import { getRootCommand } from './utils.ts';
@@ -157,7 +158,7 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] =
   const isDefaultCommand = cmd.parent && (!cmd.name || cmd.aliases?.includes(''));
   // For commands with empty name, use the first non-empty alias as display name
   const nonEmptyAliases = cmd.aliases?.filter(Boolean);
-  const commandName = cmd.path || cmd.name || nonEmptyAliases?.[0] || (cmd.parent ? '(default)' : 'program');
+  const commandName = cmd.path || cmd.name || nonEmptyAliases?.[0] || (cmd.parent ? '[default]' : 'program');
   // Build display aliases: real aliases (excluding the one promoted to display name) + [default] marker
   const remainingAliases = !cmd.name && nonEmptyAliases?.length ? nonEmptyAliases.slice(1) : (nonEmptyAliases ?? []);
   const displayAliases = isDefaultCommand ? [...remainingAliases, '[default]'] : nonEmptyAliases;
@@ -187,28 +188,60 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] =
   // Build subcommands info (filter out hidden commands unless showing full detail)
   if (cmd.commands && cmd.commands.length > 0) {
     const visibleCommands = detail === 'full' ? cmd.commands : cmd.commands.filter((c) => !c.hidden);
-    // If the command has both a handler and subcommands, show the handler as a "(default)" entry
+    // If the command has both a handler and subcommands, show the handler as a "[default]" entry
     const selfEntry: typeof helpInfo.subcommands = cmd.handler
-      ? [{ name: '(default)', title: cmd.title, description: cmd.description }]
+      ? [{ name: '[default]', title: cmd.title, description: cmd.description }]
       : [];
 
     helpInfo.subcommands = [
       ...selfEntry,
-      ...visibleCommands.map((c) => {
+      ...visibleCommands.flatMap((c): HelpSubcommandInfo[] => {
         const isDefault = !c.name || c.aliases?.includes('');
         const nonEmptyAliases = c.aliases?.filter(Boolean);
-        const displayName = c.name || nonEmptyAliases?.[0] || '(default)';
+        const displayName = c.name || nonEmptyAliases?.[0] || '[default]';
         const remainingAliases = !c.name && nonEmptyAliases?.length ? nonEmptyAliases.slice(1) : (nonEmptyAliases ?? []);
-        const displayAliases = isDefault ? [...remainingAliases, '[default]'] : nonEmptyAliases;
-        return {
-          name: displayName,
-          title: c.title,
-          description: c.description,
-          aliases: displayAliases,
-          deprecated: c.deprecated,
-          hidden: c.hidden,
-          hasSubcommands: !!(c.commands && c.commands.length > 0),
-        };
+        // Only add [default] alias marker if it's not already the display name
+        const displayAliases =
+          isDefault && displayName !== '[default]' ? [...remainingAliases, '[default]'] : isDefault ? remainingAliases : nonEmptyAliases;
+        const hasSubcommands = !!(c.commands && c.commands.length > 0);
+
+        // If a command has subcommands AND a default handler (direct or '' subcommand),
+        // show two entries: one for the default action, one for the subcommand router
+        const hasDefaultHandler = c.handler || c.commands?.some((sub) => !sub.name || sub.aliases?.includes(''));
+        if (hasSubcommands && hasDefaultHandler) {
+          const defaultSub = !c.handler ? c.commands?.find((sub) => !sub.name || sub.aliases?.includes('')) : undefined;
+          const hasDefaultSubInfo = defaultSub && (defaultSub.title || defaultSub.description);
+          return [
+            {
+              name: displayName,
+              title: hasDefaultSubInfo ? defaultSub.title : c.title,
+              description: hasDefaultSubInfo ? defaultSub.description : c.description,
+              aliases: displayAliases?.length ? displayAliases : undefined,
+              deprecated: c.deprecated,
+              hidden: c.hidden,
+            },
+            {
+              name: displayName,
+              title: c.title,
+              description: c.description,
+              deprecated: c.deprecated,
+              hidden: c.hidden,
+              hasSubcommands: true,
+            },
+          ];
+        }
+
+        return [
+          {
+            name: displayName,
+            title: c.title,
+            description: c.description,
+            aliases: displayAliases?.length ? displayAliases : undefined,
+            deprecated: c.deprecated,
+            hidden: c.hidden,
+            hasSubcommands,
+          },
+        ];
       }),
     ];
 

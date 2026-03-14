@@ -216,10 +216,12 @@ export const tasksProgram = createPadrone('tasks')
   .command('advanced', (c) =>
     c
       .configure({ title: 'Advanced task operations' })
-      .action(() => {
-        console.log('This is a placeholder for advanced operations like bulk updates, analytics, etc.');
-        return { message: 'Advanced operations coming soon!' };
-      })
+      .command('', (c) =>
+        c.configure({ description: 'Placeholder for advanced operations' }).action(() => {
+          console.log('This is a placeholder for advanced operations like bulk updates, analytics, etc.');
+          return { message: 'Advanced operations coming soon!' };
+        }),
+      )
       .command('clear', (c) =>
         c.configure({ title: 'Clear all tasks' }).action(() => {
           const tasks = getTasks();

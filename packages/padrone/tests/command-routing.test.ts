@@ -56,7 +56,7 @@ describe('command routing', () => {
         .command('', (c) => c.configure({ title: 'Default action' }).action(() => 'ok'))
         .command('list', (c) => c.action(() => 'listed'));
       const helpText = p.help(undefined, { format: 'text' });
-      expect(helpText).toContain('(default)');
+      expect(helpText).toContain('[default]');
       expect(helpText).toContain('Default action');
     });
 
@@ -213,7 +213,7 @@ describe('command routing', () => {
       expect(helpText).not.toContain('simple <subcommand>');
     });
 
-    it('should show (default) entry in help when parent has both handler and subcommands', () => {
+    it('should show [default] entry in help when parent has both handler and subcommands', () => {
       const program = createPadrone('app').command('list', (c) =>
         c
           .configure({ title: 'List items' })
@@ -222,7 +222,7 @@ describe('command routing', () => {
       );
 
       const helpText = program.help('list', { format: 'text' });
-      expect(helpText).toContain('(default)');
+      expect(helpText).toContain('[default]');
       expect(helpText).toContain('extended');
     });
 

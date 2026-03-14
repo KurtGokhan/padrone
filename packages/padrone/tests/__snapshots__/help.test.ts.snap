@@ -4,6 +4,7 @@ exports[`help should generate help for the program 1`] = `
 "Usage: padrone-test [command]
 
 Commands:
+  list               
   list <subcommand>  
   show               
   filter             
@@ -22,6 +23,7 @@ exports[`help should generate help for the top level command 1`] = `
 "Usage: padrone-test [command]
 
 Commands:
+  list               
   list <subcommand>  
   show               
   filter             
@@ -66,7 +68,7 @@ exports[`help should generate help for a command with nested commands 1`] = `
 "Usage: padrone-test list extended [command] [arguments]
 
 Commands:
-  (default)  
+  [default]  
   extended   
 
 Run "list extended [command] --help" for more information on a command.
@@ -238,6 +240,7 @@ exports[`help with full detail mode should generate full help with all nested co
 "Usage: padrone-test [command]
 
 Commands:
+  list               
   list <subcommand>  
   show               
   filter             
@@ -256,7 +259,8 @@ Subcommand Details:
 Usage: padrone-test list [command] [arguments]
 
 Commands:
-  (default)              
+  [default]              
+  extended               
   extended <subcommand>  
 
 Run "list [command] --help" for more information on a command.
@@ -272,7 +276,7 @@ Subcommand Details:
 Usage: padrone-test list extended [command] [arguments]
 
 Commands:
-  (default)  
+  [default]  
   extended   
 
 Run "list extended [command] --help" for more information on a command.
@@ -365,6 +369,9 @@ exports[`help with full detail mode should generate full help with all nested co
   },
   "subcommands": [
     {
+      "name": "list"
+    },
+    {
       "name": "list",
       "hasSubcommands": true
     },
@@ -412,7 +419,10 @@ exports[`help with full detail mode should generate full help with all nested co
       },
       "subcommands": [
         {
-          "name": "(default)"
+          "name": "[default]"
+        },
+        {
+          "name": "extended"
         },
         {
           "name": "extended",
@@ -430,7 +440,7 @@ exports[`help with full detail mode should generate full help with all nested co
           },
           "subcommands": [
             {
-              "name": "(default)"
+              "name": "[default]"
             },
             {
               "name": "extended",
@@ -805,6 +815,8 @@ exports[`help with full detail mode should generate full help with all nested co
 
 ### Commands:
 
+  **list**               
+
   **list*** <subcommand>*  
 
   **show**               
@@ -841,7 +853,9 @@ Usage: **padrone-test list** *[command]* *[arguments]*
 
 ### Commands:
 
-  **(default)**              
+  *[default]*              
+
+  **extended**               
 
   **extended*** <subcommand>*  
 
@@ -873,7 +887,7 @@ Usage: **padrone-test list extended** *[command]* *[arguments]*
 
 ### Commands:
 
-  **(default)**  
+  *[default]*  
 
   **extended**   
 
@@ -1038,7 +1052,8 @@ exports[`help with full detail mode should generate full help for a specific com
 "Usage: padrone-test list [command] [arguments]
 
 Commands:
-  (default)              
+  [default]              
+  extended               
   extended <subcommand>  
 
 Run "list [command] --help" for more information on a command.
@@ -1054,7 +1069,7 @@ Subcommand Details:
 Usage: padrone-test list extended [command] [arguments]
 
 Commands:
-  (default)  
+  [default]  
   extended   
 
 Run "list extended [command] --help" for more information on a command.
@@ -1077,7 +1092,7 @@ exports[`help with full detail mode should generate full help for deeply nested 
 "Usage: padrone-test list extended [command] [arguments]
 
 Commands:
-  (default)  
+  [default]  
   extended   
 
 Run "list extended [command] --help" for more information on a command.
@@ -1100,7 +1115,8 @@ exports[`help with full detail mode should work with ansi format in full detail 
 "Usage: \x1B[36m\x1B[1mpadrone-test list\x1B[0m \x1B[90m[command]\x1B[0m \x1B[90m[arguments]\x1B[0m
 
 \x1B[1mCommands:\x1B[0m
-  \x1B[36m\x1B[1m(default)\x1B[0m              
+  \x1B[90m[default]\x1B[0m              
+  \x1B[36m\x1B[1mextended\x1B[0m               
   \x1B[36m\x1B[1mextended\x1B[0m\x1B[90m <subcommand>\x1B[0m  
 
 \x1B[90mRun "list [command] --help" for more information on a command.\x1B[0m
@@ -1116,7 +1132,7 @@ exports[`help with full detail mode should work with ansi format in full detail 
 Usage: \x1B[36m\x1B[1mpadrone-test list extended\x1B[0m \x1B[90m[command]\x1B[0m \x1B[90m[arguments]\x1B[0m
 
 \x1B[1mCommands:\x1B[0m
-  \x1B[36m\x1B[1m(default)\x1B[0m  
+  \x1B[90m[default]\x1B[0m  
   \x1B[36m\x1B[1mextended\x1B[0m   
 
 \x1B[90mRun "list extended [command] --help" for more information on a command.\x1B[0m

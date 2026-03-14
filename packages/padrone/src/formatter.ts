@@ -313,9 +313,12 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
       const commandDisplay = subCmd.name + suffix + aliasParts.plain;
       const padding = ' '.repeat(Math.max(0, maxNameLength - commandDisplay.length + 2));
       const isDeprecated = !!subCmd.deprecated;
+      const isDefaultEntry = subCmd.name === '[default]';
       const commandName = isDeprecated
         ? styler.deprecated(commandDisplay)
-        : styler.command(subCmd.name) + (suffix ? styler.meta(suffix) : '') + aliasParts.styled;
+        : (isDefaultEntry ? styler.meta(subCmd.name) : styler.command(subCmd.name)) +
+          (suffix ? styler.meta(suffix) : '') +
+          aliasParts.styled;
       const lineParts: string[] = [commandName, padding];
 
       // Use title if available, otherwise use description
