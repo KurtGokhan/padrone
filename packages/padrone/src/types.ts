@@ -571,9 +571,9 @@ export type PadroneProgram<
    *
    * TODO: REPL future enhancements:
    * - Ctrl+C handling: cancel current line / interrupt running command instead of killing the process
-   * - Command history: persist across sessions, up-arrow navigation
-   * - Tab completion: wire the existing completion() system into the REPL's readline
+   * - History persistence: save/load history across sessions (currently in-memory only)
    * - Nested/contextual REPLs: `use <subcommand>` to scope the session to a command subtree
+   * - `--repl` flag to start a REPL session scoped to a specific command or subtree
    * - Middleware/hooks: onBeforeCommand, onAfterCommand, error interceptors (design alongside general middleware system)
    * - stdin fragility: Node's readline + stdin is a shared mutable resource; any feature touching stdin
    *   (confirmations, multi-line input, password prompts) needs careful coordination with Enquirer/interactive prompts
@@ -615,11 +615,30 @@ export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any,
 /**
  * Options for `repl()` to customize the REPL session.
  */
+/** A single spacing value: blank line (`true`), separator string, or an array of these for multiple lines. */
+export type PadroneReplSpacing = boolean | string | (boolean | string)[];
+
 export type PadroneReplPreferences = {
   /** The prompt string displayed before each input, or a function returning it. Defaults to `"<programName>> "`. */
   prompt?: string | (() => string);
   /** A greeting message displayed when the REPL starts. */
   greeting?: string;
+  /** Initial history entries (most recent last). Arrow keys navigate history in the terminal. */
+  history?: string[];
+  /** Set to `false` to disable tab completion. Defaults to `true`. */
+  completion?: boolean;
+  /**
+   * Add spacing/separators around each command's output.
+   * A spacing value can be:
+   * - `true` — blank line
+   * - A string — separator line (single char like `'─'` repeats to terminal width, multi-char prints as-is)
+   * - An array of the above — multiple lines in order (e.g. `[true, '─']` for blank line then separator)
+   *
+   * Shorthand applies to both before and after. Use `{ before?, after? }` for independent control.
+   */
+  spacing?: PadroneReplSpacing | { before?: PadroneReplSpacing; after?: PadroneReplSpacing };
+  /** Prefix each line of command output/error with this string (e.g. `'│ '`, `'  '`, `'▎ '`). */
+  outputPrefix?: string;
 };
 
 /**

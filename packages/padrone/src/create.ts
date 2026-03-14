@@ -4,7 +4,13 @@ import { extractSchemaMetadata, parsePositionalConfig, preprocessArgs } from './
 import { generateCompletionOutput, type ShellType } from './completion.ts';
 import { generateHelp } from './help.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
-import { type InteractivePromptConfig, type ResolvedPadroneRuntime, resolveRuntime } from './runtime.ts';
+import {
+  createTerminalReplSession,
+  type InteractivePromptConfig,
+  type ReplSessionConfig,
+  type ResolvedPadroneRuntime,
+  resolveRuntime,
+} from './runtime.ts';
 import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
@@ -116,6 +122,91 @@ function detectPromptConfig(name: string, propSchema: Record<string, any> | unde
   }
 
   return { name, message, type: 'input', default: propSchema.default };
+}
+
+/**
+ * Builds a completer function for the REPL from the command tree.
+ * Completes command names, subcommand names, option names (--foo), and aliases (-f).
+ * Also includes built-in REPL commands (exit, quit, clear) unless overridden by user commands.
+ */
+export function buildReplCompleter(
+  rootCommand: AnyPadroneCommand,
+  builtins: { hasUserExit: boolean; hasUserClear: boolean },
+): (line: string) => [string[], string] {
+  return (line: string): [string[], string] => {
+    const trimmed = line.trimStart();
+    const parts = trimmed.split(/\s+/);
+    const lastPart = parts[parts.length - 1] ?? '';
+
+    // If we're completing an option (starts with -)
+    if (lastPart.startsWith('-')) {
+      // Find which command we're in
+      const commandParts = parts.slice(0, -1).filter((p) => !p.startsWith('-'));
+      let targetCommand = rootCommand;
+      for (const part of commandParts) {
+        const sub = targetCommand.commands?.find((c) => c.name === part || c.aliases?.includes(part));
+        if (sub) targetCommand = sub;
+        else break;
+      }
+
+      // Get options for this command
+      const options: string[] = [];
+      if (targetCommand.arguments) {
+        try {
+          const argsMeta = targetCommand.meta?.fields;
+          const { aliases } = extractSchemaMetadata(targetCommand.arguments, argsMeta);
+          const jsonSchema = targetCommand.arguments['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+          if (jsonSchema.type === 'object' && jsonSchema.properties) {
+            for (const key of Object.keys(jsonSchema.properties)) {
+              options.push(`--${key}`);
+            }
+            for (const alias of Object.keys(aliases)) {
+              options.push(`-${alias}`);
+            }
+          }
+        } catch {
+          // Ignore schema parsing errors
+        }
+      }
+      // Add global flags
+      options.push('--help', '-h');
+
+      const hits = options.filter((o) => o.startsWith(lastPart));
+      return [hits.length ? hits : options, lastPart];
+    }
+
+    // Completing command names
+    const commandParts = parts.filter((p) => !p.startsWith('-'));
+    // Walk into subcommands for all but the last token
+    let targetCommand = rootCommand;
+    for (let i = 0; i < commandParts.length - 1; i++) {
+      const sub = targetCommand.commands?.find((c) => c.name === commandParts[i] || c.aliases?.includes(commandParts[i]!));
+      if (sub) targetCommand = sub;
+      else break;
+    }
+
+    const candidates: string[] = [];
+
+    // Add subcommand names and aliases
+    if (targetCommand.commands) {
+      for (const cmd of targetCommand.commands) {
+        if (!cmd.hidden) {
+          candidates.push(cmd.name);
+          if (cmd.aliases) candidates.push(...cmd.aliases);
+        }
+      }
+    }
+
+    // Add built-in commands at the root level
+    if (targetCommand === rootCommand) {
+      candidates.push('help');
+      if (!builtins.hasUserExit) candidates.push('exit', 'quit');
+      if (!builtins.hasUserClear) candidates.push('clear');
+    }
+
+    const hits = candidates.filter((c) => c.startsWith(lastPart));
+    return [hits.length ? hits : candidates, lastPart];
+  };
 }
 
 /**
@@ -1069,43 +1160,124 @@ ${helpText}
 
     repl(options?: PadroneReplPreferences) {
       const runtime = getCommandRuntime(existingCommand);
-      const readLine = runtime.readLine;
-      if (!readLine) throw new Error('Runtime does not provide readLine. Configure runtime.readLine to use repl().');
-      const readLineFn = readLine;
 
-      const defaultPrompt = `${existingCommand.name || 'padrone'}> `;
+      const programName = existingCommand.name || 'padrone';
+      const useAnsi =
+        runtime.format === 'ansi' ||
+        (runtime.format === 'auto' && typeof process !== 'undefined' && !process.env.NO_COLOR && !process.env.CI && process.stdout?.isTTY);
+      const defaultPrompt = useAnsi ? `\x1b[1m${programName}\x1b[0m> ` : `${programName}> `;
       const promptOpt = options?.prompt ?? defaultPrompt;
 
       // Check if user has defined commands that conflict with REPL built-ins
       const hasUserExit = !!findCommandByName('exit', existingCommand.commands) || !!findCommandByName('quit', existingCommand.commands);
       const hasUserClear = !!findCommandByName('clear', existingCommand.commands);
 
+      // Build completer from command tree
+      const sessionConfig: ReplSessionConfig = { history: options?.history };
+      if (options?.completion !== false) {
+        sessionConfig.completer = buildReplCompleter(existingCommand, { hasUserExit, hasUserClear });
+      }
+
       async function* replIterator() {
         if (options?.greeting) runtime.output(options.greeting);
 
-        while (true) {
-          const promptStr = typeof promptOpt === 'function' ? promptOpt() : promptOpt;
-          const input = await readLineFn(promptStr);
+        // If the runtime provides a custom readLine, use it (stateless, no history/completion).
+        // Otherwise, create a persistent terminal session with history + tab completion.
+        const session = runtime.readLine ? undefined : createTerminalReplSession(sessionConfig);
+        const questionFn = session ? (prompt: string) => session.question(prompt) : runtime.readLine!;
 
-          // EOF (Ctrl+D, closed connection)
-          if (input === null) break;
+        try {
+          while (true) {
+            const promptStr = typeof promptOpt === 'function' ? promptOpt() : promptOpt;
+            const input = await questionFn(promptStr);
 
-          const trimmed = input.trim();
-          if (!trimmed) continue;
+            // EOF (Ctrl+D, closed connection)
+            if (input === null) break;
 
-          // Built-in REPL commands (only if user hasn't defined conflicting commands)
-          if (!hasUserExit && (trimmed === 'exit' || trimmed === 'quit')) break;
-          if (!hasUserClear && trimmed === 'clear') {
-            runtime.output('\x1B[2J\x1B[H');
-            continue;
+            const trimmed = input.trim();
+            if (!trimmed) continue;
+
+            // Built-in REPL commands (only if user hasn't defined conflicting commands)
+            if (!hasUserExit && (trimmed === 'exit' || trimmed === 'quit')) break;
+            if (!hasUserClear && trimmed === 'clear') {
+              runtime.output('\x1B[2J\x1B[H');
+              continue;
+            }
+
+            const prefix = options?.outputPrefix;
+            const prefixLines = prefix
+              ? (text: string) =>
+                  text
+                    .split('\n')
+                    .map((l) => prefix + l)
+                    .join('\n')
+              : undefined;
+
+            // Temporarily patch runtime on all commands so handler output gets prefixed.
+            // Commands store parent refs from build time, so we patch each command directly.
+            const savedRuntimes: { cmd: AnyPadroneCommand; runtime: typeof existingCommand.runtime }[] = [];
+            if (prefixLines) {
+              const prefixedRuntime = {
+                ...existingCommand.runtime,
+                output: (text: string) => runtime.output(prefixLines(text)),
+                error: (text: string) => runtime.error(prefixLines(text)),
+              };
+              const patchAll = (cmd: AnyPadroneCommand) => {
+                savedRuntimes.push({ cmd, runtime: cmd.runtime });
+                cmd.runtime = prefixedRuntime;
+                cmd.commands?.forEach(patchAll);
+              };
+              patchAll(existingCommand);
+            }
+
+            // Resolve before/after spacing from the shorthand or object form
+            const sp = options?.spacing;
+            const isSpacingObject = typeof sp === 'object' && sp !== null && !Array.isArray(sp);
+            const spacingBefore = isSpacingObject ? sp.before : sp;
+            const spacingAfter = isSpacingObject ? sp.after : sp;
+
+            const emitSpacingLine = (value: boolean | string) => {
+              if (typeof value === 'string') {
+                const sep =
+                  value.length === 1
+                    ? value.repeat(typeof process !== 'undefined' && process.stdout?.columns ? process.stdout.columns : 80)
+                    : value;
+                runtime.output(sep);
+              } else if (value) {
+                runtime.output('');
+              }
+            };
+            const emitSpacing = (value: typeof spacingBefore) => {
+              if (!value) return;
+              if (Array.isArray(value)) {
+                for (const line of value) emitSpacingLine(line);
+              } else {
+                emitSpacingLine(value);
+              }
+            };
+
+            emitSpacing(spacingBefore);
+
+            try {
+              const result = await evalCommand(trimmed);
+              if (result.argsResult?.issues) {
+                const issueMessages = result.argsResult.issues
+                  .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
+                  .join('\n');
+                const msg = `Validation error:\n${issueMessages}`;
+                runtime.error(prefixLines ? prefixLines(msg) : msg);
+              }
+              yield result as any;
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              runtime.error(prefixLines ? prefixLines(msg) : msg);
+            } finally {
+              for (const { cmd, runtime: saved } of savedRuntimes) cmd.runtime = saved;
+              emitSpacing(spacingAfter);
+            }
           }
-
-          try {
-            const result = await evalCommand(trimmed);
-            yield result as any;
-          } catch (err) {
-            runtime.error(err instanceof Error ? err.message : String(err));
-          }
+        } finally {
+          session?.close();
         }
       }
 

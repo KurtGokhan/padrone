@@ -27,7 +27,11 @@ export const tasksProgram = createPadrone('tasks')
   })
   .command('repl', (c) =>
     c.configure({ title: 'Start interactive REPL' }).action(async () => {
-      for await (const _ of tasksProgram.repl({ greeting: 'Welcome to tasks REPL! Type "help" for commands, "exit" to quit.' })) {
+      for await (const _ of tasksProgram.repl({
+        greeting: '\nWelcome to tasks REPL! Type "help" for commands, "exit" to quit.\n',
+        spacing: { before: [true, '▆'], after: ['▆', true] },
+        outputPrefix: '│   ',
+      })) {
         // results are handled by each command's action
       }
     }),
@@ -70,7 +74,7 @@ export const tasksProgram = createPadrone('tasks')
         }),
         { optionalInteractive: ['status', 'priority'] },
       )
-      .action((args) => {
+      .action((args, runtime) => {
         const tasks = getTasks({
           status: args.status,
           priority: args.priority,
@@ -78,15 +82,15 @@ export const tasksProgram = createPadrone('tasks')
         });
 
         if (tasks.length === 0) {
-          console.log('No tasks found.');
+          runtime.output('No tasks found.');
           return tasks;
         }
 
-        console.log('Tasks:\n');
+        runtime.output('Tasks:\n');
         for (const task of tasks) {
-          console.log(`  ${formatTask(task)}`);
+          runtime.output(`  ${formatTask(task)}`);
         }
-        console.log(`\nTotal: ${tasks.length} task(s)`);
+        runtime.output(`\nTotal: ${tasks.length} task(s)`);
         return tasks;
       }),
   )
@@ -103,8 +107,7 @@ export const tasksProgram = createPadrone('tasks')
         const task = getTask(args.id);
 
         if (!task) {
-          console.error(`Task not found: ${args.id}`);
-          process.exit(1);
+          throw new Error(`Task not found: ${args.id}`);
         }
 
         console.log('Task Details:\n');
@@ -133,8 +136,7 @@ export const tasksProgram = createPadrone('tasks')
         const task = setTaskStatus(args.id, 'completed');
 
         if (!task) {
-          console.error(`Task not found: ${args.id}`);
-          process.exit(1);
+          throw new Error(`Task not found: ${args.id}`);
         }
 
         console.log(`Task completed: ${formatTask(task)}`);
@@ -154,8 +156,7 @@ export const tasksProgram = createPadrone('tasks')
         const task = setTaskStatus(args.id, 'in_progress');
 
         if (!task) {
-          console.error(`Task not found: ${args.id}`);
-          process.exit(1);
+          throw new Error(`Task not found: ${args.id}`);
         }
 
         console.log(`Task started: ${formatTask(task)}`);
@@ -188,8 +189,7 @@ export const tasksProgram = createPadrone('tasks')
         });
 
         if (!task) {
-          console.error(`Task not found: ${args.id}`);
-          process.exit(1);
+          throw new Error(`Task not found: ${args.id}`);
         }
 
         console.log(`Task updated: ${formatTask(task)}`);
@@ -209,8 +209,7 @@ export const tasksProgram = createPadrone('tasks')
         const removed = removeTask(args.id);
 
         if (!removed) {
-          console.error(`Task not found: ${args.id}`);
-          process.exit(1);
+          throw new Error(`Task not found: ${args.id}`);
         }
 
         console.log(`Task removed: ${args.id}`);

@@ -66,16 +66,19 @@ export type PadroneRuntime = {
    */
   prompt?: (config: InteractivePromptConfig) => Promise<unknown>;
   /**
-   * Read a line of input from the user. Used by `repl()`.
+   * Read a line of input from the user. Used by `repl()` for custom runtimes
+   * (web UIs, chat interfaces, testing).
    * Returns the input string, or `null` on EOF (e.g. Ctrl+D, closed connection).
-   * When not provided, defaults to a Node.js/Bun `readline` implementation.
+   *
+   * When not provided, `repl()` uses a built-in Node.js readline session
+   * with command history (up/down arrows) and tab completion.
    */
   readLine?: (prompt: string) => Promise<string | null>;
 };
 
 /**
  * Internal resolved runtime where all fields are guaranteed to be present.
- * The `prompt` and `interactive` fields remain optional since not all runtimes support interactive prompts.
+ * The `prompt`, `interactive`, and `readLine` fields remain optional since not all runtimes provide them.
  */
 export type ResolvedPadroneRuntime = Required<Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine'>> &
   Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine'>;
@@ -107,23 +110,56 @@ async function defaultTerminalPrompt(config: InteractivePromptConfig): Promise<u
   const response = (await Enquirer.prompt(question as any)) as Record<string, unknown>;
   return response[config.name];
 }
+
 /**
- * Default terminal readLine implementation using Node.js readline.
- * Creates a fresh interface per call so it doesn't conflict with other stdin
- * consumers (e.g. Enquirer for interactive prompts) and doesn't keep the
- * process alive after the REPL ends.
- * Returns null on EOF (Ctrl+D).
+ * Internal session config for the REPL's persistent readline interface.
  */
-async function defaultTerminalReadLine(prompt: string): Promise<string | null> {
-  const { createInterface } = await import('node:readline');
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise((resolve) => {
-    rl.question(prompt, (answer) => {
-      resolve(answer);
-      rl.close();
-    });
-    rl.on('close', () => resolve(null));
-  });
+export type ReplSessionConfig = {
+  completer?: (line: string) => [string[], string];
+  history?: string[];
+};
+
+/**
+ * Creates a persistent Node.js readline session for the REPL.
+ * Enables up/down arrow history navigation and tab completion.
+ * Used internally by `repl()` when no custom `readLine` is provided.
+ */
+export function createTerminalReplSession(config: ReplSessionConfig) {
+  // History accumulates across per-call interfaces, giving us
+  // up/down arrow navigation without a persistent stdin listener
+  // that would conflict with Enquirer or other stdin consumers.
+  let history: string[] = config.history ? [...config.history] : [];
+
+  return {
+    async question(prompt: string): Promise<string | null> {
+      const { createInterface } = await import('node:readline');
+      const opts: Record<string, unknown> = {
+        input: process.stdin,
+        output: process.stdout,
+        terminal: true,
+        history: [...history],
+        historySize: Math.max(history.length, 1000),
+      };
+      if (config.completer) {
+        opts.completer = config.completer;
+      }
+      const rl = createInterface(opts as any);
+
+      return new Promise((resolve) => {
+        rl.question(prompt, (answer) => {
+          // Grab updated history (includes the new entry) before closing.
+          if (Array.isArray((rl as any).history)) history = [...(rl as any).history];
+          resolve(answer);
+          rl.close();
+        });
+        // EOF (Ctrl+D) fires close without the question callback.
+        rl.once('close', () => resolve(null));
+      });
+    },
+    close() {
+      // No persistent interface to clean up.
+    },
+  };
 }
 
 /**
@@ -169,6 +205,6 @@ export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime
     findFile: partial.findFile ?? defaults.findFile,
     interactive,
     prompt: partial.prompt ?? defaultTerminalPrompt,
-    readLine: partial.readLine ?? defaultTerminalReadLine,
+    readLine: partial.readLine,
   };
 }

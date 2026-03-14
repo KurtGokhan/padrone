@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { createPadrone } from 'padrone';
+import { buildReplCompleter, createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 import { createConsoleMocker } from './console-mocker.ts';
 
@@ -112,9 +112,9 @@ describe('REPL', () => {
       results.push(result);
     }
 
-    // The validation error command still yields (cli returns result with issues, doesn't throw when given explicit input)
-    // The greet command succeeds
-    expect(results.length).toBeGreaterThanOrEqual(1);
+    // Validation error was printed
+    expect(errors.some((e) => e.includes('Validation error'))).toBe(true);
+    // The greet command still succeeded
     expect(results.at(-1)!.result).toBe('Hello, World!');
   });
 
@@ -237,8 +237,7 @@ describe('REPL', () => {
     expect(results[0]!.result).toBe('custom-clear');
   });
 
-  it('should always have readLine from resolved runtime defaults', async () => {
-    // resolveRuntime always provides a default readLine, so repl() should not throw
+  it('should work with readLine from runtime', async () => {
     const readLine = mockReadLine([null]);
     const program = createPadrone('test').runtime({ readLine, output: () => {}, error: () => {} });
 
@@ -248,5 +247,306 @@ describe('REPL', () => {
     }
 
     expect(results).toHaveLength(0);
+  });
+
+  describe('output styling', () => {
+    it('should add blank lines before and after each command when spacing is true', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine(['greet World', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+            rt.output(`Hello, ${args.name}!`);
+          }),
+        );
+
+      for await (const _ of program.repl({ spacing: true })) {
+        // consume
+      }
+
+      expect(output.at(0)).toBe('');
+      expect(output).toContain('Hello, World!');
+      expect(output.at(-1)).toBe('');
+    });
+
+    it('should use single-char spacing as repeated separator before and after', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine(['greet World', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+            rt.output(`Hello, ${args.name}!`);
+          }),
+        );
+
+      for await (const _ of program.repl({ spacing: '─' })) {
+        // consume
+      }
+
+      const firstLine = output.at(0)!;
+      expect(firstLine.length).toBeGreaterThanOrEqual(80);
+      expect(firstLine).toBe('─'.repeat(firstLine.length));
+      expect(output.at(1)).toBe('Hello, World!');
+      // Also after
+      expect(output.at(-1)).toBe(firstLine);
+    });
+
+    it('should use multi-char spacing string as-is', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine(['greet World', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+            rt.output(`Hello, ${args.name}!`);
+          }),
+        );
+
+      for await (const _ of program.repl({ spacing: '---' })) {
+        // consume
+      }
+
+      expect(output.at(0)).toBe('---');
+      expect(output.at(-1)).toBe('---');
+    });
+
+    it('should support object form with only before or only after', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine(['greet World', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+            rt.output(`Hello, ${args.name}!`);
+          }),
+        );
+
+      for await (const _ of program.repl({ spacing: { before: '─' } })) {
+        // consume
+      }
+
+      // Separator before, nothing after
+      const firstLine = output.at(0)!;
+      expect(firstLine.length).toBeGreaterThanOrEqual(80);
+      expect(firstLine).toBe('─'.repeat(firstLine.length));
+      expect(output.at(-1)).toBe('Hello, World!');
+    });
+
+    it('should support different before and after spacing', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine(['greet World', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+            rt.output(`Hello, ${args.name}!`);
+          }),
+        );
+
+      for await (const _ of program.repl({ spacing: { before: '─', after: true } })) {
+        // consume
+      }
+
+      const firstLine = output.at(0)!;
+      expect(firstLine).toBe('─'.repeat(firstLine.length));
+      expect(output.at(-1)).toBe('');
+    });
+
+    it('should prefix command output lines with outputPrefix', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine(['greet World', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+            rt.output(`Hello, ${args.name}!`);
+          }),
+        );
+
+      for await (const _ of program.repl({ outputPrefix: '│ ' })) {
+        // consume
+      }
+
+      expect(output).toContain('│ Hello, World!');
+    });
+
+    it('should prefix error output with outputPrefix', async () => {
+      const errors: string[] = [];
+      const readLine = mockReadLine(['boom', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: () => {}, error: (msg) => errors.push(msg) })
+        .command('boom', (c) =>
+          c.action(() => {
+            throw new Error('kaboom');
+          }),
+        );
+
+      for await (const _ of program.repl({ outputPrefix: '│ ' })) {
+        // consume
+      }
+
+      expect(errors.some((e) => e.startsWith('│ '))).toBe(true);
+    });
+
+    it('should restore output functions after command completes', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine(['greet World', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+            rt.output(`Hello, ${args.name}!`);
+          }),
+        );
+
+      for await (const _ of program.repl({ outputPrefix: '│ ', spacing: true })) {
+        // consume
+      }
+
+      // Spacing lines should NOT be prefixed (before: printed before prefix patching, after: printed after restoring)
+      expect(output.at(0)).toBe('');
+      expect(output.at(-1)).toBe('');
+      // Command output should be prefixed
+      expect(output).toContain('│ Hello, World!');
+    });
+
+    it('should support array spacing for multiple lines', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine(['greet World', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+            rt.output(`Hello, ${args.name}!`);
+          }),
+        );
+
+      for await (const _ of program.repl({ spacing: { before: [true, '─'], after: true } })) {
+        // consume
+      }
+
+      // Before: blank line, then separator
+      expect(output.at(0)).toBe('');
+      const sep = output.at(1)!;
+      expect(sep).toBe('─'.repeat(sep.length));
+      // Command output
+      expect(output.at(2)).toBe('Hello, World!');
+      // After: blank line
+      expect(output.at(-1)).toBe('');
+    });
+  });
+
+  describe('tab completion', () => {
+    function getCompleter(program: any, builtinOverrides?: { hasUserExit?: boolean; hasUserClear?: boolean }) {
+      // Get the root command via parse() with empty argv
+      const rootCommand = program.runtime({ argv: () => [] }).parse().command;
+      return buildReplCompleter(rootCommand, {
+        hasUserExit: builtinOverrides?.hasUserExit ?? false,
+        hasUserClear: builtinOverrides?.hasUserClear ?? false,
+      });
+    }
+
+    it('should complete command names', () => {
+      const completer = getCompleter(
+        createPadrone('test')
+          .command('greet', (c) => c.action(() => 'hi'))
+          .command('goodbye', (c) => c.action(() => 'bye')),
+      );
+
+      const [hits] = completer('gr');
+      expect(hits).toContain('greet');
+      expect(hits).not.toContain('goodbye');
+    });
+
+    it('should complete option names with --', () => {
+      const completer = getCompleter(
+        createPadrone('test').command('greet', (c) =>
+          c.arguments(z.object({ name: z.string(), loud: z.boolean().default(false) })).action((args) => args.name),
+        ),
+      );
+
+      const [hits] = completer('greet --n');
+      expect(hits).toContain('--name');
+      expect(hits).not.toContain('--loud');
+    });
+
+    it('should complete alias flags with -', () => {
+      const completer = getCompleter(
+        createPadrone('test').command('list', (c) =>
+          c
+            .arguments(z.object({ priority: z.string(), verbose: z.boolean().default(false) }), {
+              fields: { priority: { alias: 'p' }, verbose: { alias: 'v' } },
+            })
+            .action(() => 'listed'),
+        ),
+      );
+
+      const [hits] = completer('list -');
+      expect(hits).toContain('-p');
+      expect(hits).toContain('-v');
+      expect(hits).not.toContain('-priority');
+      expect(hits).not.toContain('-verbose');
+    });
+
+    it('should include built-in commands in completions', () => {
+      const completer = getCompleter(createPadrone('test').command('greet', (c) => c.action(() => 'hi')));
+
+      const [hits] = completer('');
+      expect(hits).toContain('help');
+      expect(hits).toContain('exit');
+      expect(hits).toContain('quit');
+      expect(hits).toContain('clear');
+      expect(hits).toContain('greet');
+    });
+
+    it('should not include exit/quit if user has those commands', () => {
+      const completer = getCompleter(
+        createPadrone('test')
+          .command('exit', (c) => c.action(() => 'custom-exit'))
+          .command('greet', (c) => c.action(() => 'hi')),
+        { hasUserExit: true },
+      );
+
+      const [hits] = completer('');
+      expect(hits).toContain('exit');
+      expect(hits).not.toContain('quit');
+    });
+
+    it('should complete subcommand names', () => {
+      const completer = getCompleter(
+        createPadrone('test').command('db', (c) =>
+          c.command('migrate', (s) => s.action(() => 'migrated')).command('seed', (s) => s.action(() => 'seeded')),
+        ),
+      );
+
+      const [hits] = completer('db mi');
+      expect(hits).toContain('migrate');
+      expect(hits).not.toContain('seed');
+    });
+
+    it('should include --help in option completions', () => {
+      const completer = getCompleter(
+        createPadrone('test').command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((args) => args.name)),
+      );
+
+      const [hits] = completer('greet --');
+      expect(hits).toContain('--help');
+      expect(hits).toContain('--name');
+    });
+
+    it('should return all candidates when no match', () => {
+      const completer = getCompleter(
+        createPadrone('test')
+          .command('greet', (c) => c.action(() => 'hi'))
+          .command('goodbye', (c) => c.action(() => 'bye')),
+      );
+
+      const [hits] = completer('xyz');
+      // Falls back to all candidates
+      expect(hits).toContain('greet');
+      expect(hits).toContain('goodbye');
+    });
   });
 });

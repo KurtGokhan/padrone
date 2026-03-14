@@ -1,5 +1,5 @@
 export type { PadroneFieldMeta as PadroneArgsMeta } from './args.ts';
-export { asyncSchema, createPadrone } from './create.ts';
+export { asyncSchema, buildReplCompleter, createPadrone } from './create.ts';
 export type {
   HelpArgumentInfo as HelpOptionInfo,
   HelpFormat,
@@ -32,6 +32,7 @@ export type {
   PadroneParseResult,
   PadroneProgram,
   PadroneReplPreferences,
+  PadroneReplSpacing,
   PadroneSchema,
 } from './types.ts';
 export type { WrapConfig, WrapResult } from './wrap.ts';
