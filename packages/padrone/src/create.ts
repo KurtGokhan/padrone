@@ -128,7 +128,7 @@ function detectPromptConfig(name: string, propSchema: Record<string, any> | unde
 /**
  * Builds a completer function for the REPL from the command tree.
  * Completes command names, subcommand names, option names (--foo), and aliases (-f).
- * Also includes dot-prefixed built-in REPL commands (.exit, .clear, .cd, .help, .history).
+ * Also includes dot-prefixed built-in REPL commands (.exit, .clear, .scope, .help, .history).
  */
 export function buildReplCompleter(
   rootCommand: AnyPadroneCommand,
@@ -144,7 +144,7 @@ export function buildReplCompleter(
     // If we're completing a dot-command
     if (lastPart.startsWith('.')) {
       const dotCmds = ['.exit', '.clear', '.help', '.history'];
-      if (rootCommand.commands?.some((c) => c.commands?.length) || builtins.inScope) dotCmds.push('.cd');
+      if (rootCommand.commands?.some((c) => c.commands?.length) || builtins.inScope) dotCmds.push('.scope');
       const hits = dotCmds.filter((c) => c.startsWith(lastPart));
       return [hits.length ? hits : dotCmds, lastPart];
     }
@@ -211,7 +211,7 @@ export function buildReplCompleter(
     // Add dot-commands and `..` shorthand at the root level (relative to current scope)
     if (targetCommand === rootCommand) {
       candidates.push('.help', '.exit', '.clear', '.history');
-      if (rootCommand.commands?.some((c) => c.commands?.length) || builtins.inScope) candidates.push('.cd');
+      if (rootCommand.commands?.some((c) => c.commands?.length) || builtins.inScope) candidates.push('.scope');
       if (builtins.inScope) candidates.push('..');
     }
 
@@ -1331,14 +1331,14 @@ ${helpText}
               const inScope = scopeStack.length > 0;
               const lines = [
                 'REPL Commands:',
-                '  .help        Print this help message',
-                '  .exit        Exit the REPL',
-                '  .clear       Clear the screen',
-                '  .history     Show command history',
+                '  .help           Print this help message',
+                '  .exit           Exit the REPL',
+                '  .clear          Clear the screen',
+                '  .history        Show command history',
               ];
               if (getScopeCommand().commands?.some((c) => c.commands?.length) || inScope) {
-                lines.push('  .cd <cmd>    Scope into a subcommand');
-                lines.push('  .cd ..       Go up one scope level');
+                lines.push('  .scope <cmd>    Scope into a subcommand');
+                lines.push('  .scope ..       Go up one scope level');
               }
               lines.push(
                 '',
@@ -1364,10 +1364,10 @@ ${helpText}
               continue;
             }
 
-            // `.cd <subcommand>` — scope the REPL to a command subtree
-            // `.cd ..` or `..` — go up one scope level
-            if (trimmed.startsWith('.cd ') || trimmed === '.cd') {
-              const target = trimmed.slice(3).trim();
+            // `.scope <subcommand>` — scope the REPL to a command subtree
+            // `.scope ..` or `..` — go up one scope level
+            if (trimmed.startsWith('.scope ') || trimmed === '.scope') {
+              const target = trimmed.slice(6).trim();
               if (target === '..' || target === '') {
                 if (scopeStack.length > 0) {
                   scopeStack.pop();
@@ -1390,7 +1390,7 @@ ${helpText}
               continue;
             }
 
-            // `..` shorthand for `.cd ..`
+            // `..` shorthand for `.scope ..`
             if (trimmed === '..') {
               if (scopeStack.length > 0) {
                 scopeStack.pop();
@@ -1403,7 +1403,7 @@ ${helpText}
             let evalInput = trimmed;
             if (trimmed === '.') {
               if (scopeStack.length === 0) {
-                runtime.error('Not in a scope. Use ".cd <command>" to scope into a command first.');
+                runtime.error('Not in a scope. Use ".scope <command>" to scope into a command first.');
                 continue;
               }
               evalInput = '';

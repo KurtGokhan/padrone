@@ -653,7 +653,7 @@ export type PadroneReplPreferences<TScope extends string = string> = {
   /**
    * Start the REPL scoped to a command subtree. The scope path is a space-separated command path
    * (e.g. `'db'` or `'db migrate'`). Commands are resolved relative to the scoped command.
-   * Users can change scope at runtime with `.cd <subcommand>` and `.cd ..`/`..`.
+   * Users can change scope at runtime with `.scope <subcommand>` and `.scope ..`/`..`.
    */
   scope?: TScope;
 };

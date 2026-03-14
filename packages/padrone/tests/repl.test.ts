@@ -641,11 +641,11 @@ describe('REPL', () => {
       expect(hits).not.toContain('.quit');
     });
 
-    it('should include .cd when commands have subcommands', () => {
+    it('should include .scope when commands have subcommands', () => {
       const completer = getCompleter(createPadrone('test').command('db', (c) => c.command('migrate', (s) => s.action(() => 'migrated'))));
 
       const [hits] = completer('');
-      expect(hits).toContain('.cd');
+      expect(hits).toContain('.scope');
     });
 
     it('should include .. when in scope', () => {
@@ -694,7 +694,7 @@ describe('REPL', () => {
     });
   });
 
-  describe('scoped REPL (.cd/..)', () => {
+  describe('scoped REPL (.scope/..)', () => {
     function createScopedProgram(readLine: ReturnType<typeof mockReadLine>) {
       return createPadrone('test')
         .runtime({ readLine, output: () => {}, error: () => {} })
@@ -710,8 +710,8 @@ describe('REPL', () => {
         );
     }
 
-    it('should scope into a subcommand with .cd', async () => {
-      const readLine = mockReadLine(['.cd db', 'migrate test-migration', null]);
+    it('should scope into a subcommand with .scope', async () => {
+      const readLine = mockReadLine(['.scope db', 'migrate test-migration', null]);
       const program = createScopedProgram(readLine);
 
       const results: any[] = [];
@@ -723,8 +723,8 @@ describe('REPL', () => {
       expect(results[0]!.result).toBe('migrated:test-migration');
     });
 
-    it('should go back to root with .cd ..', async () => {
-      const readLine = mockReadLine(['.cd db', 'seed', '.cd ..', 'greet World', null]);
+    it('should go back to root with .scope ..', async () => {
+      const readLine = mockReadLine(['.scope db', 'seed', '.scope ..', 'greet World', null]);
       const program = createScopedProgram(readLine);
 
       const results: any[] = [];
@@ -738,7 +738,7 @@ describe('REPL', () => {
     });
 
     it('should go back with .. shorthand', async () => {
-      const readLine = mockReadLine(['.cd db', 'seed', '..', 'greet World', null]);
+      const readLine = mockReadLine(['.scope db', 'seed', '..', 'greet World', null]);
       const program = createScopedProgram(readLine);
 
       const results: any[] = [];
@@ -751,8 +751,8 @@ describe('REPL', () => {
       expect(results[1]!.result).toBe('Hello, World!');
     });
 
-    it('should go back with bare .cd (no argument)', async () => {
-      const readLine = mockReadLine(['.cd db', 'seed', '.cd', 'greet World', null]);
+    it('should go back with bare .scope (no argument)', async () => {
+      const readLine = mockReadLine(['.scope db', 'seed', '.scope', 'greet World', null]);
       const program = createScopedProgram(readLine);
 
       const results: any[] = [];
@@ -766,7 +766,7 @@ describe('REPL', () => {
     });
 
     it('should not go back past root', async () => {
-      const readLine = mockReadLine(['.cd ..', '..', 'greet World', null]);
+      const readLine = mockReadLine(['.scope ..', '..', 'greet World', null]);
       const program = createScopedProgram(readLine);
 
       const results: any[] = [];
@@ -778,9 +778,9 @@ describe('REPL', () => {
       expect(results[0]!.result).toBe('Hello, World!');
     });
 
-    it('should error on .cd with unknown command', async () => {
+    it('should error on .scope with unknown command', async () => {
       const errors: string[] = [];
-      const readLine = mockReadLine(['.cd nonexistent', null]);
+      const readLine = mockReadLine(['.scope nonexistent', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: () => {}, error: (msg) => errors.push(msg) })
         .command('greet', (c) => c.action(() => 'hi'));
@@ -794,7 +794,7 @@ describe('REPL', () => {
 
     it('should error when scoping into command with no subcommands', async () => {
       const errors: string[] = [];
-      const readLine = mockReadLine(['.cd greet', null]);
+      const readLine = mockReadLine(['.scope greet', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: () => {}, error: (msg) => errors.push(msg) })
         .command('greet', (c) => c.action(() => 'hi'));
@@ -807,7 +807,7 @@ describe('REPL', () => {
     });
 
     it('should update prompt to reflect scope', async () => {
-      const readLine = mockReadLine(['.cd db', 'seed', null]);
+      const readLine = mockReadLine(['.scope db', 'seed', null]);
       const program = createPadrone('myapp')
         .runtime({ readLine, output: () => {}, error: () => {} })
         .command('db', (c) => c.command('seed', (s) => s.action(() => 'seeded')));
@@ -836,7 +836,7 @@ describe('REPL', () => {
       expect(results[0]!.result).toBe('seeded');
     });
 
-    it('should allow user-defined cd command (dot-prefix .cd is separate)', async () => {
+    it('should allow user-defined cd command (dot-prefix .scope is separate)', async () => {
       const readLine = mockReadLine(['cd somewhere', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: () => {}, error: () => {} })
@@ -854,7 +854,7 @@ describe('REPL', () => {
     });
 
     it('should execute current scoped command with bare dot', async () => {
-      const readLine = mockReadLine(['.cd db', '.', null]);
+      const readLine = mockReadLine(['.scope db', '.', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: () => {}, error: () => {} })
         .command('db', (c) => c.action(() => 'db-root').command('seed', (s) => s.action(() => 'seeded')));
