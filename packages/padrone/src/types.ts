@@ -561,8 +561,8 @@ export type PadroneProgram<
    * Starts a REPL (Read-Eval-Print Loop) for running commands interactively.
    * Returns an AsyncIterable that yields a `PadroneCommandResult` for each successfully executed command.
    * Errors are printed via `runtime.error()` and the loop continues.
-   * The loop ends when the user sends EOF (Ctrl+D), or types `exit`/`quit`
-   * (unless a user-defined command with that name exists).
+   * The loop ends when the user sends EOF (Ctrl+D), types `.exit`/`.quit`,
+   * or presses Ctrl+C twice within 2 seconds.
    *
    * @example
    * ```ts
@@ -622,8 +622,18 @@ export type PadroneReplSpacing = boolean | string | (boolean | string)[];
 export type PadroneReplPreferences<TScope extends string = string> = {
   /** The prompt string displayed before each input, or a function returning it. Defaults to `"<programName>> "`. */
   prompt?: string | (() => string);
-  /** A greeting message displayed when the REPL starts. */
-  greeting?: string;
+  /**
+   * A greeting message displayed when the REPL starts.
+   * When not provided, defaults to `"Welcome to <name> v<version>"` (or just `"Welcome to <name>"` if no version).
+   * Set to `false` to suppress the default greeting entirely.
+   */
+  greeting?: string | false;
+  /**
+   * A hint message displayed below the greeting in dimmed text.
+   * When not provided, defaults to `'Type ".help" for more information, ".exit" to quit.'`.
+   * Set to `false` to suppress the hint.
+   */
+  hint?: string | false;
   /** Initial history entries (most recent last). Arrow keys navigate history in the terminal. */
   history?: string[];
   /** Set to `false` to disable tab completion. Defaults to `true`. */
@@ -643,7 +653,7 @@ export type PadroneReplPreferences<TScope extends string = string> = {
   /**
    * Start the REPL scoped to a command subtree. The scope path is a space-separated command path
    * (e.g. `'db'` or `'db migrate'`). Commands are resolved relative to the scoped command.
-   * Users can change scope at runtime with `cd <subcommand>` and `cd ..`/`..`.
+   * Users can change scope at runtime with `.cd <subcommand>` and `.cd ..`/`..`.
    */
   scope?: TScope;
 };

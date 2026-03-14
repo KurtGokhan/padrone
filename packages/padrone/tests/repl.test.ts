@@ -38,7 +38,7 @@ describe('REPL', () => {
     const program = createTestProgram(readLine);
 
     const results: any[] = [];
-    for await (const result of program.repl()) {
+    for await (const result of program.repl({ greeting: false, hint: false })) {
       results.push(result);
     }
 
@@ -47,12 +47,12 @@ describe('REPL', () => {
     expect(results[1]!.result).toBe(5);
   });
 
-  it('should stop on exit command', async () => {
-    const readLine = mockReadLine(['greet Alice', 'exit', 'greet Bob']);
+  it('should stop on .exit command', async () => {
+    const readLine = mockReadLine(['greet Alice', '.exit', 'greet Bob']);
     const program = createTestProgram(readLine);
 
     const results: any[] = [];
-    for await (const result of program.repl()) {
+    for await (const result of program.repl({ greeting: false, hint: false })) {
       results.push(result);
     }
 
@@ -60,12 +60,12 @@ describe('REPL', () => {
     expect(results[0]!.result).toBe('Hello, Alice!');
   });
 
-  it('should stop on quit command', async () => {
-    const readLine = mockReadLine(['greet Alice', 'quit']);
+  it('should stop on .quit command', async () => {
+    const readLine = mockReadLine(['greet Alice', '.quit']);
     const program = createTestProgram(readLine);
 
     const results = [];
-    for await (const result of program.repl()) {
+    for await (const result of program.repl({ greeting: false, hint: false })) {
       results.push(result);
     }
 
@@ -77,7 +77,7 @@ describe('REPL', () => {
     const program = createTestProgram(readLine);
 
     const results = [];
-    for await (const result of program.repl()) {
+    for await (const result of program.repl({ greeting: false, hint: false })) {
       results.push(result);
     }
 
@@ -89,7 +89,7 @@ describe('REPL', () => {
     const program = createTestProgram(readLine);
 
     const results: any[] = [];
-    for await (const result of program.repl()) {
+    for await (const result of program.repl({ greeting: false, hint: false })) {
       results.push(result);
     }
 
@@ -108,7 +108,7 @@ describe('REPL', () => {
       );
 
     const results: any[] = [];
-    for await (const result of program.repl()) {
+    for await (const result of program.repl({ greeting: false, hint: false })) {
       results.push(result);
     }
 
@@ -133,7 +133,7 @@ describe('REPL', () => {
       );
 
     const results: any[] = [];
-    for await (const result of program.repl()) {
+    for await (const result of program.repl({ greeting: false, hint: false })) {
       results.push(result);
     }
 
@@ -143,23 +143,112 @@ describe('REPL', () => {
     expect(results.some((r: any) => r.result === 'Hello, World!')).toBe(true);
   });
 
-  it('should display greeting message', async () => {
-    const output: string[] = [];
-    const readLine = mockReadLine([null]);
-    const program = createPadrone('test').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
+  describe('greeting and hint', () => {
+    it('should display default greeting with program name', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine([null]);
+      const program = createPadrone('myapp').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
 
-    for await (const _ of program.repl({ greeting: 'Welcome to the REPL!' })) {
-      // no commands
-    }
+      for await (const _ of program.repl({ hint: false })) {
+        // no commands
+      }
 
-    expect(output).toContain('Welcome to the REPL!');
+      // Empty line, greeting, empty line
+      expect(output[0]).toBe('');
+      expect(output[1]).toBe('Welcome to myapp');
+      expect(output[2]).toBe('');
+    });
+
+    it('should display default greeting with version when available', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine([null]);
+      const program = createPadrone('myapp')
+        .configure({ version: '2.1.0' })
+        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
+
+      for await (const _ of program.repl({ hint: false })) {
+        // no commands
+      }
+
+      expect(output[1]).toBe('Welcome to myapp v2.1.0');
+    });
+
+    it('should display custom greeting message', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine([null]);
+      const program = createPadrone('test').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
+
+      for await (const _ of program.repl({ greeting: 'Welcome to the REPL!', hint: false })) {
+        // no commands
+      }
+
+      expect(output).toContain('Welcome to the REPL!');
+    });
+
+    it('should suppress greeting when greeting is false', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine([null]);
+      const program = createPadrone('myapp').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
+
+      for await (const _ of program.repl({ greeting: false, hint: false })) {
+        // no commands
+      }
+
+      expect(output).toHaveLength(0);
+    });
+
+    it('should display default hint text below greeting', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine([null]);
+      const program = createPadrone('myapp').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
+
+      for await (const _ of program.repl()) {
+        // no commands
+      }
+
+      // Empty line, greeting, hint, empty line
+      expect(output[0]).toBe('');
+      expect(output[1]).toBe('Welcome to myapp');
+      expect(output[2]).toContain('.help');
+      expect(output[2]).toContain('.exit');
+      expect(output[3]).toBe('');
+    });
+
+    it('should display custom hint text', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine([null]);
+      const program = createPadrone('test').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
+
+      for await (const _ of program.repl({ greeting: false, hint: 'Custom hint here.' })) {
+        // no commands
+      }
+
+      // Empty line, hint, empty line
+      expect(output[0]).toBe('');
+      expect(output[1]).toContain('Custom hint here.');
+      expect(output[2]).toBe('');
+    });
+
+    it('should suppress hint when hint is false', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine([null]);
+      const program = createPadrone('myapp').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
+
+      for await (const _ of program.repl({ hint: false })) {
+        // no commands
+      }
+
+      // Empty line, greeting, empty line
+      expect(output).toHaveLength(3);
+      expect(output[1]).toContain('Welcome to myapp');
+    });
   });
 
   it('should use custom prompt string', async () => {
     const readLine = mockReadLine([null]);
     const program = createPadrone('test').runtime({ readLine, output: () => {}, error: () => {} });
 
-    for await (const _ of program.repl({ prompt: 'custom> ' })) {
+    for await (const _ of program.repl({ prompt: 'custom> ', greeting: false, hint: false })) {
       // no commands
     }
 
@@ -175,7 +264,7 @@ describe('REPL', () => {
         c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
       );
 
-    for await (const _ of program.repl({ prompt: () => `[${++callCount}]> ` })) {
+    for await (const _ of program.repl({ prompt: () => `[${++callCount}]> `, greeting: false, hint: false })) {
       // consume
     }
 
@@ -187,86 +276,97 @@ describe('REPL', () => {
     const readLine = mockReadLine([null]);
     const program = createPadrone('myapp').runtime({ readLine, output: () => {}, error: () => {} });
 
-    for await (const _ of program.repl()) {
+    for await (const _ of program.repl({ greeting: false, hint: false })) {
       // no commands
     }
 
     expect(readLine).toHaveBeenCalledWith('myapp ❯ ');
   });
 
-  it('should handle clear command', async () => {
+  it('should handle .clear command', async () => {
     const output: string[] = [];
-    const readLine = mockReadLine(['clear', null]);
+    const readLine = mockReadLine(['.clear', null]);
     const program = createPadrone('test').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
 
-    for await (const _ of program.repl()) {
+    for await (const _ of program.repl({ greeting: false, hint: false })) {
       // no commands
     }
 
     expect(output.some((o) => o.includes('\x1B[2J'))).toBe(true);
   });
 
-  it('should use user-defined exit command instead of built-in', async () => {
-    const readLine = mockReadLine(['exit', null]);
+  it('should not intercept bare exit/quit/clear as built-in (dot-prefix required)', async () => {
+    const readLine = mockReadLine(['exit', 'quit', 'clear', null]);
     const program = createPadrone('test')
       .runtime({ readLine, output: () => {}, error: () => {} })
-      .command('exit', (c) => c.action(() => 'custom-exit'));
-
-    const results: any[] = [];
-    for await (const result of program.repl()) {
-      results.push(result);
-    }
-
-    // User's exit command was executed, not the built-in
-    expect(results).toHaveLength(1);
-    expect(results[0]!.result).toBe('custom-exit');
-  });
-
-  it('should still allow built-in quit when user defines exit', async () => {
-    const readLine = mockReadLine(['exit', 'quit']);
-    const program = createPadrone('test')
-      .runtime({ readLine, output: () => {}, error: () => {} })
-      .command('exit', (c) => c.action(() => 'custom-exit'));
-
-    const results: any[] = [];
-    for await (const result of program.repl()) {
-      results.push(result);
-    }
-
-    // User's exit ran, then quit stopped the REPL
-    expect(results).toHaveLength(1);
-    expect(results[0]!.result).toBe('custom-exit');
-  });
-
-  it('should still allow built-in exit when user defines quit', async () => {
-    const readLine = mockReadLine(['quit', 'exit']);
-    const program = createPadrone('test')
-      .runtime({ readLine, output: () => {}, error: () => {} })
-      .command('quit', (c) => c.action(() => 'custom-quit'));
-
-    const results: any[] = [];
-    for await (const result of program.repl()) {
-      results.push(result);
-    }
-
-    // User's quit ran, then exit stopped the REPL
-    expect(results).toHaveLength(1);
-    expect(results[0]!.result).toBe('custom-quit');
-  });
-
-  it('should use user-defined clear command instead of built-in', async () => {
-    const readLine = mockReadLine(['clear', null]);
-    const program = createPadrone('test')
-      .runtime({ readLine, output: () => {}, error: () => {} })
+      .command('exit', (c) => c.action(() => 'custom-exit'))
+      .command('quit', (c) => c.action(() => 'custom-quit'))
       .command('clear', (c) => c.action(() => 'custom-clear'));
 
     const results: any[] = [];
-    for await (const result of program.repl()) {
+    for await (const result of program.repl({ greeting: false, hint: false })) {
       results.push(result);
     }
 
-    expect(results).toHaveLength(1);
-    expect(results[0]!.result).toBe('custom-clear');
+    // All three are user commands now, not built-ins
+    expect(results).toHaveLength(3);
+    expect(results[0]!.result).toBe('custom-exit');
+    expect(results[1]!.result).toBe('custom-quit');
+    expect(results[2]!.result).toBe('custom-clear');
+  });
+
+  it('should handle .help command with REPL-specific output', async () => {
+    const output: string[] = [];
+    const readLine = mockReadLine(['.help', null]);
+    const program = createPadrone('test')
+      .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
+      .command('greet', (c) => c.action(() => 'hi'));
+
+    for await (const _ of program.repl({ greeting: false, hint: false })) {
+      // consume
+    }
+
+    const helpOutput = output.join('\n');
+    expect(helpOutput).toContain('REPL Commands:');
+    expect(helpOutput).toContain('.help');
+    expect(helpOutput).toContain('.exit');
+    expect(helpOutput).toContain('.clear');
+    expect(helpOutput).toContain('.history');
+    expect(helpOutput).toContain('Keybindings:');
+    expect(helpOutput).toContain('Ctrl+C');
+    expect(helpOutput).toContain('Ctrl+D');
+    expect(helpOutput).toContain('Type "help" to see available commands.');
+  });
+
+  it('should handle .history command', async () => {
+    const output: string[] = [];
+    const readLine = mockReadLine(['greet World', 'add --a=1 --b=2', '.history', null]);
+    const program = createPadrone('test')
+      .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
+      .command('greet', (c) =>
+        c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
+      )
+      .command('add', (c) => c.arguments(z.object({ a: z.coerce.number(), b: z.coerce.number() })).action((args) => args.a + args.b));
+
+    for await (const _ of program.repl({ greeting: false, hint: false })) {
+      // consume
+    }
+
+    const historyOutput = output.find((o) => o.includes('1  greet World'));
+    expect(historyOutput).toBeDefined();
+    expect(historyOutput).toContain('2  add --a=1 --b=2');
+  });
+
+  it('should show empty history message when no commands have been run', async () => {
+    const output: string[] = [];
+    const readLine = mockReadLine(['.history', null]);
+    const program = createPadrone('test').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
+
+    for await (const _ of program.repl({ greeting: false, hint: false })) {
+      // consume
+    }
+
+    expect(output).toContain('No history.');
   });
 
   it('should work with readLine from runtime', async () => {
@@ -274,7 +374,7 @@ describe('REPL', () => {
     const program = createPadrone('test').runtime({ readLine, output: () => {}, error: () => {} });
 
     const results = [];
-    for await (const result of program.repl()) {
+    for await (const result of program.repl({ greeting: false, hint: false })) {
       results.push(result);
     }
 
@@ -293,7 +393,7 @@ describe('REPL', () => {
           }),
         );
 
-      for await (const _ of program.repl({ spacing: true })) {
+      for await (const _ of program.repl({ spacing: true, greeting: false, hint: false })) {
         // consume
       }
 
@@ -313,7 +413,7 @@ describe('REPL', () => {
           }),
         );
 
-      for await (const _ of program.repl({ spacing: '─' })) {
+      for await (const _ of program.repl({ spacing: '─', greeting: false, hint: false })) {
         // consume
       }
 
@@ -336,7 +436,7 @@ describe('REPL', () => {
           }),
         );
 
-      for await (const _ of program.repl({ spacing: '---' })) {
+      for await (const _ of program.repl({ spacing: '---', greeting: false, hint: false })) {
         // consume
       }
 
@@ -355,7 +455,7 @@ describe('REPL', () => {
           }),
         );
 
-      for await (const _ of program.repl({ spacing: { before: '─' } })) {
+      for await (const _ of program.repl({ spacing: { before: '─' }, greeting: false, hint: false })) {
         // consume
       }
 
@@ -377,7 +477,7 @@ describe('REPL', () => {
           }),
         );
 
-      for await (const _ of program.repl({ spacing: { before: '─', after: true } })) {
+      for await (const _ of program.repl({ spacing: { before: '─', after: true }, greeting: false, hint: false })) {
         // consume
       }
 
@@ -397,7 +497,7 @@ describe('REPL', () => {
           }),
         );
 
-      for await (const _ of program.repl({ outputPrefix: '│ ' })) {
+      for await (const _ of program.repl({ outputPrefix: '│ ', greeting: false, hint: false })) {
         // consume
       }
 
@@ -415,7 +515,7 @@ describe('REPL', () => {
           }),
         );
 
-      for await (const _ of program.repl({ outputPrefix: '│ ' })) {
+      for await (const _ of program.repl({ outputPrefix: '│ ', greeting: false, hint: false })) {
         // consume
       }
 
@@ -433,7 +533,7 @@ describe('REPL', () => {
           }),
         );
 
-      for await (const _ of program.repl({ outputPrefix: '│ ', spacing: true })) {
+      for await (const _ of program.repl({ outputPrefix: '│ ', spacing: true, greeting: false, hint: false })) {
         // consume
       }
 
@@ -455,7 +555,7 @@ describe('REPL', () => {
           }),
         );
 
-      for await (const _ of program.repl({ spacing: { before: [true, '─'], after: true } })) {
+      for await (const _ of program.repl({ spacing: { before: [true, '─'], after: true }, greeting: false, hint: false })) {
         // consume
       }
 
@@ -471,13 +571,11 @@ describe('REPL', () => {
   });
 
   describe('tab completion', () => {
-    function getCompleter(program: any, builtinOverrides?: { hasUserExit?: boolean; hasUserQuit?: boolean; hasUserClear?: boolean }) {
+    function getCompleter(program: any, builtinOverrides?: { inScope?: boolean }) {
       // Get the root command via parse() with empty argv
       const rootCommand = program.runtime({ argv: () => [] }).parse().command;
       return buildReplCompleter(rootCommand, {
-        hasUserExit: builtinOverrides?.hasUserExit ?? false,
-        hasUserQuit: builtinOverrides?.hasUserQuit ?? false,
-        hasUserClear: builtinOverrides?.hasUserClear ?? false,
+        inScope: builtinOverrides?.inScope ?? false,
       });
     }
 
@@ -523,43 +621,41 @@ describe('REPL', () => {
       expect(hits).not.toContain('-verbose');
     });
 
-    it('should include built-in commands in completions', () => {
+    it('should include dot-prefixed built-in commands in completions (not .quit)', () => {
       const completer = getCompleter(createPadrone('test').command('greet', (c) => c.action(() => 'hi')));
 
       const [hits] = completer('');
-      expect(hits).toContain('help');
-      expect(hits).toContain('exit');
-      expect(hits).toContain('quit');
-      expect(hits).toContain('clear');
+      expect(hits).toContain('.help');
+      expect(hits).toContain('.exit');
+      expect(hits).toContain('.clear');
+      expect(hits).toContain('.history');
+      expect(hits).not.toContain('.quit');
       expect(hits).toContain('greet');
     });
 
-    it('should not include exit in completions if user has exit command', () => {
-      const completer = getCompleter(
-        createPadrone('test')
-          .command('exit', (c) => c.action(() => 'custom-exit'))
-          .command('greet', (c) => c.action(() => 'hi')),
-        { hasUserExit: true },
-      );
+    it('should complete dot-commands when typing dot', () => {
+      const completer = getCompleter(createPadrone('test').command('greet', (c) => c.action(() => 'hi')));
 
-      const [hits] = completer('');
-      expect(hits).toContain('exit'); // user's command
-      expect(hits).toContain('quit'); // built-in still available
+      const [hits] = completer('.e');
+      expect(hits).toContain('.exit');
+      expect(hits).not.toContain('.quit');
     });
 
-    it('should not duplicate quit in completions if user has quit command', () => {
+    it('should include .cd when commands have subcommands', () => {
+      const completer = getCompleter(createPadrone('test').command('db', (c) => c.command('migrate', (s) => s.action(() => 'migrated'))));
+
+      const [hits] = completer('');
+      expect(hits).toContain('.cd');
+    });
+
+    it('should include .. when in scope', () => {
       const completer = getCompleter(
-        createPadrone('test')
-          .command('quit', (c) => c.action(() => 'custom-quit'))
-          .command('greet', (c) => c.action(() => 'hi')),
-        { hasUserQuit: true },
+        createPadrone('test').command('db', (c) => c.command('migrate', (s) => s.action(() => 'migrated'))),
+        { inScope: true },
       );
 
       const [hits] = completer('');
-      expect(hits).toContain('exit'); // built-in still available
-      expect(hits).toContain('quit'); // user's command in tree
-      // quit should appear exactly once (from command tree, not duplicated by built-in)
-      expect(hits.filter((h: string) => h === 'quit')).toHaveLength(1);
+      expect(hits).toContain('..');
     });
 
     it('should complete subcommand names', () => {
@@ -598,7 +694,7 @@ describe('REPL', () => {
     });
   });
 
-  describe('scoped REPL (cd/..)', () => {
+  describe('scoped REPL (.cd/..)', () => {
     function createScopedProgram(readLine: ReturnType<typeof mockReadLine>) {
       return createPadrone('test')
         .runtime({ readLine, output: () => {}, error: () => {} })
@@ -614,12 +710,12 @@ describe('REPL', () => {
         );
     }
 
-    it('should scope into a subcommand with cd', async () => {
-      const readLine = mockReadLine(['cd db', 'migrate test-migration', null]);
+    it('should scope into a subcommand with .cd', async () => {
+      const readLine = mockReadLine(['.cd db', 'migrate test-migration', null]);
       const program = createScopedProgram(readLine);
 
       const results: any[] = [];
-      for await (const result of program.repl()) {
+      for await (const result of program.repl({ greeting: false, hint: false })) {
         results.push(result);
       }
 
@@ -627,12 +723,12 @@ describe('REPL', () => {
       expect(results[0]!.result).toBe('migrated:test-migration');
     });
 
-    it('should go back to root with cd ..', async () => {
-      const readLine = mockReadLine(['cd db', 'seed', 'cd ..', 'greet World', null]);
+    it('should go back to root with .cd ..', async () => {
+      const readLine = mockReadLine(['.cd db', 'seed', '.cd ..', 'greet World', null]);
       const program = createScopedProgram(readLine);
 
       const results: any[] = [];
-      for await (const result of program.repl()) {
+      for await (const result of program.repl({ greeting: false, hint: false })) {
         results.push(result);
       }
 
@@ -642,11 +738,11 @@ describe('REPL', () => {
     });
 
     it('should go back with .. shorthand', async () => {
-      const readLine = mockReadLine(['cd db', 'seed', '..', 'greet World', null]);
+      const readLine = mockReadLine(['.cd db', 'seed', '..', 'greet World', null]);
       const program = createScopedProgram(readLine);
 
       const results: any[] = [];
-      for await (const result of program.repl()) {
+      for await (const result of program.repl({ greeting: false, hint: false })) {
         results.push(result);
       }
 
@@ -655,12 +751,12 @@ describe('REPL', () => {
       expect(results[1]!.result).toBe('Hello, World!');
     });
 
-    it('should go back with bare cd (no argument)', async () => {
-      const readLine = mockReadLine(['cd db', 'seed', 'cd', 'greet World', null]);
+    it('should go back with bare .cd (no argument)', async () => {
+      const readLine = mockReadLine(['.cd db', 'seed', '.cd', 'greet World', null]);
       const program = createScopedProgram(readLine);
 
       const results: any[] = [];
-      for await (const result of program.repl()) {
+      for await (const result of program.repl({ greeting: false, hint: false })) {
         results.push(result);
       }
 
@@ -670,11 +766,11 @@ describe('REPL', () => {
     });
 
     it('should not go back past root', async () => {
-      const readLine = mockReadLine(['cd ..', '..', 'greet World', null]);
+      const readLine = mockReadLine(['.cd ..', '..', 'greet World', null]);
       const program = createScopedProgram(readLine);
 
       const results: any[] = [];
-      for await (const result of program.repl()) {
+      for await (const result of program.repl({ greeting: false, hint: false })) {
         results.push(result);
       }
 
@@ -682,14 +778,14 @@ describe('REPL', () => {
       expect(results[0]!.result).toBe('Hello, World!');
     });
 
-    it('should error on cd with unknown command', async () => {
+    it('should error on .cd with unknown command', async () => {
       const errors: string[] = [];
-      const readLine = mockReadLine(['cd nonexistent', null]);
+      const readLine = mockReadLine(['.cd nonexistent', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: () => {}, error: (msg) => errors.push(msg) })
         .command('greet', (c) => c.action(() => 'hi'));
 
-      for await (const _ of program.repl()) {
+      for await (const _ of program.repl({ greeting: false, hint: false })) {
         // consume
       }
 
@@ -698,12 +794,12 @@ describe('REPL', () => {
 
     it('should error when scoping into command with no subcommands', async () => {
       const errors: string[] = [];
-      const readLine = mockReadLine(['cd greet', null]);
+      const readLine = mockReadLine(['.cd greet', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: () => {}, error: (msg) => errors.push(msg) })
         .command('greet', (c) => c.action(() => 'hi'));
 
-      for await (const _ of program.repl()) {
+      for await (const _ of program.repl({ greeting: false, hint: false })) {
         // consume
       }
 
@@ -711,12 +807,12 @@ describe('REPL', () => {
     });
 
     it('should update prompt to reflect scope', async () => {
-      const readLine = mockReadLine(['cd db', 'seed', null]);
+      const readLine = mockReadLine(['.cd db', 'seed', null]);
       const program = createPadrone('myapp')
         .runtime({ readLine, output: () => {}, error: () => {} })
         .command('db', (c) => c.command('seed', (s) => s.action(() => 'seeded')));
 
-      for await (const _ of program.repl()) {
+      for await (const _ of program.repl({ greeting: false, hint: false })) {
         // consume
       }
 
@@ -732,7 +828,7 @@ describe('REPL', () => {
         .command('db', (c) => c.command('seed', (s) => s.action(() => 'seeded')));
 
       const results: any[] = [];
-      for await (const result of program.repl({ scope: 'db' })) {
+      for await (const result of program.repl({ scope: 'db', greeting: false, hint: false })) {
         results.push(result);
       }
 
@@ -740,7 +836,7 @@ describe('REPL', () => {
       expect(results[0]!.result).toBe('seeded');
     });
 
-    it('should allow user-defined cd command instead of built-in', async () => {
+    it('should allow user-defined cd command (dot-prefix .cd is separate)', async () => {
       const readLine = mockReadLine(['cd somewhere', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: () => {}, error: () => {} })
@@ -749,12 +845,41 @@ describe('REPL', () => {
         );
 
       const results: any[] = [];
-      for await (const result of program.repl()) {
+      for await (const result of program.repl({ greeting: false, hint: false })) {
         results.push(result);
       }
 
       expect(results).toHaveLength(1);
       expect(results[0]!.result).toBe('cd:somewhere');
+    });
+
+    it('should execute current scoped command with bare dot', async () => {
+      const readLine = mockReadLine(['.cd db', '.', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: () => {}, error: () => {} })
+        .command('db', (c) => c.action(() => 'db-root').command('seed', (s) => s.action(() => 'seeded')));
+
+      const results: any[] = [];
+      for await (const result of program.repl({ greeting: false, hint: false })) {
+        results.push(result);
+      }
+
+      expect(results).toHaveLength(1);
+      expect(results[0]!.result).toBe('db-root');
+    });
+
+    it('should error when using bare dot at root scope', async () => {
+      const errors: string[] = [];
+      const readLine = mockReadLine(['.', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: () => {}, error: (msg) => errors.push(msg) })
+        .command('greet', (c) => c.action(() => 'hi'));
+
+      for await (const _ of program.repl({ greeting: false, hint: false })) {
+        // consume
+      }
+
+      expect(errors.some((e) => e.includes('Not in a scope'))).toBe(true);
     });
   });
 
@@ -767,7 +892,7 @@ describe('REPL', () => {
           c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
         );
 
-      const result = await program.cli();
+      const result = await program.cli({ repl: { greeting: false, hint: false } });
       expect(result.result).toBeUndefined();
     });
 
@@ -777,7 +902,7 @@ describe('REPL', () => {
         .runtime({ readLine, argv: () => ['db', '--repl'], output: () => {}, error: () => {} })
         .command('db', (c) => c.command('seed', (s) => s.action(() => 'seeded')));
 
-      const result = await program.cli();
+      const result = await program.cli({ repl: { greeting: false, hint: false } });
       expect(result.result).toBeUndefined();
     });
 
@@ -803,7 +928,7 @@ describe('REPL', () => {
         .runtime({ readLine, argv: () => ['--repl'], output: (msg) => output.push(msg), error: () => {} })
         .command('greet', (c) => c.action(() => 'hi'));
 
-      await program.cli({ repl: { greeting: 'Welcome!' } });
+      await program.cli({ repl: { greeting: 'Welcome!', hint: false } });
       expect(output).toContain('Welcome!');
     });
   });

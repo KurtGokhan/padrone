@@ -28,8 +28,7 @@ export const tasksProgram = createPadrone('tasks')
   .command('repl', (c) =>
     c.configure({ title: 'Start interactive REPL' }).action(async () => {
       for await (const _ of tasksProgram.repl({
-        greeting: '\nWelcome to tasks REPL! Type "help" for commands, "exit" to quit.\n',
-        spacing: { before: [true, '▆'], after: ['▆', true] },
+        spacing: { before: ['▆', true], after: [true, '▆', true] },
         outputPrefix: '│   ',
       })) {
         // results are handled by each command's action

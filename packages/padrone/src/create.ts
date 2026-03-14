@@ -7,6 +7,7 @@ import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts
 import {
   createTerminalReplSession,
   type InteractivePromptConfig,
+  REPL_SIGINT,
   type ReplSessionConfig,
   type ResolvedPadroneRuntime,
   resolveRuntime,
@@ -127,15 +128,11 @@ function detectPromptConfig(name: string, propSchema: Record<string, any> | unde
 /**
  * Builds a completer function for the REPL from the command tree.
  * Completes command names, subcommand names, option names (--foo), and aliases (-f).
- * Also includes built-in REPL commands (exit, quit, clear) unless overridden by user commands.
+ * Also includes dot-prefixed built-in REPL commands (.exit, .clear, .cd, .help, .history).
  */
 export function buildReplCompleter(
   rootCommand: AnyPadroneCommand,
   builtins: {
-    hasUserExit: boolean;
-    hasUserQuit: boolean;
-    hasUserClear: boolean;
-    hasUserCd?: boolean;
     inScope?: boolean;
   },
 ): (line: string) => [string[], string] {
@@ -143,6 +140,14 @@ export function buildReplCompleter(
     const trimmed = line.trimStart();
     const parts = trimmed.split(/\s+/);
     const lastPart = parts[parts.length - 1] ?? '';
+
+    // If we're completing a dot-command
+    if (lastPart.startsWith('.')) {
+      const dotCmds = ['.exit', '.clear', '.help', '.history'];
+      if (rootCommand.commands?.some((c) => c.commands?.length) || builtins.inScope) dotCmds.push('.cd');
+      const hits = dotCmds.filter((c) => c.startsWith(lastPart));
+      return [hits.length ? hits : dotCmds, lastPart];
+    }
 
     // If we're completing an option (starts with -)
     if (lastPart.startsWith('-')) {
@@ -203,16 +208,11 @@ export function buildReplCompleter(
       }
     }
 
-    // Add built-in commands at the root level (relative to current scope)
+    // Add dot-commands and `..` shorthand at the root level (relative to current scope)
     if (targetCommand === rootCommand) {
-      candidates.push('help');
-      if (!builtins.hasUserExit) candidates.push('exit');
-      if (!builtins.hasUserQuit) candidates.push('quit');
-      if (!builtins.hasUserClear) candidates.push('clear');
-      // `cd` is available when the scope has subcommands to enter, or when inside a scope (cd ..)
-      if (!builtins.hasUserCd && (rootCommand.commands?.some((c) => c.commands?.length) || builtins.inScope)) candidates.push('cd');
-      // `..` shorthand for cd .. when inside a scope
-      if (!builtins.hasUserCd && builtins.inScope) candidates.push('..');
+      candidates.push('.help', '.exit', '.clear', '.history');
+      if (rootCommand.commands?.some((c) => c.commands?.length) || builtins.inScope) candidates.push('.cd');
+      if (builtins.inScope) candidates.push('..');
     }
 
     const hits = candidates.filter((c) => c.startsWith(lastPart));
@@ -1207,11 +1207,8 @@ ${helpText}
         runtime.format === 'ansi' ||
         (runtime.format === 'auto' && typeof process !== 'undefined' && !process.env.NO_COLOR && !process.env.CI && process.stdout?.isTTY);
 
-      // Check if user has defined commands that conflict with REPL built-ins
-      const hasUserExit = !!findCommandByName('exit', existingCommand.commands);
-      const hasUserQuit = !!findCommandByName('quit', existingCommand.commands);
-      const hasUserClear = !!findCommandByName('clear', existingCommand.commands);
-      const hasUserCd = !!findCommandByName('cd', existingCommand.commands);
+      // Track command history for .history built-in
+      const commandHistory: string[] = [];
 
       // Resolve the initial scope command from options.scope (command path like 'db' or 'db migrate')
       const resolveScope = (scope: string): AnyPadroneCommand[] => {
@@ -1228,7 +1225,32 @@ ${helpText}
       };
 
       async function* replIterator() {
-        if (options?.greeting) runtime.output(options.greeting);
+        const showGreeting = options?.greeting !== false;
+        const showHint = options?.hint !== false;
+
+        // Empty line before greeting/hint block
+        if (showGreeting || showHint) runtime.output('');
+
+        // Greeting: default shows program name + version, like "Welcome to myapp v1.0.0"
+        if (showGreeting) {
+          if (options?.greeting) {
+            runtime.output(options.greeting);
+          } else {
+            const version = existingCommand.version ? getVersion(existingCommand.version) : undefined;
+            const greeting = version ? `Welcome to ${programName} v${version}` : `Welcome to ${programName}`;
+            runtime.output(greeting);
+          }
+        }
+
+        // Hint: dimmed text below greeting
+        if (showHint) {
+          const hintText =
+            (typeof options?.hint === 'string' ? options.hint : undefined) ?? 'Type ".help" for more information, ".exit" to quit.';
+          runtime.output(useAnsi ? `\x1b[2m${hintText}\x1b[0m` : hintText);
+        }
+
+        // Empty line after greeting/hint block
+        if (showGreeting || showHint) runtime.output('');
 
         // Scope stack for nested/contextual REPLs.
         // `cd <subcommand>` pushes, `cd ..`/`..` pops. The scope path is prepended to all eval input.
@@ -1248,13 +1270,7 @@ ${helpText}
         const buildScopedCompleter = () => {
           const scopeCmd = getScopeCommand();
           const inScope = scopeStack.length > 0;
-          return buildReplCompleter(scopeCmd, {
-            hasUserExit: inScope ? !!findCommandByName('exit', scopeCmd.commands) : hasUserExit,
-            hasUserQuit: inScope ? !!findCommandByName('quit', scopeCmd.commands) : hasUserQuit,
-            hasUserClear: inScope ? !!findCommandByName('clear', scopeCmd.commands) : hasUserClear,
-            hasUserCd: inScope ? !!findCommandByName('cd', scopeCmd.commands) : hasUserCd,
-            inScope,
-          });
+          return buildReplCompleter(scopeCmd, { inScope });
         };
 
         // Build session config with completer
@@ -1276,6 +1292,9 @@ ${helpText}
           sessionConfig.completer = completer;
         };
 
+        // Track last SIGINT time for double Ctrl+C to exit
+        let lastSigintTime = 0;
+
         try {
           while (true) {
             const promptStr = buildPrompt();
@@ -1284,20 +1303,71 @@ ${helpText}
             // EOF (Ctrl+D, closed connection)
             if (input === null) break;
 
-            const trimmed = input.trim();
-            if (!trimmed) continue;
-
-            // Built-in REPL commands (only if user hasn't defined conflicting commands)
-            if ((!hasUserExit && trimmed === 'exit') || (!hasUserQuit && trimmed === 'quit')) break;
-            if (!hasUserClear && trimmed === 'clear') {
-              runtime.output('\x1B[2J\x1B[H');
+            // Handle Ctrl+C (SIGINT sentinel from terminal session)
+            if (input === REPL_SIGINT) {
+              const now = Date.now();
+              if (now - lastSigintTime < 2000) break; // Double Ctrl+C within 2s → exit
+              lastSigintTime = now;
+              runtime.output('(press Ctrl+C again to exit, or Ctrl+D)');
               continue;
             }
 
-            // Built-in `cd <subcommand>` — scope the REPL to a command subtree
-            // `cd ..` or `..` — go up one scope level
-            if (!hasUserCd && (trimmed.startsWith('cd ') || trimmed === 'cd')) {
-              const target = trimmed.slice(2).trim();
+            const trimmed = input.trim();
+            if (!trimmed) continue;
+
+            // Reset SIGINT timer on any real input
+            lastSigintTime = 0;
+
+            // Track command history for .history
+            commandHistory.push(trimmed);
+
+            // Dot-prefixed built-in REPL commands
+            if (trimmed === '.exit' || trimmed === '.quit') break;
+            if (trimmed === '.clear') {
+              runtime.output('\x1B[2J\x1B[H');
+              continue;
+            }
+            if (trimmed === '.help') {
+              const inScope = scopeStack.length > 0;
+              const lines = [
+                'REPL Commands:',
+                '  .help        Print this help message',
+                '  .exit        Exit the REPL',
+                '  .clear       Clear the screen',
+                '  .history     Show command history',
+              ];
+              if (getScopeCommand().commands?.some((c) => c.commands?.length) || inScope) {
+                lines.push('  .cd <cmd>    Scope into a subcommand');
+                lines.push('  .cd ..       Go up one scope level');
+              }
+              lines.push(
+                '',
+                'Keybindings:',
+                '  Ctrl+C       Cancel current line (press twice to exit)',
+                '  Ctrl+D       Exit the REPL',
+                '  Up/Down      Navigate history',
+                '  Tab          Auto-complete',
+                '',
+                'Type "help" to see available commands.',
+              );
+              runtime.output(lines.join('\n'));
+              continue;
+            }
+            if (trimmed === '.history') {
+              // Show all previous entries (excluding the .history command itself)
+              const entries = commandHistory.slice(0, -1);
+              if (entries.length === 0) {
+                runtime.output('No history.');
+              } else {
+                runtime.output(entries.map((entry, i) => `${i + 1}  ${entry}`).join('\n'));
+              }
+              continue;
+            }
+
+            // `.cd <subcommand>` — scope the REPL to a command subtree
+            // `.cd ..` or `..` — go up one scope level
+            if (trimmed.startsWith('.cd ') || trimmed === '.cd') {
+              const target = trimmed.slice(3).trim();
               if (target === '..' || target === '') {
                 if (scopeStack.length > 0) {
                   scopeStack.pop();
@@ -1320,13 +1390,23 @@ ${helpText}
               continue;
             }
 
-            // `..` also goes up one scope level (without cd prefix)
-            if (!hasUserCd && trimmed === '..') {
+            // `..` shorthand for `.cd ..`
+            if (trimmed === '..') {
               if (scopeStack.length > 0) {
                 scopeStack.pop();
                 updateCompleter();
               }
               continue;
+            }
+
+            // `.` (bare dot) — execute the current scoped command
+            let evalInput = trimmed;
+            if (trimmed === '.') {
+              if (scopeStack.length === 0) {
+                runtime.error('Not in a scope. Use ".cd <command>" to scope into a command first.');
+                continue;
+              }
+              evalInput = '';
             }
 
             const prefix = options?.outputPrefix;
@@ -1385,7 +1465,7 @@ ${helpText}
 
             // Prepend scope path so evalCommand resolves relative to root
             const scopePath = getScopePath();
-            const scopedInput = scopePath ? `${scopePath} ${trimmed}` : trimmed;
+            const scopedInput = scopePath ? (evalInput ? `${scopePath} ${evalInput}` : scopePath) : evalInput;
 
             try {
               const result = await evalCommand(scopedInput);

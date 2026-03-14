@@ -124,6 +124,12 @@ export type ReplSessionConfig = {
  * Enables up/down arrow history navigation and tab completion.
  * Used internally by `repl()` when no custom `readLine` is provided.
  */
+/**
+ * Sentinel value returned by the terminal REPL session when Ctrl+C is pressed.
+ * Distinguished from empty string (user pressed enter) and null (EOF/Ctrl+D).
+ */
+export const REPL_SIGINT = Symbol('REPL_SIGINT');
+
 export function createTerminalReplSession(config: ReplSessionConfig) {
   // History accumulates across per-call interfaces, giving us
   // up/down arrow navigation without a persistent stdin listener
@@ -136,7 +142,7 @@ export function createTerminalReplSession(config: ReplSessionConfig) {
     set completer(fn: ((line: string) => [string[], string]) | undefined) {
       currentCompleter = fn;
     },
-    async question(prompt: string): Promise<string | null> {
+    async question(prompt: string): Promise<string | typeof REPL_SIGINT | null> {
       const { createInterface } = await import('node:readline');
       const opts: Record<string, unknown> = {
         input: process.stdin,
@@ -151,21 +157,30 @@ export function createTerminalReplSession(config: ReplSessionConfig) {
       const rl = createInterface(opts as any);
 
       return new Promise((resolve) => {
+        let resolved = false;
+        const settle = (value: string | typeof REPL_SIGINT | null) => {
+          if (resolved) return;
+          resolved = true;
+          rl.close();
+          resolve(value);
+        };
+
         rl.question(prompt, (answer) => {
           // Grab updated history (includes the new entry) before closing.
           if (Array.isArray((rl as any).history)) history = [...(rl as any).history];
-          resolve(answer);
-          rl.close();
+          settle(answer);
         });
-        // Ctrl+C: cancel current line, print newline, resolve empty (shows new prompt).
+        // Ctrl+C: cancel current line, print newline, resolve SIGINT sentinel.
         rl.once('SIGINT', () => {
-          // Write newline so the terminal doesn't show '%' (zsh partial-line indicator).
           process.stdout.write('\n');
-          rl.close();
-          resolve('');
+          settle(REPL_SIGINT);
         });
         // EOF (Ctrl+D) fires close without the question callback.
-        rl.once('close', () => resolve(null));
+        rl.once('close', () => {
+          // Write newline so zsh doesn't show '%' (partial-line indicator).
+          process.stdout.write('\n');
+          settle(null);
+        });
       });
     },
     close() {
