@@ -295,6 +295,26 @@ describe('REPL', () => {
     expect(output.some((o) => o.includes('\x1B[2J'))).toBe(true);
   });
 
+  it('should throw when calling repl() while already in a REPL session', async () => {
+    const errors: string[] = [];
+    const readLine = mockReadLine(['start-repl', null]);
+    const program = createPadrone('test')
+      .runtime({ readLine, output: () => {}, error: (msg) => errors.push(msg) })
+      .command('start-repl', (c) =>
+        c.action(async () => {
+          for await (const _ of program.repl()) {
+            // nested repl — should not get here
+          }
+        }),
+      );
+
+    for await (const _ of program.repl({ greeting: false, hint: false })) {
+      // consume
+    }
+
+    expect(errors.some((e) => e.includes('REPL is already running'))).toBe(true);
+  });
+
   it('should not intercept bare exit/quit/clear as built-in (dot-prefix required)', async () => {
     const readLine = mockReadLine(['exit', 'quit', 'clear', null]);
     const program = createPadrone('test')

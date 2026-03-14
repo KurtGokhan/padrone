@@ -214,6 +214,18 @@ export const tasksProgram = createPadrone('tasks')
         console.log(`Task removed: ${args.id}`);
         return { removed: true, id: args.id };
       }),
+  )
+  .command('advanced', (c) =>
+    c.configure({ title: 'Advanced task operations' }).command('clear', (c) =>
+      c.configure({ title: 'Clear all tasks' }).action(() => {
+        const tasks = getTasks();
+        for (const task of tasks) {
+          removeTask(task.id);
+        }
+        console.log(`All tasks cleared. Total removed: ${tasks.length}`);
+        return { cleared: true, count: tasks.length };
+      }),
+    ),
   );
 
 if (import.meta.main) {

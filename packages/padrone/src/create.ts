@@ -1054,6 +1054,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
   // Forward declaration — assigned by the repl method in the return object, used by cli() for --repl.
   let replFn: (options?: PadroneReplPreferences) => AsyncIterable<any>;
+  let replActive = false;
 
   const cli: AnyPadroneProgram['cli'] = (cliOptions) => {
     const runtime = getCommandRuntime(existingCommand);
@@ -1200,6 +1201,13 @@ ${helpText}
     tool,
 
     repl: (replFn = (options?: PadroneReplPreferences) => {
+      if (replActive) {
+        const runtime = getCommandRuntime(existingCommand);
+        runtime.error('REPL is already running. Nested REPL sessions are not supported.');
+        // Return an empty async iterable so callers don't crash.
+        return (async function* () {})() as any;
+      }
+
       const runtime = getCommandRuntime(existingCommand);
 
       const programName = existingCommand.name || 'padrone';
@@ -1225,6 +1233,7 @@ ${helpText}
       };
 
       async function* replIterator() {
+        replActive = true;
         const showGreeting = options?.greeting !== false;
         const showHint = options?.hint !== false;
 
@@ -1486,6 +1495,7 @@ ${helpText}
             }
           }
         } finally {
+          replActive = false;
           session?.close();
         }
       }
