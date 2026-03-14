@@ -44,7 +44,7 @@ describe('command routing', () => {
     });
 
     it('should use alias as display name with [default] marker in help', () => {
-      const helpText = program.help();
+      const helpText = program.help(undefined, { format: 'text' });
       // Should show 'repl [default]' — alias as display name, [default] marker
       expect(helpText).toContain('repl');
       expect(helpText).toContain('[default]');
@@ -55,7 +55,7 @@ describe('command routing', () => {
       const p = createPadrone('app')
         .command('', (c) => c.configure({ title: 'Default action' }).action(() => 'ok'))
         .command('list', (c) => c.action(() => 'listed'));
-      const helpText = p.help();
+      const helpText = p.help(undefined, { format: 'text' });
       expect(helpText).toContain('(default)');
       expect(helpText).toContain('Default action');
     });
@@ -64,7 +64,7 @@ describe('command routing', () => {
       const p = createPadrone('app')
         .command(['', 'repl', 'r'], (c) => c.configure({ title: 'REPL' }).action(() => 'ok'))
         .command('list', (c) => c.action(() => 'listed'));
-      const helpText = p.help();
+      const helpText = p.help(undefined, { format: 'text' });
       // 'repl' is display name, 'r' is a real alias, [default] is marker
       expect(helpText).toContain('repl');
       expect(helpText).toMatch(/\(r\)/);
@@ -75,13 +75,13 @@ describe('command routing', () => {
       const p = createPadrone('app')
         .command(['repl', ''], (c) => c.configure({ title: 'REPL' }).action(() => 'ok'))
         .command('list', (c) => c.action(() => 'listed'));
-      const helpText = p.help();
+      const helpText = p.help(undefined, { format: 'text' });
       expect(helpText).toContain('repl');
       expect(helpText).toContain('[default]');
     });
 
     it('should use alias in help for the empty-name command itself', () => {
-      const helpText = program.help('repl');
+      const helpText = program.help('repl', { format: 'text' });
       // Usage line should reference alias, not 'program'
       expect(helpText).toContain('repl');
       expect(helpText).not.toContain('program');
@@ -208,7 +208,7 @@ describe('command routing', () => {
         .command('db', (c) => c.command('migrate', (c) => c.action(() => 'migrated')).command('seed', (c) => c.action(() => 'seeded')))
         .command('simple', (c) => c.action(() => 'done'));
 
-      const helpText = program.help();
+      const helpText = program.help(undefined, { format: 'text' });
       expect(helpText).toContain('db <subcommand>');
       expect(helpText).not.toContain('simple <subcommand>');
     });
@@ -221,7 +221,7 @@ describe('command routing', () => {
           .command('extended', (c) => c.action(() => 'extended')),
       );
 
-      const helpText = program.help('list');
+      const helpText = program.help('list', { format: 'text' });
       expect(helpText).toContain('(default)');
       expect(helpText).toContain('extended');
     });

@@ -300,7 +300,7 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
         parts.push('[default]');
         styledParts.push(styler.meta('[default]'));
       }
-      return { plain: parts.length ? ' ' + parts.join(' ') : '', styled: styledParts.length ? ' ' + styledParts.join(' ') : '' };
+      return { plain: parts.length ? ` ${parts.join(' ')}` : '', styled: styledParts.length ? ` ${styledParts.join(' ')}` : '' };
     };
     const maxNameLength = Math.max(
       ...subcommands.map((c) => {

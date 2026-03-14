@@ -302,7 +302,7 @@ describe('REPL', () => {
 
   it('should use default prompt with program name', async () => {
     const readLine = mockReadLine([null]);
-    const program = createPadrone('myapp').runtime({ readLine, output: () => {}, error: () => {} });
+    const program = createPadrone('myapp').runtime({ readLine, output: () => {}, error: () => {}, format: 'text' });
 
     for await (const _ of program.repl({ greeting: false, hint: false })) {
       // no commands
@@ -465,9 +465,10 @@ describe('REPL', () => {
         // consume
       }
 
+      const expectedWidth = process.stdout?.columns || 80;
       const firstLine = output.at(0)!;
-      expect(firstLine.length).toBeGreaterThanOrEqual(80);
-      expect(firstLine).toBe('─'.repeat(firstLine.length));
+      expect(firstLine.length).toBe(expectedWidth);
+      expect(firstLine).toBe('─'.repeat(expectedWidth));
       expect(output.at(1)).toBe('Hello, World!');
       // Also after
       expect(output.at(-1)).toBe(firstLine);
@@ -508,9 +509,10 @@ describe('REPL', () => {
       }
 
       // Separator before, nothing after
+      const expectedWidth = process.stdout?.columns || 80;
       const firstLine = output.at(0)!;
-      expect(firstLine.length).toBeGreaterThanOrEqual(80);
-      expect(firstLine).toBe('─'.repeat(firstLine.length));
+      expect(firstLine.length).toBe(expectedWidth);
+      expect(firstLine).toBe('─'.repeat(expectedWidth));
       expect(output.at(-1)).toBe('Hello, World!');
     });
 
