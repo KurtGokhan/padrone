@@ -523,7 +523,9 @@ export type PadroneProgram<
    * On validation errors, throws and prints help.
    * For programmatic invocation with a command string, use `eval()` instead.
    */
-  cli: (prefs?: PadroneCliPreferences) => MaybePromise<PadroneCommandResult<PadroneCommand<'', '', TArgs, TRes, TCommands>>, TAsync>;
+  cli: (
+    prefs?: PadroneCliPreferences<PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>>,
+  ) => MaybePromise<PadroneCommandResult<PadroneCommand<'', '', TArgs, TRes, TCommands>>, TAsync>;
 
   /**
    * Parses CLI input (or the provided input string) into command and arguments without executing anything.
@@ -570,15 +572,14 @@ export type PadroneProgram<
    * ```
    *
    * TODO: REPL future enhancements:
-   * - Ctrl+C handling: cancel current line / interrupt running command instead of killing the process
    * - History persistence: save/load history across sessions (currently in-memory only)
-   * - Nested/contextual REPLs: `use <subcommand>` to scope the session to a command subtree
-   * - `--repl` flag to start a REPL session scoped to a specific command or subtree
    * - Middleware/hooks: onBeforeCommand, onAfterCommand, error interceptors (design alongside general middleware system)
    * - stdin fragility: Node's readline + stdin is a shared mutable resource; any feature touching stdin
    *   (confirmations, multi-line input, password prompts) needs careful coordination with Enquirer/interactive prompts
    */
-  repl: (options?: PadroneReplPreferences) => AsyncIterable<PadroneCommandResult<PadroneCommand<'', '', TArgs, TRes, TCommands>>>;
+  repl: (
+    options?: PadroneReplPreferences<PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>>,
+  ) => AsyncIterable<PadroneCommandResult<PadroneCommand<'', '', TArgs, TRes, TCommands>>>;
 
   /**
    * Returns a tool definition that can be passed to AI SDK.
@@ -618,7 +619,7 @@ export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any,
 /** A single spacing value: blank line (`true`), separator string, or an array of these for multiple lines. */
 export type PadroneReplSpacing = boolean | string | (boolean | string)[];
 
-export type PadroneReplPreferences = {
+export type PadroneReplPreferences<TScope extends string = string> = {
   /** The prompt string displayed before each input, or a function returning it. Defaults to `"<programName>> "`. */
   prompt?: string | (() => string);
   /** A greeting message displayed when the REPL starts. */
@@ -639,6 +640,12 @@ export type PadroneReplPreferences = {
   spacing?: PadroneReplSpacing | { before?: PadroneReplSpacing; after?: PadroneReplSpacing };
   /** Prefix each line of command output/error with this string (e.g. `'│ '`, `'  '`, `'▎ '`). */
   outputPrefix?: string;
+  /**
+   * Start the REPL scoped to a command subtree. The scope path is a space-separated command path
+   * (e.g. `'db'` or `'db migrate'`). Commands are resolved relative to the scoped command.
+   * Users can change scope at runtime with `cd <subcommand>` and `cd ..`/`..`.
+   */
+  scope?: TScope;
 };
 
 /**
@@ -659,7 +666,10 @@ export type PadroneEvalPreferences = {
 /**
  * Options that can be passed to `cli()` to control execution behavior.
  */
-export type PadroneCliPreferences = PadroneEvalPreferences;
+export type PadroneCliPreferences<TScope extends string = string> = PadroneEvalPreferences & {
+  /** REPL preferences used when `--repl` flag is passed. Set to `false` to disable the `--repl` flag. */
+  repl?: PadroneReplPreferences<TScope> | false;
+};
 
 export type PadroneCommandResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> = PadroneParseResult<TCommand> & {
   result: GetResults<TCommand>;

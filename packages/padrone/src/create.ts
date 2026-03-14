@@ -131,7 +131,13 @@ function detectPromptConfig(name: string, propSchema: Record<string, any> | unde
  */
 export function buildReplCompleter(
   rootCommand: AnyPadroneCommand,
-  builtins: { hasUserExit: boolean; hasUserClear: boolean },
+  builtins: {
+    hasUserExit: boolean;
+    hasUserQuit: boolean;
+    hasUserClear: boolean;
+    hasUserCd?: boolean;
+    inScope?: boolean;
+  },
 ): (line: string) => [string[], string] {
   return (line: string): [string[], string] => {
     const trimmed = line.trimStart();
@@ -197,11 +203,16 @@ export function buildReplCompleter(
       }
     }
 
-    // Add built-in commands at the root level
+    // Add built-in commands at the root level (relative to current scope)
     if (targetCommand === rootCommand) {
       candidates.push('help');
-      if (!builtins.hasUserExit) candidates.push('exit', 'quit');
+      if (!builtins.hasUserExit) candidates.push('exit');
+      if (!builtins.hasUserQuit) candidates.push('quit');
       if (!builtins.hasUserClear) candidates.push('clear');
+      // `cd` is available when the scope has subcommands to enter, or when inside a scope (cd ..)
+      if (!builtins.hasUserCd && (rootCommand.commands?.some((c) => c.commands?.length) || builtins.inScope)) candidates.push('cd');
+      // `..` shorthand for cd .. when inside a scope
+      if (!builtins.hasUserCd && builtins.inScope) candidates.push('..');
     }
 
     const hits = candidates.filter((c) => c.startsWith(lastPart));
@@ -686,6 +697,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     | { type: 'help'; command?: AnyPadroneCommand; detail?: DetailLevel; format?: FormatLevel }
     | { type: 'version' }
     | { type: 'completion'; shell?: ShellType }
+    | { type: 'repl'; scope?: string }
     | null => {
     if (!input) return null;
 
@@ -783,6 +795,13 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     // Handle version flag (only for root command, i.e., no subcommand terms)
     if (hasVersionFlag && normalizedTerms.length === 0) {
       return { type: 'version' };
+    }
+
+    // Check for --repl flag
+    const hasReplFlag = args.some((p) => p.type === 'named' && keyIs(p.key, 'repl'));
+    if (hasReplFlag) {
+      const scope = normalizedTerms.length > 0 ? normalizedTerms.join(' ') : undefined;
+      return { type: 'repl', scope };
     }
 
     return null;
@@ -1033,9 +1052,31 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     return execCommand(input as string, evalOptions, 'soft');
   };
 
+  // Forward declaration — assigned by the repl method in the return object, used by cli() for --repl.
+  let replFn: (options?: PadroneReplPreferences) => AsyncIterable<any>;
+
   const cli: AnyPadroneProgram['cli'] = (cliOptions) => {
     const runtime = getCommandRuntime(existingCommand);
     const resolvedInput = (runtime.argv().join(' ') || undefined) as string | undefined;
+
+    // Check for --repl flag before normal execution
+    if (cliOptions?.repl !== false) {
+      const builtin = checkBuiltinCommands(resolvedInput);
+      if (builtin?.type === 'repl') {
+        const replPrefs: PadroneReplPreferences = {
+          ...(typeof cliOptions?.repl === 'object' ? cliOptions.repl : {}),
+          scope: builtin.scope,
+        };
+        const drainRepl = async () => {
+          for await (const _ of replFn(replPrefs)) {
+            // Results are handled by command actions
+          }
+          return { command: existingCommand, args: undefined, result: undefined } as any;
+        };
+        return drainRepl() as any;
+      }
+    }
+
     return execCommand(resolvedInput, cliOptions, 'hard');
   };
 
@@ -1158,37 +1199,86 @@ ${helpText}
     cli,
     tool,
 
-    repl(options?: PadroneReplPreferences) {
+    repl: (replFn = (options?: PadroneReplPreferences) => {
       const runtime = getCommandRuntime(existingCommand);
 
       const programName = existingCommand.name || 'padrone';
       const useAnsi =
         runtime.format === 'ansi' ||
         (runtime.format === 'auto' && typeof process !== 'undefined' && !process.env.NO_COLOR && !process.env.CI && process.stdout?.isTTY);
-      const defaultPrompt = useAnsi ? `\x1b[1m${programName}\x1b[0m> ` : `${programName}> `;
-      const promptOpt = options?.prompt ?? defaultPrompt;
 
       // Check if user has defined commands that conflict with REPL built-ins
-      const hasUserExit = !!findCommandByName('exit', existingCommand.commands) || !!findCommandByName('quit', existingCommand.commands);
+      const hasUserExit = !!findCommandByName('exit', existingCommand.commands);
+      const hasUserQuit = !!findCommandByName('quit', existingCommand.commands);
       const hasUserClear = !!findCommandByName('clear', existingCommand.commands);
+      const hasUserCd = !!findCommandByName('cd', existingCommand.commands);
 
-      // Build completer from command tree
-      const sessionConfig: ReplSessionConfig = { history: options?.history };
-      if (options?.completion !== false) {
-        sessionConfig.completer = buildReplCompleter(existingCommand, { hasUserExit, hasUserClear });
-      }
+      // Resolve the initial scope command from options.scope (command path like 'db' or 'db migrate')
+      const resolveScope = (scope: string): AnyPadroneCommand[] => {
+        const parts = scope.split(/\s+/);
+        const stack: AnyPadroneCommand[] = [];
+        let current = existingCommand;
+        for (const part of parts) {
+          const found = findCommandByName(part, current.commands);
+          if (!found) break;
+          stack.push(found);
+          current = found;
+        }
+        return stack;
+      };
 
       async function* replIterator() {
         if (options?.greeting) runtime.output(options.greeting);
+
+        // Scope stack for nested/contextual REPLs.
+        // `cd <subcommand>` pushes, `cd ..`/`..` pops. The scope path is prepended to all eval input.
+        const scopeStack: AnyPadroneCommand[] = options?.scope ? resolveScope(options.scope) : [];
+
+        const getScopeCommand = () => (scopeStack.length ? scopeStack[scopeStack.length - 1]! : existingCommand);
+        const getScopePath = () => scopeStack.map((c) => c.name).join(' ');
+
+        const buildPrompt = () => {
+          if (options?.prompt) return typeof options.prompt === 'function' ? options.prompt() : options.prompt;
+          const scopePath = getScopePath();
+          const label = scopePath ? `${programName}/${scopePath.replace(/ /g, '/')}` : programName;
+          return useAnsi ? `\x1b[1m${label}\x1b[0m ❯ ` : `${label} ❯ `;
+        };
+
+        // Build completer scoped to the current command
+        const buildScopedCompleter = () => {
+          const scopeCmd = getScopeCommand();
+          const inScope = scopeStack.length > 0;
+          return buildReplCompleter(scopeCmd, {
+            hasUserExit: inScope ? !!findCommandByName('exit', scopeCmd.commands) : hasUserExit,
+            hasUserQuit: inScope ? !!findCommandByName('quit', scopeCmd.commands) : hasUserQuit,
+            hasUserClear: inScope ? !!findCommandByName('clear', scopeCmd.commands) : hasUserClear,
+            hasUserCd: inScope ? !!findCommandByName('cd', scopeCmd.commands) : hasUserCd,
+            inScope,
+          });
+        };
+
+        // Build session config with completer
+        const sessionConfig: ReplSessionConfig = { history: options?.history };
+        if (options?.completion !== false) {
+          sessionConfig.completer = buildScopedCompleter();
+        }
 
         // If the runtime provides a custom readLine, use it (stateless, no history/completion).
         // Otherwise, create a persistent terminal session with history + tab completion.
         const session = runtime.readLine ? undefined : createTerminalReplSession(sessionConfig);
         const questionFn = session ? (prompt: string) => session.question(prompt) : runtime.readLine!;
 
+        // Update the session's completer when scope changes
+        const updateCompleter = () => {
+          if (options?.completion === false) return;
+          const completer = buildScopedCompleter();
+          if (session) session.completer = completer;
+          sessionConfig.completer = completer;
+        };
+
         try {
           while (true) {
-            const promptStr = typeof promptOpt === 'function' ? promptOpt() : promptOpt;
+            const promptStr = buildPrompt();
             const input = await questionFn(promptStr);
 
             // EOF (Ctrl+D, closed connection)
@@ -1198,9 +1288,44 @@ ${helpText}
             if (!trimmed) continue;
 
             // Built-in REPL commands (only if user hasn't defined conflicting commands)
-            if (!hasUserExit && (trimmed === 'exit' || trimmed === 'quit')) break;
+            if ((!hasUserExit && trimmed === 'exit') || (!hasUserQuit && trimmed === 'quit')) break;
             if (!hasUserClear && trimmed === 'clear') {
               runtime.output('\x1B[2J\x1B[H');
+              continue;
+            }
+
+            // Built-in `cd <subcommand>` — scope the REPL to a command subtree
+            // `cd ..` or `..` — go up one scope level
+            if (!hasUserCd && (trimmed.startsWith('cd ') || trimmed === 'cd')) {
+              const target = trimmed.slice(2).trim();
+              if (target === '..' || target === '') {
+                if (scopeStack.length > 0) {
+                  scopeStack.pop();
+                  updateCompleter();
+                }
+              } else {
+                const scopeCmd = getScopeCommand();
+                const found = findCommandByName(target, scopeCmd.commands);
+                if (found) {
+                  if (found.commands?.length) {
+                    scopeStack.push(found);
+                    updateCompleter();
+                  } else {
+                    runtime.error(`"${target}" has no subcommands to scope into.`);
+                  }
+                } else {
+                  runtime.error(`Unknown command: ${target}`);
+                }
+              }
+              continue;
+            }
+
+            // `..` also goes up one scope level (without cd prefix)
+            if (!hasUserCd && trimmed === '..') {
+              if (scopeStack.length > 0) {
+                scopeStack.pop();
+                updateCompleter();
+              }
               continue;
             }
 
@@ -1258,8 +1383,12 @@ ${helpText}
 
             emitSpacing(spacingBefore);
 
+            // Prepend scope path so evalCommand resolves relative to root
+            const scopePath = getScopePath();
+            const scopedInput = scopePath ? `${scopePath} ${trimmed}` : trimmed;
+
             try {
-              const result = await evalCommand(trimmed);
+              const result = await evalCommand(scopedInput);
               if (result.argsResult?.issues) {
                 const issueMessages = result.argsResult.issues
                   .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
@@ -1282,7 +1411,7 @@ ${helpText}
       }
 
       return replIterator() as any;
-    },
+    }),
 
     api() {
       function buildApi(command: AnyPadroneCommand) {

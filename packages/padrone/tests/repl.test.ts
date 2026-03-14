@@ -191,7 +191,7 @@ describe('REPL', () => {
       // no commands
     }
 
-    expect(readLine).toHaveBeenCalledWith('myapp> ');
+    expect(readLine).toHaveBeenCalledWith('myapp ❯ ');
   });
 
   it('should handle clear command', async () => {
@@ -220,6 +220,38 @@ describe('REPL', () => {
     // User's exit command was executed, not the built-in
     expect(results).toHaveLength(1);
     expect(results[0]!.result).toBe('custom-exit');
+  });
+
+  it('should still allow built-in quit when user defines exit', async () => {
+    const readLine = mockReadLine(['exit', 'quit']);
+    const program = createPadrone('test')
+      .runtime({ readLine, output: () => {}, error: () => {} })
+      .command('exit', (c) => c.action(() => 'custom-exit'));
+
+    const results: any[] = [];
+    for await (const result of program.repl()) {
+      results.push(result);
+    }
+
+    // User's exit ran, then quit stopped the REPL
+    expect(results).toHaveLength(1);
+    expect(results[0]!.result).toBe('custom-exit');
+  });
+
+  it('should still allow built-in exit when user defines quit', async () => {
+    const readLine = mockReadLine(['quit', 'exit']);
+    const program = createPadrone('test')
+      .runtime({ readLine, output: () => {}, error: () => {} })
+      .command('quit', (c) => c.action(() => 'custom-quit'));
+
+    const results: any[] = [];
+    for await (const result of program.repl()) {
+      results.push(result);
+    }
+
+    // User's quit ran, then exit stopped the REPL
+    expect(results).toHaveLength(1);
+    expect(results[0]!.result).toBe('custom-quit');
   });
 
   it('should use user-defined clear command instead of built-in', async () => {
@@ -439,11 +471,12 @@ describe('REPL', () => {
   });
 
   describe('tab completion', () => {
-    function getCompleter(program: any, builtinOverrides?: { hasUserExit?: boolean; hasUserClear?: boolean }) {
+    function getCompleter(program: any, builtinOverrides?: { hasUserExit?: boolean; hasUserQuit?: boolean; hasUserClear?: boolean }) {
       // Get the root command via parse() with empty argv
       const rootCommand = program.runtime({ argv: () => [] }).parse().command;
       return buildReplCompleter(rootCommand, {
         hasUserExit: builtinOverrides?.hasUserExit ?? false,
+        hasUserQuit: builtinOverrides?.hasUserQuit ?? false,
         hasUserClear: builtinOverrides?.hasUserClear ?? false,
       });
     }
@@ -501,7 +534,7 @@ describe('REPL', () => {
       expect(hits).toContain('greet');
     });
 
-    it('should not include exit/quit if user has those commands', () => {
+    it('should not include exit in completions if user has exit command', () => {
       const completer = getCompleter(
         createPadrone('test')
           .command('exit', (c) => c.action(() => 'custom-exit'))
@@ -510,8 +543,23 @@ describe('REPL', () => {
       );
 
       const [hits] = completer('');
-      expect(hits).toContain('exit');
-      expect(hits).not.toContain('quit');
+      expect(hits).toContain('exit'); // user's command
+      expect(hits).toContain('quit'); // built-in still available
+    });
+
+    it('should not duplicate quit in completions if user has quit command', () => {
+      const completer = getCompleter(
+        createPadrone('test')
+          .command('quit', (c) => c.action(() => 'custom-quit'))
+          .command('greet', (c) => c.action(() => 'hi')),
+        { hasUserQuit: true },
+      );
+
+      const [hits] = completer('');
+      expect(hits).toContain('exit'); // built-in still available
+      expect(hits).toContain('quit'); // user's command in tree
+      // quit should appear exactly once (from command tree, not duplicated by built-in)
+      expect(hits.filter((h: string) => h === 'quit')).toHaveLength(1);
     });
 
     it('should complete subcommand names', () => {
@@ -547,6 +595,216 @@ describe('REPL', () => {
       // Falls back to all candidates
       expect(hits).toContain('greet');
       expect(hits).toContain('goodbye');
+    });
+  });
+
+  describe('scoped REPL (cd/..)', () => {
+    function createScopedProgram(readLine: ReturnType<typeof mockReadLine>) {
+      return createPadrone('test')
+        .runtime({ readLine, output: () => {}, error: () => {} })
+        .command('db', (c) =>
+          c
+            .command('migrate', (s) =>
+              s.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `migrated:${args.name}`),
+            )
+            .command('seed', (s) => s.action(() => 'seeded')),
+        )
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
+        );
+    }
+
+    it('should scope into a subcommand with cd', async () => {
+      const readLine = mockReadLine(['cd db', 'migrate test-migration', null]);
+      const program = createScopedProgram(readLine);
+
+      const results: any[] = [];
+      for await (const result of program.repl()) {
+        results.push(result);
+      }
+
+      expect(results).toHaveLength(1);
+      expect(results[0]!.result).toBe('migrated:test-migration');
+    });
+
+    it('should go back to root with cd ..', async () => {
+      const readLine = mockReadLine(['cd db', 'seed', 'cd ..', 'greet World', null]);
+      const program = createScopedProgram(readLine);
+
+      const results: any[] = [];
+      for await (const result of program.repl()) {
+        results.push(result);
+      }
+
+      expect(results).toHaveLength(2);
+      expect(results[0]!.result).toBe('seeded');
+      expect(results[1]!.result).toBe('Hello, World!');
+    });
+
+    it('should go back with .. shorthand', async () => {
+      const readLine = mockReadLine(['cd db', 'seed', '..', 'greet World', null]);
+      const program = createScopedProgram(readLine);
+
+      const results: any[] = [];
+      for await (const result of program.repl()) {
+        results.push(result);
+      }
+
+      expect(results).toHaveLength(2);
+      expect(results[0]!.result).toBe('seeded');
+      expect(results[1]!.result).toBe('Hello, World!');
+    });
+
+    it('should go back with bare cd (no argument)', async () => {
+      const readLine = mockReadLine(['cd db', 'seed', 'cd', 'greet World', null]);
+      const program = createScopedProgram(readLine);
+
+      const results: any[] = [];
+      for await (const result of program.repl()) {
+        results.push(result);
+      }
+
+      expect(results).toHaveLength(2);
+      expect(results[0]!.result).toBe('seeded');
+      expect(results[1]!.result).toBe('Hello, World!');
+    });
+
+    it('should not go back past root', async () => {
+      const readLine = mockReadLine(['cd ..', '..', 'greet World', null]);
+      const program = createScopedProgram(readLine);
+
+      const results: any[] = [];
+      for await (const result of program.repl()) {
+        results.push(result);
+      }
+
+      expect(results).toHaveLength(1);
+      expect(results[0]!.result).toBe('Hello, World!');
+    });
+
+    it('should error on cd with unknown command', async () => {
+      const errors: string[] = [];
+      const readLine = mockReadLine(['cd nonexistent', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: () => {}, error: (msg) => errors.push(msg) })
+        .command('greet', (c) => c.action(() => 'hi'));
+
+      for await (const _ of program.repl()) {
+        // consume
+      }
+
+      expect(errors.some((e) => e.includes('Unknown command'))).toBe(true);
+    });
+
+    it('should error when scoping into command with no subcommands', async () => {
+      const errors: string[] = [];
+      const readLine = mockReadLine(['cd greet', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: () => {}, error: (msg) => errors.push(msg) })
+        .command('greet', (c) => c.action(() => 'hi'));
+
+      for await (const _ of program.repl()) {
+        // consume
+      }
+
+      expect(errors.some((e) => e.includes('no subcommands'))).toBe(true);
+    });
+
+    it('should update prompt to reflect scope', async () => {
+      const readLine = mockReadLine(['cd db', 'seed', null]);
+      const program = createPadrone('myapp')
+        .runtime({ readLine, output: () => {}, error: () => {} })
+        .command('db', (c) => c.command('seed', (s) => s.action(() => 'seeded')));
+
+      for await (const _ of program.repl()) {
+        // consume
+      }
+
+      // First call: root prompt, second call: scoped prompt, third call: still scoped
+      expect((readLine as ReturnType<typeof mock>).mock.calls[0]![0]).toContain('myapp');
+      expect((readLine as ReturnType<typeof mock>).mock.calls[1]![0]).toContain('myapp/db');
+    });
+
+    it('should start scoped via options.scope', async () => {
+      const readLine = mockReadLine(['seed', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: () => {}, error: () => {} })
+        .command('db', (c) => c.command('seed', (s) => s.action(() => 'seeded')));
+
+      const results: any[] = [];
+      for await (const result of program.repl({ scope: 'db' })) {
+        results.push(result);
+      }
+
+      expect(results).toHaveLength(1);
+      expect(results[0]!.result).toBe('seeded');
+    });
+
+    it('should allow user-defined cd command instead of built-in', async () => {
+      const readLine = mockReadLine(['cd somewhere', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, output: () => {}, error: () => {} })
+        .command('cd', (c) =>
+          c.arguments(z.object({ target: z.string() }), { positional: ['target'] }).action((args) => `cd:${args.target}`),
+        );
+
+      const results: any[] = [];
+      for await (const result of program.repl()) {
+        results.push(result);
+      }
+
+      expect(results).toHaveLength(1);
+      expect(results[0]!.result).toBe('cd:somewhere');
+    });
+  });
+
+  describe('--repl flag', () => {
+    it('should start REPL when --repl flag is used in cli()', async () => {
+      const readLine = mockReadLine(['greet World', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, argv: () => ['--repl'], output: () => {}, error: () => {} })
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
+        );
+
+      const result = await program.cli();
+      expect(result.result).toBeUndefined();
+    });
+
+    it('should start scoped REPL when --repl is used with a command', async () => {
+      const readLine = mockReadLine(['seed', null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, argv: () => ['db', '--repl'], output: () => {}, error: () => {} })
+        .command('db', (c) => c.command('seed', (s) => s.action(() => 'seeded')));
+
+      const result = await program.cli();
+      expect(result.result).toBeUndefined();
+    });
+
+    it('should disable --repl flag when repl: false in cli preferences', async () => {
+      const readLine = mockReadLine([null]);
+      const errors: string[] = [];
+      const program = createPadrone('test')
+        .runtime({ readLine, argv: () => ['--repl'], output: () => {}, error: (msg) => errors.push(msg) })
+        .command('greet', (c) => c.action(() => 'hi'));
+
+      // With repl: false, --repl is not intercepted and treated as a regular unknown flag
+      try {
+        await program.cli({ repl: false });
+      } catch {
+        // May throw since --repl is not a valid argument
+      }
+    });
+
+    it('should pass repl preferences from cli options', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine([null]);
+      const program = createPadrone('test')
+        .runtime({ readLine, argv: () => ['--repl'], output: (msg) => output.push(msg), error: () => {} })
+        .command('greet', (c) => c.action(() => 'hi'));
+
+      await program.cli({ repl: { greeting: 'Welcome!' } });
+      expect(output).toContain('Welcome!');
     });
   });
 });

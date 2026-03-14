@@ -129,8 +129,13 @@ export function createTerminalReplSession(config: ReplSessionConfig) {
   // up/down arrow navigation without a persistent stdin listener
   // that would conflict with Enquirer or other stdin consumers.
   let history: string[] = config.history ? [...config.history] : [];
+  let currentCompleter = config.completer;
 
   return {
+    /** Update the tab completer (e.g. when REPL scope changes). Takes effect on the next question. */
+    set completer(fn: ((line: string) => [string[], string]) | undefined) {
+      currentCompleter = fn;
+    },
     async question(prompt: string): Promise<string | null> {
       const { createInterface } = await import('node:readline');
       const opts: Record<string, unknown> = {
@@ -140,8 +145,8 @@ export function createTerminalReplSession(config: ReplSessionConfig) {
         history: [...history],
         historySize: Math.max(history.length, 1000),
       };
-      if (config.completer) {
-        opts.completer = config.completer;
+      if (currentCompleter) {
+        opts.completer = currentCompleter;
       }
       const rl = createInterface(opts as any);
 
@@ -151,6 +156,13 @@ export function createTerminalReplSession(config: ReplSessionConfig) {
           if (Array.isArray((rl as any).history)) history = [...(rl as any).history];
           resolve(answer);
           rl.close();
+        });
+        // Ctrl+C: cancel current line, print newline, resolve empty (shows new prompt).
+        rl.once('SIGINT', () => {
+          // Write newline so the terminal doesn't show '%' (zsh partial-line indicator).
+          process.stdout.write('\n');
+          rl.close();
+          resolve('');
         });
         // EOF (Ctrl+D) fires close without the question callback.
         rl.once('close', () => resolve(null));
