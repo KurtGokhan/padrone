@@ -194,7 +194,7 @@ Bind arguments to environment variables:
 )
 ```
 
-Priority order: CLI argument > Environment variable > Default value
+Priority order: CLI argument > Environment variable > Interactive prompt > Default value
 
 ## Config Files
 
@@ -229,7 +229,42 @@ With `app.config.json`:
 }
 ```
 
-Priority order: CLI argument > Environment variable > Config file > Default value
+Priority order: CLI argument > Environment variable > Config file > Interactive prompt > Default value
+
+## Interactive Prompting
+
+Commands can prompt users for missing field values when running in an interactive terminal. This is configured in the arguments meta and requires the runtime to have `interactive: true`.
+
+```typescript
+const program = createPadrone('app')
+  .runtime({ interactive: true })
+  .command('init', (c) =>
+    c
+      .arguments(
+        z.object({
+          name: z.string().describe('Project name'),
+          template: z.enum(['react', 'vue', 'svelte']).describe('Starter template'),
+          typescript: z.boolean().default(false).describe('Use TypeScript'),
+        }),
+        {
+          interactive: ['name', 'template'],
+          optionalInteractive: ['typescript'],
+        }
+      )
+      .action((args) => {
+        console.log(`Creating ${args.name} with ${args.template}`);
+      })
+  );
+```
+
+Running `app init` without arguments will:
+1. Prompt for `name` (text input) and `template` (select from enum choices)
+2. Ask "Would you also like to configure:" with `typescript` as a choice
+3. Prompt for any selected optional fields
+
+Values provided via CLI, env vars, or config files skip the prompt. Running `app init myproject --template react` only prompts for nothing — all required interactive fields are already provided.
+
+Interactive prompting only occurs in `cli()`, not in `parse()` or `run()`. See the [Interactive Prompting guide](../interactive-prompting/) for full details.
 
 ## Help Generation
 

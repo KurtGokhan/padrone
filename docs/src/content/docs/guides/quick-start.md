@@ -143,8 +143,40 @@ console.log(parsed.command); // 'add'
 console.log(parsed.args); // { task: 'Clean room', priority: 'medium' }
 ```
 
+## Make It Interactive
+
+Add interactive prompting so users are guided through missing arguments:
+
+```typescript
+const program = createPadrone('todo')
+  .configure({ version: '1.0.0' })
+  .runtime({ interactive: true })
+  .command('add', (c) =>
+    c
+      .arguments(
+        z.object({
+          task: z.string().describe('Task description'),
+          priority: z.enum(['low', 'medium', 'high']).default('medium').describe('Priority level'),
+        }),
+        {
+          positional: ['task'],
+          interactive: ['task'],
+          optionalInteractive: ['priority'],
+        }
+      )
+      .action((args) => {
+        console.log(`Added: ${args.task} [${args.priority}]`);
+      })
+  );
+
+await program.cli();
+```
+
+Now running `todo add` with no arguments will prompt for the task description (text input), then offer to configure priority (select menu with low/medium/high). Prompt types are auto-detected from your Zod schema.
+
 ## Next Steps
 
 - Learn about [Commands & Arguments](../commands-arguments/) in depth
+- Set up [Interactive Prompting](../interactive-prompting/) for your CLI
 - Integrate with [AI tools](../ai-integration/)
 - Explore the [API Reference](../../reference/api/)

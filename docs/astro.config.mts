@@ -28,6 +28,7 @@ export default defineConfig({
           label: 'Guides',
           items: [
             { label: 'Commands & Arguments', slug: 'guides/commands-arguments' },
+            { label: 'Interactive Prompting', slug: 'guides/interactive-prompting' },
             { label: 'AI Integration', slug: 'guides/ai-integration' },
           ],
         },

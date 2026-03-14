@@ -93,6 +93,69 @@ Per-argument configuration that supplements or overrides `.meta()`:
 
 This is equivalent to using `.meta()` on the schema property but allows configuration to be kept separate from the schema definition.
 
+### interactive
+
+Declare which fields should be interactively prompted when their values are missing after CLI/env/config resolution. Only takes effect in `cli()` when the runtime has `interactive: true`.
+
+```typescript
+// Prompt all missing required fields
+{ interactive: true }
+
+// Prompt specific fields
+{ interactive: ['name', 'template'] }
+```
+
+When `interactive` is set, `parse()` and `cli()` return Promises (the command becomes async).
+
+Prompt types are auto-detected from the schema:
+
+| Schema Type | Prompt |
+|---|---|
+| `z.boolean()` | Confirm (yes/no) |
+| `z.enum([...])` | Select (single choice) |
+| `z.array(z.enum([...]))` | Multi-select |
+| `z.string()` | Text input |
+| Any other type | Text input |
+
+The prompt message is derived from the field's `.describe()` text, or from `fields` meta `description`, falling back to the field name.
+
+### optionalInteractive
+
+Additional fields offered after required interactive prompts. Users are shown a multi-select to choose which of these fields to configure.
+
+```typescript
+// Offer all missing optional fields
+{ optionalInteractive: true }
+
+// Offer specific fields
+{ optionalInteractive: ['verbose', 'format'] }
+```
+
+**Example combining both:**
+
+```typescript
+.arguments(
+  z.object({
+    name: z.string().describe('Project name'),
+    template: z.enum(['react', 'vue', 'svelte']).describe('Starter template'),
+    typescript: z.boolean().default(false).describe('Use TypeScript'),
+    eslint: z.boolean().default(false).describe('Add ESLint'),
+  }),
+  {
+    positional: ['name'],
+    interactive: ['name', 'template'],
+    optionalInteractive: ['typescript', 'eslint'],
+  }
+)
+```
+
+When running without arguments, this will:
+1. Prompt for `name` and `template` (required interactive fields)
+2. Show a multi-select: "Would you also like to configure: TypeScript, ESLint"
+3. Prompt individually for any selected optional fields
+
+See the [Interactive Prompting guide](/padrone/guides/interactive-prompting/) for full details.
+
 ---
 
 ## Environment Variables
@@ -118,7 +181,8 @@ z.string().meta({ env: ['API_KEY', 'APP_API_KEY'] })
 1. CLI argument (highest)
 2. Environment variable
 3. Config file
-4. Default value (lowest)
+4. Interactive prompt (if runtime supports it)
+5. Default value (lowest)
 
 **Type coercion:**
 - Strings: Used as-is

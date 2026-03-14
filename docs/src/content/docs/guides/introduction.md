@@ -59,6 +59,20 @@ const tool = program.tool();
 // Use with Vercel AI SDK
 ```
 
+### Interactive Prompting
+
+Automatically prompt users for missing arguments with type-aware prompts. Booleans become confirm prompts, enums become select menus, and arrays of enums become multi-selects — all detected from your Zod schema:
+
+```typescript
+.arguments(
+  z.object({
+    name: z.string().describe('Project name'),
+    template: z.enum(['react', 'vue']).describe('Template'),
+  }),
+  { interactive: ['name', 'template'] }
+)
+```
+
 ### Multiple Execution Modes
 
 - **CLI mode**: Parse `process.argv` or a string input

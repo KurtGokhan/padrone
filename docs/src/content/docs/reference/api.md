@@ -47,6 +47,37 @@ program.configure({
 
 ---
 
+### .runtime(config)
+
+Configure the runtime adapter for I/O abstraction. Allows the CLI framework to work outside of a terminal (e.g., web UIs, chat interfaces, AI agents, testing).
+
+```typescript
+program.runtime({
+  interactive: true,
+  prompt: myCustomPromptFn,
+  output: (text) => panel.append(text),
+  error: (text) => panel.appendError(text),
+  format: 'html',
+});
+```
+
+**Configuration:**
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `output` | `(text: string) => void` | `console.log` | Write normal output |
+| `error` | `(text: string) => void` | `console.error` | Write error output |
+| `argv` | `() => string[]` | `process.argv.slice(2)` | Return raw CLI arguments |
+| `env` | `() => Record<string, string \| undefined>` | `process.env` | Return environment variables |
+| `format` | `string` | `'auto'` | Default help output format |
+| `loadConfigFile` | `(path: string) => Record<string, unknown> \| undefined` | Built-in JSON/YAML loader | Load a config file |
+| `findFile` | `(names: string[]) => string \| undefined` | Built-in file finder | Find config file by name |
+| `interactive` | `boolean` | `false` | Whether the runtime supports interactive prompts |
+| `prompt` | `(config: InteractivePromptConfig) => Promise<unknown>` | Enquirer (when `interactive: true`) | Custom prompt implementation |
+
+Successive `.runtime()` calls merge with previous configuration.
+
+---
+
 ### .arguments(schema, meta?)
 
 Define arguments using a Zod schema.
@@ -70,7 +101,11 @@ program.arguments(
 - `schema`: Zod object schema defining the arguments
 - `meta` (optional): Additional configuration
   - `positional`: Array of argument names to treat as positional arguments
-  - `fields`: Per-argument metadata (env, configKey)
+  - `fields`: Per-argument metadata (env, configKey, alias, description, etc.)
+  - `interactive`: `true | string[]` — fields to prompt when missing (see [Interactive Prompting](/padrone/guides/interactive-prompting/))
+  - `optionalInteractive`: `true | string[]` — optional fields offered after required prompts
+
+When `interactive` or `optionalInteractive` is set, the command becomes async — `parse()` and `cli()` return Promises.
 
 ---
 
@@ -291,7 +326,9 @@ program.cli(['serve', '--port', '8080']);
 **Parameters:**
 - `input` (optional): String or string array to parse. Defaults to `process.argv.slice(2)`
 
-**Returns:** The action handler's return value, or undefined
+**Returns:** The action handler's return value, or undefined. Returns a `Promise` when the matched command has async schemas or interactive fields.
+
+**Note:** Interactive prompting only triggers in `cli()`, not in `parse()` or `run()`. When a command has interactive meta and the runtime has `interactive: true`, missing field values are prompted before validation.
 
 ---
 
@@ -448,11 +485,32 @@ Padrone exports these TypeScript types:
 
 ```typescript
 import type {
+  // Core types
   PadroneProgram,
   PadroneCommand,
+  PadroneBuilder,
   PadroneParseResult,
   PadroneCommandResult,
   PadroneAPI,
   PadroneSchema,
+  AsyncPadroneSchema,
+  PadroneCommandConfig,
+
+  // Runtime types
+  PadroneRuntime,
+  ResolvedPadroneRuntime,
+  InteractivePromptConfig,
+
+  // Type utilities
+  MaybePromise,
+  OrAsync,
+  OrAsyncMeta,
+  HasInteractive,
+  IsAsyncSchema,
+
+  // Inference helpers
+  InferArgsInput,
+  InferArgsOutput,
+  InferCommand,
 } from 'padrone';
 ```
