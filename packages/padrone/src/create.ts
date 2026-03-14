@@ -4,7 +4,7 @@ import { extractSchemaMetadata, parsePositionalConfig, preprocessArgs } from './
 import { generateCompletionOutput, type ShellType } from './completion.ts';
 import { generateHelp } from './help.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
-import { type ResolvedPadroneRuntime, resolveRuntime } from './runtime.ts';
+import { type InteractivePromptConfig, type ResolvedPadroneRuntime, resolveRuntime } from './runtime.ts';
 import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneProgram, PadroneSchema } from './types.ts';
 import { getVersion } from './utils.ts';
 import { createWrapHandler } from './wrap.ts';
@@ -62,6 +62,141 @@ function getCommandRuntime(cmd: AnyPadroneCommand): ResolvedPadroneRuntime {
 
 function isAsyncBranded(schema: unknown): boolean {
   return !!schema && typeof schema === 'object' && '~async' in schema && (schema as any)['~async'] === true;
+}
+
+function hasInteractiveConfig(meta: unknown): boolean {
+  if (!meta || typeof meta !== 'object') return false;
+  const m = meta as Record<string, unknown>;
+  return m.interactive === true || Array.isArray(m.interactive) || m.optionalInteractive === true || Array.isArray(m.optionalInteractive);
+}
+
+/**
+ * Auto-detect the prompt type for a field based on its JSON schema property definition.
+ */
+function detectPromptConfig(name: string, propSchema: Record<string, any> | undefined, description?: string): InteractivePromptConfig {
+  const message = description || propSchema?.description || name;
+
+  if (!propSchema) return { name, message, type: 'input' };
+
+  if (propSchema.type === 'boolean') {
+    return { name, message, type: 'confirm', default: propSchema.default };
+  }
+
+  if (propSchema.enum) {
+    return {
+      name,
+      message,
+      type: 'select',
+      choices: propSchema.enum.map((v: unknown) => ({ label: String(v), value: v })),
+      default: propSchema.default,
+    };
+  }
+
+  if (propSchema.type === 'array' && propSchema.items?.enum) {
+    return {
+      name,
+      message,
+      type: 'multiselect',
+      choices: propSchema.items.enum.map((v: unknown) => ({ label: String(v), value: v })),
+      default: propSchema.default,
+    };
+  }
+
+  if (propSchema.format === 'password') {
+    return { name, message, type: 'password', default: propSchema.default };
+  }
+
+  return { name, message, type: 'input', default: propSchema.default };
+}
+
+/**
+ * Prompt for missing interactive fields.
+ * Runs after env/config preprocessing and before schema validation.
+ */
+async function promptInteractiveFields(
+  data: Record<string, unknown>,
+  command: AnyPadroneCommand,
+  runtime: ResolvedPadroneRuntime,
+): Promise<Record<string, unknown>> {
+  if (!runtime.interactive || !runtime.prompt) return data;
+
+  const meta = command.meta;
+  const interactiveConfig = meta?.interactive;
+  const optionalInteractiveConfig = meta?.optionalInteractive;
+  if (!interactiveConfig && !optionalInteractiveConfig) return data;
+
+  // Extract JSON schema properties for prompt type detection
+  let jsonProperties: Record<string, any> = {};
+  let requiredFields: Set<string> = new Set();
+  if (command.arguments) {
+    try {
+      const jsonSchema = command.arguments['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+      if (jsonSchema.type === 'object' && jsonSchema.properties) {
+        jsonProperties = jsonSchema.properties;
+      }
+      if (Array.isArray(jsonSchema.required)) {
+        requiredFields = new Set(jsonSchema.required);
+      }
+    } catch {
+      // Ignore schema parsing errors
+    }
+  }
+
+  const fieldDescriptions: Record<string, string | undefined> = {};
+  if (meta?.fields) {
+    for (const [key, value] of Object.entries(meta.fields)) {
+      if (value?.description) fieldDescriptions[key] = value.description;
+    }
+  }
+
+  const result = { ...data };
+
+  // Determine which required interactive fields to prompt
+  let fieldsToPrompt: string[] = [];
+  if (interactiveConfig === true) {
+    // All required fields that are missing
+    fieldsToPrompt = [...requiredFields].filter((name) => result[name] === undefined);
+  } else if (Array.isArray(interactiveConfig)) {
+    fieldsToPrompt = interactiveConfig.filter((name) => result[name] === undefined);
+  }
+
+  // Prompt each required interactive field
+  for (const field of fieldsToPrompt) {
+    const config = detectPromptConfig(field, jsonProperties[field], fieldDescriptions[field]);
+    result[field] = await runtime.prompt(config);
+  }
+
+  // Determine optional interactive fields
+  let optionalFields: string[] = [];
+  if (optionalInteractiveConfig === true) {
+    // All non-required fields that are still missing
+    const allKeys = Object.keys(jsonProperties);
+    optionalFields = allKeys.filter((name) => !requiredFields.has(name) && result[name] === undefined);
+  } else if (Array.isArray(optionalInteractiveConfig)) {
+    optionalFields = optionalInteractiveConfig.filter((name) => result[name] === undefined);
+  }
+
+  // Show multiselect for optional fields, then prompt selected ones
+  if (optionalFields.length > 0) {
+    const selected = (await runtime.prompt({
+      name: '_optionalFields',
+      message: 'Would you also like to configure:',
+      type: 'multiselect',
+      choices: optionalFields.map((f) => ({
+        label: fieldDescriptions[f] || jsonProperties[f]?.description || f,
+        value: f,
+      })),
+    })) as string[];
+
+    if (Array.isArray(selected)) {
+      for (const field of selected) {
+        const config = detectPromptConfig(field, jsonProperties[field], fieldDescriptions[field]);
+        result[field] = await runtime.prompt(config);
+      }
+    }
+  }
+
+  return result;
 }
 
 function warnIfUnexpectedAsync<T>(value: T, command: AnyPadroneCommand): T {
@@ -217,15 +352,15 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   };
 
   /**
-   * Validates raw arguments against the command's schema and applies preprocessing.
-   * Returns sync or async result depending on the schema's validate method.
+   * Preprocesses raw arguments: applies env/config values and maps positional arguments.
+   * This is the first half of argument processing, before validation.
    */
-  const validateArgs = (
+  const buildCommandArgs = (
     command: AnyPadroneCommand,
     rawArgs: Record<string, unknown>,
     args: string[],
     context?: { envData?: Record<string, unknown>; configData?: Record<string, unknown> },
-  ) => {
+  ): Record<string, unknown> => {
     // Apply preprocessing (env and config bindings)
     const preprocessedArgs = preprocessArgs(rawArgs, {
       aliases: {}, // Already resolved aliases in parseCommand
@@ -256,6 +391,14 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       }
     }
 
+    return preprocessedArgs;
+  };
+
+  /**
+   * Validates preprocessed arguments against the command's schema.
+   * Returns sync or async result depending on the schema's validate method.
+   */
+  const validateCommandArgs = (command: AnyPadroneCommand, preprocessedArgs: Record<string, unknown>) => {
     const argsParsed = command.arguments ? command.arguments['~standard'].validate(preprocessedArgs) : { value: preprocessedArgs };
 
     // Return undefined for args when there's no schema and no meaningful args
@@ -267,6 +410,20 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     });
 
     return thenMaybe(argsParsed, buildResult);
+  };
+
+  /**
+   * Preprocesses and validates raw arguments against the command's schema.
+   * Returns sync or async result depending on the schema's validate method.
+   */
+  const validateArgs = (
+    command: AnyPadroneCommand,
+    rawArgs: Record<string, unknown>,
+    args: string[],
+    context?: { envData?: Record<string, unknown>; configData?: Record<string, unknown> },
+  ) => {
+    const preprocessedArgs = buildCommandArgs(command, rawArgs, args, context);
+    return validateCommandArgs(command, preprocessedArgs);
   };
 
   const parse: AnyPadroneProgram['parse'] = (input) => {
@@ -647,10 +804,15 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
       // Step 3: Validate arguments and run handler
       const finalizeAndRun = (validatedConfigData: Record<string, unknown> | undefined, envData: Record<string, unknown> | undefined) => {
-        const validated = validateArgs(command, rawArgs, args, {
+        // Preprocess args (merge env/config, map positionals)
+        const preprocessedArgs = buildCommandArgs(command, rawArgs, args, {
           envData,
           configData: validatedConfigData,
         });
+
+        // Insert interactive prompting between preprocessing and validation
+        const afterInteractive =
+          runtime.interactive && runtime.prompt ? promptInteractiveFields(preprocessedArgs, command, runtime) : preprocessedArgs;
 
         const handleValidated = (v: { args: any; argsResult: any }) => {
           // Handle validation failures
@@ -683,7 +845,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           };
         };
 
-        return thenMaybe(validated, handleValidated);
+        return thenMaybe(afterInteractive, (filledArgs) => {
+          const validated = validateCommandArgs(command, filledArgs);
+          return thenMaybe(validated, handleValidated);
+        });
       };
 
       // Chain: config validation → env validation → arguments validation → run
@@ -770,7 +935,7 @@ ${helpText}
     arguments(schema, meta) {
       // If schema is a function, call it with parent's arguments as base
       const resolvedArgs = typeof schema === 'function' ? schema(existingCommand.arguments as any) : schema;
-      const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedArgs);
+      const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedArgs) || hasInteractiveConfig(meta);
       return createPadroneBuilder({ ...existingCommand, arguments: resolvedArgs, meta, isAsync }) as any;
     },
     configFile(file, schema) {

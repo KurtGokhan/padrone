@@ -21,6 +21,7 @@ export const tasksProgram = createPadrone('tasks')
     description: 'A task manager CLI for managing your todos with support for priorities, tags, and due dates.',
     version: '1.0.0',
   })
+  .runtime({ interactive: true })
   .action(() => {
     console.log(tasksProgram.help());
   })
@@ -34,7 +35,11 @@ export const tasksProgram = createPadrone('tasks')
           tags: z.array(z.string()).optional().default([]).describe('Tags for categorization').meta({ alias: 't' }),
           due: z.string().optional().describe('Due date (YYYY-MM-DD)').meta({ alias: 'd' }),
         }),
-        { positional: ['title'] },
+        {
+          positional: ['title'],
+          interactive: ['title'],
+          optionalInteractive: ['priority', 'tags', 'due'],
+        },
       )
       .action((args) => {
         const task = addTask({
@@ -52,10 +57,11 @@ export const tasksProgram = createPadrone('tasks')
       .configure({ title: 'List all tasks' })
       .arguments(
         z.object({
-          status: statusSchema.optional().describe('Filter by status').meta({ alias: 's' }),
+          status: z.array(statusSchema).optional().describe('Filter by status').meta({ alias: 's' }),
           priority: prioritySchema.optional().describe('Filter by priority').meta({ alias: 'p' }),
           tag: z.string().optional().describe('Filter by tag').meta({ alias: 't' }),
         }),
+        { optionalInteractive: ['status', 'priority'] },
       )
       .action((args) => {
         const tasks = getTasks({
@@ -160,7 +166,11 @@ export const tasksProgram = createPadrone('tasks')
           tags: z.array(z.string()).optional().describe('New tags').meta({ alias: 't' }),
           due: z.string().optional().describe('New due date (YYYY-MM-DD)').meta({ alias: 'd' }),
         }),
-        { positional: ['id'] },
+        {
+          positional: ['id'],
+          interactive: ['id'],
+          optionalInteractive: ['title', 'priority', 'due'],
+        },
       )
       .action((args) => {
         const task = updateTask(args.id, {

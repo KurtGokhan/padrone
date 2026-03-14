@@ -8,6 +8,7 @@ import type {
   IsGeneric,
   MaybePromise,
   OrAsync,
+  OrAsyncMeta,
   PickCommandByName,
   PickCommandByPossibleCommands,
   PossibleCommands,
@@ -242,9 +243,9 @@ export type PadroneBuilderMethods<
    * })
    * ```
    */
-  arguments: <TNewArgs extends PadroneSchema = PadroneSchema<void>>(
+  arguments: <TNewArgs extends PadroneSchema = PadroneSchema<void>, TMeta extends GetArgsMeta<TNewArgs> = GetArgsMeta<TNewArgs>>(
     schema?: TNewArgs | ((parentSchema: TParentArgs) => TNewArgs),
-    meta?: GetArgsMeta<TNewArgs>,
+    meta?: TMeta,
   ) => BuilderOrProgram<
     TReturn,
     TProgramName,
@@ -256,7 +257,7 @@ export type PadroneBuilderMethods<
     TParentArgs,
     TConfig,
     TEnv,
-    OrAsync<TAsync, TNewArgs>
+    OrAsyncMeta<OrAsync<TAsync, TNewArgs>, TMeta>
   >;
 
   /**

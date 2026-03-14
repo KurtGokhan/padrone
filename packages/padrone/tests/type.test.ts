@@ -150,6 +150,46 @@ describe.skip('Types - Parsed command type', async () => {
   expectTypeOf<(typeof parsedString)['command']['path']>().toExtend<'' | 'sum' | 'greet'>();
 });
 
+/** This test verifies that interactive meta makes commands async */
+describe.skip('Types - Interactive', () => {
+  const syncSchema = z.object({ name: z.string(), template: z.enum(['react', 'vue']), verbose: z.boolean().default(false) });
+
+  const program = createPadrone('test')
+    .command('no-interactive', (c) => c.arguments(syncSchema).action((args) => args.name))
+    .command('interactive-true', (c) => c.arguments(syncSchema, { interactive: true }).action((args) => args.name))
+    .command('interactive-fields', (c) => c.arguments(syncSchema, { interactive: ['name', 'template'] }).action((args) => args.name))
+    .command('optional-interactive', (c) => c.arguments(syncSchema, { optionalInteractive: ['verbose'] }).action((args) => args.name))
+    .command('both-interactive', (c) =>
+      c.arguments(syncSchema, { interactive: ['name'], optionalInteractive: ['verbose'] }).action((args) => args.name),
+    );
+
+  // No interactive: sync
+  const syncParsed = program.parse('no-interactive --name hello --template react');
+  expectTypeOf(syncParsed).not.toMatchTypeOf<Promise<any>>();
+
+  const syncCli = program.cli('no-interactive --name hello --template react');
+  expectTypeOf(syncCli).not.toMatchTypeOf<Promise<any>>();
+
+  // interactive: true → async
+  const interactiveTrueParsed = program.parse('interactive-true --name hello --template react');
+  expectTypeOf(interactiveTrueParsed).toMatchTypeOf<Promise<any>>();
+
+  const interactiveTrueCli = program.cli('interactive-true --name hello --template react');
+  expectTypeOf(interactiveTrueCli).toMatchTypeOf<Promise<any>>();
+
+  // interactive: ['name', 'template'] → async
+  const interactiveFieldsParsed = program.parse('interactive-fields --name hello --template react');
+  expectTypeOf(interactiveFieldsParsed).toMatchTypeOf<Promise<any>>();
+
+  // optionalInteractive: ['verbose'] → async
+  const optionalParsed = program.parse('optional-interactive --name hello --template react');
+  expectTypeOf(optionalParsed).toMatchTypeOf<Promise<any>>();
+
+  // Both → async
+  const bothCli = program.cli('both-interactive --name hello --template react');
+  expectTypeOf(bothCli).toMatchTypeOf<Promise<any>>();
+});
+
 /** This test verifies that async commands return Promises and sync commands don't */
 describe.skip('Types - Async', () => {
   const syncSchema = z.object({ name: z.string() });

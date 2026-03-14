@@ -20,7 +20,7 @@
     },
     "docs": {
       "name": "@padrone/docs",
-      "version": "1.0.0-beta.6",
+      "version": "1.1.0",
       "dependencies": {
         "@astrojs/react": "4.4.2",
         "@astrojs/starlight": "^0.37.5",
@@ -45,7 +45,7 @@
     },
     "examples/padrone-example": {
       "name": "@padrone/tasks-example",
-      "version": "1.0.0-beta.6",
+      "version": "1.1.0",
       "dependencies": {
         "ai": "^6.0.64",
         "padrone": "workspace:*",
@@ -54,9 +54,10 @@
     },
     "packages/padrone": {
       "name": "padrone",
-      "version": "1.0.0-beta.6",
+      "version": "1.1.0",
       "dependencies": {
         "@standard-schema/spec": "^1.1.0",
+        "enquirer": "^2.4.1",
       },
       "devDependencies": {
         "ai": "^6.0.64",

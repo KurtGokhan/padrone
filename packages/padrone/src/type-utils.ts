@@ -33,6 +33,26 @@ export type OrAsync<TExisting extends boolean, TSchema> = TExisting extends true
     : false;
 
 /**
+ * Detects whether argument meta contains interactive or optionalInteractive configuration.
+ * When either is `true` or a `string[]`, the command requires async execution for prompting.
+ */
+export type HasInteractive<TMeta> = TMeta extends { interactive: true | string[] }
+  ? true
+  : TMeta extends { optionalInteractive: true | string[] }
+    ? true
+    : false;
+
+/**
+ * Combines schema-level async detection with meta-level interactive detection.
+ * Returns `true` if the existing async flag is set, the schema is branded async, or the meta has interactive fields.
+ */
+export type OrAsyncMeta<TExisting extends boolean, TMeta> = TExisting extends true
+  ? true
+  : HasInteractive<TMeta> extends true
+    ? true
+    : false;
+
+/**
  * Conditionally wraps a type in Promise based on the TAsync flag.
  * - `true` → `Promise<T>`
  * - `false` → `T`

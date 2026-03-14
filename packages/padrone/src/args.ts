@@ -38,6 +38,38 @@ export interface PadroneArgsSchemaMeta<TObj = Record<string, any>> {
    * Per-argument metadata.
    */
   fields?: { [K in keyof TObj]?: PadroneFieldMeta };
+  /**
+   * Fields to interactively prompt for when their values are missing after CLI/env/config resolution.
+   * - `true`: prompt for all required fields that are missing.
+   * - `string[]`: prompt for these specific fields if missing.
+   *
+   * Interactive prompting only occurs in `cli()` when the runtime has `interactive: true`.
+   * Setting this makes `parse()` and `cli()` return Promises.
+   *
+   * @example
+   * ```ts
+   * .arguments(schema, {
+   *   interactive: true,                        // prompt all missing required fields
+   *   interactive: ['name', 'template'],         // prompt only these fields
+   * })
+   * ```
+   */
+  interactive?: true | (keyof TObj & string)[];
+  /**
+   * Optional fields offered after required interactive prompts.
+   * Users are shown a multi-select to choose which of these fields to configure.
+   * - `true`: offer all optional fields that are missing.
+   * - `string[]`: offer these specific fields.
+   *
+   * @example
+   * ```ts
+   * .arguments(schema, {
+   *   interactive: ['name'],
+   *   optionalInteractive: ['typescript', 'eslint', 'prettier'],
+   * })
+   * ```
+   */
+  optionalInteractive?: true | (keyof TObj & string)[];
 }
 
 /**

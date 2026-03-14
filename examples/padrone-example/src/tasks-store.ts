@@ -48,7 +48,7 @@ const tasks: Task[] = [
 ];
 
 export interface TaskFilters {
-  status?: TaskStatus;
+  status?: TaskStatus[];
   priority?: TaskPriority;
   tag?: string;
 }
@@ -57,7 +57,7 @@ export function getTasks(filters?: TaskFilters): Task[] {
   let result = [...tasks];
 
   if (filters?.status) {
-    result = result.filter((t) => t.status === filters.status);
+    result = result.filter((t) => filters.status?.includes(t.status));
   }
   if (filters?.priority) {
     result = result.filter((t) => t.priority === filters.priority);

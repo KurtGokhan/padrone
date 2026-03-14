@@ -62,7 +62,8 @@
     "prepack": "bun run build && bun ../../scripts/prepareForRelease.ts"
   },
   "dependencies": {
-    "@standard-schema/spec": "^1.1.0"
+    "@standard-schema/spec": "^1.1.0",
+    "enquirer": "^2.4.1"
   },
   "devDependencies": {
     "ai": "^6.0.64",
