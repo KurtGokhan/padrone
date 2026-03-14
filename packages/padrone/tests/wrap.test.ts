@@ -244,7 +244,7 @@ describe('wrap', () => {
           }),
       );
 
-      const result = await program.cli('echo "Hello from CLI"');
+      const result = await program.eval('echo "Hello from CLI"');
       const wrapResult = await result.result;
 
       expect(wrapResult.success).toBe(true);
@@ -267,7 +267,7 @@ describe('wrap', () => {
           }),
       );
 
-      const result = await program.cli('cmd --verbose --file test.txt');
+      const result = await program.eval('cmd --verbose --file test.txt');
       const wrapResult = await result.result;
 
       expect(wrapResult.success).toBe(true);

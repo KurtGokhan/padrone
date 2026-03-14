@@ -67,7 +67,7 @@ describe('Command Aliases', () => {
     });
 
     it('should parse and execute command using alias via CLI', () => {
-      const result = program.cli('rm test');
+      const result = program.eval('rm test');
       expect(result.command.name).toBe('delete');
       expect(result.result.deleted).toBe('test');
     });
@@ -75,19 +75,19 @@ describe('Command Aliases', () => {
 
   describe('Array of aliases', () => {
     it('should execute command using first alias from array', () => {
-      const result = program.cli('ls');
+      const result = program.eval('ls');
       expect(result.command.name).toBe('list');
       expect(result.result.format).toBe('table');
     });
 
     it('should execute command using second alias from array', () => {
-      const result = program.cli('show');
+      const result = program.eval('show');
       expect(result.command.name).toBe('list');
       expect(result.result.format).toBe('table');
     });
 
     it('should execute command with args using alias', () => {
-      const result = program.cli('ls --format json');
+      const result = program.eval('ls --format json');
       expect(result.command.name).toBe('list');
       expect(result.args?.format).toBe('json');
       expect(result.result.format).toBe('json');
@@ -127,7 +127,7 @@ describe('Command Aliases', () => {
 
   describe('Nested command aliases', () => {
     it('should find nested command by alias', () => {
-      const result = program.cli('config cfg key value');
+      const result = program.eval('config cfg key value');
       expect(result.command.name).toBe('set');
       expect(result.result.key).toBe('key');
       expect(result.result.value).toBe('value');
@@ -179,7 +179,7 @@ describe('Command Aliases', () => {
     });
 
     it('should handle mixed case commands', () => {
-      const result = program.cli('ls --format json');
+      const result = program.eval('ls --format json');
       expect(result.command.name).toBe('list');
     });
 
@@ -205,7 +205,7 @@ describe('Command Aliases', () => {
 
   describe('Stringify method preserves command name', () => {
     it('should stringify using actual command name, not alias', () => {
-      const result = program.cli('ls --format json');
+      const result = program.eval('ls --format json');
       const stringified = program.stringify('list', result.args);
       expect(stringified).toContain('list');
       expect(stringified).toContain('format');

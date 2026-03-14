@@ -10,7 +10,7 @@ describe('runtime', () => {
         .runtime({ output })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      program.cli('--help');
+      program.eval('--help');
       expect(output).toHaveBeenCalledTimes(1);
       expect(output.mock.calls[0]![0]).toContain('greet');
     });
@@ -19,7 +19,7 @@ describe('runtime', () => {
       const output = mock();
       const program = createPadrone('app').runtime({ output }).configure({ version: '1.2.3' });
 
-      program.cli('--version');
+      program.eval('--version');
       expect(output).toHaveBeenCalledTimes(1);
       expect(output.mock.calls[0]![0]).toBe('1.2.3');
     });
@@ -30,7 +30,7 @@ describe('runtime', () => {
         .runtime({ output })
         .command('build', (c) => c.action(() => 'built'));
 
-      program.cli('completion bash');
+      program.eval('completion bash');
       expect(output).toHaveBeenCalledTimes(1);
       expect(output.mock.calls[0]![0]).toContain('bash');
     });
@@ -53,7 +53,7 @@ describe('runtime', () => {
         .command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((args) => `Hello, ${args.name}!`));
 
       const result = program.cli();
-      expect(result.result).toBe('Hello, Alice!');
+      expect(result.result as unknown).toBe('Hello, Alice!');
     });
 
     it('should use custom env', () => {
@@ -62,7 +62,7 @@ describe('runtime', () => {
         .env(z.object({ APP_NAME: z.string() }).transform((e) => ({ name: e.APP_NAME })))
         .command('greet', (c) => c.arguments(z.object({ name: z.string().optional() })).action((args) => `Hello, ${args.name}!`));
 
-      const result = program.cli('greet');
+      const result = program.eval('greet');
       expect(result.args).toEqual({ name: 'TestApp' });
     });
 
@@ -87,7 +87,7 @@ describe('runtime', () => {
             .action((args) => args.port),
         );
 
-      program.cli('serve --config=my.json');
+      program.eval('serve --config=my.json');
       expect(loadConfigFile).toHaveBeenCalledWith('my.json');
     });
 
@@ -103,7 +103,7 @@ describe('runtime', () => {
             .action((args) => args.port),
         );
 
-      const result = program.cli('serve');
+      const result = program.eval('serve');
       expect(findFile).toHaveBeenCalledWith(['config.json', 'config.yaml']);
       expect(loadConfigFile).toHaveBeenCalledWith('/fake/config.json');
       expect(result.result).toBe(9090);
@@ -121,7 +121,7 @@ describe('runtime', () => {
         .command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((args) => `Hello, ${args.name}!`));
 
       // output should still be the custom one from the first call
-      program.cli('--help');
+      program.eval('--help');
       expect(output).toHaveBeenCalledTimes(1);
 
       // error should be the custom one from the second call
@@ -143,7 +143,7 @@ describe('runtime', () => {
         .runtime({ output: output2 })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      program.cli('--help');
+      program.eval('--help');
       expect(output1).not.toHaveBeenCalled();
       expect(output2).toHaveBeenCalledTimes(1);
     });
@@ -158,7 +158,7 @@ describe('runtime', () => {
         .env(z.object({ GREETING: z.string() }).transform((e) => ({ greeting: e.GREETING })))
         .command('greet', (c) => c.arguments(z.object({ greeting: z.string().optional() })).action((args) => args.greeting));
 
-      const result = program.cli('greet');
+      const result = program.eval('greet');
       expect(env).toHaveBeenCalled();
       expect(result.args).toEqual({ greeting: 'Hi' });
     });
@@ -171,7 +171,7 @@ describe('runtime', () => {
         c.arguments(z.object({ name: z.string() })).action((args) => `Hello, ${args.name}!`),
       );
 
-      const result = program.cli('greet --name World');
+      const result = program.eval('greet --name World');
       expect(result.result).toBe('Hello, World!');
     });
   });

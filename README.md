@@ -145,7 +145,7 @@ const program = createPadrone('weather')
   );
 
 // Run nested command
-program.cli('forecast extended London');
+program.eval('forecast extended London');
 ```
 
 ### Option Aliases and Metadata

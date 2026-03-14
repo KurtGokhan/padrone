@@ -99,7 +99,7 @@ describe.skip('Types - Aliases', async () => {
     );
 
   // Test that aliases are included in possible command names
-  type TPossibleNames = Extract<Parameters<typeof programWithAliases.cli>[0], string>;
+  type TPossibleNames = Extract<Parameters<typeof programWithAliases.eval>[0], string>;
   expectTypeOf<TPossibleNames>().toExtend<(string & {}) | 'list' | 'ls' | 'l' | 'delete' | 'rm' | 'config' | 'config set' | 'config s'>();
 
   // Test that parse returns correct command type when using alias
@@ -167,14 +167,14 @@ describe.skip('Types - Interactive', () => {
   const syncParsed = program.parse('no-interactive --name hello --template react');
   expectTypeOf(syncParsed).not.toMatchTypeOf<Promise<any>>();
 
-  const syncCli = program.cli('no-interactive --name hello --template react');
+  const syncCli = program.eval('no-interactive --name hello --template react');
   expectTypeOf(syncCli).not.toMatchTypeOf<Promise<any>>();
 
   // interactive: true → async
   const interactiveTrueParsed = program.parse('interactive-true --name hello --template react');
   expectTypeOf(interactiveTrueParsed).toMatchTypeOf<Promise<any>>();
 
-  const interactiveTrueCli = program.cli('interactive-true --name hello --template react');
+  const interactiveTrueCli = program.eval('interactive-true --name hello --template react');
   expectTypeOf(interactiveTrueCli).toMatchTypeOf<Promise<any>>();
 
   // interactive: ['name', 'template'] → async
@@ -186,7 +186,7 @@ describe.skip('Types - Interactive', () => {
   expectTypeOf(optionalParsed).toMatchTypeOf<Promise<any>>();
 
   // Both → async
-  const bothCli = program.cli('both-interactive --name hello --template react');
+  const bothCli = program.eval('both-interactive --name hello --template react');
   expectTypeOf(bothCli).toMatchTypeOf<Promise<any>>();
 });
 
@@ -209,21 +209,21 @@ describe.skip('Types - Async', () => {
   const syncParsed = program.parse('sync-cmd --name hello');
   expectTypeOf(syncParsed).not.toMatchTypeOf<Promise<any>>();
 
-  const syncCli = program.cli('sync-cmd --name hello');
+  const syncCli = program.eval('sync-cmd --name hello');
   expectTypeOf(syncCli).not.toMatchTypeOf<Promise<any>>();
 
   // Async branded: parse and cli return Promises
   const asyncBrandedParsed = program.parse('async-branded --name hello');
   expectTypeOf(asyncBrandedParsed).toMatchTypeOf<Promise<any>>();
 
-  const asyncBrandedCli = program.cli('async-branded --name hello');
+  const asyncBrandedCli = program.eval('async-branded --name hello');
   expectTypeOf(asyncBrandedCli).toMatchTypeOf<Promise<any>>();
 
   // Async explicit: parse and cli return Promises
   const asyncExplicitParsed = program.parse('async-explicit --name hello');
   expectTypeOf(asyncExplicitParsed).toMatchTypeOf<Promise<any>>();
 
-  const asyncExplicitCli = program.cli('async-explicit --name hello');
+  const asyncExplicitCli = program.eval('async-explicit --name hello');
   expectTypeOf(asyncExplicitCli).toMatchTypeOf<Promise<any>>();
 
   // Builder: .async() is available on builder

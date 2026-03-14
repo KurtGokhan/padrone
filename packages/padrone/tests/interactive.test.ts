@@ -32,7 +32,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      const result = await program.cli('init');
+      const result = await program.eval('init');
 
       expect(result.args).toEqual({ name: 'Alice', template: 'react', verbose: false });
       // Should have prompted for name and template (required fields missing)
@@ -58,7 +58,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      const result = await program.cli('init --name Alice');
+      const result = await program.eval('init --name Alice');
 
       expect(result.args).toEqual({ name: 'Alice', template: 'vue' });
       // Only template should be prompted (name was provided)
@@ -83,7 +83,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      const result = await program.cli('init --name Alice --template react');
+      const result = await program.eval('init --name Alice --template react');
 
       expect(result.args).toEqual({ name: 'Alice', template: 'react' });
       expect(promptFn).not.toHaveBeenCalled();
@@ -109,7 +109,7 @@ describe('Interactive', () => {
         );
 
       // template is missing but not in interactive list, so it won't be prompted
-      const result = await program.cli('init --template react');
+      const result = await program.eval('init --template react');
 
       expect(result.args).toEqual({ name: 'Bob', template: 'react' });
       expect(promptFn).toHaveBeenCalledTimes(1);
@@ -144,7 +144,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      const result = await program.cli('init');
+      const result = await program.eval('init');
 
       expect(result.args).toEqual({ name: 'Alice', verbose: true, debug: false });
       // 3 calls: name prompt, multiselect for optional, verbose prompt
@@ -178,7 +178,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      const result = await program.cli('init');
+      const result = await program.eval('init');
 
       expect(result.args).toEqual({ name: 'Alice', verbose: false });
       // 2 calls: name prompt, multiselect (no individual optional prompts)
@@ -194,7 +194,7 @@ describe('Interactive', () => {
         .runtime({ interactive: 'supported', prompt: promptFn })
         .command('run', (c) => c.arguments(z.object({ verbose: z.boolean() }), { interactive: ['verbose'] }).action((args) => args));
 
-      await program.cli('run');
+      await program.eval('run');
 
       expect(promptFn.mock.calls[0]![0].type).toBe('confirm');
     });
@@ -208,7 +208,7 @@ describe('Interactive', () => {
           c.arguments(z.object({ template: z.enum(['react', 'vue', 'svelte']) }), { interactive: ['template'] }).action((args) => args),
         );
 
-      await program.cli('run');
+      await program.eval('run');
 
       const config = promptFn.mock.calls[0]![0];
       expect(config.type).toBe('select');
@@ -228,7 +228,7 @@ describe('Interactive', () => {
           c.arguments(z.object({ name: z.string().describe('Project name') }), { interactive: ['name'] }).action((args) => args),
         );
 
-      await program.cli('run');
+      await program.eval('run');
 
       expect(promptFn.mock.calls[0]![0].message).toBe('Project name');
     });
@@ -247,7 +247,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      await program.cli('run');
+      await program.eval('run');
 
       expect(promptFn.mock.calls[0]![0].message).toBe('Meta description');
     });
@@ -271,7 +271,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      const result = await program.cli('init --name Alice --template react', { interactive: true });
+      const result = await program.eval('init --name Alice --template react', { interactive: true });
 
       // Should have prompted for both fields even though they were provided
       expect(promptFn).toHaveBeenCalledTimes(2);
@@ -300,7 +300,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      const result = await program.cli('init --name Alice --template react', { interactive: true });
+      const result = await program.eval('init --name Alice --template react', { interactive: true });
 
       // Current values should be passed as defaults
       expect(configs[0]!.default).toBe('Alice');
@@ -324,7 +324,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      const result = await program.cli('init --name Alice --interactive');
+      const result = await program.eval('init --name Alice --interactive');
 
       expect(promptFn).toHaveBeenCalledTimes(1);
       expect(result.args).toEqual({ name: 'Bob' });
@@ -346,7 +346,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      const result = await program.cli('init --name Alice -i');
+      const result = await program.eval('init --name Alice -i');
 
       expect(promptFn).toHaveBeenCalledTimes(1);
       expect(result.args).toEqual({ name: 'Bob' });
@@ -368,7 +368,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      const result = await program.cli('init --no-interactive');
+      const result = await program.eval('init --no-interactive');
 
       expect(promptFn).not.toHaveBeenCalled();
       expect(result.argsResult?.issues).toBeDefined();
@@ -390,7 +390,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      const result = await program.cli('init -i false');
+      const result = await program.eval('init -i false');
 
       expect(promptFn).not.toHaveBeenCalled();
       expect(result.argsResult?.issues).toBeDefined();
@@ -409,7 +409,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      const result = program.cli('run -i myfile');
+      const result = program.eval('run -i myfile');
 
       expect(result.args).toEqual({ input: 'myfile' });
     });
@@ -441,7 +441,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      await program.cli('init --verbose', { interactive: true });
+      await program.eval('init --verbose', { interactive: true });
 
       // The multiselect should show current value next to the label
       const multiselectConfig = configs.find((c) => c.name === '_optionalFields');
@@ -468,7 +468,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      await program.cli('init --verbose', { interactive: true });
+      await program.eval('init --verbose', { interactive: true });
 
       // Both fields should be in the multiselect even though verbose is already provided
       const multiselectConfig = (promptFn.mock.calls[0] as any)[0] as InteractivePromptConfig;
@@ -494,7 +494,7 @@ describe('Interactive', () => {
         );
 
       // Unsupported runtime — missing required field causes validation error
-      const result = await program.cli('init');
+      const result = await program.eval('init');
       expect(result.argsResult?.issues).toBeDefined();
       expect(promptFn).not.toHaveBeenCalled();
     });
@@ -516,7 +516,7 @@ describe('Interactive', () => {
         );
 
       // Even with --interactive flag, unsupported runtime can't be overridden
-      const result = await program.cli('init --interactive');
+      const result = await program.eval('init --interactive');
       expect(result.argsResult?.issues).toBeDefined();
       expect(promptFn).not.toHaveBeenCalled();
     });
@@ -538,7 +538,7 @@ describe('Interactive', () => {
         );
 
       // Disabled by default — prompts skipped without flag/pref override
-      const result = await program.cli('init');
+      const result = await program.eval('init');
       expect(result.argsResult?.issues).toBeDefined();
       expect(promptFn).not.toHaveBeenCalled();
     });
@@ -560,7 +560,7 @@ describe('Interactive', () => {
         );
 
       // --interactive flag overrides disabled runtime
-      const result = await program.cli('init --interactive');
+      const result = await program.eval('init --interactive');
       expect(result.args).toEqual({ name: 'Alice' });
       expect(promptFn).toHaveBeenCalledTimes(1);
     });
@@ -579,7 +579,7 @@ describe('Interactive', () => {
             .action((args) => args),
         );
 
-      const result = await program.cli('init');
+      const result = await program.eval('init');
       expect(result.argsResult?.issues).toBeDefined();
     });
   });

@@ -140,7 +140,7 @@ describe('Feature', () => {
     const program = createPadrone('test')
       .command('cmd', (c) => c.action(() => 'result'));
 
-    const result = program.cli('cmd');
+    const result = program.eval('cmd');
     expect(result.result).toBe('result');
   });
 });

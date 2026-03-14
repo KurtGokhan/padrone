@@ -10,6 +10,7 @@ import type {
   AnyPadroneProgram,
   PadroneAPI,
   PadroneCommand,
+  PadroneEvalPreferences,
   PadroneProgram,
   PadroneReplPreferences,
   PadroneSchema,
@@ -716,11 +717,14 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     return undefined;
   };
 
-  const cli: AnyPadroneProgram['cli'] = (input, cliOptions) => {
+  /**
+   * Core execution logic shared by eval() and cli().
+   * errorMode controls validation error behavior:
+   * - 'soft': return result with issues (eval behavior)
+   * - 'hard': print error + help and throw (cli-without-input behavior)
+   */
+  const execCommand = (resolvedInput: string | undefined, evalOptions?: PadroneEvalPreferences, errorMode: 'soft' | 'hard' = 'soft') => {
     const runtime = getCommandRuntime(existingCommand);
-
-    // Resolve input from runtime.argv if not provided
-    const resolvedInput = (input ?? (runtime.argv().join(' ') || undefined)) as string | undefined;
 
     // Check for built-in help/version/completion commands and flags
     const builtin = checkBuiltinCommands(resolvedInput);
@@ -785,7 +789,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     // Runtime defaults: 'forced' → force, 'disabled' → suppress, 'supported'/undefined → normal.
     const runtimeDefault: boolean | undefined =
       runtime.interactive === 'forced' ? true : runtime.interactive === 'disabled' ? false : undefined;
-    const effectiveInteractive: boolean | undefined = flagInteractive ?? cliOptions?.interactive ?? runtimeDefault;
+    const effectiveInteractive: boolean | undefined = flagInteractive ?? evalOptions?.interactive ?? runtimeDefault;
     const interactivitySuppressed = runtime.interactive === 'unsupported' || effectiveInteractive === false;
     const forceInteractive = !interactivitySuppressed && effectiveInteractive === true;
 
@@ -891,15 +895,15 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
               .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
               .join('\n');
 
-            if (input === undefined) {
-              // Called without explicit input (using runtime.argv): print error + help and throw
+            if (errorMode === 'hard') {
+              // CLI mode without explicit input: print error + help and throw
               const helpText = generateHelp(existingCommand, command, { format: runtime.format });
               runtime.error(`Validation error:\n${issueMessages}`);
               runtime.error(helpText);
               throw new Error(`Validation error:\n${issueMessages}`);
             }
 
-            // Called with explicit input: return result with issues, skip the action
+            // Soft mode: return result with issues, skip the action
             return {
               command: command as any,
               args: undefined,
@@ -932,6 +936,16 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     };
 
     return warnIfUnexpectedAsync(processValidation(), command) as any;
+  };
+
+  const evalCommand: AnyPadroneProgram['eval'] = (input, evalOptions) => {
+    return execCommand(input as string, evalOptions, 'soft');
+  };
+
+  const cli: AnyPadroneProgram['cli'] = (cliOptions) => {
+    const runtime = getCommandRuntime(existingCommand);
+    const resolvedInput = (runtime.argv().join(' ') || undefined) as string | undefined;
+    return execCommand(resolvedInput, cliOptions, 'hard');
   };
 
   const run: AnyPadroneProgram['run'] = (command, args) => {
@@ -986,7 +1000,7 @@ ${helpText}
         return !!parsed.command.needsApproval;
       },
       execute: async (input) => {
-        const result = await cli(input.command);
+        const result = await evalCommand(input.command);
         return result.result;
       },
     };
@@ -1049,6 +1063,7 @@ ${helpText}
     find,
     parse,
     stringify,
+    eval: evalCommand,
     cli,
     tool,
 
@@ -1086,7 +1101,7 @@ ${helpText}
           }
 
           try {
-            const result = await cli(trimmed);
+            const result = await evalCommand(trimmed);
             yield result as any;
           } catch (err) {
             runtime.error(err instanceof Error ? err.message : String(err));

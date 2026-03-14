@@ -317,7 +317,7 @@ Execute the program as a CLI.
 program.cli();
 
 // Parse a string input
-program.cli('serve --port 8080');
+program.eval('serve --port 8080');
 
 // Parse an array
 program.cli(['serve', '--port', '8080']);

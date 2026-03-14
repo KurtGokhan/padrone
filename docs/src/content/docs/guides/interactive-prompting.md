@@ -208,7 +208,7 @@ const program = createPadrone('app')
       .action((args) => args)
   );
 
-const result = await program.cli('init');
+const result = await program.eval('init');
 // result.args === { name: 'test-project', template: 'react', ... }
 ```
 
@@ -224,10 +224,10 @@ This applies at the **type level** regardless of whether the runtime actually su
 
 ```typescript
 // With interactive meta — must await
-const result = await program.cli('init');
+const result = await program.eval('init');
 
 // Without interactive meta — synchronous
-const result = program.cli('build --target prod');
+const result = program.eval('build --target prod');
 ```
 
 ## `parse()` and `run()` Behavior

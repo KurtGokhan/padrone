@@ -498,15 +498,32 @@ export type PadroneProgram<
   ) => PadroneCommandResult<PickCommandByName<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>;
 
   /**
-   * Runs the program as a CLI application, parsing `process.argv` or provided input.
+   * Evaluates a command string: parses, validates, and executes.
+   * On validation errors, returns a result with issues instead of throwing.
+   * This is the method used by `repl()` internally, and the right choice for
+   * programmatic invocation, testing, chat interfaces, or any context where
+   * you have a command string and want a result — not a process exit.
+   *
+   * @example
+   * ```ts
+   * const result = await program.eval('greet --name Alice');
+   * if (result.argsResult?.issues) { /* handle validation errors *\/ }
+   * ```
    */
-  cli: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, true>>(
-    input?: TCommand | SafeString,
-    prefs?: PadroneCliPreferences,
+  eval: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, true>>(
+    input: TCommand | SafeString,
+    prefs?: PadroneEvalPreferences,
   ) => MaybePromise<
     PadroneCommandResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>,
     PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>['~types']['async']
   >;
+
+  /**
+   * Runs the program as a CLI entry point, parsing `process.argv`.
+   * On validation errors, throws and prints help.
+   * For programmatic invocation with a command string, use `eval()` instead.
+   */
+  cli: (prefs?: PadroneCliPreferences) => MaybePromise<PadroneCommandResult<PadroneCommand<'', '', TArgs, TRes, TCommands>>, TAsync>;
 
   /**
    * Parses CLI input (or the provided input string) into command and arguments without executing anything.
@@ -606,9 +623,9 @@ export type PadroneReplPreferences = {
 };
 
 /**
- * Options that can be passed to `cli()` to control execution behavior.
+ * Options that can be passed to `eval()` to control execution behavior.
  */
-export type PadroneCliPreferences = {
+export type PadroneEvalPreferences = {
   /**
    * Controls interactive prompting for this execution.
    * Overrides the runtime's `interactive` setting, but is itself overridden by `--interactive` / `-i` flags.
@@ -619,6 +636,11 @@ export type PadroneCliPreferences = {
    */
   interactive?: boolean;
 };
+
+/**
+ * Options that can be passed to `cli()` to control execution behavior.
+ */
+export type PadroneCliPreferences = PadroneEvalPreferences;
 
 export type PadroneCommandResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> = PadroneParseResult<TCommand> & {
   result: GetResults<TCommand>;

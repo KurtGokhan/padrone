@@ -119,7 +119,7 @@ describe('CLI', () => {
 
   describe('CLI execution', () => {
     it('should execute command via CLI string', () => {
-      const result = program.cli('show task-1 --priority high');
+      const result = program.eval('show task-1 --priority high');
 
       expect(result).toBeDefined();
       if (!result) throw new Error('Result is undefined');
@@ -130,11 +130,11 @@ describe('CLI', () => {
     });
 
     it('should return undefined for empty CLI input', () => {
-      expect(() => program.cli('')).toThrow('Command "" has no handler');
+      expect(() => program.eval('')).toThrow('Command "" has no handler');
     });
 
     it('should execute nested command via CLI', () => {
-      const result = program.cli('list extended --status pending --priority high');
+      const result = program.eval('list extended --status pending --priority high');
 
       expect(result).toBeDefined();
       expect(result?.command.path).toBe('list extended');
@@ -380,7 +380,7 @@ describe('CLI', () => {
           })),
       );
 
-      const result = program.cli('test -v');
+      const result = program.eval('test -v');
 
       expect(result?.args?.verbose).toBe(true);
       expect(result?.result.verbose).toBe(true);
@@ -951,7 +951,7 @@ describe('CLI', () => {
         },
       };
 
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test');
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test');
 
       expect(result.args?.port).toBe(3000);
       expect(result.args?.host).toBe('localhost');
@@ -973,7 +973,7 @@ describe('CLI', () => {
       );
 
       const configData = { server: { port: 3000 } };
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test --port=8080');
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test --port=8080');
 
       expect(result.args?.port).toBe(8080);
     });
@@ -997,7 +997,7 @@ describe('CLI', () => {
       const configData = { server: { port: 3000 } };
       const result = program
         .runtime({ findFile: () => 'config.json', loadConfigFile: () => configData, env: () => ({ PORT: '9000' }) })
-        .cli('test');
+        .eval('test');
 
       expect(result.args?.port).toBe(9000);
     });
@@ -1029,7 +1029,7 @@ describe('CLI', () => {
         },
       };
 
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test');
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test');
 
       expect(result.args?.timeout).toBe(5000);
     });
@@ -1050,7 +1050,7 @@ describe('CLI', () => {
       );
 
       const configData = { port: 3000, host: 'localhost' };
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test');
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test');
 
       expect(result.args?.port).toBe(3000);
       expect(result.args?.host).toBe('localhost');
@@ -1070,7 +1070,7 @@ describe('CLI', () => {
 
       const configData = { port: 'not-a-number' };
 
-      expect(() => program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test')).toThrow(
+      expect(() => program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test')).toThrow(
         /Invalid config file/,
       );
     });
@@ -1091,7 +1091,7 @@ describe('CLI', () => {
       );
 
       const configData = { serverPort: 8080 };
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test');
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test');
 
       expect(result.args?.port).toBe(8080);
     });
@@ -1110,7 +1110,7 @@ describe('CLI', () => {
       );
 
       const configData = { port: 3000 };
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test');
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test');
 
       expect(result.args?.port).toBe(3000);
     });
@@ -1147,7 +1147,7 @@ describe('CLI', () => {
         .command('sub', (c) => c.arguments(z.object({ port: z.number().optional() })).action((args) => args));
 
       const configData = { port: 3000 };
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('sub');
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('sub');
 
       expect(result.args?.port).toBe(3000);
     });
@@ -1165,7 +1165,7 @@ describe('CLI', () => {
       );
 
       const configData = { port: 3000 };
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).cli('test --port=8080');
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test --port=8080');
 
       expect(result.args?.port).toBe(8080);
     });
@@ -1292,7 +1292,7 @@ describe('CLI', () => {
         .configure({ description: 'A test CLI application', version: '1.2.3' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('--help');
+      const result = program.eval('--help');
 
       expect(result.result as string).toContain('test-cli');
     });
@@ -1302,7 +1302,7 @@ describe('CLI', () => {
         .configure({ description: 'A test CLI application', version: '1.2.3' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('-h');
+      const result = program.eval('-h');
 
       expect(result.result as string).toContain('test-cli');
     });
@@ -1314,7 +1314,7 @@ describe('CLI', () => {
           .action((args) => `Hello, ${args.name}!`),
       );
 
-      const result = program.cli('greet --help');
+      const result = program.eval('greet --help');
 
       expect(result.result as string).toContain('greet');
     });
@@ -1326,7 +1326,7 @@ describe('CLI', () => {
         ),
       );
 
-      const result = program.cli('git commit --help');
+      const result = program.eval('git commit --help');
 
       expect(result.result as string).toContain('commit');
       expect(result.result as string).toContain('message');
@@ -1337,7 +1337,7 @@ describe('CLI', () => {
         .configure({ description: 'A test CLI application', version: '1.2.3' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('help');
+      const result = program.eval('help');
 
       expect(result.result as string).toContain('test-cli');
     });
@@ -1349,7 +1349,7 @@ describe('CLI', () => {
           .action((args) => `Hello, ${args.name}!`),
       );
 
-      const result = program.cli('help greet');
+      const result = program.eval('help greet');
 
       expect(result.result as string).toContain('greet');
     });
@@ -1361,7 +1361,7 @@ describe('CLI', () => {
         ),
       );
 
-      const result = program.cli('help git commit');
+      const result = program.eval('help git commit');
 
       expect(result.result as string).toContain('commit');
       expect(result.result as string).toContain('message');
@@ -1372,7 +1372,7 @@ describe('CLI', () => {
         .configure({ description: 'A test CLI application', version: '1.2.3' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('--version');
+      const result = program.eval('--version');
 
       expect(result.result as string).toBe('1.2.3');
     });
@@ -1382,7 +1382,7 @@ describe('CLI', () => {
         .configure({ version: '2.0.0' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('-v');
+      const result = program.eval('-v');
 
       expect(result.result as string).toBe('2.0.0');
     });
@@ -1392,7 +1392,7 @@ describe('CLI', () => {
         .configure({ version: '3.0.0' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('-V');
+      const result = program.eval('-V');
 
       expect(result.result as string).toBe('3.0.0');
     });
@@ -1402,7 +1402,7 @@ describe('CLI', () => {
         .configure({ version: '4.0.0' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('version');
+      const result = program.eval('version');
 
       expect(result.result as string).toBe('4.0.0');
     });
@@ -1410,7 +1410,7 @@ describe('CLI', () => {
     it('should auto-detect version from package.json when not explicitly set', () => {
       const program = createPadrone('test-cli').command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('--version');
+      const result = program.eval('--version');
 
       // Should auto-detect from package.json (0.0.1) or npm_package_version env var
       // The actual value depends on the environment, so we just check it's not empty
@@ -1423,7 +1423,7 @@ describe('CLI', () => {
         .command('help', (c) => c.action(() => 'Custom help!'))
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('help');
+      const result = program.eval('help');
 
       expect(result.result).toBe('Custom help!');
     });
@@ -1434,7 +1434,7 @@ describe('CLI', () => {
         .command('version', (c) => c.action(() => 'Custom version info'))
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('version');
+      const result = program.eval('version');
 
       expect(result.result).toBe('Custom version info');
     });
@@ -1445,7 +1445,7 @@ describe('CLI', () => {
         .command('help', (c) => c.action(() => 'Custom help!'))
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('--help');
+      const result = program.eval('--help');
 
       // --help flag should still use built-in help
       expect(result.result as string).toContain('test-cli');
@@ -1454,7 +1454,7 @@ describe('CLI', () => {
     it('should set description on program', () => {
       const program = createPadrone('test-cli').configure({ description: 'My awesome CLI tool' });
 
-      const result = program.cli('--help');
+      const result = program.eval('--help');
 
       expect(result.result as string).toContain('My awesome CLI tool');
     });
@@ -1464,8 +1464,8 @@ describe('CLI', () => {
         .configure({ description: 'My awesome CLI tool', version: '5.0.0' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const helpResult = program.cli('--help');
-      const versionResult = program.cli('--version');
+      const helpResult = program.eval('--help');
+      const versionResult = program.eval('--version');
 
       expect(helpResult.result as string).toContain('My awesome CLI tool');
       expect(versionResult.result as string).toBe('5.0.0');
@@ -1476,9 +1476,9 @@ describe('CLI', () => {
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const minimalResult = program.cli('--help --detail=minimal');
-      const standardResult = program.cli('--help --detail=standard');
-      const fullResult = program.cli('--help --detail=full');
+      const minimalResult = program.eval('--help --detail=minimal');
+      const standardResult = program.eval('--help --detail=standard');
+      const fullResult = program.eval('--help --detail=full');
 
       // All should produce help output
       expect(minimalResult.result as string).toContain('test-cli');
@@ -1491,7 +1491,7 @@ describe('CLI', () => {
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('--help -d full');
+      const result = program.eval('--help -d full');
 
       expect(result.result as string).toContain('test-cli');
     });
@@ -1501,7 +1501,7 @@ describe('CLI', () => {
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('help --detail=full');
+      const result = program.eval('help --detail=full');
 
       expect(result.result as string).toContain('test-cli');
     });
@@ -1511,7 +1511,7 @@ describe('CLI', () => {
         c.arguments(z.object({ name: z.string().describe('Name') }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
       );
 
-      const result = program.cli('greet --help --detail=full');
+      const result = program.eval('greet --help --detail=full');
 
       expect(result.result as string).toContain('greet');
     });
@@ -1521,9 +1521,9 @@ describe('CLI', () => {
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const textResult = program.cli('--help --format=text');
-      const markdownResult = program.cli('--help --format=markdown');
-      const jsonResult = program.cli('--help --format=json');
+      const textResult = program.eval('--help --format=text');
+      const markdownResult = program.eval('--help --format=markdown');
+      const jsonResult = program.eval('--help --format=json');
 
       // All should produce help output
       expect(textResult.result as string).toContain('test-cli');
@@ -1536,7 +1536,7 @@ describe('CLI', () => {
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('--help -f markdown');
+      const result = program.eval('--help -f markdown');
 
       expect(result.result as string).toContain('test-cli');
     });
@@ -1546,7 +1546,7 @@ describe('CLI', () => {
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('help --format=json');
+      const result = program.eval('help --format=json');
 
       expect(result.result as string).toContain('test-cli');
     });
@@ -1556,7 +1556,7 @@ describe('CLI', () => {
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.cli('--help --format=markdown --detail=full');
+      const result = program.eval('--help --format=markdown --detail=full');
 
       expect(result.result as string).toContain('test-cli');
     });
@@ -1582,7 +1582,7 @@ describe('CLI', () => {
             .action((args) => args?.port),
         );
 
-        const result = program.cli(`serve --config=${configPath}`);
+        const result = program.eval(`serve --config=${configPath}`);
 
         expect(result.result).toBe(9999);
       } finally {
@@ -1608,7 +1608,7 @@ describe('CLI', () => {
             .action((args) => args?.host),
         );
 
-        const result = program.cli(`connect -c ${configPath}`);
+        const result = program.eval(`connect -c ${configPath}`);
 
         expect(result.result).toBe('example.com');
       } finally {
@@ -1637,7 +1637,7 @@ describe('CLI', () => {
             .action((args) => args?.port),
         );
 
-        const result = program.cli(`serve --config=${configPath} --port=8080`);
+        const result = program.eval(`serve --config=${configPath} --port=8080`);
 
         // CLI arg should override config file
         expect(result.result).toBe(8080);
@@ -1747,7 +1747,7 @@ describe('CLI', () => {
         c.arguments(z.object({ settings: z.object({ verbose: z.boolean().default(false) }).optional() })).action((args) => args?.settings),
       );
 
-      const result = program.cli('test --settings.verbose');
+      const result = program.eval('test --settings.verbose');
 
       expect(result.result).toEqual({ verbose: true });
     });
@@ -1760,7 +1760,7 @@ describe('CLI', () => {
         c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action(handler),
       );
 
-      const result = program.cli('fetch --url not-a-valid-url');
+      const result = program.eval('fetch --url not-a-valid-url');
 
       expect(result.argsResult?.issues).toBeDefined();
       expect(result.args).toBeUndefined();
@@ -1773,7 +1773,7 @@ describe('CLI', () => {
         c.arguments(z.object({ priority: z.enum(['low', 'medium', 'high']).describe('Priority') })).action((args) => args),
       );
 
-      const result = program.cli('cmd --priority invalid');
+      const result = program.eval('cmd --priority invalid');
 
       expect(result.argsResult?.issues).toBeDefined();
       expect(result.args).toBeUndefined();
@@ -1785,7 +1785,7 @@ describe('CLI', () => {
         c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action(handler),
       );
 
-      program.cli('fetch --url not-a-valid-url');
+      program.eval('fetch --url not-a-valid-url');
 
       expect(handler).not.toHaveBeenCalled();
     });
@@ -1815,7 +1815,7 @@ describe('CLI', () => {
         c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((args) => args),
       );
 
-      expect(() => program.cli('fetch --url https://example.com')).not.toThrow();
+      expect(() => program.eval('fetch --url https://example.com')).not.toThrow();
     });
   });
 
@@ -1834,7 +1834,7 @@ describe('CLI', () => {
       const resolved = await parseResult;
       expect(resolved.args).toEqual({ name: 'Alice' });
 
-      const cliResult = program.cli('greet --name Alice');
+      const cliResult = program.eval('greet --name Alice');
       expect(cliResult).toBeInstanceOf(Promise);
       const resolvedCli = await cliResult;
       expect(resolvedCli.result).toBe('Hello, Alice!');
