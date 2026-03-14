@@ -18,7 +18,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({ name: 'Alice', template: 'react' });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -45,7 +45,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({ template: 'vue' });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -70,7 +70,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({});
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -95,7 +95,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({ name: 'Bob' });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -127,7 +127,7 @@ describe('Interactive', () => {
       });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -162,7 +162,7 @@ describe('Interactive', () => {
       });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -191,7 +191,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({ verbose: true });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('run', (c) => c.arguments(z.object({ verbose: z.boolean() }), { interactive: ['verbose'] }).action((args) => args));
 
       await program.cli('run');
@@ -203,7 +203,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({ template: 'react' });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('run', (c) =>
           c.arguments(z.object({ template: z.enum(['react', 'vue', 'svelte']) }), { interactive: ['template'] }).action((args) => args),
         );
@@ -223,7 +223,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({ name: 'test' });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('run', (c) =>
           c.arguments(z.object({ name: z.string().describe('Project name') }), { interactive: ['name'] }).action((args) => args),
         );
@@ -237,7 +237,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({ name: 'test' });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('run', (c) =>
           c
             .arguments(z.object({ name: z.string().describe('Schema description') }), {
@@ -258,7 +258,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({ name: 'Bob', template: 'vue' });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -287,7 +287,7 @@ describe('Interactive', () => {
       });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -312,7 +312,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({ name: 'Bob' });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -334,7 +334,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({ name: 'Bob' });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -356,7 +356,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({ name: 'Alice' });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -378,7 +378,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({ name: 'Alice' });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -425,7 +425,7 @@ describe('Interactive', () => {
       });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -455,7 +455,7 @@ describe('Interactive', () => {
       });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(
@@ -589,7 +589,7 @@ describe('Interactive', () => {
       const promptFn = createMockPrompt({ name: 'Alice' });
 
       const program = createPadrone('test')
-        .runtime({ prompt: promptFn })
+        .runtime({ interactive: 'supported', prompt: promptFn })
         .command('init', (c) =>
           c
             .arguments(

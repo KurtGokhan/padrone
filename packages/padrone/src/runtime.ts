@@ -101,6 +101,16 @@ async function defaultTerminalPrompt(config: InteractivePromptConfig): Promise<u
   const response = (await Enquirer.prompt(question as any)) as Record<string, unknown>;
   return response[config.name];
 }
+/**
+ * Auto-detect interactive mode when not explicitly set.
+ * Returns 'disabled' in CI environments or non-TTY contexts, 'supported' otherwise.
+ */
+function detectInteractiveMode(): InteractiveMode {
+  if (typeof process === 'undefined') return 'disabled';
+  if (process.env.CI || process.env.CONTINUOUS_INTEGRATION) return 'disabled';
+  if (!process.stdout?.isTTY) return 'disabled';
+  return 'supported';
+}
 
 /**
  * Creates the default Node.js/Bun runtime.
@@ -123,7 +133,7 @@ export function createDefaultRuntime(): ResolvedPadroneRuntime {
 export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime {
   if (!partial) return createDefaultRuntime();
   const defaults = createDefaultRuntime();
-  const interactive = partial.interactive;
+  const interactive = partial.interactive ?? detectInteractiveMode();
   return {
     output: partial.output ?? defaults.output,
     error: partial.error ?? defaults.error,
