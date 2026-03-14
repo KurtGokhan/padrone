@@ -21,7 +21,7 @@ export const tasksProgram = createPadrone('tasks')
     description: 'A task manager CLI for managing your todos with support for priorities, tags, and due dates.',
     version: '1.0.0',
   })
-  .runtime({ interactive: true })
+  .runtime({ interactive: 'supported' })
   .action(() => {
     console.log(tasksProgram.help());
   })

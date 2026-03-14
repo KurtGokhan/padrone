@@ -112,13 +112,17 @@ function detectPromptConfig(name: string, propSchema: Record<string, any> | unde
 /**
  * Prompt for missing interactive fields.
  * Runs after env/config preprocessing and before schema validation.
+ *
+ * When `force` is true, all configured interactive fields are prompted even if they already
+ * have values. The current values are used as defaults in the prompts.
  */
 async function promptInteractiveFields(
   data: Record<string, unknown>,
   command: AnyPadroneCommand,
   runtime: ResolvedPadroneRuntime,
+  force?: boolean,
 ): Promise<Record<string, unknown>> {
-  if (!runtime.interactive || !runtime.prompt) return data;
+  if (!runtime.prompt) return data;
 
   const meta = command.meta;
   const interactiveConfig = meta?.interactive;
@@ -154,26 +158,49 @@ async function promptInteractiveFields(
   // Determine which required interactive fields to prompt
   let fieldsToPrompt: string[] = [];
   if (interactiveConfig === true) {
-    // All required fields that are missing
-    fieldsToPrompt = [...requiredFields].filter((name) => result[name] === undefined);
+    if (force) {
+      // When forced, prompt all required fields regardless of current value
+      fieldsToPrompt = [...requiredFields];
+    } else {
+      // All required fields that are missing
+      fieldsToPrompt = [...requiredFields].filter((name) => result[name] === undefined);
+    }
   } else if (Array.isArray(interactiveConfig)) {
-    fieldsToPrompt = interactiveConfig.filter((name) => result[name] === undefined);
+    if (force) {
+      fieldsToPrompt = [...interactiveConfig];
+    } else {
+      fieldsToPrompt = interactiveConfig.filter((name) => result[name] === undefined);
+    }
   }
 
   // Prompt each required interactive field
   for (const field of fieldsToPrompt) {
     const config = detectPromptConfig(field, jsonProperties[field], fieldDescriptions[field]);
+    // When forced, use the current value as the default
+    if (force && result[field] !== undefined) {
+      config.default = result[field];
+    }
     result[field] = await runtime.prompt(config);
   }
 
   // Determine optional interactive fields
   let optionalFields: string[] = [];
   if (optionalInteractiveConfig === true) {
-    // All non-required fields that are still missing
-    const allKeys = Object.keys(jsonProperties);
-    optionalFields = allKeys.filter((name) => !requiredFields.has(name) && result[name] === undefined);
+    if (force) {
+      // When forced, include all non-required fields (even those with values)
+      const allKeys = Object.keys(jsonProperties);
+      optionalFields = allKeys.filter((name) => !requiredFields.has(name));
+    } else {
+      // All non-required fields that are still missing
+      const allKeys = Object.keys(jsonProperties);
+      optionalFields = allKeys.filter((name) => !requiredFields.has(name) && result[name] === undefined);
+    }
   } else if (Array.isArray(optionalInteractiveConfig)) {
-    optionalFields = optionalInteractiveConfig.filter((name) => result[name] === undefined);
+    if (force) {
+      optionalFields = [...optionalInteractiveConfig];
+    } else {
+      optionalFields = optionalInteractiveConfig.filter((name) => result[name] === undefined);
+    }
   }
 
   // Show multiselect for optional fields, then prompt selected ones
@@ -182,15 +209,22 @@ async function promptInteractiveFields(
       name: '_optionalFields',
       message: 'Would you also like to configure:',
       type: 'multiselect',
-      choices: optionalFields.map((f) => ({
-        label: fieldDescriptions[f] || jsonProperties[f]?.description || f,
-        value: f,
-      })),
+      choices: optionalFields.map((f) => {
+        const label = fieldDescriptions[f] || jsonProperties[f]?.description || f;
+        const currentValue = result[f];
+        // When forced, show current value next to the label for fields that already have values
+        const displayLabel = force && currentValue !== undefined ? `${label} (current: ${currentValue})` : label;
+        return { label: displayLabel, value: f };
+      }),
     })) as string[];
 
     if (Array.isArray(selected)) {
       for (const field of selected) {
         const config = detectPromptConfig(field, jsonProperties[field], fieldDescriptions[field]);
+        // When forced, use the current value as the default
+        if (force && result[field] !== undefined) {
+          config.default = result[field];
+        }
         result[field] = await runtime.prompt(config);
       }
     }
@@ -674,7 +708,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     return undefined;
   };
 
-  const cli: AnyPadroneProgram['cli'] = (input) => {
+  const cli: AnyPadroneProgram['cli'] = (input, cliOptions) => {
     const runtime = getCommandRuntime(existingCommand);
 
     // Resolve input from runtime.argv if not provided
@@ -720,6 +754,32 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     // Parse the command first (without validating arguments)
     const { command, rawArgs, args } = parseCommand(resolvedInput);
+
+    // Determine interactivity.
+    // runtime.interactive: 'unsupported' is a hard veto. 'forced'/'disabled'/'supported'/undefined
+    // set the default, which can be overridden by flag > pref.
+    // The --interactive/-i flag is only consumed when the command has interactive config,
+    // so -i can still be used as a user-defined alias on non-interactive commands.
+    let flagInteractive: boolean | undefined;
+    if (hasInteractiveConfig(command.meta)) {
+      if (rawArgs.interactive !== undefined) {
+        flagInteractive = rawArgs.interactive !== false && rawArgs.interactive !== 'false';
+        delete rawArgs.interactive;
+      }
+      if (rawArgs.i !== undefined) {
+        flagInteractive = rawArgs.i !== false && rawArgs.i !== 'false';
+        delete rawArgs.i;
+      }
+    }
+
+    // 'unsupported' is a hard veto — nothing can override it.
+    // For others, resolve: flag > pref > runtime default.
+    // Runtime defaults: 'forced' → force, 'disabled' → suppress, 'supported'/undefined → normal.
+    const runtimeDefault: boolean | undefined =
+      runtime.interactive === 'forced' ? true : runtime.interactive === 'disabled' ? false : undefined;
+    const effectiveInteractive: boolean | undefined = flagInteractive ?? cliOptions?.interactive ?? runtimeDefault;
+    const interactivitySuppressed = runtime.interactive === 'unsupported' || effectiveInteractive === false;
+    const forceInteractive = !interactivitySuppressed && effectiveInteractive === true;
 
     // Extract config file path from --config or -c flag
     const configPath = extractConfigPath(resolvedInput);
@@ -812,7 +872,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
         // Insert interactive prompting between preprocessing and validation
         const afterInteractive =
-          runtime.interactive && runtime.prompt ? promptInteractiveFields(preprocessedArgs, command, runtime) : preprocessedArgs;
+          !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta)
+            ? promptInteractiveFields(preprocessedArgs, command, runtime, forceInteractive || undefined)
+            : preprocessedArgs;
 
         const handleValidated = (v: { args: any; argsResult: any }) => {
           // Handle validation failures

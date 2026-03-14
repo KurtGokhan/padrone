@@ -2,6 +2,15 @@ import type { HelpFormat } from './formatter.ts';
 import { findConfigFile, loadConfigFile } from './utils.ts';
 
 /**
+ * Controls interactive prompting capability and default behavior at the runtime level.
+ * - `'supported'` — capable; caller decides.
+ * - `'unsupported'` — hard veto; nothing can override.
+ * - `'forced'` — capable and forces prompts by default.
+ * - `'disabled'` — capable but suppresses prompts by default.
+ */
+export type InteractiveMode = 'supported' | 'unsupported' | 'forced' | 'disabled';
+
+/**
  * Configuration passed to the runtime's `prompt` function for interactive field prompting.
  * The prompt type and choices are auto-detected from the field's JSON schema.
  */
@@ -41,11 +50,16 @@ export type PadroneRuntime = {
   /** Find the first existing file from a list of candidate names. */
   findFile?: (names: string[]) => string | undefined;
   /**
-   * Whether this runtime supports interactive prompts.
-   * When `true`, commands with `interactive` or `optionalInteractive` meta will prompt for missing values.
-   * Defaults to `false`.
+   * Controls interactive prompting capability and default behavior.
+   * - `'supported'` — runtime can handle prompts; caller (flag/pref) decides whether to prompt. This is the default when `prompt` is provided.
+   * - `'unsupported'` — runtime cannot handle prompts; hard veto that nothing can override.
+   * - `'forced'` — runtime supports prompts and forces them by default (prompts even for provided values).
+   * - `'disabled'` — runtime supports prompts but suppresses them by default.
+   *
+   * `'unsupported'` is the only immutable state. For the others, the `--interactive`/`-i` flag
+   * and `cli()` preferences can override the default behavior.
    */
-  interactive?: boolean;
+  interactive?: InteractiveMode;
   /**
    * Prompt the user for input. Called during `cli()` for fields marked as interactive.
    * When `interactive` is `true` and this is not provided, defaults to an Enquirer-based terminal prompt.
@@ -55,9 +69,10 @@ export type PadroneRuntime = {
 
 /**
  * Internal resolved runtime where all fields are guaranteed to be present.
- * The `prompt` field remains optional since not all runtimes support interactive prompts.
+ * The `prompt` and `interactive` fields remain optional since not all runtimes support interactive prompts.
  */
-export type ResolvedPadroneRuntime = Required<Omit<PadroneRuntime, 'prompt'>> & Pick<PadroneRuntime, 'prompt'>;
+export type ResolvedPadroneRuntime = Required<Omit<PadroneRuntime, 'prompt' | 'interactive'>> &
+  Pick<PadroneRuntime, 'prompt' | 'interactive'>;
 
 /**
  * Default terminal prompt implementation powered by Enquirer.
@@ -99,7 +114,6 @@ export function createDefaultRuntime(): ResolvedPadroneRuntime {
     format: 'auto',
     loadConfigFile,
     findFile: findConfigFile,
-    interactive: false,
   };
 }
 
@@ -109,7 +123,7 @@ export function createDefaultRuntime(): ResolvedPadroneRuntime {
 export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime {
   if (!partial) return createDefaultRuntime();
   const defaults = createDefaultRuntime();
-  const interactive = partial.interactive ?? defaults.interactive;
+  const interactive = partial.interactive;
   return {
     output: partial.output ?? defaults.output,
     error: partial.error ?? defaults.error,
@@ -119,6 +133,6 @@ export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime
     loadConfigFile: partial.loadConfigFile ?? defaults.loadConfigFile,
     findFile: partial.findFile ?? defaults.findFile,
     interactive,
-    prompt: partial.prompt ?? (interactive ? defaultTerminalPrompt : undefined),
+    prompt: partial.prompt ?? defaultTerminalPrompt,
   };
 }

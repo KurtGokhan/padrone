@@ -8,7 +8,7 @@ export type {
   HelpSubcommandInfo,
 } from './formatter.ts';
 export type { HelpPreferences } from './help.ts';
-export type { InteractivePromptConfig, PadroneRuntime, ResolvedPadroneRuntime } from './runtime.ts';
+export type { InteractiveMode, InteractivePromptConfig, PadroneRuntime, ResolvedPadroneRuntime } from './runtime.ts';
 export type {
   InferArgsInput,
   InferArgsOutput,
@@ -24,6 +24,7 @@ export type {
   AnyPadroneProgram,
   AsyncPadroneSchema,
   PadroneBuilder,
+  PadroneCliPreferences,
   PadroneCommand,
   PadroneCommandConfig,
   PadroneCommandResult,

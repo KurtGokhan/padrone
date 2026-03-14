@@ -502,6 +502,7 @@ export type PadroneProgram<
    */
   cli: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, true>>(
     input?: TCommand | SafeString,
+    prefs?: PadroneCliPreferences,
   ) => MaybePromise<
     PadroneCommandResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>,
     PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>['~types']['async']
@@ -580,6 +581,21 @@ export type PadroneProgram<
 };
 
 export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any, [...AnyPadroneCommand[]]>;
+
+/**
+ * Options that can be passed to `cli()` to control execution behavior.
+ */
+export type PadroneCliPreferences = {
+  /**
+   * Controls interactive prompting for this execution.
+   * Overrides the runtime's `interactive` setting, but is itself overridden by `--interactive` / `-i` flags.
+   *
+   * - `undefined`: inherit from runtime (default).
+   * - `true`: force prompting for all configured interactive fields, even if values are already provided.
+   * - `false`: suppress all interactive prompts.
+   */
+  interactive?: boolean;
+};
 
 export type PadroneCommandResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> = PadroneParseResult<TCommand> & {
   result: GetResults<TCommand>;
