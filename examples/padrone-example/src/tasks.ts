@@ -25,6 +25,13 @@ export const tasksProgram = createPadrone('tasks')
   .action(() => {
     console.log(tasksProgram.help());
   })
+  .command('repl', (c) =>
+    c.configure({ title: 'Start interactive REPL' }).action(async () => {
+      for await (const _ of tasksProgram.repl({ greeting: 'Welcome to tasks REPL! Type "help" for commands, "exit" to quit.' })) {
+        // results are handled by each command's action
+      }
+    }),
+  )
   .command('add', (c) =>
     c
       .configure({ title: 'Add a new task' })

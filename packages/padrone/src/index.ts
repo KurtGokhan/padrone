@@ -30,6 +30,7 @@ export type {
   PadroneCommandResult,
   PadroneParseResult,
   PadroneProgram,
+  PadroneReplPreferences,
   PadroneSchema,
 } from './types.ts';
 export type { WrapConfig, WrapResult } from './wrap.ts';

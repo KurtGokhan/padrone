@@ -65,14 +65,20 @@ export type PadroneRuntime = {
    * When `interactive` is `true` and this is not provided, defaults to an Enquirer-based terminal prompt.
    */
   prompt?: (config: InteractivePromptConfig) => Promise<unknown>;
+  /**
+   * Read a line of input from the user. Used by `repl()`.
+   * Returns the input string, or `null` on EOF (e.g. Ctrl+D, closed connection).
+   * When not provided, defaults to a Node.js/Bun `readline` implementation.
+   */
+  readLine?: (prompt: string) => Promise<string | null>;
 };
 
 /**
  * Internal resolved runtime where all fields are guaranteed to be present.
  * The `prompt` and `interactive` fields remain optional since not all runtimes support interactive prompts.
  */
-export type ResolvedPadroneRuntime = Required<Omit<PadroneRuntime, 'prompt' | 'interactive'>> &
-  Pick<PadroneRuntime, 'prompt' | 'interactive'>;
+export type ResolvedPadroneRuntime = Required<Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine'>> &
+  Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine'>;
 
 /**
  * Default terminal prompt implementation powered by Enquirer.
@@ -101,6 +107,25 @@ async function defaultTerminalPrompt(config: InteractivePromptConfig): Promise<u
   const response = (await Enquirer.prompt(question as any)) as Record<string, unknown>;
   return response[config.name];
 }
+/**
+ * Default terminal readLine implementation using Node.js readline.
+ * Creates a fresh interface per call so it doesn't conflict with other stdin
+ * consumers (e.g. Enquirer for interactive prompts) and doesn't keep the
+ * process alive after the REPL ends.
+ * Returns null on EOF (Ctrl+D).
+ */
+async function defaultTerminalReadLine(prompt: string): Promise<string | null> {
+  const { createInterface } = await import('node:readline');
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(prompt, (answer) => {
+      resolve(answer);
+      rl.close();
+    });
+    rl.on('close', () => resolve(null));
+  });
+}
+
 /**
  * Auto-detect interactive mode when not explicitly set.
  * Returns 'disabled' in CI environments or non-TTY contexts, 'supported' otherwise.
@@ -144,5 +169,6 @@ export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime
     findFile: partial.findFile ?? defaults.findFile,
     interactive,
     prompt: partial.prompt ?? defaultTerminalPrompt,
+    readLine: partial.readLine ?? defaultTerminalReadLine,
   };
 }

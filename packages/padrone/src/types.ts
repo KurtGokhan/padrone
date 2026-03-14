@@ -538,17 +538,30 @@ export type PadroneProgram<
    */
   api: () => PadroneAPI<PadroneCommand<'', '', TArgs, TRes, TCommands>>;
 
-  // TODO: implement interactive and repl methods
-
-  /**
-   * Starts an interactive prompt to run commands.
-   */
-  // interactive: () => Promise<PadroneCommandResult<FlattenCommands<[TCmd]>> | undefined>;
-
   /**
    * Starts a REPL (Read-Eval-Print Loop) for running commands interactively.
+   * Returns an AsyncIterable that yields a `PadroneCommandResult` for each successfully executed command.
+   * Errors are printed via `runtime.error()` and the loop continues.
+   * The loop ends when the user sends EOF (Ctrl+D), or types `exit`/`quit`
+   * (unless a user-defined command with that name exists).
+   *
+   * @example
+   * ```ts
+   * for await (const result of program.repl()) {
+   *   console.log(result.command.name, result.result);
+   * }
+   * ```
+   *
+   * TODO: REPL future enhancements:
+   * - Ctrl+C handling: cancel current line / interrupt running command instead of killing the process
+   * - Command history: persist across sessions, up-arrow navigation
+   * - Tab completion: wire the existing completion() system into the REPL's readline
+   * - Nested/contextual REPLs: `use <subcommand>` to scope the session to a command subtree
+   * - Middleware/hooks: onBeforeCommand, onAfterCommand, error interceptors (design alongside general middleware system)
+   * - stdin fragility: Node's readline + stdin is a shared mutable resource; any feature touching stdin
+   *   (confirmations, multi-line input, password prompts) needs careful coordination with Enquirer/interactive prompts
    */
-  // repl: () => Promise<PadroneCommandResult<FlattenCommands<[TCmd]>>[]>;
+  repl: (options?: PadroneReplPreferences) => AsyncIterable<PadroneCommandResult<PadroneCommand<'', '', TArgs, TRes, TCommands>>>;
 
   /**
    * Returns a tool definition that can be passed to AI SDK.
@@ -581,6 +594,16 @@ export type PadroneProgram<
 };
 
 export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any, [...AnyPadroneCommand[]]>;
+
+/**
+ * Options for `repl()` to customize the REPL session.
+ */
+export type PadroneReplPreferences = {
+  /** The prompt string displayed before each input, or a function returning it. Defaults to `"<programName>> "`. */
+  prompt?: string | (() => string);
+  /** A greeting message displayed when the REPL starts. */
+  greeting?: string;
+};
 
 /**
  * Options that can be passed to `cli()` to control execution behavior.

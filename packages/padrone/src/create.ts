@@ -5,7 +5,15 @@ import { generateCompletionOutput, type ShellType } from './completion.ts';
 import { generateHelp } from './help.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
 import { type InteractivePromptConfig, type ResolvedPadroneRuntime, resolveRuntime } from './runtime.ts';
-import type { AnyPadroneCommand, AnyPadroneProgram, PadroneAPI, PadroneCommand, PadroneProgram, PadroneSchema } from './types.ts';
+import type {
+  AnyPadroneCommand,
+  AnyPadroneProgram,
+  PadroneAPI,
+  PadroneCommand,
+  PadroneProgram,
+  PadroneReplPreferences,
+  PadroneSchema,
+} from './types.ts';
 import { getVersion } from './utils.ts';
 import { createWrapHandler } from './wrap.ts';
 
@@ -1043,6 +1051,51 @@ ${helpText}
     stringify,
     cli,
     tool,
+
+    repl(options?: PadroneReplPreferences) {
+      const runtime = getCommandRuntime(existingCommand);
+      const readLine = runtime.readLine;
+      if (!readLine) throw new Error('Runtime does not provide readLine. Configure runtime.readLine to use repl().');
+      const readLineFn = readLine;
+
+      const defaultPrompt = `${existingCommand.name || 'padrone'}> `;
+      const promptOpt = options?.prompt ?? defaultPrompt;
+
+      // Check if user has defined commands that conflict with REPL built-ins
+      const hasUserExit = !!findCommandByName('exit', existingCommand.commands) || !!findCommandByName('quit', existingCommand.commands);
+      const hasUserClear = !!findCommandByName('clear', existingCommand.commands);
+
+      async function* replIterator() {
+        if (options?.greeting) runtime.output(options.greeting);
+
+        while (true) {
+          const promptStr = typeof promptOpt === 'function' ? promptOpt() : promptOpt;
+          const input = await readLineFn(promptStr);
+
+          // EOF (Ctrl+D, closed connection)
+          if (input === null) break;
+
+          const trimmed = input.trim();
+          if (!trimmed) continue;
+
+          // Built-in REPL commands (only if user hasn't defined conflicting commands)
+          if (!hasUserExit && (trimmed === 'exit' || trimmed === 'quit')) break;
+          if (!hasUserClear && trimmed === 'clear') {
+            runtime.output('\x1B[2J\x1B[H');
+            continue;
+          }
+
+          try {
+            const result = await cli(trimmed);
+            yield result as any;
+          } catch (err) {
+            runtime.error(err instanceof Error ? err.message : String(err));
+          }
+        }
+      }
+
+      return replIterator() as any;
+    },
 
     api() {
       function buildApi(command: AnyPadroneCommand) {
