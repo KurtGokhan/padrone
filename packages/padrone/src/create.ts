@@ -404,7 +404,14 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
    */
   const parseCommand = (input: string | undefined) => {
     input ??= getCommandRuntime(existingCommand).argv().join(' ') || undefined;
-    if (!input) return { command: existingCommand, rawArgs: {} as Record<string, unknown>, args: [] as string[] };
+    if (!input) {
+      // No input: check for default '' command
+      const defaultCommand = findCommandByName('', existingCommand.commands);
+      if (defaultCommand) {
+        return { command: defaultCommand, rawArgs: {} as Record<string, unknown>, args: [] as string[], unmatchedTerms: [] as string[] };
+      }
+      return { command: existingCommand, rawArgs: {} as Record<string, unknown>, args: [] as string[], unmatchedTerms: [] as string[] };
+    }
 
     const parts = parseCliInputToParts(input);
 
@@ -412,6 +419,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const args = parts.filter((p) => p.type === 'arg').map((p) => p.value);
 
     let curCommand: AnyPadroneCommand | undefined = existingCommand;
+    let unmatchedTerms: string[] = [];
 
     // If the first term is the program name, skip it
     if (terms[0] === existingCommand.name) terms.shift();
@@ -423,12 +431,21 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       if (found) {
         curCommand = found;
       } else {
-        args.unshift(...terms.slice(i));
+        unmatchedTerms = terms.slice(i);
+        args.unshift(...unmatchedTerms);
         break;
       }
     }
 
-    if (!curCommand) return { command: existingCommand, rawArgs: {} as Record<string, unknown>, args };
+    // If still at root with no unmatched terms, check for default '' command
+    if (curCommand === existingCommand && unmatchedTerms.length === 0 && terms.length === 0) {
+      const defaultCommand = findCommandByName('', existingCommand.commands);
+      if (defaultCommand) {
+        curCommand = defaultCommand;
+      }
+    }
+
+    if (!curCommand) return { command: existingCommand, rawArgs: {} as Record<string, unknown>, args, unmatchedTerms };
 
     // Extract argument metadata from the nested arguments object in meta
     const argsMeta = curCommand.meta?.fields;
@@ -493,7 +510,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       }
     }
 
-    return { command: curCommand, rawArgs, args };
+    return { command: curCommand, rawArgs, args, unmatchedTerms };
   };
 
   /**
@@ -875,7 +892,44 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     }
 
     // Parse the command first (without validating arguments)
-    const { command, rawArgs, args } = parseCommand(resolvedInput);
+    const { command, rawArgs, args, unmatchedTerms } = parseCommand(resolvedInput);
+
+    // Default help: command with subcommands but no handler → show its help.
+    // This applies to the root command (no handler, no '' subcommand) and any parent command.
+    // If the command has a handler, it executes normally — the handler is listed as a
+    // separate "(default)" entry in the help output for reference.
+    const hasSubcommands = command.commands && command.commands.length > 0;
+    if (hasSubcommands && !command.handler && unmatchedTerms.length === 0) {
+      const helpText = generateHelp(existingCommand, command, { format: runtime.format });
+      runtime.output(helpText);
+      return {
+        command: command,
+        args: undefined,
+        result: helpText,
+      } as any;
+    }
+
+    // Reject unmatched terms when the matched command doesn't accept positional args
+    if (unmatchedTerms.length > 0) {
+      const hasPositionalConfig = command.meta?.positional && command.meta.positional.length > 0;
+      if (!hasPositionalConfig) {
+        const isRootCommand = command === existingCommand;
+        const commandDisplayName = command.name || command.aliases?.[0] || command.path || '(default)';
+        const errorMsg = isRootCommand
+          ? `Unknown command: ${unmatchedTerms[0]}`
+          : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}`;
+
+        if (errorMode === 'hard') {
+          const helpText = generateHelp(existingCommand, isRootCommand ? existingCommand : command, { format: runtime.format });
+          runtime.error(errorMsg);
+          runtime.error(helpText);
+          throw new Error(errorMsg);
+        }
+
+        // Soft mode: throw too — this is a routing error, not a validation issue
+        throw new Error(errorMsg);
+      }
+    }
 
     // Determine interactivity.
     // runtime.interactive: 'unsupported' is a hard veto. 'forced'/'disabled'/'supported'/undefined
@@ -1240,13 +1294,14 @@ ${helpText}
         // Empty line before greeting/hint block
         if (showGreeting || showHint) runtime.output('');
 
-        // Greeting: default shows program name + version, like "Welcome to myapp v1.0.0"
+        // Greeting: default shows program title (or name) + version, like "Welcome to My App v1.0.0"
         if (showGreeting) {
           if (options?.greeting) {
             runtime.output(options.greeting);
           } else {
+            const displayName = existingCommand.title || programName;
             const version = existingCommand.version ? getVersion(existingCommand.version) : undefined;
-            const greeting = version ? `Welcome to ${programName} v${version}` : `Welcome to ${programName}`;
+            const greeting = version ? `Welcome to ${displayName} v${version}` : `Welcome to ${displayName}`;
             runtime.output(greeting);
           }
         }

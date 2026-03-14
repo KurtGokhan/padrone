@@ -129,8 +129,10 @@ describe('CLI', () => {
       expect(result.result.title).toBe('Important Task');
     });
 
-    it('should return undefined for empty CLI input', () => {
-      expect(() => program.eval('')).toThrow('Command "" has no handler');
+    it('should show help for empty CLI input when root has no handler', () => {
+      const result = program.eval('');
+      expect(typeof result.result).toBe('string');
+      expect(result.result as unknown as string).toContain('padrone-test');
     });
 
     it('should execute nested command via CLI', () => {

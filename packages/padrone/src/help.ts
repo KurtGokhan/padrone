@@ -153,7 +153,14 @@ function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaM
  */
 function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] = 'standard'): HelpInfo {
   const rootCmd = getRootCommand(cmd);
-  const commandName = cmd.path || cmd.name || 'program';
+  // A command is a "default" command if its name is '' or it has '' as an alias
+  const isDefaultCommand = cmd.parent && (!cmd.name || cmd.aliases?.includes(''));
+  // For commands with empty name, use the first non-empty alias as display name
+  const nonEmptyAliases = cmd.aliases?.filter(Boolean);
+  const commandName = cmd.path || cmd.name || nonEmptyAliases?.[0] || (cmd.parent ? '(default)' : 'program');
+  // Build display aliases: real aliases (excluding the one promoted to display name) + [default] marker
+  const remainingAliases = !cmd.name && nonEmptyAliases?.length ? nonEmptyAliases.slice(1) : (nonEmptyAliases ?? []);
+  const displayAliases = isDefaultCommand ? [...remainingAliases, '[default]'] : nonEmptyAliases;
 
   // Extract positional args from schema based on meta.positional
   const { args: positionalArgs, positionalNames } = cmd.arguments
@@ -166,7 +173,7 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] =
     name: commandName,
     title: cmd.title,
     description: cmd.description,
-    aliases: cmd.aliases,
+    aliases: displayAliases,
     deprecated: cmd.deprecated,
     hidden: cmd.hidden,
     usage: {
@@ -180,16 +187,30 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] =
   // Build subcommands info (filter out hidden commands unless showing full detail)
   if (cmd.commands && cmd.commands.length > 0) {
     const visibleCommands = detail === 'full' ? cmd.commands : cmd.commands.filter((c) => !c.hidden);
-    helpInfo.subcommands = visibleCommands.map((c) => {
-      return {
-        name: c.name,
-        title: c.title,
-        description: c.description,
-        aliases: c.aliases,
-        deprecated: c.deprecated,
-        hidden: c.hidden,
-      };
-    });
+    // If the command has both a handler and subcommands, show the handler as a "(default)" entry
+    const selfEntry: typeof helpInfo.subcommands = cmd.handler
+      ? [{ name: '(default)', title: cmd.title, description: cmd.description }]
+      : [];
+
+    helpInfo.subcommands = [
+      ...selfEntry,
+      ...visibleCommands.map((c) => {
+        const isDefault = !c.name || c.aliases?.includes('');
+        const nonEmptyAliases = c.aliases?.filter(Boolean);
+        const displayName = c.name || nonEmptyAliases?.[0] || '(default)';
+        const remainingAliases = !c.name && nonEmptyAliases?.length ? nonEmptyAliases.slice(1) : (nonEmptyAliases ?? []);
+        const displayAliases = isDefault ? [...remainingAliases, '[default]'] : nonEmptyAliases;
+        return {
+          name: displayName,
+          title: c.title,
+          description: c.description,
+          aliases: displayAliases,
+          deprecated: c.deprecated,
+          hidden: c.hidden,
+          hasSubcommands: !!(c.commands && c.commands.length > 0),
+        };
+      }),
+    ];
 
     // In 'full' detail mode, recursively build help for all nested commands
     if (detail === 'full') {

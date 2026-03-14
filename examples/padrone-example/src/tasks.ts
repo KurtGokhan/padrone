@@ -18,14 +18,12 @@ function formatTask(task: ReturnType<typeof getTask>) {
 
 export const tasksProgram = createPadrone('tasks')
   .configure({
+    title: 'Task Manager CLI',
     description: 'A task manager CLI for managing your todos with support for priorities, tags, and due dates.',
     version: '1.0.0',
   })
   .runtime({ interactive: 'supported' })
-  .action(() => {
-    console.log(tasksProgram.help());
-  })
-  .command('repl', (c) =>
+  .command(['repl', ''], (c) =>
     c.configure({ title: 'Start interactive REPL' }).action(async () => {
       for await (const _ of tasksProgram.repl({
         spacing: { before: ['▆', true], after: [true, '▆', true] },
@@ -216,16 +214,22 @@ export const tasksProgram = createPadrone('tasks')
       }),
   )
   .command('advanced', (c) =>
-    c.configure({ title: 'Advanced task operations' }).command('clear', (c) =>
-      c.configure({ title: 'Clear all tasks' }).action(() => {
-        const tasks = getTasks();
-        for (const task of tasks) {
-          removeTask(task.id);
-        }
-        console.log(`All tasks cleared. Total removed: ${tasks.length}`);
-        return { cleared: true, count: tasks.length };
-      }),
-    ),
+    c
+      .configure({ title: 'Advanced task operations' })
+      .action(() => {
+        console.log('This is a placeholder for advanced operations like bulk updates, analytics, etc.');
+        return { message: 'Advanced operations coming soon!' };
+      })
+      .command('clear', (c) =>
+        c.configure({ title: 'Clear all tasks' }).action(() => {
+          const tasks = getTasks();
+          for (const task of tasks) {
+            removeTask(task.id);
+          }
+          console.log(`All tasks cleared. Total removed: ${tasks.length}`);
+          return { cleared: true, count: tasks.length };
+        }),
+      ),
   );
 
 if (import.meta.main) {

@@ -114,9 +114,24 @@ export function parseCliInputToParts(input: string): ParsePart[] {
 
   let pendingValue: ParseParts['named'] | ParseParts['alias'] | undefined;
   let allowTerm = true;
+  let afterDoubleDash = false;
 
   for (const part of parts) {
     if (!part) continue;
+
+    // Bare `--` separator: everything after is a literal positional arg
+    if (part === '--' && !afterDoubleDash) {
+      if (pendingValue) pendingValue = undefined;
+      afterDoubleDash = true;
+      allowTerm = false;
+      continue;
+    }
+
+    if (afterDoubleDash) {
+      result.push({ type: 'arg', value: part });
+      continue;
+    }
+
     const wasPending = pendingValue;
     pendingValue = undefined;
 

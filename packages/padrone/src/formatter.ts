@@ -52,6 +52,7 @@ export type HelpSubcommandInfo = {
   aliases?: string[];
   deprecated?: boolean | string;
   hidden?: boolean;
+  hasSubcommands?: boolean;
 };
 
 /**
@@ -284,18 +285,37 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
 
     lines.push(styler.label('Commands:'));
 
+    const subcommandSuffix = (c: HelpSubcommandInfo) => (c.hasSubcommands ? ' <subcommand>' : '');
+    const formatAliasParts = (c: HelpSubcommandInfo) => {
+      if (!c.aliases?.length) return { plain: '', styled: '' };
+      const realAliases = c.aliases.filter((a) => a !== '[default]');
+      const hasDefault = c.aliases.some((a) => a === '[default]');
+      const parts: string[] = [];
+      const styledParts: string[] = [];
+      if (realAliases.length) {
+        parts.push(`(${realAliases.join(', ')})`);
+        styledParts.push(`(${realAliases.join(', ')})`);
+      }
+      if (hasDefault) {
+        parts.push('[default]');
+        styledParts.push(styler.meta('[default]'));
+      }
+      return { plain: parts.length ? ' ' + parts.join(' ') : '', styled: styledParts.length ? ' ' + styledParts.join(' ') : '' };
+    };
     const maxNameLength = Math.max(
       ...subcommands.map((c) => {
-        const aliases = c.aliases ? ` (${c.aliases.join(', ')})` : '';
-        return (c.name + aliases).length;
+        return (c.name + subcommandSuffix(c) + formatAliasParts(c).plain).length;
       }),
     );
     for (const subCmd of subcommands) {
-      const aliases = subCmd.aliases ? ` (${subCmd.aliases.join(', ')})` : '';
-      const commandDisplay = subCmd.name + aliases;
+      const aliasParts = formatAliasParts(subCmd);
+      const suffix = subcommandSuffix(subCmd);
+      const commandDisplay = subCmd.name + suffix + aliasParts.plain;
       const padding = ' '.repeat(Math.max(0, maxNameLength - commandDisplay.length + 2));
       const isDeprecated = !!subCmd.deprecated;
-      const commandName = isDeprecated ? styler.deprecated(commandDisplay) : styler.command(subCmd.name) + aliases;
+      const commandName = isDeprecated
+        ? styler.deprecated(commandDisplay)
+        : styler.command(subCmd.name) + (suffix ? styler.meta(suffix) : '') + aliasParts.styled;
       const lineParts: string[] = [commandName, padding];
 
       // Use title if available, otherwise use description

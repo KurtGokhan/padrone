@@ -159,6 +159,34 @@ describe('REPL', () => {
       expect(output[2]).toBe('');
     });
 
+    it('should use title in greeting when available', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine([null]);
+      const program = createPadrone('myapp')
+        .configure({ title: 'My Application' })
+        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
+
+      for await (const _ of program.repl({ hint: false })) {
+        // no commands
+      }
+
+      expect(output[1]).toBe('Welcome to My Application');
+    });
+
+    it('should use title with version in greeting when both available', async () => {
+      const output: string[] = [];
+      const readLine = mockReadLine([null]);
+      const program = createPadrone('myapp')
+        .configure({ title: 'My Application', version: '3.0.0' })
+        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
+
+      for await (const _ of program.repl({ hint: false })) {
+        // no commands
+      }
+
+      expect(output[1]).toBe('Welcome to My Application v3.0.0');
+    });
+
     it('should display default greeting with version when available', async () => {
       const output: string[] = [];
       const readLine = mockReadLine([null]);
