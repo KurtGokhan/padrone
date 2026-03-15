@@ -1,6 +1,37 @@
-import { createPadrone } from 'padrone';
+import { createPadrone, type PadronePlugin } from 'padrone';
 import * as z from 'zod/v4';
 import { addTask, getTask, getTasks, removeTask, setTaskStatus, updateTask } from './tasks-store.ts';
+
+type CommandTelemetry = { command: string; startTime: Date; duration: number };
+
+function telemetryPlugin(): PadronePlugin & { entries: CommandTelemetry[] } {
+  const entries: CommandTelemetry[] = [];
+
+  return {
+    name: 'telemetry',
+    entries,
+    execute: (ctx, next) => {
+      const startTime = new Date();
+      const start = performance.now();
+      const result = next();
+
+      const record = () => {
+        entries.push({ command: ctx.command.path || '(root)', startTime, duration: performance.now() - start });
+      };
+
+      if (result instanceof Promise) {
+        return result.then((r) => {
+          record();
+          return r;
+        });
+      }
+      record();
+      return result;
+    },
+  };
+}
+
+const telemetry = telemetryPlugin();
 
 const prioritySchema = z.enum(['low', 'medium', 'high']);
 const statusSchema = z.enum(['pending', 'in_progress', 'completed']);
@@ -213,6 +244,7 @@ export const tasksProgram = createPadrone('tasks')
         return { removed: true, id: args.id };
       }),
   )
+  .use(telemetry)
   .command('advanced', (c) =>
     c
       .configure({ title: 'Advanced task operations' })
@@ -236,8 +268,17 @@ export const tasksProgram = createPadrone('tasks')
 
 if (import.meta.main) {
   try {
-    await tasksProgram.cli();
+    await (await tasksProgram.cli())?.result;
   } catch {
     // Error handling
+  } finally {
+    if (telemetry.entries.length > 0) {
+      console.log('\n── Telemetry ──');
+      for (const entry of telemetry.entries) {
+        const time = entry.startTime.toLocaleTimeString();
+        console.log(`  ${time}  ${entry.command.padEnd(20)} ${entry.duration.toFixed(1)}ms`);
+      }
+      console.log(`  Total: ${telemetry.entries.length} command(s)`);
+    }
   }
 }

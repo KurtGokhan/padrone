@@ -80,6 +80,9 @@ export type PadroneCommand<
   /** Runtime configuration for I/O abstraction. */
   runtime?: PadroneRuntime;
 
+  /** Plugins registered on this command. Collected from the parent chain at execution time. */
+  plugins?: PadronePlugin[];
+
   parent?: AnyPadroneCommand;
   commands?: TCommands;
 
@@ -174,6 +177,18 @@ export type PadroneBuilderMethods<
    * })
    * ```
    */
+  /**
+   * Registers a plugin that intercepts command execution phases (parse, validate, execute).
+   * Plugins are applied in order: first registered = outermost wrapper (runs first before `next()`).
+   * Use `plugin.order` for explicit ordering (lower = outermost).
+   *
+   * On the program, parse/validate/execute plugins all apply.
+   * On subcommands, only validate and execute plugins apply (parse is handled by the root program).
+   */
+  use: (
+    plugin: PadronePlugin,
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync>;
+
   configure: (
     config: PadroneCommandConfig,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync>;
@@ -703,3 +718,82 @@ type GetArguments<TDir extends 'in' | 'out', TCommand extends AnyPadroneCommand>
 type GetResults<TCommand extends AnyPadroneCommand> = ReturnType<NonNullable<TCommand['handler']>>;
 
 type GetArgsMeta<TArgs extends PadroneSchema> = PadroneArgsSchemaMeta<NonNullable<StandardSchemaV1.InferInput<TArgs>>>;
+
+// ---------------------------------------------------------------------------
+// Plugin system
+// ---------------------------------------------------------------------------
+
+/** Base context shared across all plugin phases within a single execution. */
+export type PluginBaseContext = {
+  /** The resolved command for this execution. In the parse phase, this is the root program. */
+  command: AnyPadroneCommand;
+  /** Mutable state bag shared across phases for this execution. Plugins can store cross-phase data here. */
+  state: Record<string, unknown>;
+};
+
+/** Context for the parse phase. */
+export type PluginParseContext = PluginBaseContext & {
+  /** The raw CLI input string (undefined when invoked without input). */
+  input: string | undefined;
+};
+
+/** Result returned by the parse phase's `next()`. */
+export type PluginParseResult = {
+  command: AnyPadroneCommand;
+  rawArgs: Record<string, unknown>;
+  positionalArgs: string[];
+};
+
+/** Context for the validate phase. */
+export type PluginValidateContext = PluginBaseContext & {
+  /** Raw named arguments extracted by the parser. Mutable — modify before `next()` to inject/override values. */
+  rawArgs: Record<string, unknown>;
+  /** Positional argument strings extracted by the parser. */
+  positionalArgs: string[];
+};
+
+/** Result returned by the validate phase's `next()`. */
+export type PluginValidateResult = {
+  args: unknown;
+  argsResult: StandardSchemaV1.Result<unknown>;
+};
+
+/** Context for the execute phase. */
+export type PluginExecuteContext = PluginBaseContext & {
+  /** Validated arguments that will be passed to the handler. Mutable — modify before `next()` to override. */
+  args: unknown;
+};
+
+/** Result returned by the execute phase's `next()`. */
+export type PluginExecuteResult = {
+  result: unknown;
+};
+
+type PluginPhaseHandler<TCtx, TResult> = (ctx: TCtx, next: () => TResult | Promise<TResult>) => TResult | Promise<TResult>;
+
+/**
+ * A Padrone plugin that can intercept the parse, validate, and execute phases of command execution.
+ * Plugins are registered at the program level with `.use()` and apply to all commands.
+ *
+ * Each phase handler receives a context and a `next()` function (onion/middleware pattern):
+ * - Call `next()` to proceed to the next plugin or the core operation.
+ * - Return without calling `next()` to short-circuit.
+ * - Wrap `next()` in try/catch for error handling.
+ * - Modify context fields before `next()` to alter inputs.
+ * - Transform the return value of `next()` to alter outputs.
+ */
+export type PadronePlugin = {
+  /** Unique name for this plugin. Used for identification and future disable/override support. */
+  name: string;
+  /**
+   * Ordering hint. Lower values run as outer layers (earlier before `next()`, later after).
+   * Plugins with the same order preserve registration order. Defaults to `0`.
+   */
+  order?: number;
+  /** Intercepts command routing and raw argument extraction. */
+  parse?: PluginPhaseHandler<PluginParseContext, PluginParseResult>;
+  /** Intercepts argument preprocessing, interactive prompting, and schema validation. */
+  validate?: PluginPhaseHandler<PluginValidateContext, PluginValidateResult>;
+  /** Intercepts handler execution. */
+  execute?: PluginPhaseHandler<PluginExecuteContext, PluginExecuteResult>;
+};

@@ -18,9 +18,16 @@ import type {
   PadroneAPI,
   PadroneCommand,
   PadroneEvalPreferences,
+  PadronePlugin,
   PadroneProgram,
   PadroneReplPreferences,
   PadroneSchema,
+  PluginExecuteContext,
+  PluginExecuteResult,
+  PluginParseContext,
+  PluginParseResult,
+  PluginValidateContext,
+  PluginValidateResult,
 } from './types.ts';
 import { getVersion } from './utils.ts';
 import { createWrapHandler } from './wrap.ts';
@@ -37,6 +44,39 @@ const noop = <TRes>() => undefined as TRes;
 function thenMaybe<T, U>(value: T | Promise<T>, fn: (v: T) => U | Promise<U>): U | Promise<U> {
   if (value instanceof Promise) return value.then(fn);
   return fn(value);
+}
+
+/**
+ * Runs a plugin chain for a given phase using the onion/middleware pattern.
+ * Plugins are sorted by `order` (ascending, stable), then composed so that
+ * the first plugin in sorted order is the outermost wrapper.
+ * If no plugins handle this phase, `core` is called directly.
+ */
+function runPluginChain<TCtx, TResult>(
+  phase: 'parse' | 'validate' | 'execute',
+  plugins: PadronePlugin[],
+  ctx: TCtx,
+  core: () => TResult | Promise<TResult>,
+): TResult | Promise<TResult> {
+  // Filter to plugins that have a handler for this phase, preserve insertion order
+  const phasePlugins = plugins.filter((p) => p[phase]);
+  if (phasePlugins.length === 0) return core();
+
+  // Stable sort by order (lower = outermost). Equal order preserves registration order.
+  phasePlugins.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  // Build chain from inside out: last plugin wraps core, first plugin is outermost
+  let next = core;
+  for (let i = phasePlugins.length - 1; i >= 0; i--) {
+    const handler = phasePlugins[i]![phase]! as unknown as (
+      ctx: TCtx,
+      next: () => TResult | Promise<TResult>,
+    ) => TResult | Promise<TResult>;
+    const prevNext = next;
+    next = () => handler(ctx, prevNext);
+  }
+
+  return next();
 }
 
 /**
@@ -589,48 +629,75 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   };
 
   const parse: AnyPadroneProgram['parse'] = (input) => {
-    const { command, rawArgs, args } = parseCommand(input);
+    const state: Record<string, unknown> = {};
 
-    // Resolve env schema: command's own envSchema > inherited from parent/root
-    const resolveEnvSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['envSchema'] => {
-      if (cmd.envSchema !== undefined) return cmd.envSchema;
-      if (cmd.parent) return resolveEnvSchema(cmd.parent);
-      return undefined;
-    };
-    const envSchema = resolveEnvSchema(command);
-
-    const finalize = (envData: Record<string, unknown> | undefined) => {
-      const validated = validateArgs(command, rawArgs, args, { envData });
-
-      const toParseResult = (v: { args: any; argsResult: any }) => ({
-        command: command as any,
-        args: v.args,
-        argsResult: v.argsResult,
-      });
-
-      return thenMaybe(validated, toParseResult);
+    // Parse phase (with plugins)
+    const parseCtx: PluginParseContext = { input: input as string | undefined, command: existingCommand, state };
+    const coreParse = (): PluginParseResult => {
+      const { command, rawArgs, args } = parseCommand(parseCtx.input);
+      return { command, rawArgs, positionalArgs: args };
     };
 
-    // Validate env vars against schema if provided
-    let envData: Record<string, unknown> | undefined;
-    if (envSchema) {
-      const runtime = getCommandRuntime(existingCommand);
-      const rawEnv = runtime.env();
-      const envValidated = envSchema['~standard'].validate(rawEnv);
+    // Parse phase: root plugins only
+    const rootPlugins = existingCommand.plugins ?? [];
+    const parsedOrPromise = runPluginChain('parse', rootPlugins, parseCtx, coreParse);
+
+    const continueAfterParse = (parsed: PluginParseResult) => {
+      const { command } = parsed;
+
+      // Validate phase: collected from parent chain
+      const commandPlugins = collectPlugins(command);
+      const validateCtx: PluginValidateContext = {
+        command,
+        rawArgs: parsed.rawArgs,
+        positionalArgs: parsed.positionalArgs,
+        state,
+      };
+
+      const coreValidate = (): PluginValidateResult | Promise<PluginValidateResult> => {
+        // Resolve env schema: command's own envSchema > inherited from parent/root
+        const resolveEnvSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['envSchema'] => {
+          if (cmd.envSchema !== undefined) return cmd.envSchema;
+          if (cmd.parent) return resolveEnvSchema(cmd.parent);
+          return undefined;
+        };
+        const envSchema = resolveEnvSchema(command);
+
+        const finalize = (envData: Record<string, unknown> | undefined): PluginValidateResult | Promise<PluginValidateResult> => {
+          const validated = validateArgs(command, validateCtx.rawArgs, validateCtx.positionalArgs, { envData });
+          return thenMaybe(validated, (v) => v as PluginValidateResult);
+        };
+
+        let envData: Record<string, unknown> | undefined;
+        if (envSchema) {
+          const runtime = getCommandRuntime(existingCommand);
+          const rawEnv = runtime.env();
+          const envValidated = envSchema['~standard'].validate(rawEnv);
+
+          return thenMaybe(envValidated, (result) => {
+            if (!result.issues) {
+              envData = result.value as unknown as Record<string, unknown>;
+            }
+            return finalize(envData);
+          });
+        }
+
+        return finalize(envData);
+      };
+
+      const validatedOrPromise = runPluginChain('validate', commandPlugins, validateCtx, coreValidate);
 
       return warnIfUnexpectedAsync(
-        thenMaybe(envValidated, (result) => {
-          // For env vars, we don't throw on validation errors - just use the transformed value if valid
-          if (!result.issues) {
-            envData = result.value as unknown as Record<string, unknown>;
-          }
-          return finalize(envData);
-        }),
+        thenMaybe(validatedOrPromise, (v) => ({
+          command: command as any,
+          args: v.args,
+          argsResult: v.argsResult,
+        })),
         command,
-      ) as any;
-    }
+      );
+    };
 
-    return warnIfUnexpectedAsync(finalize(envData), command) as any;
+    return thenMaybe(parsedOrPromise, continueAfterParse) as any;
   };
 
   const stringify: AnyPadroneProgram['stringify'] = (command = '' as any, args) => {
@@ -871,7 +938,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   const execCommand = (resolvedInput: string | undefined, evalOptions?: PadroneEvalPreferences, errorMode: 'soft' | 'hard' = 'soft') => {
     const runtime = getCommandRuntime(existingCommand);
 
-    // Check for built-in help/version/completion commands and flags
+    // Check for built-in help/version/completion commands and flags (bypass plugins)
     const builtin = checkBuiltinCommands(resolvedInput);
 
     if (builtin) {
@@ -909,219 +976,283 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       }
     }
 
-    // Parse the command first (without validating arguments)
-    const { command, rawArgs, args, unmatchedTerms } = parseCommand(resolvedInput);
+    // Shared plugin state for this execution
+    const state: Record<string, unknown> = {};
 
-    // Default help: command with subcommands but no handler → show its help.
-    // This applies to the root command (no handler, no '' subcommand) and any parent command.
-    // If the command has a handler, it executes normally — the handler is listed as a
-    // separate "(default)" entry in the help output for reference.
-    const hasSubcommands = command.commands && command.commands.length > 0;
-    if (hasSubcommands && !command.handler && unmatchedTerms.length === 0) {
-      const helpText = generateHelp(existingCommand, command, { format: runtime.format });
-      runtime.output(helpText);
-      return {
-        command: command,
-        args: undefined,
-        result: helpText,
-      } as any;
-    }
+    // ── Phase 1: Parse ──────────────────────────────────────────────────
+    const parseCtx: PluginParseContext = { input: resolvedInput, command: existingCommand, state };
 
-    // Reject unmatched terms when the matched command doesn't accept positional args
-    if (unmatchedTerms.length > 0) {
-      const hasPositionalConfig = command.meta?.positional && command.meta.positional.length > 0;
-      if (!hasPositionalConfig) {
-        const isRootCommand = command === existingCommand;
-        const commandDisplayName = command.name || command.aliases?.[0] || command.path || '(default)';
-        const errorMsg = isRootCommand
-          ? `Unknown command: ${unmatchedTerms[0]}`
-          : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}`;
+    const coreParse = (): PluginParseResult => {
+      const { command, rawArgs, args, unmatchedTerms } = parseCommand(parseCtx.input);
 
-        if (errorMode === 'hard') {
-          const helpText = generateHelp(existingCommand, isRootCommand ? existingCommand : command, { format: runtime.format });
-          runtime.error(errorMsg);
-          runtime.error(helpText);
-          throw new Error(errorMsg);
-        }
-
-        // Soft mode: throw too — this is a routing error, not a validation issue
-        throw new Error(errorMsg);
+      // Default help: command with subcommands but no handler → show its help.
+      const hasSubcommands = command.commands && command.commands.length > 0;
+      if (hasSubcommands && !command.handler && unmatchedTerms.length === 0) {
+        const helpText = generateHelp(existingCommand, command, { format: runtime.format });
+        runtime.output(helpText);
+        return {
+          command: command,
+          rawArgs: { '~help': helpText } as Record<string, unknown>,
+          positionalArgs: [],
+        };
       }
-    }
 
-    // Determine interactivity.
-    // runtime.interactive: 'unsupported' is a hard veto. 'forced'/'disabled'/'supported'/undefined
-    // set the default, which can be overridden by flag > pref.
-    // The --interactive/-i flag is only consumed when the command has interactive config,
-    // so -i can still be used as a user-defined alias on non-interactive commands.
-    let flagInteractive: boolean | undefined;
-    if (hasInteractiveConfig(command.meta)) {
-      if (rawArgs.interactive !== undefined) {
-        flagInteractive = rawArgs.interactive !== false && rawArgs.interactive !== 'false';
-        delete rawArgs.interactive;
-      }
-      if (rawArgs.i !== undefined) {
-        flagInteractive = rawArgs.i !== false && rawArgs.i !== 'false';
-        delete rawArgs.i;
-      }
-    }
+      // Reject unmatched terms when the matched command doesn't accept positional args
+      if (unmatchedTerms.length > 0) {
+        const hasPositionalConfig = command.meta?.positional && command.meta.positional.length > 0;
+        if (!hasPositionalConfig) {
+          const isRootCommand = command === existingCommand;
+          const commandDisplayName = command.name || command.aliases?.[0] || command.path || '(default)';
+          const errorMsg = isRootCommand
+            ? `Unknown command: ${unmatchedTerms[0]}`
+            : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}`;
 
-    // 'unsupported' is a hard veto — nothing can override it.
-    // For others, resolve: flag > pref > runtime default.
-    // Runtime defaults: 'forced' → force, 'disabled' → suppress, 'supported'/undefined → normal.
-    const runtimeDefault: boolean | undefined =
-      runtime.interactive === 'forced' ? true : runtime.interactive === 'disabled' ? false : undefined;
-    const effectiveInteractive: boolean | undefined = flagInteractive ?? evalOptions?.interactive ?? runtimeDefault;
-    const interactivitySuppressed = runtime.interactive === 'unsupported' || effectiveInteractive === false;
-    const forceInteractive = !interactivitySuppressed && effectiveInteractive === true;
-
-    // Extract config file path from --config or -c flag
-    const configPath = extractConfigPath(resolvedInput);
-
-    // Resolve config files: command's own configFiles > inherited from parent/root
-    // undefined = inherit, empty array = no config files (explicit opt-out)
-    const resolveConfigFiles = (cmd: AnyPadroneCommand): string[] | undefined => {
-      if (cmd.configFiles !== undefined) return cmd.configFiles;
-      if (cmd.parent) return resolveConfigFiles(cmd.parent);
-      return undefined;
-    };
-    const effectiveConfigFiles = resolveConfigFiles(command);
-
-    // Resolve config schema: command's own config > inherited from parent/root
-    const resolveConfigSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['config'] => {
-      if (cmd.config !== undefined) return cmd.config;
-      if (cmd.parent) return resolveConfigSchema(cmd.parent);
-      return undefined;
-    };
-    const configSchema = resolveConfigSchema(command);
-
-    // Resolve env schema: command's own envSchema > inherited from parent/root
-    const resolveEnvSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['envSchema'] => {
-      if (cmd.envSchema !== undefined) return cmd.envSchema;
-      if (cmd.parent) return resolveEnvSchema(cmd.parent);
-      return undefined;
-    };
-    const envSchema = resolveEnvSchema(command);
-
-    // Determine config data: explicit --config flag > auto-discovered config
-    let configData: Record<string, unknown> | undefined;
-    if (configPath) {
-      // Explicit config path takes precedence
-      configData = runtime.loadConfigFile(configPath);
-    } else if (effectiveConfigFiles?.length) {
-      // Search for config files if configFiles is configured (inherited or own)
-      const foundConfigPath = runtime.findFile(effectiveConfigFiles);
-      if (foundConfigPath) {
-        configData = runtime.loadConfigFile(foundConfigPath) ?? configData;
-      }
-    }
-
-    /**
-     * Chains config → env → arguments validation, then runs the handler.
-     * Each validation step preserves sync/async behavior based on the schema.
-     */
-    const processValidation = () => {
-      // Step 1: Validate config data against schema if provided
-      const validateConfig = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
-        if (configData && configSchema) {
-          const configValidated = configSchema['~standard'].validate(configData);
-          return thenMaybe(configValidated, (result) => {
-            if (result.issues) {
-              const issueMessages = result.issues
-                .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
-                .join('\n');
-              throw new Error(`Invalid config file:\n${issueMessages}`);
-            }
-            return result.value as unknown as Record<string, unknown>;
-          });
-        }
-        return configData;
-      };
-
-      // Step 2: Validate env vars
-      const validateEnv = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
-        let envData: Record<string, unknown> | undefined;
-        if (envSchema) {
-          const rawEnv = runtime.env();
-          const envValidated = envSchema['~standard'].validate(rawEnv);
-          return thenMaybe(envValidated, (result) => {
-            // For env vars, we don't throw on validation errors - just use the transformed value if valid
-            // This is because the schema may use .optional() or .default() for missing env vars
-            if (!result.issues) {
-              envData = result.value as unknown as Record<string, unknown>;
-            }
-            return envData;
-          });
-        }
-        return envData;
-      };
-
-      // Step 3: Validate arguments and run handler
-      const finalizeAndRun = (validatedConfigData: Record<string, unknown> | undefined, envData: Record<string, unknown> | undefined) => {
-        // Preprocess args (merge env/config, map positionals)
-        const preprocessedArgs = buildCommandArgs(command, rawArgs, args, {
-          envData,
-          configData: validatedConfigData,
-        });
-
-        // Insert interactive prompting between preprocessing and validation
-        const afterInteractive =
-          !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta)
-            ? promptInteractiveFields(preprocessedArgs, command, runtime, forceInteractive || undefined)
-            : preprocessedArgs;
-
-        const handleValidated = (v: { args: any; argsResult: any }) => {
-          // Handle validation failures
-          if (v.argsResult?.issues) {
-            const issueMessages = v.argsResult.issues
-              .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
-              .join('\n');
-
-            if (errorMode === 'hard') {
-              // CLI mode without explicit input: print error + help and throw
-              const helpText = generateHelp(existingCommand, command, { format: runtime.format });
-              runtime.error(`Validation error:\n${issueMessages}`);
-              runtime.error(helpText);
-              throw new Error(`Validation error:\n${issueMessages}`);
-            }
-
-            // Soft mode: return result with issues, skip the action
-            return {
-              command: command as any,
-              args: undefined,
-              argsResult: v.argsResult,
-              result: undefined,
-            };
+          if (errorMode === 'hard') {
+            const helpText = generateHelp(existingCommand, isRootCommand ? existingCommand : command, { format: runtime.format });
+            runtime.error(errorMsg);
+            runtime.error(helpText);
+            throw new Error(errorMsg);
           }
 
-          const res = run(command, v.args) as any;
-          return {
-            ...res,
-            argsResult: v.argsResult,
-          };
+          // Soft mode: throw too — this is a routing error, not a validation issue
+          throw new Error(errorMsg);
+        }
+      }
+
+      return { command, rawArgs, positionalArgs: args };
+    };
+
+    // Parse phase: root plugins only
+    const rootPlugins = existingCommand.plugins ?? [];
+    const parsedOrPromise = runPluginChain('parse', rootPlugins, parseCtx, coreParse);
+
+    // ── Phases 2 & 3 chained after parse ────────────────────────────────
+    const continueAfterParse = (parsed: PluginParseResult) => {
+      const { command } = parsed;
+      // Validate/execute: collected from parent chain
+      const commandPlugins = collectPlugins(command);
+
+      // Short-circuit: parse returned a help result
+      if (parsed.rawArgs['~help']) {
+        return {
+          command: command,
+          args: undefined,
+          result: parsed.rawArgs['~help'],
+        } as any;
+      }
+
+      // ── Phase 2: Validate ───────────────────────────────────────────
+      const validateCtx: PluginValidateContext = {
+        command,
+        rawArgs: parsed.rawArgs,
+        positionalArgs: parsed.positionalArgs,
+        state,
+      };
+
+      const coreValidate = (): PluginValidateResult | Promise<PluginValidateResult> => {
+        // Determine interactivity
+        let flagInteractive: boolean | undefined;
+        if (hasInteractiveConfig(command.meta)) {
+          if (validateCtx.rawArgs.interactive !== undefined) {
+            flagInteractive = validateCtx.rawArgs.interactive !== false && validateCtx.rawArgs.interactive !== 'false';
+            delete validateCtx.rawArgs.interactive;
+          }
+          if (validateCtx.rawArgs.i !== undefined) {
+            flagInteractive = validateCtx.rawArgs.i !== false && validateCtx.rawArgs.i !== 'false';
+            delete validateCtx.rawArgs.i;
+          }
+        }
+
+        const runtimeDefault: boolean | undefined =
+          runtime.interactive === 'forced' ? true : runtime.interactive === 'disabled' ? false : undefined;
+        const effectiveInteractive: boolean | undefined = flagInteractive ?? evalOptions?.interactive ?? runtimeDefault;
+        const interactivitySuppressed = runtime.interactive === 'unsupported' || effectiveInteractive === false;
+        const forceInteractive = !interactivitySuppressed && effectiveInteractive === true;
+
+        // Extract config file path from --config or -c flag
+        const configPath = extractConfigPath(parseCtx.input);
+
+        // Resolve config files: command's own configFiles > inherited from parent/root
+        const resolveConfigFiles = (cmd: AnyPadroneCommand): string[] | undefined => {
+          if (cmd.configFiles !== undefined) return cmd.configFiles;
+          if (cmd.parent) return resolveConfigFiles(cmd.parent);
+          return undefined;
+        };
+        const effectiveConfigFiles = resolveConfigFiles(command);
+
+        // Resolve config schema: command's own config > inherited from parent/root
+        const resolveConfigSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['config'] => {
+          if (cmd.config !== undefined) return cmd.config;
+          if (cmd.parent) return resolveConfigSchema(cmd.parent);
+          return undefined;
+        };
+        const configSchema = resolveConfigSchema(command);
+
+        // Resolve env schema: command's own envSchema > inherited from parent/root
+        const resolveEnvSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['envSchema'] => {
+          if (cmd.envSchema !== undefined) return cmd.envSchema;
+          if (cmd.parent) return resolveEnvSchema(cmd.parent);
+          return undefined;
+        };
+        const envSchema = resolveEnvSchema(command);
+
+        // Determine config data: explicit --config flag > auto-discovered config
+        let configData: Record<string, unknown> | undefined;
+        if (configPath) {
+          configData = runtime.loadConfigFile(configPath);
+        } else if (effectiveConfigFiles?.length) {
+          const foundConfigPath = runtime.findFile(effectiveConfigFiles);
+          if (foundConfigPath) {
+            configData = runtime.loadConfigFile(foundConfigPath) ?? configData;
+          }
+        }
+
+        // Step 1: Validate config data against schema if provided
+        const validateConfig = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
+          if (configData && configSchema) {
+            const configValidated = configSchema['~standard'].validate(configData);
+            return thenMaybe(configValidated, (result) => {
+              if (result.issues) {
+                const issueMessages = result.issues
+                  .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
+                  .join('\n');
+                throw new Error(`Invalid config file:\n${issueMessages}`);
+              }
+              return result.value as unknown as Record<string, unknown>;
+            });
+          }
+          return configData;
         };
 
-        return thenMaybe(afterInteractive, (filledArgs) => {
-          const validated = validateCommandArgs(command, filledArgs);
-          return thenMaybe(validated, handleValidated);
+        // Step 2: Validate env vars
+        const validateEnv = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
+          let envData: Record<string, unknown> | undefined;
+          if (envSchema) {
+            const rawEnv = runtime.env();
+            const envValidated = envSchema['~standard'].validate(rawEnv);
+            return thenMaybe(envValidated, (result) => {
+              if (!result.issues) {
+                envData = result.value as unknown as Record<string, unknown>;
+              }
+              return envData;
+            });
+          }
+          return envData;
+        };
+
+        // Step 3: Preprocess, interactive prompt, and validate
+        const finalizeValidation = (
+          validatedConfigData: Record<string, unknown> | undefined,
+          envData: Record<string, unknown> | undefined,
+        ): PluginValidateResult | Promise<PluginValidateResult> => {
+          const preprocessedArgs = buildCommandArgs(command, validateCtx.rawArgs, validateCtx.positionalArgs, {
+            envData,
+            configData: validatedConfigData,
+          });
+
+          const afterInteractive =
+            !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta)
+              ? promptInteractiveFields(preprocessedArgs, command, runtime, forceInteractive || undefined)
+              : preprocessedArgs;
+
+          return thenMaybe(afterInteractive, (filledArgs) => {
+            const validated = validateCommandArgs(command, filledArgs);
+            return thenMaybe(validated, (v) => v as PluginValidateResult);
+          });
+        };
+
+        // Chain: config → env → validate
+        const validatedConfig = validateConfig();
+        return thenMaybe(validatedConfig, (cfgData) => {
+          const validatedEnv = validateEnv();
+          return thenMaybe(validatedEnv, (envData) => {
+            return finalizeValidation(cfgData, envData);
+          });
         });
       };
 
-      // Chain: config validation → env validation → arguments validation → run
-      const validatedConfig = validateConfig();
-      return thenMaybe(validatedConfig, (cfgData) => {
-        const validatedEnv = validateEnv();
-        return thenMaybe(validatedEnv, (envData) => {
-          return finalizeAndRun(cfgData, envData);
-        });
-      });
+      const validatedOrPromise = runPluginChain('validate', commandPlugins, validateCtx, coreValidate);
+
+      // ── Phase 3: Execute (or handle validation errors) ──────────────
+      const continueAfterValidate = (v: PluginValidateResult) => {
+        // Handle validation failures
+        if (v.argsResult?.issues) {
+          const issueMessages = v.argsResult.issues
+            .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
+            .join('\n');
+
+          if (errorMode === 'hard') {
+            const helpText = generateHelp(existingCommand, command, { format: runtime.format });
+            runtime.error(`Validation error:\n${issueMessages}`);
+            runtime.error(helpText);
+            throw new Error(`Validation error:\n${issueMessages}`);
+          }
+
+          // Soft mode: return result with issues, skip the action
+          return {
+            command: command as any,
+            args: undefined,
+            argsResult: v.argsResult,
+            result: undefined,
+          };
+        }
+
+        const executeCtx: PluginExecuteContext = {
+          command,
+          args: v.args,
+          state,
+        };
+
+        const coreExecute = (): PluginExecuteResult => {
+          const handler = command.handler ?? noop;
+          const result = handler(executeCtx.args as any, getCommandRuntime(command));
+          return { result };
+        };
+
+        const executedOrPromise = runPluginChain('execute', commandPlugins, executeCtx, coreExecute);
+
+        return thenMaybe(executedOrPromise, (e) => ({
+          command: command as any,
+          args: v.args,
+          argsResult: v.argsResult,
+          result: e.result,
+        }));
+      };
+
+      return warnIfUnexpectedAsync(thenMaybe(validatedOrPromise, continueAfterValidate), command) as any;
     };
 
-    return warnIfUnexpectedAsync(processValidation(), command) as any;
+    return thenMaybe(parsedOrPromise, continueAfterParse) as any;
   };
 
   const evalCommand: AnyPadroneProgram['eval'] = (input, evalOptions) => {
     return execCommand(input as string, evalOptions, 'soft');
+  };
+
+  /**
+   * Collects plugins from the command's parent chain (root → ... → target).
+   * Root/program plugins come first (outermost), target command's plugins last (innermost).
+   *
+   * The `programRoot` parameter provides the current program command, because
+   * subcommands' `.parent` references may be stale (builders are immutable — each
+   * method returns a new builder, so a subcommand's parent was captured before
+   * `.use()` was called on the program). We substitute `programRoot` for the
+   * top of the chain to ensure program-level plugins are always included.
+   */
+  const collectPlugins = (cmd: AnyPadroneCommand): PadronePlugin[] => {
+    const chain: PadronePlugin[][] = [];
+    let current: AnyPadroneCommand | undefined = cmd;
+    while (current) {
+      // If this is the root (no parent), use existingCommand's plugins instead
+      // to pick up plugins added after subcommands were defined.
+      if (!current.parent) {
+        if (existingCommand.plugins?.length) chain.unshift(existingCommand.plugins);
+      } else {
+        if (current.plugins?.length) chain.unshift(current.plugins);
+      }
+      current = current.parent;
+    }
+    return chain.flat();
   };
 
   // Forward declaration — assigned by the repl method in the return object, used by cli() for --repl.
@@ -1158,13 +1289,27 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
     if (!commandObj.handler) throw new Error(`Command "${commandObj.path}" has no handler`);
 
-    const result = commandObj.handler(args as any, getCommandRuntime(commandObj));
+    const state: Record<string, unknown> = {};
+    const executeCtx: PluginExecuteContext = { command: commandObj, args, state };
 
-    return {
+    const coreExecute = (): PluginExecuteResult => {
+      const result = commandObj.handler!(executeCtx.args as any, getCommandRuntime(commandObj));
+      return { result };
+    };
+
+    const commandObjPlugins = collectPlugins(commandObj);
+    const executedOrPromise = runPluginChain('execute', commandObjPlugins, executeCtx, coreExecute);
+
+    const toResult = (e: PluginExecuteResult) => ({
       command: commandObj as any,
       args: args as any,
-      result,
-    };
+      result: e.result,
+    });
+
+    if (executedOrPromise instanceof Promise) {
+      return executedOrPromise.then(toResult) as any;
+    }
+    return toResult(executedOrPromise);
   };
 
   const tool: AnyPadroneProgram['tool'] = () => {
@@ -1211,7 +1356,7 @@ ${helpText}
     };
   };
 
-  return {
+  const builder = {
     configure(config) {
       return createPadroneBuilder({ ...existingCommand, ...config }) as any;
     },
@@ -1262,6 +1407,13 @@ ${helpText}
       const commandObj =
         ((builderFn?.(builder as any) as unknown as typeof builder)?.[commandSymbol] as AnyPadroneCommand) ?? initialCommand;
       return createPadroneBuilder({ ...existingCommand, commands: [...(existingCommand.commands || []), commandObj] }) as any;
+    },
+
+    use(plugin: PadronePlugin) {
+      return createPadroneBuilder({
+        ...existingCommand,
+        plugins: [...(existingCommand.plugins ?? []), plugin],
+      }) as any;
     },
 
     run,
@@ -1606,4 +1758,5 @@ ${helpText}
 
     [commandSymbol]: existingCommand,
   } satisfies AnyPadroneProgram & { [commandSymbol]: AnyPadroneCommand } as any;
+  return builder as TBuilder & { [commandSymbol]: AnyPadroneCommand };
 }

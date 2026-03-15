@@ -30,9 +30,17 @@ export type {
   PadroneCommandResult,
   PadroneEvalPreferences,
   PadroneParseResult,
+  PadronePlugin,
   PadroneProgram,
   PadroneReplPreferences,
   PadroneReplSpacing,
   PadroneSchema,
+  PluginBaseContext,
+  PluginExecuteContext,
+  PluginExecuteResult,
+  PluginParseContext,
+  PluginParseResult,
+  PluginValidateContext,
+  PluginValidateResult,
 } from './types.ts';
 export type { WrapConfig, WrapResult } from './wrap.ts';
