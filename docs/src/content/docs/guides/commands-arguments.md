@@ -285,6 +285,29 @@ program.help('', { format: 'html' });
 program.help('', { format: 'json' });
 ```
 
+## Command Override
+
+Re-registering a command with the same name merges the new definition with the existing one. The new handler receives the previous handler as a `base` parameter:
+
+```typescript
+const program = createPadrone('app')
+  .command('deploy', (c) =>
+    c
+      .arguments(z.object({ target: z.string() }))
+      .action((args) => `deploying to ${args.target}`)
+  )
+  .command('deploy', (c) =>
+    c.action((args, runtime, base) => {
+      console.log('Pre-deploy hook');
+      const result = base(args, runtime);
+      console.log('Post-deploy hook');
+      return result;
+    })
+  );
+```
+
+Configuration is shallow-merged, subcommands are recursively merged by name, and aliases are preserved from the original when the override doesn't specify new ones. See the [Program Composition guide](../composition/) for full details.
+
 ## Finding Commands
 
 Look up commands programmatically:

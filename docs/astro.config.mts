@@ -6,7 +6,6 @@ import { defineConfig } from 'astro/config';
 export default defineConfig({
   site: 'https://gkurt.com',
   base: '/padrone',
-
   integrations: [
     starlight({
       customCss: ['./src/styles/global.css'],
@@ -29,6 +28,9 @@ export default defineConfig({
           items: [
             { label: 'Commands & Arguments', slug: 'guides/commands-arguments' },
             { label: 'Interactive Prompting', slug: 'guides/interactive-prompting' },
+            { label: 'REPL Mode', slug: 'guides/repl' },
+            { label: 'Plugins', slug: 'guides/plugins' },
+            { label: 'Program Composition', slug: 'guides/composition' },
             { label: 'AI Integration', slug: 'guides/ai-integration' },
           ],
         },

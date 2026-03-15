@@ -114,17 +114,17 @@ When `interactive` or `optionalInteractive` is set, the command becomes async �
 Set the handler function for the command.
 
 ```typescript
-program.action((args, context) => {
+program.action((args, runtime) => {
   console.log('Arguments:', args);
-  console.log('Command:', context.command);
   return { success: true };
 });
 ```
 
 **Parameters:**
-- `handler`: Function receiving `(args, context)`
+- `handler`: Function receiving `(args, runtime, base)`
   - `args`: Parsed and validated arguments object
-  - `context`: Execution context with `command` name
+  - `runtime`: Resolved runtime configuration
+  - `base`: Previous handler function (useful when [overriding commands](/padrone/guides/composition/#command-override))
 
 **Returns:** The program builder (chainable)
 
@@ -290,9 +290,38 @@ The `.wrap()` method maintains full type safety:
 
 ---
 
+### .use(plugin)
+
+Register a plugin for middleware-style interception of command phases. See the [Plugins guide](/padrone/guides/plugins/) for full details.
+
+```typescript
+import type { PadronePlugin } from 'padrone';
+
+const logger: PadronePlugin = {
+  name: 'logger',
+  execute: (context, next) => {
+    console.log(`Running: ${context.command.name}`);
+    const result = next();
+    console.log(`Done: ${context.command.name}`);
+    return result;
+  },
+};
+
+program.use(logger);
+```
+
+**Parameters:**
+- `plugin`: A `PadronePlugin` object with `name`, optional `order`, and phase handlers (`parse`, `validate`, `execute`)
+
+**Returns:** New builder with the plugin added (immutable)
+
+Available on both programs and subcommand builders. Program-level plugins apply as outermost wrappers; subcommand plugins compose as inner layers.
+
+---
+
 ### .command(name, builder)
 
-Add a subcommand.
+Add a subcommand. Re-registering a command with the same name merges the definitions — see [Program Composition](/padrone/guides/composition/) for details.
 
 ```typescript
 program.command('serve', (c) =>
@@ -310,25 +339,50 @@ program.command('serve', (c) =>
 
 ### .cli(input?)
 
-Execute the program as a CLI.
+Execute the program as a CLI. This is the main process entry point that reads from `process.argv` and throws on validation errors.
 
 ```typescript
 // Parse process.argv
 program.cli();
 
-// Parse a string input
-program.eval('serve --port 8080');
-
 // Parse an array
 program.cli(['serve', '--port', '8080']);
+
+// Start a REPL session from CLI
+// myapp --repl
+// myapp --repl db
 ```
 
 **Parameters:**
-- `input` (optional): String or string array to parse. Defaults to `process.argv.slice(2)`
+- `input` (optional): String array to parse. Defaults to `process.argv.slice(2)`
 
 **Returns:** The action handler's return value, or undefined. Returns a `Promise` when the matched command has async schemas or interactive fields.
 
-**Note:** Interactive prompting only triggers in `cli()`, not in `parse()` or `run()`. When a command has interactive meta and the runtime has `interactive: true`, missing field values are prompted before validation.
+**Note:** Interactive prompting only triggers in `cli()` and `eval()`, not in `parse()` or `run()`. When a command has interactive meta and the runtime has `interactive: true`, missing field values are prompted before validation. The `--repl` flag starts a REPL session (optionally scoped to a command).
+
+---
+
+### .eval(input, preferences?)
+
+Parse, validate, and execute a command string with soft error handling. Returns a result with issues instead of throwing on validation errors.
+
+```typescript
+const result = await program.eval('serve --port 8080');
+
+if (result.argsResult?.issues) {
+  console.error('Validation errors:', result.argsResult.issues);
+} else {
+  console.log('Result:', result.result);
+}
+```
+
+**Parameters:**
+- `input`: Command string to parse and execute
+- `preferences` (optional): `{ interactive?: boolean }` — override interactive prompting (`true` = force, `false` = suppress, `undefined` = inherit from runtime)
+
+**Returns:** `PadroneCommandResult` with `command`, `args`, `argsResult`, and `result`. Returns a `Promise` when the matched command is async.
+
+**Difference from `cli()`:** `eval()` is designed for programmatic use (REPL, AI tools, testing). It uses soft error handling — validation failures are returned as `argsResult.issues` rather than thrown. `cli()` is the process entry point that throws on errors and reads from `process.argv`.
 
 ---
 
@@ -445,6 +499,67 @@ await streamText({
 
 ---
 
+### .mount(name, program)
+
+Mount an existing Padrone program as a subcommand. All nested commands are recursively re-pathed. See the [Program Composition guide](/padrone/guides/composition/) for full details.
+
+```typescript
+const users = createPadrone('users')
+  .command('list', (c) => c.action(() => 'listing users'))
+  .command('create', (c) =>
+    c.arguments(z.object({ name: z.string() })).action((args) => args.name)
+  );
+
+const app = createPadrone('app')
+  .mount('users', users);
+
+// With aliases
+const app2 = createPadrone('app')
+  .mount(['users', 'u'], users);
+```
+
+**Parameters:**
+- `name`: Command name string, or `[name, ...aliases]` array for aliases
+- `program`: A Padrone program to mount
+
+**Returns:** New builder with the mounted program
+
+---
+
+### .repl(options?)
+
+Start an interactive REPL session. Returns an `AsyncIterable` that yields a result for each executed command. See the [REPL guide](/padrone/guides/repl/) for full details.
+
+```typescript
+for await (const result of program.repl()) {
+  console.log(result.command.name, result.result);
+}
+
+// With options
+for await (const result of program.repl({
+  prompt: 'app> ',
+  scope: 'db',
+  greeting: 'Welcome!',
+})) {
+  // ...
+}
+```
+
+**Parameters:**
+- `options` (optional): REPL preferences
+  - `prompt`: Custom prompt string or function
+  - `greeting`: Welcome message (`false` to suppress)
+  - `hint`: Hint text below greeting (`false` to suppress)
+  - `history`: Initial history entries
+  - `completion`: Enable tab completion (default: `true`)
+  - `spacing`: Output separators (before/after command output)
+  - `outputPrefix`: Prefix for output lines
+  - `scope`: Start scoped to a command path (strongly typed)
+
+**Returns:** `AsyncIterable<PadroneCommandResult>`
+
+---
+
 ### .find(command)
 
 Find a command by name.
@@ -496,10 +611,22 @@ import type {
   AsyncPadroneSchema,
   PadroneCommandConfig,
 
+  // Plugin types
+  PadronePlugin,
+  PluginBaseContext,
+  PluginParseContext,
+  PluginParseResult,
+  PluginValidateContext,
+  PluginValidateResult,
+  PluginExecuteContext,
+  PluginExecuteResult,
+
   // Runtime types
   PadroneRuntime,
   ResolvedPadroneRuntime,
   InteractivePromptConfig,
+  PadroneReplPreferences,
+  PadroneEvalPreferences,
 
   // Type utilities
   MaybePromise,

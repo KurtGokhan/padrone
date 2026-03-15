@@ -133,6 +133,9 @@ You can also run commands programmatically with full type safety:
 // Run a command directly
 program.run('add', { task: 'Buy milk', priority: 'high' });
 
+// Evaluate a command string (soft error handling)
+const result = program.eval('add "Buy eggs" --priority low');
+
 // Generate a typed API
 const api = program.api();
 api.add({ task: 'Buy eggs', priority: 'low' });
@@ -178,5 +181,8 @@ Now running `todo add` with no arguments will prompt for the task description (t
 
 - Learn about [Commands & Arguments](../commands-arguments/) in depth
 - Set up [Interactive Prompting](../interactive-prompting/) for your CLI
+- Start an interactive [REPL session](../repl/)
+- Add [Plugins](../plugins/) to extend command behavior
+- [Compose programs](../composition/) together with mount and override
 - Integrate with [AI tools](../ai-integration/)
 - Explore the [API Reference](../../reference/api/)

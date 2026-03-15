@@ -73,11 +73,47 @@ Automatically prompt users for missing arguments with type-aware prompts. Boolea
 )
 ```
 
+### REPL Mode
+
+Start an interactive session with command history, tab completion, and scoped navigation:
+
+```typescript
+for await (const result of program.repl()) {
+  // Each command yields a result
+}
+```
+
+### Plugin System
+
+Intercept and extend command execution with middleware-style plugins:
+
+```typescript
+program.use({
+  name: 'logger',
+  execute: (ctx, next) => {
+    console.log(`Running: ${ctx.command.name}`);
+    return next();
+  },
+});
+```
+
+### Program Composition
+
+Mount independent programs as subcommands and override existing commands:
+
+```typescript
+const app = createPadrone('app')
+  .mount('admin', adminProgram)
+  .mount('db', dbProgram);
+```
+
 ### Multiple Execution Modes
 
-- **CLI mode**: Parse `process.argv` or a string input
-- **Programmatic mode**: Call commands with typed arguments
-- **API mode**: Generate a typed function interface
+- **CLI mode**: Parse `process.argv` with `cli()`
+- **Eval mode**: Parse and execute strings with soft error handling via `eval()`
+- **Programmatic mode**: Call commands with typed arguments via `run()`
+- **API mode**: Generate a typed function interface via `api()`
+- **REPL mode**: Interactive session with `repl()`
 
 ## Requirements
 

@@ -232,8 +232,9 @@ const result = program.eval('build --target prod');
 
 ## `parse()` and `run()` Behavior
 
-Interactive prompting **only** occurs in `cli()`. The other execution methods behave as follows:
+Interactive prompting occurs in `cli()` and `eval()`. The other execution methods behave as follows:
 
+- **`eval()`** — Parses, validates, and executes with soft error handling. Supports interactive prompting (controllable via `preferences.interactive`).
 - **`parse()`** — Parses and validates without prompting. Missing fields cause validation issues.
 - **`run()`** — Executes with provided arguments directly. No parsing, no prompting.
 - **`api()`** — Same as `run()` — direct programmatic execution.
