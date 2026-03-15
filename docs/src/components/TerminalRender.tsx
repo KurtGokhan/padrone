@@ -1,7 +1,6 @@
-import { useCallback, useMemo } from 'react';
-import 'xterm/css/xterm.css';
 import { tasksProgram } from '@padrone/tasks-example';
-import WasmTerminal from '@wasmer/wasm-terminal';
+import { FitAddon, init, Terminal } from 'ghostty-web';
+import { useCallback, useRef } from 'react';
 
 const terminalTheme = {
   background: '#1a1b26',
@@ -27,83 +26,164 @@ const terminalTheme = {
   brightWhite: '#acb0d0',
 };
 
-export function TerminalRender() {
-  const wasmTerminal = useMemo(
-    () =>
-      new WasmTerminal({
-        fetchCommand: async ({ args }: { args: string[] }) => {
-          const commandName = args[0];
+const PROMPT = '\x1b[32m$\x1b[0m ';
 
-          if (commandName === 'clear') {
-            return () => wasmTerminal.xterm.clear();
-          }
+async function executeCommand(input: string): Promise<string> {
+  const args = input.trim().split(/\s+/);
+  const commandName = args[0];
 
-          if (commandName === 'tasks') {
-            return async (args: any) => {
-              const output: string[] = [];
-              const originalLog = console.log;
-              const originalError = console.error;
-              const originalWarn = console.warn;
+  if (!commandName) return '';
 
-              console.log = (...args) => output.push(args.map(String).join(' '));
-              console.error = (...args) => output.push(args.map(String).join(' '));
-              console.warn = (...args) => output.push(args.map(String).join(' '));
+  if (commandName === 'clear') return '\x1b[CLEAR]';
 
-              try {
-                const result = await tasksProgram.cli(args.args.join(' '));
-                const consoleOutput = output.join('\n');
-                return consoleOutput + (result.result ? (consoleOutput ? '\n' : '') + result.result : '');
-              } finally {
-                console.log = originalLog;
-                console.error = originalError;
-                console.warn = originalWarn;
-              }
-            };
-          }
+  if (commandName === 'tasks') {
+    const output: string[] = [];
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
 
-          if (commandName === 'test') {
-            const callbackCommand = async (args: any, wasmFs: any) => {
-              return `Test Working! Arguments: ${JSON.stringify(args, null, 2)}, fs: ${JSON.stringify(wasmFs, null, 2)}`;
-            };
-            return callbackCommand;
-          }
+    console.log = (...a) => output.push(a.map(String).join(' '));
+    console.error = (...a) => output.push(a.map(String).join(' '));
+    console.warn = (...a) => output.push(a.map(String).join(' '));
 
-          return () => {
-            return `Command not found: ${commandName}`;
-          };
-          // const wasmBinary = await fetchCommandFromWAPM({ args });
-          // return await lowerI64Imports(wasmBinary);
-        },
-      }),
-    [],
-  );
+    try {
+      const result = await tasksProgram.eval(args.slice(1).join(' '));
+      const consoleOutput = output.join('\n');
+      return consoleOutput + (result.result ? (consoleOutput ? '\n' : '') + result.result : '');
+    } finally {
+      console.log = originalLog;
+      console.error = originalError;
+      console.warn = originalWarn;
+    }
+  }
 
-  const ref = useCallback(
-    (el: HTMLDivElement | null) => {
-      if (!el) return;
+  return `Command not found: ${commandName}`;
+}
 
-      wasmTerminal.print('Welcome to Padrone terminal!\n');
-      wasmTerminal.print('To try Padrone, type: tasks list\n\n');
+async function initTerminal(el: HTMLDivElement) {
+  await init();
 
-      if (typeof window !== 'undefined') {
-        window.process = {
-          env: {},
-          stdout: { isTTY: true },
-        } as any;
+  const term = new Terminal({
+    fontSize: 14,
+    cursorBlink: true,
+    cursorStyle: 'bar',
+    scrollback: 10000,
+    fontFamily: 'Monaco, Menlo, "Courier New", monospace',
+    theme: terminalTheme,
+  });
+
+  const fitAddon = new FitAddon();
+  term.loadAddon(fitAddon);
+
+  term.open(el);
+  fitAddon.fit();
+  fitAddon.observeResize();
+  term.focus();
+
+  window.addEventListener('resize', () => fitAddon.fit());
+
+  // Ghostty renders an absolutely-positioned textarea for input capture.
+  // Ensure the container is the positioning ancestor so it stays inside the terminal.
+  el.style.position = 'relative';
+  el.style.caretColor = 'transparent';
+  const textarea = el.querySelector('textarea');
+  if (textarea) {
+    textarea.style.pointerEvents = 'none';
+    textarea.style.caretColor = 'transparent';
+  }
+
+  let currentLine = '';
+  let busy = false;
+  const history: string[] = [];
+  let historyIndex = -1;
+
+  function writePrompt() {
+    term.write(PROMPT);
+  }
+
+  term.writeln('Welcome to Padrone terminal!');
+  term.writeln('To try Padrone, type: tasks list\r\n');
+  writePrompt();
+
+  term.onData((data: string) => {
+    if (busy) return;
+
+    if (data === '\r') {
+      term.write('\r\n');
+      const input = currentLine;
+      if (input.trim()) history.push(input.trim());
+      historyIndex = -1;
+      currentLine = '';
+      if (!input.trim()) {
+        writePrompt();
+        return;
       }
+      busy = true;
+      executeCommand(input).then((output) => {
+        if (output === '\x1b[CLEAR]') {
+          term.clear();
+        } else if (output) {
+          term.writeln(output.replace(/\n/g, '\r\n'));
+        }
+        busy = false;
+        writePrompt();
+      });
+    } else if (data === '\x7f') {
+      if (currentLine.length > 0) {
+        currentLine = currentLine.slice(0, -1);
+        term.write('\b \b');
+      }
+    } else if (data === '\x03') {
+      currentLine = '';
+      term.write('^C\r\n');
+      writePrompt();
+    } else if (data === '\x1b[A') {
+      if (history.length > 0) {
+        if (historyIndex === -1) historyIndex = history.length;
+        if (historyIndex > 0) {
+          historyIndex--;
+          term.write('\r\x1b[K');
+          writePrompt();
+          currentLine = history[historyIndex]!;
+          term.write(currentLine);
+        }
+      }
+    } else if (data === '\x1b[B') {
+      if (historyIndex !== -1) {
+        historyIndex++;
+        term.write('\r\x1b[K');
+        writePrompt();
+        if (historyIndex < history.length) {
+          currentLine = history[historyIndex]!;
+          term.write(currentLine);
+        } else {
+          historyIndex = -1;
+          currentLine = '';
+        }
+      }
+    } else if (data >= ' ') {
+      currentLine += data;
+      term.write(data);
+    }
+  });
+}
 
-      wasmTerminal.wasmTty.xterm.options ??= {};
-      wasmTerminal.wasmTty.xterm.options.theme = terminalTheme;
-      wasmTerminal.wasmTty.xterm.options.fontSize = 14;
-      wasmTerminal.wasmTty.xterm.options.lineHeight = 1.4;
-      wasmTerminal.wasmTty.xterm.options.cursorBlink = true;
-      wasmTerminal.wasmTty.xterm.options.cursorStyle = 'bar';
-      wasmTerminal.open(el);
-      wasmTerminal.fit();
-      wasmTerminal.xterm.focus({ preventScroll: true });
-    },
-    [wasmTerminal],
-  );
+export function TerminalRender() {
+  const initialized = useRef(false);
+
+  const ref = useCallback((el: HTMLDivElement | null) => {
+    if (!el || initialized.current) return;
+    initialized.current = true;
+
+    if (typeof window !== 'undefined') {
+      window.process = {
+        env: {},
+        stdout: { isTTY: true },
+      } as any;
+    }
+
+    void initTerminal(el);
+  }, []);
 
   return (
     <div className="not-content scheme-dark w-full rounded-xl overflow-hidden shadow-2xl border border-[#2a2b3d]">
