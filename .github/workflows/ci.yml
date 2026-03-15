@@ -16,4 +16,4 @@ jobs:
       - run: bun i
       - run: bun check
       - run: bun run test
-      - run: bun types
+      - run: bun typecheck

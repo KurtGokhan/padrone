@@ -26,7 +26,7 @@ bun run test                 # Run all tests
 bun run check            # Lint + format check (biome)
 bun run lint             # Lint only
 bun run format           # Format only
-bun run types            # Type checking (uses tsgo - TypeScript native preview)
+bun run typecheck        # Type checking (uses tsgo - TypeScript native preview)
 bun run build            # Build packages (uses tsdown)
 
 bun run checks           # Run all checks: lint, test, types
@@ -55,7 +55,7 @@ The CI runs these checks in order:
 1. `bun i` - Install dependencies
 2. `bun check` - Biome lint + format
 3. `bun run test` - Run tests
-4. `bun types` - TypeScript type checking
+4. `bun typecheck` - TypeScript type checking
 
 ## Code Style Guidelines
 

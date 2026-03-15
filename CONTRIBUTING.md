@@ -47,7 +47,7 @@ padrone/
 ```bash
 bun run test          # Run tests
 bun run check         # Lint and format check
-bun run types         # Type checking
+bun run typecheck     # Type checking
 bun run checks        # All of the above
 ```
 
