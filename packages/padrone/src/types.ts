@@ -4,6 +4,7 @@ import type { PadroneArgsSchemaMeta } from './args.ts';
 import type { HelpPreferences } from './help.ts';
 import type { PadroneRuntime, ResolvedPadroneRuntime } from './runtime.ts';
 import type {
+  FindDirectChild,
   FlattenCommands,
   FullCommandName,
   IsGeneric,
@@ -13,6 +14,7 @@ import type {
   PickCommandByName,
   PickCommandByPossibleCommands,
   PossibleCommands,
+  ReplaceOrAppendCommand,
   SafeString,
 } from './type-utils.ts';
 import type { WrapConfig, WrapResult } from './wrap.ts';
@@ -47,6 +49,97 @@ type WithAliases<TCommand extends AnyPadroneCommand, TAliases extends string[]> 
   aliases?: TAliases;
   '~types': Omit<TCommand['~types'], 'aliases'> & { aliases: TAliases };
 };
+
+/**
+ * Resolves aliases for a command override: if new aliases are provided (non-empty), use them;
+ * otherwise, preserve the existing command's aliases.
+ */
+type ResolvedAliases<
+  TCommands extends [...AnyPadroneCommand[]],
+  TNameNested extends string,
+  TAliases extends string[],
+> = TAliases extends []
+  ? FindDirectChild<TCommands, TNameNested> extends infer E extends AnyPadroneCommand
+    ? E['~types']['aliases']
+    : []
+  : TAliases;
+
+/**
+ * Resolves the initial builder type for a `.command()` call.
+ * If TNameNested already exists in TCommands, the builder starts pre-populated with that command's types.
+ * Otherwise, a fresh builder with default types is used.
+ */
+type InitialCommandBuilder<
+  TProgramName extends string,
+  TNameNested extends string,
+  TParentPath extends string,
+  TParentArgs extends PadroneSchema,
+  TCommands extends [...AnyPadroneCommand[]],
+> = [FindDirectChild<TCommands, TNameNested>] extends [never]
+  ? PadroneBuilder<
+      TProgramName,
+      TNameNested,
+      TParentPath,
+      PadroneSchema<void>,
+      void,
+      [],
+      TParentArgs,
+      PadroneSchema<void>,
+      PadroneSchema<void>,
+      false
+    >
+  : FindDirectChild<TCommands, TNameNested> extends infer E extends AnyPadroneCommand
+    ? PadroneBuilder<
+        TProgramName,
+        TNameNested,
+        TParentPath,
+        E['~types']['args'],
+        E['~types']['result'],
+        E['~types']['commands'],
+        TParentArgs,
+        E['~types']['config'],
+        E['~types']['env'],
+        E['~types']['async']
+      >
+    : PadroneBuilder<
+        TProgramName,
+        TNameNested,
+        TParentPath,
+        PadroneSchema<void>,
+        void,
+        [],
+        TParentArgs,
+        PadroneSchema<void>,
+        PadroneSchema<void>,
+        false
+      >;
+
+/**
+ * Like InitialCommandBuilder but uses `any` for args/config/env in the fresh case.
+ * Used as the default for TBuilder when no builderFn is provided.
+ */
+type DefaultCommandBuilder<
+  TProgramName extends string,
+  TNameNested extends string,
+  TParentPath extends string,
+  TParentArgs extends PadroneSchema,
+  TCommands extends [...AnyPadroneCommand[]],
+> = [FindDirectChild<TCommands, TNameNested>] extends [never]
+  ? PadroneBuilder<TProgramName, TNameNested, TParentPath, any, void, [], TParentArgs, any, any, false>
+  : FindDirectChild<TCommands, TNameNested> extends infer E extends AnyPadroneCommand
+    ? PadroneBuilder<
+        TProgramName,
+        TNameNested,
+        TParentPath,
+        E['~types']['args'],
+        E['~types']['result'],
+        E['~types']['commands'],
+        TParentArgs,
+        E['~types']['config'],
+        E['~types']['env'],
+        E['~types']['async']
+      >
+    : PadroneBuilder<TProgramName, TNameNested, TParentPath, any, void, [], TParentArgs, any, any, false>;
 
 export type PadroneCommand<
   TName extends string = string,
@@ -93,10 +186,13 @@ export type PadroneCommand<
     parentName: TParentName;
     path: FullCommandName<TName, TParentName>;
     aliases: TAliases;
+    args: TArgs;
     argumentsInput: StandardSchemaV1.InferInput<TArgs>;
     argumentsOutput: StandardSchemaV1.InferOutput<TArgs>;
     result: TRes;
     commands: TCommands;
+    config: TConfig;
+    env: TEnv;
     async: TAsync;
   };
 };
@@ -327,9 +423,14 @@ export type PadroneBuilderMethods<
 
   /**
    * Defines the handler function to be executed when the command is run.
+   * When overriding an existing command, the previous handler is passed as the third `base` parameter.
    */
   action: <TNewRes>(
-    handler?: (args: StandardSchemaV1.InferOutput<TArgs>, runtime: ResolvedPadroneRuntime) => TNewRes,
+    handler?: (
+      args: StandardSchemaV1.InferOutput<TArgs>,
+      runtime: ResolvedPadroneRuntime,
+      base: (args: StandardSchemaV1.InferOutput<TArgs>, runtime: ResolvedPadroneRuntime) => TRes,
+    ) => TNewRes,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TNewRes, TCommands, TParentArgs, TConfig, TEnv, TAsync>;
 
   /**
@@ -405,12 +506,24 @@ export type PadroneBuilderMethods<
   >;
 
   /**
-   * Creates a nested command within the current command with the given name and builder function.
-   * The name can be a single string or a tuple of [name, ...aliases] where additional strings are aliases.
+   * Creates or extends a nested command within the current command.
+   * If a command with the same name already exists, it is extended:
+   * - Configuration is merged (new values override old).
+   * - The builder callback receives a builder pre-populated with the existing command's state.
+   * - `.action()` receives the previous handler as the third `base` parameter.
+   * - `.arguments()` callback receives the existing schema as its parameter.
+   * - Subcommands are recursively merged by name.
+   *
    * @example
    * ```ts
-   * // Single name
+   * // Fresh command
    * .command('list', (c) => c.action(() => 'list'))
+   *
+   * // Override — extend an existing command
+   * .command('list', (c) => c.action((args, runtime, base) => {
+   *   const original = base(args, runtime);
+   *   return `modified: ${original}`;
+   * }))
    *
    * // Name with aliases
    * .command(['list', 'ls', 'l'], (c) => c.action(() => 'list'))
@@ -419,33 +532,17 @@ export type PadroneBuilderMethods<
   command: <
     TNameNested extends string,
     TAliases extends string[] = [],
-    TBuilder extends CommandTypesBase = PadroneBuilder<
+    TBuilder extends CommandTypesBase = DefaultCommandBuilder<
       TProgramName,
       TNameNested,
       FullCommandName<TName, TParentName>,
-      any,
-      void,
-      [],
       TArgs,
-      any,
-      any,
-      false
+      TCommands
     >,
   >(
     name: TNameNested | readonly [TNameNested, ...TAliases],
     builderFn?: (
-      builder: PadroneBuilder<
-        TProgramName,
-        TNameNested,
-        FullCommandName<TName, TParentName>,
-        PadroneSchema<void>,
-        void,
-        [],
-        TArgs,
-        PadroneSchema<void>,
-        PadroneSchema<void>,
-        false
-      >,
+      builder: InitialCommandBuilder<TProgramName, TNameNested, FullCommandName<TName, TParentName>, TArgs, TCommands>,
     ) => TBuilder,
   ) => BuilderOrProgram<
     TReturn,
@@ -458,7 +555,11 @@ export type PadroneBuilderMethods<
       ? [WithAliases<TBuilder['~types']['command'], TAliases>]
       : AnyPadroneCommand[] extends TCommands
         ? [WithAliases<TBuilder['~types']['command'], TAliases>]
-        : [...TCommands, WithAliases<TBuilder['~types']['command'], TAliases>],
+        : ReplaceOrAppendCommand<
+            TCommands,
+            TNameNested,
+            WithAliases<TBuilder['~types']['command'], ResolvedAliases<TCommands, TNameNested, TAliases>>
+          >,
     TParentArgs,
     TConfig,
     TEnv,

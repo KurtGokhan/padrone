@@ -36,6 +36,52 @@ const commandSymbol = Symbol('padrone_command');
 
 const noop = <TRes>() => undefined as TRes;
 
+/** Config keys that are merged when overriding a command. */
+const configKeys = ['title', 'description', 'version', 'deprecated', 'hidden', 'needsApproval'] as const;
+
+/**
+ * Merges an existing command with an override.
+ * - Config fields are shallow-merged (new overrides old).
+ * - Handler, arguments, meta, config schema, env schema are taken from the override if set.
+ * - Subcommands are recursively merged by name.
+ */
+function mergeCommands(existing: AnyPadroneCommand, override: AnyPadroneCommand): AnyPadroneCommand {
+  const merged: AnyPadroneCommand = { ...existing };
+
+  // Merge config fields
+  for (const key of configKeys) {
+    if (override[key] !== undefined) (merged as any)[key] = override[key];
+  }
+
+  // Override fields: take from override if explicitly set (not inherited from existing via spread)
+  if (override.handler !== existing.handler) merged.handler = override.handler;
+  if (override.arguments !== existing.arguments) merged.arguments = override.arguments;
+  if (override.meta !== existing.meta) merged.meta = override.meta;
+  if (override.config !== existing.config) merged.config = override.config;
+  if (override.envSchema !== existing.envSchema) merged.envSchema = override.envSchema;
+  if (override.configFiles !== existing.configFiles) merged.configFiles = override.configFiles;
+  if (override.isAsync !== existing.isAsync) merged.isAsync = override.isAsync || existing.isAsync;
+  if (override.runtime !== existing.runtime) merged.runtime = override.runtime;
+  if (override.plugins !== existing.plugins) merged.plugins = override.plugins;
+  if (override.aliases !== existing.aliases) merged.aliases = override.aliases;
+
+  // Recursively merge subcommands by name
+  if (override.commands) {
+    const baseCommands = [...(existing.commands || [])];
+    for (const overrideChild of override.commands) {
+      const existingIndex = baseCommands.findIndex((c) => c.name === overrideChild.name);
+      if (existingIndex >= 0) {
+        baseCommands[existingIndex] = mergeCommands(baseCommands[existingIndex]!, overrideChild);
+      } else {
+        baseCommands.push(overrideChild);
+      }
+    }
+    merged.commands = baseCommands;
+  }
+
+  return merged;
+}
+
 /**
  * Maps over a value that may or may not be a Promise.
  * If the value is a Promise, chains with `.then()`. Otherwise, calls the function synchronously.
@@ -1385,7 +1431,11 @@ ${helpText}
       return createPadroneBuilder({ ...existingCommand, envSchema: resolvedEnv as any, isAsync }) as any;
     },
     action(handler = noop) {
-      return createPadroneBuilder({ ...existingCommand, handler }) as any;
+      const baseHandler = existingCommand.handler ?? noop;
+      return createPadroneBuilder({
+        ...existingCommand,
+        handler: (args: any, runtime: any) => (handler as any)(args, runtime, baseHandler),
+      }) as any;
     },
     wrap(config) {
       const handler = createWrapHandler(config, existingCommand.arguments as any, existingCommand.meta?.positional);
@@ -1396,18 +1446,36 @@ ${helpText}
       const name = Array.isArray(nameOrNames) ? nameOrNames[0] : nameOrNames;
       const aliases = Array.isArray(nameOrNames) && nameOrNames.length > 1 ? (nameOrNames.slice(1) as string[]) : undefined;
 
-      const initialCommand = {
-        name,
-        path: existingCommand.path ? `${existingCommand.path} ${name}` : name,
-        aliases,
-        parent: existingCommand,
-        '~types': {} as any,
-      } satisfies PadroneCommand;
+      // Check if a command with this name already exists (override case)
+      const existingSubcommand = existingCommand.commands?.find((c) => c.name === name) as AnyPadroneCommand | undefined;
+
+      const initialCommand: AnyPadroneCommand = existingSubcommand
+        ? { ...existingSubcommand, aliases: aliases ?? existingSubcommand.aliases, parent: existingCommand }
+        : ({
+            name,
+            path: existingCommand.path ? `${existingCommand.path} ${name}` : name,
+            aliases,
+            parent: existingCommand,
+            '~types': {} as any,
+          } satisfies PadroneCommand);
+
       const builder = createPadroneBuilder(initialCommand);
 
       const commandObj =
         ((builderFn?.(builder as any) as unknown as typeof builder)?.[commandSymbol] as AnyPadroneCommand) ?? initialCommand;
-      return createPadroneBuilder({ ...existingCommand, commands: [...(existingCommand.commands || []), commandObj] }) as any;
+
+      // Merge subcommands when overriding: existing subcommands that aren't replaced are kept
+      const mergedCommandObj = existingSubcommand ? mergeCommands(existingSubcommand, commandObj) : commandObj;
+
+      // Replace existing command or append new one
+      const commands = existingCommand.commands || [];
+      const existingIndex = commands.findIndex((c) => c.name === name);
+      const updatedCommands =
+        existingIndex >= 0
+          ? [...commands.slice(0, existingIndex), mergedCommandObj, ...commands.slice(existingIndex + 1)]
+          : [...commands, mergedCommandObj];
+
+      return createPadroneBuilder({ ...existingCommand, commands: updatedCommands }) as any;
     },
 
     use(plugin: PadronePlugin) {

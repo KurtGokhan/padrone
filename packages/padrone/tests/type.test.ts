@@ -190,6 +190,113 @@ describe.skip('Types - Interactive', () => {
   expectTypeOf(bothCli).toMatchTypeOf<Promise<any>>();
 });
 
+/** This test verifies that command override/extension types work correctly */
+describe.skip('Types - Command override', () => {
+  // Override builder receives existing command's args type
+  const program = createPadrone('test')
+    .command('greet', (c) =>
+      c
+        .arguments(z.object({ name: z.string(), loud: z.boolean().default(false) }), { positional: ['name'] })
+        .action((args) => `hello ${args.name}`),
+    )
+    .command('other', (c) => c.action(() => 42 as const));
+
+  // Override preserves existing args when no new .arguments() is called
+  const overridden = program.command('greet', (c) => {
+    return c.action((args) => {
+      // args should have the original type: { name: string; loud: boolean }
+      expectTypeOf(args).toEqualTypeOf<{ name: string; loud: boolean }>();
+      return args.name.length;
+    });
+  });
+
+  // Override result type replaces original
+  const overriddenResult = overridden.eval('greet World');
+  expectTypeOf(overriddenResult.result).toEqualTypeOf<number>();
+
+  // base parameter in action has original handler's return type
+  program.command('greet', (c) =>
+    c.action((args, runtime, base) => {
+      const original = base(args, runtime);
+      expectTypeOf(original).toEqualTypeOf<string>();
+      return { original, modified: true };
+    }),
+  );
+
+  // base is typed as noop (returning void) for commands without an existing action
+  createPadrone('test')
+    .command('empty', (c) => c.configure({ title: 'Empty' }))
+    .command('empty', (c) =>
+      c.action((_args, _runtime, base) => {
+        const result = base(_args, _runtime);
+        expectTypeOf(result).toEqualTypeOf<void>();
+        return 'filled';
+      }),
+    );
+
+  // Override with new arguments changes args type
+  program.command('greet', (c) =>
+    c.arguments(z.object({ firstName: z.string(), lastName: z.string() })).action((args) => {
+      expectTypeOf(args).toEqualTypeOf<{ firstName: string; lastName: string }>();
+      return `${args.firstName} ${args.lastName}`;
+    }),
+  );
+
+  // Other commands remain unaffected
+  const otherResult = overridden.eval('other');
+  expectTypeOf(otherResult.result).toEqualTypeOf<42>();
+
+  // Override preserves aliases in eval/parse type resolution
+  const withAliases = createPadrone('test')
+    .command(['greet', 'g', 'hi'], (c) => c.action(() => 'hello' as const))
+    .command('greet', (c) => c.action(() => 'hello v2' as const));
+
+  const aliasResult = withAliases.eval('g');
+  expectTypeOf(aliasResult.result).toEqualTypeOf<'hello v2'>();
+
+  const aliasResult2 = withAliases.eval('hi');
+  expectTypeOf(aliasResult2.result).toEqualTypeOf<'hello v2'>();
+
+  // Command count doesn't grow — override replaces, not appends
+  type OverriddenCommands = (typeof overridden)['~types']['commands'];
+  // Should still have exactly 2 commands: [greet, other]
+  expectTypeOf<OverriddenCommands['length']>().toEqualTypeOf<2>();
+
+  // Chained overrides compose correctly
+  const chained = createPadrone('test')
+    .command('foo', (c) => c.action(() => 'v1' as const))
+    .command('foo', (c) =>
+      c.action((_a, _r, base) => {
+        expectTypeOf(base(_a, _r)).toEqualTypeOf<'v1'>();
+        return 'v2' as const;
+      }),
+    )
+    .command('foo', (c) =>
+      c.action((_a, _r, base) => {
+        expectTypeOf(base(_a, _r)).toEqualTypeOf<'v2'>();
+        return 'v3' as const;
+      }),
+    );
+  expectTypeOf(chained.eval('foo').result).toEqualTypeOf<'v3'>();
+
+  // Override with subcommands: builder sees existing subcommands
+  const withSubs = createPadrone('test')
+    .command('db', (c) =>
+      c.command('migrate', (s) => s.action(() => 'migrated' as const)).command('seed', (s) => s.action(() => 'seeded' as const)),
+    )
+    .command('db', (c) =>
+      c.command('migrate', (s) =>
+        s.action((_a, _r, base) => {
+          expectTypeOf(base(_a, _r)).toEqualTypeOf<'migrated'>();
+          return 'migrated-v2' as const;
+        }),
+      ),
+    );
+
+  expectTypeOf(withSubs.eval('db migrate').result).toEqualTypeOf<'migrated-v2'>();
+  expectTypeOf(withSubs.eval('db seed').result).toEqualTypeOf<'seeded'>();
+});
+
 /** This test verifies that async commands return Promises and sync commands don't */
 describe.skip('Types - Async', () => {
   const syncSchema = z.object({ name: z.string() });

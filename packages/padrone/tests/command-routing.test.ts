@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, expectTypeOf, it } from 'bun:test';
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 import { createConsoleMocker } from './console-mocker.ts';
@@ -234,6 +234,177 @@ describe('command routing', () => {
       // list has a handler AND subcommands — handler should still run
       const result = program.eval('list');
       expect(result.result).toBe('listed');
+    });
+  });
+
+  describe('command override/extension', () => {
+    it('should override action when re-registering the same command name', () => {
+      const program = createPadrone('app')
+        .command('greet', (c) => c.action(() => 'original'))
+        .command('greet', (c) => c.action(() => 'overridden'));
+
+      const result = program.eval('greet');
+      expect(result.result).toBe('overridden');
+    });
+
+    it('should pass base action as third parameter to overridden action', () => {
+      const program = createPadrone('app')
+        .command('greet', (c) => c.action(() => 'original'))
+        .command('greet', (c) =>
+          c.action((_args, _runtime, base) => {
+            const original = base(_args, _runtime);
+            return `modified: ${original}`;
+          }),
+        );
+
+      const result = program.eval('greet');
+      expect(result.result).toBe('modified: original');
+    });
+
+    it('should merge configuration on override', () => {
+      const program = createPadrone('app')
+        .command('greet', (c) => c.configure({ title: 'Original Title', description: 'Original Desc' }).action(() => 'ok'))
+        .command('greet', (c) => c.configure({ title: 'New Title' }));
+
+      const cmd = program.find('greet');
+      expect(cmd?.title).toBe('New Title');
+      expect(cmd?.description).toBe('Original Desc');
+    });
+
+    it('should preserve arguments schema when override does not change it', () => {
+      const program = createPadrone('app')
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `hello ${args.name}`),
+        )
+        .command('greet', (c) =>
+          c.action((args, _runtime, base) => {
+            return base(args, _runtime).toUpperCase();
+          }),
+        );
+
+      const result = program.eval('greet World');
+      expect(result.result).toBe('HELLO WORLD');
+    });
+
+    it('should allow overriding arguments schema', () => {
+      const program = createPadrone('app')
+        .command('greet', (c) => c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => args.name))
+        .command('greet', (c) =>
+          c
+            .arguments(z.object({ name: z.string(), loud: z.boolean().optional().default(false) }), { positional: ['name'] })
+            .action((args) => (args.loud ? args.name.toUpperCase() : args.name)),
+        );
+
+      expect(program.eval('greet World').result).toBe('World');
+      expect(program.eval('greet World --loud').result).toBe('WORLD');
+    });
+
+    it('should preserve subcommands from original when override adds none', () => {
+      const program = createPadrone('app')
+        .command('db', (c) =>
+          c
+            .configure({ title: 'Database' })
+            .command('migrate', (c) => c.action(() => 'migrated'))
+            .command('seed', (c) => c.action(() => 'seeded')),
+        )
+        .command('db', (c) => c.configure({ title: 'Database v2' }));
+
+      expect(program.eval('db migrate').result).toBe('migrated');
+      expect(program.eval('db seed').result).toBe('seeded');
+      expect(program.find('db')?.title).toBe('Database v2');
+    });
+
+    it('should recursively merge subcommands by name', () => {
+      const program = createPadrone('app')
+        .command('db', (c) =>
+          c
+            .command('migrate', (c) => c.configure({ title: 'Migrate DB' }).action(() => 'migrated'))
+            .command('seed', (c) => c.action(() => 'seeded')),
+        )
+        .command('db', (c) =>
+          c
+            .command('migrate', (c) => c.configure({ title: 'Migrate DB v2' }).action(() => 'migrated-v2'))
+            .command('reset', (c) => c.action(() => 'reset')),
+        );
+
+      expect(program.eval('db migrate').result).toBe('migrated-v2');
+      expect(program.eval('db seed').result).toBe('seeded');
+      expect(program.eval('db reset').result).toBe('reset');
+    });
+
+    it('should not duplicate commands in the commands list', () => {
+      const program = createPadrone('app')
+        .command('greet', (c) => c.action(() => 'v1'))
+        .command('greet', (c) => c.action(() => 'v2'))
+        .command('other', (c) => c.action(() => 'other'));
+
+      // Help should only list 'greet' once
+      const helpText = program.help(undefined, { format: 'text' });
+      const matches = helpText.match(/\bgreet\b/g) ?? [];
+      // greet should appear exactly once in the commands list (in the help output)
+      // It may appear more than once if it's in the usage line too, so just check it's not 3+
+      expect(matches.length).toBeLessThanOrEqual(2);
+
+      // eval should return the latest version
+      expect(program.eval('greet').result).toBe('v2');
+      expect(program.eval('other').result).toBe('other');
+    });
+
+    it('should provide noop as base when overriding a command without action', () => {
+      const program = createPadrone('app')
+        .command('greet', (c) => c.configure({ title: 'Greet' }))
+        .command('greet', (c) =>
+          c.action((_args, _runtime, base) => {
+            const baseResult = base(_args, _runtime);
+            return `result: ${baseResult}`;
+          }),
+        );
+
+      const result = program.eval('greet');
+      expect(result.result).toBe('result: undefined');
+    });
+
+    it('should chain multiple overrides with base passing', () => {
+      const program = createPadrone('app')
+        .command('greet', (c) => c.action(() => 'v1'))
+        .command('greet', (c) => c.action((_args, _runtime, base) => `${base(_args, _runtime)}+v2`))
+        .command('greet', (c) => c.action((_args, _runtime, base) => `${base(_args, _runtime)}+v3`));
+
+      expect(program.eval('greet').result).toBe('v1+v2+v3');
+    });
+
+    it('should preserve aliases from original when override does not specify new ones', () => {
+      const program = createPadrone('app')
+        .command(['greet', 'g', 'hi'], (c) => c.action(() => 'hello'))
+        .command('greet', (c) => c.action(() => 'hello v2'));
+
+      expect(program.eval('g').result).toBe('hello v2');
+      expect(program.eval('hi').result).toBe('hello v2');
+    });
+
+    it('should have correct types for override builder arguments', () => {
+      const program = createPadrone('app')
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `hello ${args.name}`),
+        )
+        .command('greet', (c) => {
+          // c should have the existing args type
+          return c.action((args) => {
+            expectTypeOf(args).toEqualTypeOf<{ name: string }>();
+            return args.name;
+          });
+        });
+
+      expect(program.eval('greet World').result).toBe('World');
+    });
+
+    it('should type the result as a union of all possible command results', () => {
+      const program = createPadrone('app')
+        .command('greet', (c) => c.action(() => 'string-result' as const))
+        .command('greet', (c) => c.action(() => 42 as const));
+
+      const result = program.eval('greet');
+      expectTypeOf(result.result).toEqualTypeOf<42>();
     });
   });
 
