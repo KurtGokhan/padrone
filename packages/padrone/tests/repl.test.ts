@@ -918,18 +918,19 @@ describe('REPL', () => {
       expect(results[0]!.result).toBe('db-root');
     });
 
-    it('should error when using bare dot at root scope', async () => {
-      const errors: string[] = [];
+    it('should execute root command when using bare dot at root scope', async () => {
+      const results: unknown[] = [];
       const readLine = mockReadLine(['.', null]);
       const program = createPadrone('test')
-        .runtime({ readLine, output: () => {}, error: (msg) => errors.push(msg) })
+        .runtime({ readLine, output: () => {}, error: () => {} })
+        .action(() => 'root-result')
         .command('greet', (c) => c.action(() => 'hi'));
 
-      for await (const _ of program.repl({ greeting: false, hint: false })) {
-        // consume
+      for await (const result of program.repl({ greeting: false, hint: false })) {
+        results.push(result.result);
       }
 
-      expect(errors.some((e) => e.includes('Not in a scope'))).toBe(true);
+      expect(results).toContain('root-result');
     });
   });
 

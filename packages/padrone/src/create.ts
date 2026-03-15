@@ -477,9 +477,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       }
     }
 
-    // If still at root with no unmatched terms, check for default '' command
-    if (curCommand === existingCommand && unmatchedTerms.length === 0 && terms.length === 0) {
-      const defaultCommand = findCommandByName('', existingCommand.commands);
+    // If no unmatched terms remain, check for a default '' subcommand.
+    // This handles both the root level (no input) and nested commands (e.g., "advanced" with a '' subcommand).
+    if (unmatchedTerms.length === 0 && curCommand.commands?.length) {
+      const defaultCommand = findCommandByName('', curCommand.commands);
       if (defaultCommand) {
         curCommand = defaultCommand;
       }
@@ -1562,18 +1563,16 @@ ${helpText}
               continue;
             }
             if (trimmed === '.help') {
-              const inScope = scopeStack.length > 0;
               const lines = [
                 'REPL Commands:',
-                '  .help           Print this help message',
-                '  .exit           Exit the REPL',
-                '  .clear          Clear the screen',
-                '  .history        Show command history',
+                '  .                 Execute the current scoped command',
+                '  .help             Print this help message',
+                '  .exit             Exit the REPL',
+                '  .clear            Clear the screen',
+                '  .history          Show command history',
+                '  .scope <cmd>      Scope into a subcommand',
+                '  .scope ..         Go up one scope level',
               ];
-              if (getScopeCommand().commands?.some((c) => c.commands?.length) || inScope) {
-                lines.push('  .scope <cmd>    Scope into a subcommand');
-                lines.push('  .scope ..       Go up one scope level');
-              }
               lines.push(
                 '',
                 'Keybindings:',
@@ -1633,13 +1632,9 @@ ${helpText}
               continue;
             }
 
-            // `.` (bare dot) — execute the current scoped command
+            // `.` (bare dot) — execute the current command (scoped or root)
             let evalInput = trimmed;
             if (trimmed === '.') {
-              if (scopeStack.length === 0) {
-                runtime.error('Not in a scope. Use ".scope <command>" to scope into a command first.');
-                continue;
-              }
               evalInput = '';
             }
 

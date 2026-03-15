@@ -4,6 +4,7 @@ import type { PadroneArgsSchemaMeta } from './args.ts';
 import type { HelpPreferences } from './help.ts';
 import type { PadroneRuntime, ResolvedPadroneRuntime } from './runtime.ts';
 import type {
+  FlattenCommands,
   FullCommandName,
   IsGeneric,
   MaybePromise,
@@ -540,7 +541,7 @@ export type PadroneProgram<
    */
   cli: (
     prefs?: PadroneCliPreferences<PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>>,
-  ) => MaybePromise<PadroneCommandResult<PadroneCommand<'', '', TArgs, TRes, TCommands>>, TAsync>;
+  ) => MaybePromise<PadroneCommandResult<FlattenCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>>, TAsync>;
 
   /**
    * Parses CLI input (or the provided input string) into command and arguments without executing anything.
@@ -592,7 +593,7 @@ export type PadroneProgram<
    */
   repl: (
     options?: PadroneReplPreferences<PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>>,
-  ) => AsyncIterable<PadroneCommandResult<PadroneCommand<'', '', TArgs, TRes, TCommands>>>;
+  ) => AsyncIterable<PadroneCommandResult<FlattenCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>>>;
 
   /**
    * Returns a tool definition that can be passed to AI SDK.
