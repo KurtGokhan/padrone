@@ -14,6 +14,7 @@ import type {
   PickCommandByName,
   PickCommandByPossibleCommands,
   PossibleCommands,
+  RepathCommands,
   ReplaceOrAppendCommand,
   SafeString,
 } from './type-utils.ts';
@@ -559,6 +560,103 @@ export type PadroneBuilderMethods<
             TCommands,
             TNameNested,
             WithAliases<TBuilder['~types']['command'], ResolvedAliases<TCommands, TNameNested, TAliases>>
+          >,
+    TParentArgs,
+    TConfig,
+    TEnv,
+    TAsync
+  >;
+
+  /**
+   * Mounts an existing Padrone program as a subcommand.
+   * The program's root-level properties (name, path, parent) are replaced to fit the mount point.
+   * All subcommands are recursively re-pathed. Root-level `version` is dropped.
+   *
+   * @example
+   * ```ts
+   * const admin = createPadrone('admin')
+   *   .command('users', (c) => c.action(() => 'users'))
+   *   .command('roles', (c) => c.action(() => 'roles'));
+   *
+   * const app = createPadrone('app')
+   *   .mount('admin', admin)
+   *   // Now: app admin users, app admin roles
+   *
+   * // With aliases
+   * const app2 = createPadrone('app')
+   *   .mount(['admin', 'adm'], admin)
+   * ```
+   */
+  mount: <TNameNested extends string, TAliases extends string[] = [], TProgram extends CommandTypesBase = CommandTypesBase>(
+    name: TNameNested | readonly [TNameNested, ...TAliases],
+    program: TProgram,
+  ) => BuilderOrProgram<
+    TReturn,
+    TProgramName,
+    TName,
+    TParentName,
+    TArgs,
+    TRes,
+    TCommands extends []
+      ? [
+          WithAliases<
+            PadroneCommand<
+              TNameNested,
+              FullCommandName<TName, TParentName>,
+              TProgram['~types']['command']['~types']['args'],
+              TProgram['~types']['command']['~types']['result'],
+              RepathCommands<
+                TProgram['~types']['command']['~types']['commands'],
+                FullCommandName<TNameNested, FullCommandName<TName, TParentName>>
+              >,
+              [],
+              TProgram['~types']['command']['~types']['config'],
+              TProgram['~types']['command']['~types']['env'],
+              TProgram['~types']['command']['~types']['async']
+            >,
+            TAliases
+          >,
+        ]
+      : AnyPadroneCommand[] extends TCommands
+        ? [
+            WithAliases<
+              PadroneCommand<
+                TNameNested,
+                FullCommandName<TName, TParentName>,
+                TProgram['~types']['command']['~types']['args'],
+                TProgram['~types']['command']['~types']['result'],
+                RepathCommands<
+                  TProgram['~types']['command']['~types']['commands'],
+                  FullCommandName<TNameNested, FullCommandName<TName, TParentName>>
+                >,
+                [],
+                TProgram['~types']['command']['~types']['config'],
+                TProgram['~types']['command']['~types']['env'],
+                TProgram['~types']['command']['~types']['async']
+              >,
+              TAliases
+            >,
+          ]
+        : ReplaceOrAppendCommand<
+            TCommands,
+            TNameNested,
+            WithAliases<
+              PadroneCommand<
+                TNameNested,
+                FullCommandName<TName, TParentName>,
+                TProgram['~types']['command']['~types']['args'],
+                TProgram['~types']['command']['~types']['result'],
+                RepathCommands<
+                  TProgram['~types']['command']['~types']['commands'],
+                  FullCommandName<TNameNested, FullCommandName<TName, TParentName>>
+                >,
+                [],
+                TProgram['~types']['command']['~types']['config'],
+                TProgram['~types']['command']['~types']['env'],
+                TProgram['~types']['command']['~types']['async']
+              >,
+              ResolvedAliases<TCommands, TNameNested, TAliases>
+            >
           >,
     TParentArgs,
     TConfig,

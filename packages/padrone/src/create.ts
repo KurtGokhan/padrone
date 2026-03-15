@@ -443,6 +443,26 @@ function warnIfUnexpectedAsync<T>(value: T, command: AnyPadroneCommand): T {
   return value;
 }
 
+/**
+ * Recursively re-paths a command tree under a new parent path, updating parent references.
+ */
+function repathCommandTree(cmd: AnyPadroneCommand, newName: string, parentPath: string, parent: AnyPadroneCommand): AnyPadroneCommand {
+  const newPath = parentPath ? `${parentPath} ${newName}` : newName;
+  const remounted: AnyPadroneCommand = {
+    ...cmd,
+    name: newName,
+    path: newPath,
+    parent,
+    version: undefined,
+  };
+
+  if (cmd.commands?.length) {
+    remounted.commands = cmd.commands.map((child) => repathCommandTree(child, child.name, newPath, remounted));
+  }
+
+  return remounted;
+}
+
 export function createPadrone<TProgramName extends string>(name: TProgramName): PadroneProgram<TProgramName, '', ''> {
   return createPadroneBuilder({ name, path: '', commands: [] } as any) as unknown as PadroneProgram<TProgramName, '', ''>;
 }
@@ -1468,6 +1488,32 @@ ${helpText}
       const mergedCommandObj = existingSubcommand ? mergeCommands(existingSubcommand, commandObj) : commandObj;
 
       // Replace existing command or append new one
+      const commands = existingCommand.commands || [];
+      const existingIndex = commands.findIndex((c) => c.name === name);
+      const updatedCommands =
+        existingIndex >= 0
+          ? [...commands.slice(0, existingIndex), mergedCommandObj, ...commands.slice(existingIndex + 1)]
+          : [...commands, mergedCommandObj];
+
+      return createPadroneBuilder({ ...existingCommand, commands: updatedCommands }) as any;
+    },
+
+    mount(nameOrNames, program) {
+      const name = Array.isArray(nameOrNames) ? nameOrNames[0] : nameOrNames;
+      const aliases = Array.isArray(nameOrNames) && nameOrNames.length > 1 ? (nameOrNames.slice(1) as string[]) : undefined;
+
+      // Extract the underlying command from the program
+      const programCommand = (program as any)[commandSymbol] as AnyPadroneCommand | undefined;
+      if (!programCommand) throw new Error('Cannot mount: not a valid Padrone program');
+
+      // Re-path the command tree under the new name
+      const remounted = repathCommandTree(programCommand, name, existingCommand.path || '', existingCommand);
+      remounted.aliases = aliases;
+
+      // Merge with existing command if one with the same name exists
+      const existingSubcommand = existingCommand.commands?.find((c) => c.name === name) as AnyPadroneCommand | undefined;
+      const mergedCommandObj = existingSubcommand ? mergeCommands(existingSubcommand, remounted) : remounted;
+
       const commands = existingCommand.commands || [];
       const existingIndex = commands.findIndex((c) => c.name === name);
       const updatedCommands =

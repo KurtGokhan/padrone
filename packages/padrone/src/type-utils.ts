@@ -1,4 +1,4 @@
-import type { AnyPadroneCommand } from './types.ts';
+import type { AnyPadroneCommand, PadroneCommand } from './types.ts';
 
 /**
  * Use this type instead of `any` when you intend to fix it later
@@ -216,6 +216,29 @@ type CommandIsUnknownable<TCommand> =
  * This is done by recursively splitting the string by the last space, and then checking if the prefix is a valid command name or alias.
  * This is needed to avoid matching the top-level command when there are nested commands.
  */
+/**
+ * Recursively re-paths a command's children under a new parent path.
+ * Used by `mount()` to update all nested command paths when a program is mounted as a subcommand.
+ */
+export type RepathCommands<TCommands extends [...AnyPadroneCommand[]], TNewParentPath extends string> = TCommands extends [
+  infer First extends AnyPadroneCommand,
+  ...infer Rest extends AnyPadroneCommand[],
+]
+  ? [RepathCommand<First, TNewParentPath>, ...RepathCommands<Rest, TNewParentPath>]
+  : [];
+
+type RepathCommand<TCommand extends AnyPadroneCommand, TNewParentName extends string> = PadroneCommand<
+  TCommand['~types']['name'],
+  TNewParentName,
+  TCommand['~types']['args'],
+  TCommand['~types']['result'],
+  RepathCommands<TCommand['~types']['commands'], FullCommandName<TCommand['~types']['name'], TNewParentName>>,
+  TCommand['~types']['aliases'],
+  TCommand['~types']['config'],
+  TCommand['~types']['env'],
+  TCommand['~types']['async']
+>;
+
 export type PickCommandByPossibleCommands<
   TCommands extends AnyPadroneCommand[],
   TCommand extends PossibleCommands<TCommands, true, true> | SafeString,
