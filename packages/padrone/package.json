@@ -66,8 +66,8 @@
     "enquirer": "^2.4.1"
   },
   "devDependencies": {
-    "ai": "^6.0.64",
-    "tsdown": "^0.20.1",
+    "ai": "^6.0.116",
+    "tsdown": "^0.21.3",
     "zod": "^4.3.6"
   },
   "peerDependencies": {

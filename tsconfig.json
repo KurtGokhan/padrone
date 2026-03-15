@@ -7,6 +7,8 @@
     "moduleDetection": "force",
     "allowJs": true,
 
+    "types": ["bun"],
+
     "moduleResolution": "nodenext",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,

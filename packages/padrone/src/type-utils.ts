@@ -127,11 +127,8 @@ export type FindDirectChild<TCommands extends AnyPadroneCommand[], TName extends
  * Replace a command in a tuple by name, or append if not found.
  * Used by `.command()` override semantics: re-registering a name replaces that entry.
  */
-export type ReplaceOrAppendCommand<
-  TCommands extends [...AnyPadroneCommand[]],
-  TName extends string,
-  TNew extends AnyPadroneCommand,
-> = HasDirectChild<TCommands, TName> extends true ? ReplaceInTuple<TCommands, TName, TNew> : [...TCommands, TNew];
+export type ReplaceOrAppendCommand<TCommands extends [...AnyPadroneCommand[]], TName extends string, TNew extends AnyPadroneCommand> =
+  HasDirectChild<TCommands, TName> extends true ? ReplaceInTuple<TCommands, TName, TNew> : [...TCommands, TNew];
 
 type HasDirectChild<TCommands extends AnyPadroneCommand[], TName extends string> = TCommands extends [
   infer First extends AnyPadroneCommand,
@@ -222,16 +219,17 @@ type CommandIsUnknownable<TCommand> =
 export type PickCommandByPossibleCommands<
   TCommands extends AnyPadroneCommand[],
   TCommand extends PossibleCommands<TCommands, true, true> | SafeString,
-> = CommandIsUnknownable<TCommand> extends true
-  ? FlattenCommands<TCommands>
-  : TCommand extends AnyPadroneCommand
-    ? TCommand
-    : TCommand extends string
-      ? TCommand extends GetCommandPathsOrAliases<TCommands>
-        ? PickCommandByName<TCommands, TCommand>
-        : SplitLastSpace<TCommand> extends [infer Prefix extends string, infer Rest]
-          ? IsNever<Rest> extends true
-            ? PickCommandByName<TCommands, Prefix>
-            : PickCommandByPossibleCommands<TCommands, Prefix>
-          : never
-      : never;
+> =
+  CommandIsUnknownable<TCommand> extends true
+    ? FlattenCommands<TCommands>
+    : TCommand extends AnyPadroneCommand
+      ? TCommand
+      : TCommand extends string
+        ? TCommand extends GetCommandPathsOrAliases<TCommands>
+          ? PickCommandByName<TCommands, TCommand>
+          : SplitLastSpace<TCommand> extends [infer Prefix extends string, infer Rest]
+            ? IsNever<Rest> extends true
+              ? PickCommandByName<TCommands, Prefix>
+              : PickCommandByPossibleCommands<TCommands, Prefix>
+            : never
+        : never;

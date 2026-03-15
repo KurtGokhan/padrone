@@ -1,3 +1,5 @@
+// biome-ignore-all lint/correctness/noUnusedVariables: This file is for testing TypeScript types, so unused variables are intentional.
+
 import { describe, expectTypeOf } from 'bun:test';
 import type { PadroneBuilder, PadroneProgram } from 'padrone';
 import { asyncSchema, createPadrone } from 'padrone';
