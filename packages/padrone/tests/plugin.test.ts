@@ -490,6 +490,463 @@ describe('plugins', () => {
     });
   });
 
+  describe('start phase', () => {
+    it('should run before parse phase', () => {
+      const log: string[] = [];
+
+      const plugin: PadronePlugin = {
+        name: 'lifecycle',
+        start: (_ctx, next) => {
+          log.push('start');
+          return next();
+        },
+        parse: (_ctx, next) => {
+          log.push('parse');
+          return next();
+        },
+        execute: (_ctx, next) => {
+          log.push('execute');
+          return next();
+        },
+      };
+
+      const program = makeProgram().use(plugin);
+      program.eval('greet World');
+
+      expect(log).toEqual(['start', 'parse', 'execute']);
+    });
+
+    it('should provide input and root command in context', () => {
+      let capturedInput: string | undefined;
+      let capturedCommandName: string | undefined;
+
+      const plugin: PadronePlugin = {
+        name: 'start-spy',
+        start: (ctx, next) => {
+          capturedInput = ctx.input;
+          capturedCommandName = ctx.command.name;
+          return next();
+        },
+      };
+
+      const program = makeProgram().use(plugin);
+      program.eval('greet World');
+
+      expect(capturedInput).toBe('greet World');
+      expect(capturedCommandName).toBe('test');
+    });
+
+    it('should allow short-circuiting the pipeline', () => {
+      const log: string[] = [];
+
+      const plugin: PadronePlugin = {
+        name: 'blocker',
+        start: (_ctx, _next) => {
+          log.push('start:blocked');
+          return { command: {}, result: 'blocked' };
+        },
+        parse: (_ctx, next) => {
+          log.push('parse');
+          return next();
+        },
+      };
+
+      const program = makeProgram().use(plugin);
+      const result = program.eval('greet World');
+
+      expect(result.result).toBe('blocked');
+      expect(log).toEqual(['start:blocked']);
+    });
+
+    it('should share state with other phases', () => {
+      const stateLog: Record<string, unknown>[] = [];
+
+      const plugin: PadronePlugin = {
+        name: 'state-test',
+        start: (ctx, next) => {
+          ctx.state.initialized = true;
+          return next();
+        },
+        execute: (ctx, next) => {
+          stateLog.push({ initialized: ctx.state.initialized });
+          return next();
+        },
+      };
+
+      const program = makeProgram().use(plugin);
+      program.eval('greet World');
+
+      expect(stateLog).toEqual([{ initialized: true }]);
+    });
+
+    it('should support async start hooks', async () => {
+      const log: string[] = [];
+
+      const plugin: PadronePlugin = {
+        name: 'async-start',
+        start: async (ctx, next) => {
+          log.push('async-start');
+          const result = await next();
+          log.push('async-start:after');
+          return result;
+        },
+      };
+
+      const program = makeProgram().use(plugin);
+      const result = await program.eval('greet World');
+
+      expect(result.result).toBe('Hello, World!');
+      expect(log).toEqual(['async-start', 'async-start:after']);
+    });
+
+    it('should not run for parse() calls', () => {
+      let startCalled = false;
+
+      const plugin: PadronePlugin = {
+        name: 'start-spy',
+        start: (_ctx, next) => {
+          startCalled = true;
+          return next();
+        },
+      };
+
+      const program = makeProgram().use(plugin);
+      program.parse('greet World');
+
+      expect(startCalled).toBe(false);
+    });
+
+    it('should not run for run() calls', () => {
+      let startCalled = false;
+
+      const plugin: PadronePlugin = {
+        name: 'start-spy',
+        start: (_ctx, next) => {
+          startCalled = true;
+          return next();
+        },
+      };
+
+      const program = makeProgram().use(plugin);
+      program.run('greet', { name: 'World' });
+
+      expect(startCalled).toBe(false);
+    });
+  });
+
+  describe('error phase', () => {
+    it('should catch errors from the pipeline', () => {
+      const errorProgram = createPadrone('test')
+        .command('fail', (c) =>
+          c.action(() => {
+            throw new Error('boom');
+          }),
+        )
+        .use({
+          name: 'error-handler',
+          error: (ctx, next) => {
+            return { error: undefined, result: `caught: ${(ctx.error as Error).message}` };
+          },
+        });
+
+      const result = errorProgram.eval('fail');
+      expect(result.result as string).toBe('caught: boom');
+    });
+
+    it('should allow transforming errors', () => {
+      const errorProgram = createPadrone('test')
+        .command('fail', (c) =>
+          c.action(() => {
+            throw new Error('original');
+          }),
+        )
+        .use({
+          name: 'transformer',
+          error: (ctx, _next) => {
+            return { error: new Error(`transformed: ${(ctx.error as Error).message}`) };
+          },
+        });
+
+      expect(() => errorProgram.eval('fail')).toThrow('transformed: original');
+    });
+
+    it('should pass to next error handler via next()', () => {
+      const log: string[] = [];
+
+      const errorProgram = createPadrone('test')
+        .command('fail', (c) =>
+          c.action(() => {
+            throw new Error('boom');
+          }),
+        )
+        .use({
+          name: 'outer',
+          error: (ctx, next) => {
+            log.push('outer:before');
+            const result = next();
+            log.push('outer:after');
+            return result;
+          },
+        })
+        .use({
+          name: 'inner',
+          error: (_ctx, _next) => {
+            log.push('inner:suppress');
+            return { error: undefined, result: 'suppressed' };
+          },
+        });
+
+      const result = errorProgram.eval('fail');
+      expect(result.result as string).toBe('suppressed');
+      expect(log).toEqual(['outer:before', 'inner:suppress', 'outer:after']);
+    });
+
+    it('should re-throw if no error handler suppresses', () => {
+      const log: string[] = [];
+
+      const errorProgram = createPadrone('test')
+        .command('fail', (c) =>
+          c.action(() => {
+            throw new Error('boom');
+          }),
+        )
+        .use({
+          name: 'logger',
+          error: (ctx, next) => {
+            log.push(`logged: ${(ctx.error as Error).message}`);
+            return next();
+          },
+        });
+
+      expect(() => errorProgram.eval('fail')).toThrow('boom');
+      expect(log).toEqual(['logged: boom']);
+    });
+
+    it('should not run when pipeline succeeds', () => {
+      let errorCalled = false;
+
+      const program = makeProgram().use({
+        name: 'error-spy',
+        error: (_ctx, next) => {
+          errorCalled = true;
+          return next();
+        },
+      });
+
+      program.eval('greet World');
+      expect(errorCalled).toBe(false);
+    });
+
+    it('should handle async errors', async () => {
+      const errorProgram = createPadrone('test')
+        .command('fail', (c) =>
+          c.action(async () => {
+            throw new Error('async-boom');
+          }),
+        )
+        .use({
+          name: 'error-handler',
+          error: (ctx, _next) => {
+            return { error: undefined, result: `caught: ${(ctx.error as Error).message}` };
+          },
+        });
+
+      const result = await errorProgram.eval('fail');
+      expect(result.result as unknown as string).toBe('caught: async-boom');
+    });
+  });
+
+  describe('shutdown phase', () => {
+    it('should run after successful execution', () => {
+      const log: string[] = [];
+
+      const plugin: PadronePlugin = {
+        name: 'shutdown-spy',
+        execute: (_ctx, next) => {
+          log.push('execute');
+          return next();
+        },
+        shutdown: (ctx, next) => {
+          log.push(`shutdown:result=${(ctx.result as any)?.result}`);
+          return next();
+        },
+      };
+
+      const program = makeProgram().use(plugin);
+      program.eval('greet World');
+
+      expect(log).toEqual(['execute', 'shutdown:result=Hello, World!']);
+    });
+
+    it('should run after errors (with error in context)', () => {
+      const log: string[] = [];
+
+      const errorProgram = createPadrone('test')
+        .command('fail', (c) =>
+          c.action(() => {
+            throw new Error('boom');
+          }),
+        )
+        .use({
+          name: 'lifecycle',
+          shutdown: (ctx, next) => {
+            log.push(`shutdown:error=${(ctx.error as Error)?.message}`);
+            return next();
+          },
+        });
+
+      expect(() => errorProgram.eval('fail')).toThrow('boom');
+      expect(log).toEqual(['shutdown:error=boom']);
+    });
+
+    it('should run after error phase suppresses an error', () => {
+      const log: string[] = [];
+
+      const errorProgram = createPadrone('test')
+        .command('fail', (c) =>
+          c.action(() => {
+            throw new Error('boom');
+          }),
+        )
+        .use({
+          name: 'lifecycle',
+          error: (_ctx, _next) => {
+            log.push('error:suppress');
+            return { error: undefined, result: 'recovered' };
+          },
+          shutdown: (ctx, next) => {
+            log.push(`shutdown:error=${ctx.error}:result=${(ctx.result as any)?.result}`);
+            return next();
+          },
+        });
+
+      const result = errorProgram.eval('fail');
+      expect(result.result as string).toBe('recovered');
+      expect(log).toEqual(['error:suppress', 'shutdown:error=undefined:result=recovered']);
+    });
+
+    it('should respect onion ordering', () => {
+      const log: string[] = [];
+
+      const program = makeProgram()
+        .use({
+          name: 'outer',
+          shutdown: (_ctx, next) => {
+            log.push('outer:before');
+            next();
+            log.push('outer:after');
+          },
+        })
+        .use({
+          name: 'inner',
+          shutdown: (_ctx, next) => {
+            log.push('inner');
+            next();
+          },
+        });
+
+      program.eval('greet World');
+      expect(log).toEqual(['outer:before', 'inner', 'outer:after']);
+    });
+
+    it('should support async shutdown', async () => {
+      const log: string[] = [];
+
+      const plugin: PadronePlugin = {
+        name: 'async-shutdown',
+        shutdown: async (_ctx, next) => {
+          log.push('shutdown');
+          await next();
+        },
+      };
+
+      const program = makeProgram().use(plugin);
+      const result = await program.eval('greet World');
+
+      expect(result.result).toBe('Hello, World!');
+      expect(log).toEqual(['shutdown']);
+    });
+  });
+
+  describe('full lifecycle', () => {
+    it('should run all phases in order: start → parse → validate → execute → shutdown', () => {
+      const log: string[] = [];
+
+      const plugin: PadronePlugin = {
+        name: 'full',
+        start: (_ctx, next) => {
+          log.push('start');
+          return next();
+        },
+        parse: (_ctx, next) => {
+          log.push('parse');
+          return next();
+        },
+        validate: (_ctx, next) => {
+          log.push('validate');
+          return next();
+        },
+        execute: (_ctx, next) => {
+          log.push('execute');
+          return next();
+        },
+        shutdown: (_ctx, next) => {
+          log.push('shutdown');
+          return next();
+        },
+      };
+
+      const program = makeProgram().use(plugin);
+      program.eval('greet World');
+
+      expect(log).toEqual(['start', 'parse', 'validate', 'execute', 'shutdown']);
+    });
+
+    it('should run start → error → shutdown on pipeline failure', () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test')
+        .command('fail', (c) =>
+          c.action(() => {
+            throw new Error('boom');
+          }),
+        )
+        .use({
+          name: 'full',
+          start: (_ctx, next) => {
+            log.push('start');
+            return next();
+          },
+          error: (ctx, _next) => {
+            log.push(`error:${(ctx.error as Error).message}`);
+            return { error: undefined, result: 'recovered' };
+          },
+          shutdown: (_ctx, next) => {
+            log.push('shutdown');
+            return next();
+          },
+        });
+
+      const result = program.eval('fail');
+      expect(result.result as string).toBe('recovered');
+      expect(log).toEqual(['start', 'error:boom', 'shutdown']);
+    });
+
+    it('should preserve sync when all hooks are sync', () => {
+      const plugin: PadronePlugin = {
+        name: 'sync-lifecycle',
+        start: (_ctx, next) => next(),
+        shutdown: (_ctx, next) => next(),
+      };
+
+      const program = makeProgram().use(plugin);
+      const result = program.eval('greet World');
+
+      expect(result).not.toBeInstanceOf(Promise);
+      expect(result.result).toBe('Hello, World!');
+    });
+  });
+
   describe('subcommand plugins', () => {
     it('should apply subcommand plugin only to that command', () => {
       const log: string[] = [];

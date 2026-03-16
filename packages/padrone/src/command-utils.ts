@@ -1,6 +1,14 @@
 import { extractSchemaMetadata } from './args.ts';
 import { type ResolvedPadroneRuntime, resolveRuntime } from './runtime.ts';
-import type { AnyPadroneCommand, PadronePlugin, PadroneSchema } from './types.ts';
+import type {
+  AnyPadroneCommand,
+  PadronePlugin,
+  PadroneSchema,
+  PluginErrorContext,
+  PluginErrorResult,
+  PluginShutdownContext,
+  PluginStartContext,
+} from './types.ts';
 
 /**
  * Brands a schema as async, signaling that its `validate()` may return a Promise.
@@ -147,7 +155,7 @@ export function outputValue(value: unknown, output: (...args: unknown[]) => void
  * If no plugins handle this phase, `core` is called directly.
  */
 export function runPluginChain<TCtx, TResult>(
-  phase: 'parse' | 'validate' | 'execute',
+  phase: 'start' | 'parse' | 'validate' | 'execute' | 'error' | 'shutdown',
   plugins: PadronePlugin[],
   ctx: TCtx,
   core: () => TResult | Promise<TResult>,
@@ -171,6 +179,79 @@ export function runPluginChain<TCtx, TResult>(
   }
 
   return next();
+}
+
+/**
+ * Wraps a pipeline with start → error → shutdown lifecycle hooks.
+ * - `start` plugins wrap the pipeline (onion pattern, root plugins only).
+ * - On error: `error` plugins run (can transform/suppress the error).
+ * - Always: `shutdown` plugins run (success or failure).
+ */
+export function wrapWithLifecycle<T>(
+  plugins: PadronePlugin[],
+  command: AnyPadroneCommand,
+  state: Record<string, unknown>,
+  input: string | undefined,
+  pipeline: () => T | Promise<T>,
+  wrapErrorResult?: (result: unknown) => T,
+): T | Promise<T> {
+  const hasStart = plugins.some((p) => p.start);
+  const hasError = plugins.some((p) => p.error);
+  const hasShutdown = plugins.some((p) => p.shutdown);
+
+  // Fast path: no lifecycle plugins
+  if (!hasStart && !hasError && !hasShutdown) return pipeline();
+
+  const runShutdown = (error?: unknown, result?: unknown) => {
+    if (!hasShutdown) return;
+    const ctx: PluginShutdownContext = { command, state, error, result };
+    return runPluginChain('shutdown', plugins, ctx, () => {});
+  };
+
+  const runError = (error: unknown): T | Promise<T> => {
+    if (!hasError) {
+      const s = runShutdown(error);
+      if (s instanceof Promise)
+        return s.then(() => {
+          throw error;
+        });
+      throw error;
+    }
+    const ctx: PluginErrorContext = { command, state, error };
+    const errorResult = runPluginChain('error', plugins, ctx, (): PluginErrorResult => ({ error }));
+    return thenMaybe(errorResult, (er) => {
+      if (er.error !== undefined) {
+        const s = runShutdown(er.error);
+        return thenMaybe(s as void | Promise<void>, () => {
+          throw er.error;
+        });
+      }
+      const wrapped = wrapErrorResult ? wrapErrorResult(er.result) : (er.result as T);
+      const s = runShutdown(undefined, wrapped);
+      return thenMaybe(s as void | Promise<void>, () => wrapped);
+    });
+  };
+
+  const handleSuccess = (result: T): T | Promise<T> => {
+    const s = runShutdown(undefined, result);
+    if (s instanceof Promise) return s.then(() => result);
+    return result;
+  };
+
+  // Run start phase wrapping the pipeline
+  const startCtx: PluginStartContext = { command, state, input };
+  let result: T | Promise<T>;
+  try {
+    result = (hasStart ? runPluginChain('start', plugins, startCtx, pipeline) : pipeline()) as T | Promise<T>;
+  } catch (e) {
+    return runError(e);
+  }
+
+  if (result instanceof Promise) {
+    return result.then(handleSuccess, runError);
+  }
+
+  return handleSuccess(result);
 }
 
 /**

@@ -15,6 +15,7 @@ import {
   suggestSimilar,
   thenMaybe,
   warnIfUnexpectedAsync,
+  wrapWithLifecycle,
 } from './command-utils.ts';
 import { generateCompletionOutput, type ShellType } from './completion.ts';
 import { ConfigError, RoutingError, ValidationError } from './errors.ts';
@@ -613,321 +614,330 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     // Shared plugin state for this execution
     const state: Record<string, unknown> = {};
+    const rootPlugins = existingCommand.plugins ?? [];
 
-    // ── Phase 1: Parse ──────────────────────────────────────────────────
-    const parseCtx: PluginParseContext = { input: resolvedInput, command: existingCommand, state };
+    const runPipeline = () => {
+      // ── Phase 1: Parse ──────────────────────────────────────────────────
+      const parseCtx: PluginParseContext = { input: resolvedInput, command: existingCommand, state };
 
-    const coreParse = (): PluginParseResult => {
-      const { command, rawArgs, args, unmatchedTerms } = parseCommand(parseCtx.input);
+      const coreParse = (): PluginParseResult => {
+        const { command, rawArgs, args, unmatchedTerms } = parseCommand(parseCtx.input);
 
-      // Default help: command with no action → show its help when there's nothing to execute.
-      const hasSubcommands = command.commands && command.commands.length > 0;
-      const hasSchema = command.argsSchema != null;
-      if (!command.action && (hasSubcommands || !hasSchema) && unmatchedTerms.length === 0) {
-        const helpText = generateHelp(existingCommand, command, { format: runtime.format });
-        runtime.output(helpText);
-        return {
-          command: command,
-          rawArgs: { '~help': helpText } as Record<string, unknown>,
-          positionalArgs: [],
-        };
-      }
+        // Default help: command with no action → show its help when there's nothing to execute.
+        const hasSubcommands = command.commands && command.commands.length > 0;
+        const hasSchema = command.argsSchema != null;
+        if (!command.action && (hasSubcommands || !hasSchema) && unmatchedTerms.length === 0) {
+          const helpText = generateHelp(existingCommand, command, { format: runtime.format });
+          runtime.output(helpText);
+          return {
+            command: command,
+            rawArgs: { '~help': helpText } as Record<string, unknown>,
+            positionalArgs: [],
+          };
+        }
 
-      // Reject unmatched terms when the matched command doesn't accept positional args
-      if (unmatchedTerms.length > 0) {
-        const hasPositionalConfig = command.meta?.positional && command.meta.positional.length > 0;
-        if (!hasPositionalConfig) {
-          const isRootCommand = command === existingCommand;
-          const commandDisplayName = command.name || command.aliases?.[0] || command.path || '(default)';
+        // Reject unmatched terms when the matched command doesn't accept positional args
+        if (unmatchedTerms.length > 0) {
+          const hasPositionalConfig = command.meta?.positional && command.meta.positional.length > 0;
+          if (!hasPositionalConfig) {
+            const isRootCommand = command === existingCommand;
+            const commandDisplayName = command.name || command.aliases?.[0] || command.path || '(default)';
 
-          // Collect candidate names for fuzzy suggestion
-          const candidateNames: string[] = [];
-          if (isRootCommand && existingCommand.commands) {
-            for (const cmd of existingCommand.commands) {
-              if (!cmd.hidden) {
-                candidateNames.push(cmd.name);
-                if (cmd.aliases) candidateNames.push(...cmd.aliases);
+            // Collect candidate names for fuzzy suggestion
+            const candidateNames: string[] = [];
+            if (isRootCommand && existingCommand.commands) {
+              for (const cmd of existingCommand.commands) {
+                if (!cmd.hidden) {
+                  candidateNames.push(cmd.name);
+                  if (cmd.aliases) candidateNames.push(...cmd.aliases);
+                }
+              }
+            } else if (command.commands) {
+              for (const cmd of command.commands) {
+                if (!cmd.hidden) {
+                  candidateNames.push(cmd.name);
+                  if (cmd.aliases) candidateNames.push(...cmd.aliases);
+                }
               }
             }
-          } else if (command.commands) {
-            for (const cmd of command.commands) {
-              if (!cmd.hidden) {
-                candidateNames.push(cmd.name);
-                if (cmd.aliases) candidateNames.push(...cmd.aliases);
-              }
+
+            const suggestion = suggestSimilar(unmatchedTerms[0]!, candidateNames);
+            const suggestions = suggestion ? [suggestion] : [];
+            const baseMsg = isRootCommand
+              ? `Unknown command: ${unmatchedTerms[0]}`
+              : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}`;
+            const errorMsg = suggestions.length ? `${baseMsg}\n\n  ${suggestions[0]}` : baseMsg;
+
+            if (errorMode === 'hard') {
+              const helpText = generateHelp(existingCommand, isRootCommand ? existingCommand : command, { format: runtime.format });
+              runtime.error(errorMsg);
+              runtime.error(helpText);
+              throw new RoutingError(errorMsg, { suggestions, command: command.path || command.name });
             }
-          }
 
-          const suggestion = suggestSimilar(unmatchedTerms[0]!, candidateNames);
-          const suggestions = suggestion ? [suggestion] : [];
-          const baseMsg = isRootCommand
-            ? `Unknown command: ${unmatchedTerms[0]}`
-            : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}`;
-          const errorMsg = suggestions.length ? `${baseMsg}\n\n  ${suggestions[0]}` : baseMsg;
-
-          if (errorMode === 'hard') {
-            const helpText = generateHelp(existingCommand, isRootCommand ? existingCommand : command, { format: runtime.format });
-            runtime.error(errorMsg);
-            runtime.error(helpText);
+            // Soft mode: throw too — this is a routing error, not a validation issue
             throw new RoutingError(errorMsg, { suggestions, command: command.path || command.name });
           }
-
-          // Soft mode: throw too — this is a routing error, not a validation issue
-          throw new RoutingError(errorMsg, { suggestions, command: command.path || command.name });
         }
-      }
 
-      return { command, rawArgs, positionalArgs: args };
-    };
-
-    // Parse phase: root plugins only
-    const rootPlugins = existingCommand.plugins ?? [];
-    const parsedOrPromise = runPluginChain('parse', rootPlugins, parseCtx, coreParse);
-
-    // ── Phases 2 & 3 chained after parse ────────────────────────────────
-    const continueAfterParse = (parsed: PluginParseResult) => {
-      const { command } = parsed;
-      // Validate/execute: collected from parent chain
-      const commandPlugins = collectPlugins(command);
-
-      // Short-circuit: parse returned a help result
-      if (parsed.rawArgs['~help']) {
-        return {
-          command: command,
-          args: undefined,
-          result: parsed.rawArgs['~help'],
-        } as any;
-      }
-
-      // ── Phase 2: Validate ───────────────────────────────────────────
-      const validateCtx: PluginValidateContext = {
-        command,
-        rawArgs: parsed.rawArgs,
-        positionalArgs: parsed.positionalArgs,
-        state,
+        return { command, rawArgs, positionalArgs: args };
       };
 
-      const coreValidate = (): PluginValidateResult | Promise<PluginValidateResult> => {
-        // Determine interactivity
-        let flagInteractive: boolean | undefined;
-        if (hasInteractiveConfig(command.meta)) {
-          if (validateCtx.rawArgs.interactive !== undefined) {
-            flagInteractive = validateCtx.rawArgs.interactive !== false && validateCtx.rawArgs.interactive !== 'false';
-            delete validateCtx.rawArgs.interactive;
-          }
-          if (validateCtx.rawArgs.i !== undefined) {
-            flagInteractive = validateCtx.rawArgs.i !== false && validateCtx.rawArgs.i !== 'false';
-            delete validateCtx.rawArgs.i;
-          }
-        }
+      // Parse phase: root plugins only
+      const parsedOrPromise = runPluginChain('parse', rootPlugins, parseCtx, coreParse);
 
-        const runtimeDefault: boolean | undefined =
-          runtime.interactive === 'forced' ? true : runtime.interactive === 'disabled' ? false : undefined;
-        const effectiveInteractive: boolean | undefined = flagInteractive ?? evalOptions?.interactive ?? runtimeDefault;
-        const interactivitySuppressed = runtime.interactive === 'unsupported' || effectiveInteractive === false;
-        const forceInteractive = !interactivitySuppressed && effectiveInteractive === true;
+      // ── Phases 2 & 3 chained after parse ────────────────────────────────
+      const continueAfterParse = (parsed: PluginParseResult) => {
+        const { command } = parsed;
+        // Validate/execute: collected from parent chain
+        const commandPlugins = collectPlugins(command);
 
-        // Extract config file path from --config or -c flag
-        const configPath = extractConfigPath(parseCtx.input);
-
-        // Resolve config files: command's own configFiles > inherited from parent/root
-        const resolveConfigFiles = (cmd: AnyPadroneCommand): string[] | undefined => {
-          if (cmd.configFiles !== undefined) return cmd.configFiles;
-          if (cmd.parent) return resolveConfigFiles(cmd.parent);
-          return undefined;
-        };
-        const effectiveConfigFiles = resolveConfigFiles(command);
-
-        // Resolve config schema: command's own configSchema > inherited from parent/root
-        const resolveConfigSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['configSchema'] => {
-          if (cmd.configSchema !== undefined) return cmd.configSchema;
-          if (cmd.parent) return resolveConfigSchema(cmd.parent);
-          return undefined;
-        };
-        const configSchema = resolveConfigSchema(command);
-
-        // Resolve env schema: command's own envSchema > inherited from parent/root
-        const resolveEnvSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['envSchema'] => {
-          if (cmd.envSchema !== undefined) return cmd.envSchema;
-          if (cmd.parent) return resolveEnvSchema(cmd.parent);
-          return undefined;
-        };
-        const envSchema = resolveEnvSchema(command);
-
-        // Determine config data: explicit --config flag > auto-discovered config
-        let configData: Record<string, unknown> | undefined;
-        if (configPath) {
-          configData = runtime.loadConfigFile(configPath);
-        } else if (effectiveConfigFiles?.length) {
-          const foundConfigPath = runtime.findFile(effectiveConfigFiles);
-          if (foundConfigPath) {
-            configData = runtime.loadConfigFile(foundConfigPath) ?? configData;
-          }
-        }
-
-        // Step 1: Validate config data against schema if provided
-        const validateConfig = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
-          if (configData && configSchema) {
-            const configValidated = configSchema['~standard'].validate(configData);
-            return thenMaybe(configValidated, (result) => {
-              if (result.issues) {
-                const issueMessages = result.issues
-                  .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
-                  .join('\n');
-                throw new ConfigError(`Invalid config file:\n${issueMessages}`, {
-                  command: command.path || command.name,
-                });
-              }
-              return result.value as unknown as Record<string, unknown>;
-            });
-          }
-          return configData;
-        };
-
-        // Step 2: Validate env vars
-        const validateEnv = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
-          let envData: Record<string, unknown> | undefined;
-          if (envSchema) {
-            const rawEnv = runtime.env();
-            const envValidated = envSchema['~standard'].validate(rawEnv);
-            return thenMaybe(envValidated, (result) => {
-              if (!result.issues) {
-                envData = result.value as unknown as Record<string, unknown>;
-              }
-              return envData;
-            });
-          }
-          return envData;
-        };
-
-        // Step 3: Preprocess, interactive prompt, and validate
-        const finalizeValidation = (
-          validatedConfigData: Record<string, unknown> | undefined,
-          envData: Record<string, unknown> | undefined,
-        ): PluginValidateResult | Promise<PluginValidateResult> => {
-          const preprocessedArgs = buildCommandArgs(command, validateCtx.rawArgs, validateCtx.positionalArgs, {
-            envData,
-            configData: validatedConfigData,
-          });
-
-          const afterInteractive =
-            !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta)
-              ? promptInteractiveFields(preprocessedArgs, command, runtime, forceInteractive || undefined)
-              : preprocessedArgs;
-
-          return thenMaybe(afterInteractive, (filledArgs) => {
-            const validated = validateCommandArgs(command, filledArgs);
-            return thenMaybe(validated, (v) => v as PluginValidateResult);
-          });
-        };
-
-        // Chain: config → env → validate
-        const validatedConfig = validateConfig();
-        return thenMaybe(validatedConfig, (cfgData) => {
-          const validatedEnv = validateEnv();
-          return thenMaybe(validatedEnv, (envData) => {
-            return finalizeValidation(cfgData, envData);
-          });
-        });
-      };
-
-      const validatedOrPromise = runPluginChain('validate', commandPlugins, validateCtx, coreValidate);
-
-      // ── Phase 3: Execute (or handle validation errors) ──────────────
-      const continueAfterValidate = (v: PluginValidateResult) => {
-        // Handle validation failures
-        if (v.argsResult?.issues) {
-          // Collect known option names for fuzzy suggestion on unknown keys
-          let knownOptions: string[] | undefined;
-          const getKnownOptions = () => {
-            if (knownOptions) return knownOptions;
-            knownOptions = [];
-            if (command.argsSchema) {
-              try {
-                const js = command.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
-                if (js.type === 'object' && js.properties) knownOptions = Object.keys(js.properties);
-              } catch {
-                /* ignore */
-              }
-            }
-            return knownOptions;
-          };
-
-          const issueMessages = v.argsResult.issues
-            .map((i: StandardSchemaV1.Issue) => {
-              const base = `  - ${i.path?.join('.') || 'root'}: ${i.message}`;
-              // Try to suggest for unrecognized key errors
-              const issueAny = i as any;
-              const unrecognizedKeys: string[] | undefined =
-                issueAny.keys ?? i.message?.match(/[Uu]nrecognized key(?:s)?[^"]*"([^"]+)"/)?.slice(1);
-              if (unrecognizedKeys?.length) {
-                const hints = unrecognizedKeys.map((k: string) => suggestSimilar(k, getKnownOptions())).filter(Boolean);
-                if (hints.length) return `${base}\n    ${hints.join('\n    ')}`;
-              }
-              return base;
-            })
-            .join('\n');
-
-          if (errorMode === 'hard') {
-            const helpText = generateHelp(existingCommand, command, { format: runtime.format });
-            runtime.error(`Validation error:\n${issueMessages}`);
-            runtime.error(helpText);
-            throw new ValidationError(`Validation error:\n${issueMessages}`, v.argsResult.issues as any, {
-              suggestions: v.argsResult.issues.flatMap((i: any) => {
-                const keys: string[] | undefined = i.keys ?? i.message?.match(/[Uu]nrecognized key(?:s)?[^"]*"([^"]+)"/)?.slice(1);
-                if (!keys?.length) return [];
-                return keys.map((k: string) => suggestSimilar(k, getKnownOptions())).filter(Boolean);
-              }),
-              command: command.path || command.name,
-            });
-          }
-
-          // Soft mode: return result with issues, skip the action
+        // Short-circuit: parse returned a help result
+        if (parsed.rawArgs['~help']) {
           return {
-            command: command as any,
+            command: command,
             args: undefined,
-            argsResult: v.argsResult,
-            result: undefined,
-          };
+            result: parsed.rawArgs['~help'],
+          } as any;
         }
 
-        const executeCtx: PluginExecuteContext = {
+        // ── Phase 2: Validate ───────────────────────────────────────────
+        const validateCtx: PluginValidateContext = {
           command,
-          args: v.args,
+          rawArgs: parsed.rawArgs,
+          positionalArgs: parsed.positionalArgs,
           state,
         };
 
-        const coreExecute = (): PluginExecuteResult => {
-          const handler = command.action ?? noop;
-          const result = handler(executeCtx.args as any, createActionContext(command));
-          return { result };
-        };
-
-        const executedOrPromise = runPluginChain('execute', commandPlugins, executeCtx, coreExecute);
-
-        return thenMaybe(executedOrPromise, (e) => {
-          const commandResult = {
-            command: command as any,
-            args: v.args,
-            argsResult: v.argsResult,
-            result: e.result,
-          };
-
-          if (command.autoOutput ?? evalOptions?.autoOutput ?? true) {
-            const outputOrPromise = outputValue(e.result, runtime.output);
-            if (outputOrPromise instanceof Promise) {
-              return outputOrPromise.then(() => commandResult);
+        const coreValidate = (): PluginValidateResult | Promise<PluginValidateResult> => {
+          // Determine interactivity
+          let flagInteractive: boolean | undefined;
+          if (hasInteractiveConfig(command.meta)) {
+            if (validateCtx.rawArgs.interactive !== undefined) {
+              flagInteractive = validateCtx.rawArgs.interactive !== false && validateCtx.rawArgs.interactive !== 'false';
+              delete validateCtx.rawArgs.interactive;
+            }
+            if (validateCtx.rawArgs.i !== undefined) {
+              flagInteractive = validateCtx.rawArgs.i !== false && validateCtx.rawArgs.i !== 'false';
+              delete validateCtx.rawArgs.i;
             }
           }
 
-          return commandResult;
-        });
+          const runtimeDefault: boolean | undefined =
+            runtime.interactive === 'forced' ? true : runtime.interactive === 'disabled' ? false : undefined;
+          const effectiveInteractive: boolean | undefined = flagInteractive ?? evalOptions?.interactive ?? runtimeDefault;
+          const interactivitySuppressed = runtime.interactive === 'unsupported' || effectiveInteractive === false;
+          const forceInteractive = !interactivitySuppressed && effectiveInteractive === true;
+
+          // Extract config file path from --config or -c flag
+          const configPath = extractConfigPath(parseCtx.input);
+
+          // Resolve config files: command's own configFiles > inherited from parent/root
+          const resolveConfigFiles = (cmd: AnyPadroneCommand): string[] | undefined => {
+            if (cmd.configFiles !== undefined) return cmd.configFiles;
+            if (cmd.parent) return resolveConfigFiles(cmd.parent);
+            return undefined;
+          };
+          const effectiveConfigFiles = resolveConfigFiles(command);
+
+          // Resolve config schema: command's own configSchema > inherited from parent/root
+          const resolveConfigSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['configSchema'] => {
+            if (cmd.configSchema !== undefined) return cmd.configSchema;
+            if (cmd.parent) return resolveConfigSchema(cmd.parent);
+            return undefined;
+          };
+          const configSchema = resolveConfigSchema(command);
+
+          // Resolve env schema: command's own envSchema > inherited from parent/root
+          const resolveEnvSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['envSchema'] => {
+            if (cmd.envSchema !== undefined) return cmd.envSchema;
+            if (cmd.parent) return resolveEnvSchema(cmd.parent);
+            return undefined;
+          };
+          const envSchema = resolveEnvSchema(command);
+
+          // Determine config data: explicit --config flag > auto-discovered config
+          let configData: Record<string, unknown> | undefined;
+          if (configPath) {
+            configData = runtime.loadConfigFile(configPath);
+          } else if (effectiveConfigFiles?.length) {
+            const foundConfigPath = runtime.findFile(effectiveConfigFiles);
+            if (foundConfigPath) {
+              configData = runtime.loadConfigFile(foundConfigPath) ?? configData;
+            }
+          }
+
+          // Step 1: Validate config data against schema if provided
+          const validateConfig = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
+            if (configData && configSchema) {
+              const configValidated = configSchema['~standard'].validate(configData);
+              return thenMaybe(configValidated, (result) => {
+                if (result.issues) {
+                  const issueMessages = result.issues
+                    .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
+                    .join('\n');
+                  throw new ConfigError(`Invalid config file:\n${issueMessages}`, {
+                    command: command.path || command.name,
+                  });
+                }
+                return result.value as unknown as Record<string, unknown>;
+              });
+            }
+            return configData;
+          };
+
+          // Step 2: Validate env vars
+          const validateEnv = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
+            let envData: Record<string, unknown> | undefined;
+            if (envSchema) {
+              const rawEnv = runtime.env();
+              const envValidated = envSchema['~standard'].validate(rawEnv);
+              return thenMaybe(envValidated, (result) => {
+                if (!result.issues) {
+                  envData = result.value as unknown as Record<string, unknown>;
+                }
+                return envData;
+              });
+            }
+            return envData;
+          };
+
+          // Step 3: Preprocess, interactive prompt, and validate
+          const finalizeValidation = (
+            validatedConfigData: Record<string, unknown> | undefined,
+            envData: Record<string, unknown> | undefined,
+          ): PluginValidateResult | Promise<PluginValidateResult> => {
+            const preprocessedArgs = buildCommandArgs(command, validateCtx.rawArgs, validateCtx.positionalArgs, {
+              envData,
+              configData: validatedConfigData,
+            });
+
+            const afterInteractive =
+              !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta)
+                ? promptInteractiveFields(preprocessedArgs, command, runtime, forceInteractive || undefined)
+                : preprocessedArgs;
+
+            return thenMaybe(afterInteractive, (filledArgs) => {
+              const validated = validateCommandArgs(command, filledArgs);
+              return thenMaybe(validated, (v) => v as PluginValidateResult);
+            });
+          };
+
+          // Chain: config → env → validate
+          const validatedConfig = validateConfig();
+          return thenMaybe(validatedConfig, (cfgData) => {
+            const validatedEnv = validateEnv();
+            return thenMaybe(validatedEnv, (envData) => {
+              return finalizeValidation(cfgData, envData);
+            });
+          });
+        };
+
+        const validatedOrPromise = runPluginChain('validate', commandPlugins, validateCtx, coreValidate);
+
+        // ── Phase 3: Execute (or handle validation errors) ──────────────
+        const continueAfterValidate = (v: PluginValidateResult) => {
+          // Handle validation failures
+          if (v.argsResult?.issues) {
+            // Collect known option names for fuzzy suggestion on unknown keys
+            let knownOptions: string[] | undefined;
+            const getKnownOptions = () => {
+              if (knownOptions) return knownOptions;
+              knownOptions = [];
+              if (command.argsSchema) {
+                try {
+                  const js = command.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+                  if (js.type === 'object' && js.properties) knownOptions = Object.keys(js.properties);
+                } catch {
+                  /* ignore */
+                }
+              }
+              return knownOptions;
+            };
+
+            const issueMessages = v.argsResult.issues
+              .map((i: StandardSchemaV1.Issue) => {
+                const base = `  - ${i.path?.join('.') || 'root'}: ${i.message}`;
+                // Try to suggest for unrecognized key errors
+                const issueAny = i as any;
+                const unrecognizedKeys: string[] | undefined =
+                  issueAny.keys ?? i.message?.match(/[Uu]nrecognized key(?:s)?[^"]*"([^"]+)"/)?.slice(1);
+                if (unrecognizedKeys?.length) {
+                  const hints = unrecognizedKeys.map((k: string) => suggestSimilar(k, getKnownOptions())).filter(Boolean);
+                  if (hints.length) return `${base}\n    ${hints.join('\n    ')}`;
+                }
+                return base;
+              })
+              .join('\n');
+
+            if (errorMode === 'hard') {
+              const helpText = generateHelp(existingCommand, command, { format: runtime.format });
+              runtime.error(`Validation error:\n${issueMessages}`);
+              runtime.error(helpText);
+              throw new ValidationError(`Validation error:\n${issueMessages}`, v.argsResult.issues as any, {
+                suggestions: v.argsResult.issues.flatMap((i: any) => {
+                  const keys: string[] | undefined = i.keys ?? i.message?.match(/[Uu]nrecognized key(?:s)?[^"]*"([^"]+)"/)?.slice(1);
+                  if (!keys?.length) return [];
+                  return keys.map((k: string) => suggestSimilar(k, getKnownOptions())).filter(Boolean);
+                }),
+                command: command.path || command.name,
+              });
+            }
+
+            // Soft mode: return result with issues, skip the action
+            return {
+              command: command as any,
+              args: undefined,
+              argsResult: v.argsResult,
+              result: undefined,
+            };
+          }
+
+          const executeCtx: PluginExecuteContext = {
+            command,
+            args: v.args,
+            state,
+          };
+
+          const coreExecute = (): PluginExecuteResult => {
+            const handler = command.action ?? noop;
+            const result = handler(executeCtx.args as any, createActionContext(command));
+            return { result };
+          };
+
+          const executedOrPromise = runPluginChain('execute', commandPlugins, executeCtx, coreExecute);
+
+          return thenMaybe(executedOrPromise, (e) => {
+            const commandResult = {
+              command: command as any,
+              args: v.args,
+              argsResult: v.argsResult,
+              result: e.result,
+            };
+
+            if (command.autoOutput ?? evalOptions?.autoOutput ?? true) {
+              const outputOrPromise = outputValue(e.result, runtime.output);
+              if (outputOrPromise instanceof Promise) {
+                return outputOrPromise.then(() => commandResult);
+              }
+            }
+
+            return commandResult;
+          });
+        };
+
+        return warnIfUnexpectedAsync(thenMaybe(validatedOrPromise, continueAfterValidate), command) as any;
       };
 
-      return warnIfUnexpectedAsync(thenMaybe(validatedOrPromise, continueAfterValidate), command) as any;
+      return thenMaybe(parsedOrPromise, continueAfterParse) as any;
     };
 
-    return thenMaybe(parsedOrPromise, continueAfterParse) as any;
+    return wrapWithLifecycle(rootPlugins, existingCommand, state, resolvedInput, runPipeline, (result) => ({
+      command: existingCommand,
+      args: undefined,
+      argsResult: undefined,
+      result,
+    })) as any;
   };
 
   const evalCommand: AnyPadroneProgram['eval'] = (input, evalOptions) => {

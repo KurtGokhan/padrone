@@ -3,7 +3,9 @@ title: Plugins
 description: Intercept and extend command execution with the middleware plugin system
 ---
 
-Padrone's plugin system lets you intercept the command lifecycle using a middleware pattern. Plugins wrap the parse, validate, and execute phases with an onion model, giving you full control to modify inputs, short-circuit execution, add logging, or implement cross-cutting concerns.
+Padrone's plugin system lets you intercept the command lifecycle using a middleware pattern. Plugins wrap each phase with an onion model, giving you full control to modify inputs, short-circuit execution, add logging, or implement cross-cutting concerns.
+
+The full lifecycle is: **start → parse → validate → execute → shutdown** (with **error** on failure).
 
 ## Defining a Plugin
 
@@ -42,7 +44,32 @@ const program = createPadrone('myapp')
 
 ## Execution Phases
 
-Plugins can hook into three phases:
+Plugins can hook into six phases — three core phases (parse, validate, execute) and three lifecycle phases (start, error, shutdown):
+
+### Start Phase
+
+Runs before everything else, wrapping the entire pipeline. Only root-level plugins run during start — subcommand plugins are not invoked. Available in `eval()` and `cli()` only (not `parse()` or `run()`).
+
+```typescript
+const startup: PadronePlugin = {
+  name: 'startup',
+  start: (context, next) => {
+    console.log('Starting up...');
+    const result = next();  // Runs the full parse → validate → execute pipeline
+    console.log('Pipeline complete');
+    return result;
+  },
+};
+```
+
+**Context:**
+| Property | Type | Description |
+|----------|------|-------------|
+| `command` | `PadroneCommand` | The root command |
+| `input` | `string \| undefined` | Raw CLI input string |
+| `state` | `Record<string, unknown>` | Shared mutable state bag |
+
+**Result:** The full pipeline result (passed through from parse → validate → execute).
 
 ### Parse Phase
 
@@ -131,6 +158,73 @@ const timer: PadronePlugin = {
 | Property | Type | Description |
 |----------|------|-------------|
 | `result` | `unknown` | Action handler return value |
+
+### Error Phase
+
+Called when the pipeline throws an error. Error handlers can log, transform, or suppress errors. Only runs for `eval()` and `cli()`.
+
+```typescript
+const errorReporter: PadronePlugin = {
+  name: 'error-reporter',
+  error: (context, next) => {
+    // Log and pass through
+    reportToSentry(context.error);
+    return next();
+  },
+};
+
+const errorRecovery: PadronePlugin = {
+  name: 'error-recovery',
+  error: (context, next) => {
+    // Suppress the error and return a fallback result
+    if (context.error instanceof NetworkError) {
+      return { error: undefined, result: cachedValue };
+    }
+    // Transform the error
+    return { error: new AppError('Something went wrong', { cause: context.error }) };
+  },
+};
+```
+
+**Context:**
+| Property | Type | Description |
+|----------|------|-------------|
+| `command` | `PadroneCommand` | The root command |
+| `error` | `unknown` | The error that was thrown |
+| `state` | `Record<string, unknown>` | Shared mutable state bag |
+
+**Result:**
+| Property | Type | Description |
+|----------|------|-------------|
+| `error` | `unknown \| undefined` | The error to throw. Set to `undefined` to suppress. |
+| `result` | `unknown` | Replacement result when suppressing the error. |
+
+Calling `next()` passes to the next error handler. The innermost core returns `{ error }` unchanged, which re-throws after shutdown runs.
+
+### Shutdown Phase
+
+Always runs after the pipeline completes — whether it succeeded or failed. Use for cleanup like closing connections or flushing logs. Only runs for `eval()` and `cli()`.
+
+```typescript
+const cleanup: PadronePlugin = {
+  name: 'cleanup',
+  shutdown: (context, next) => {
+    if (context.error) {
+      console.error('Failed:', context.error);
+    }
+    db.close();
+    return next();
+  },
+};
+```
+
+**Context:**
+| Property | Type | Description |
+|----------|------|-------------|
+| `command` | `PadroneCommand` | The root command |
+| `error` | `unknown \| undefined` | The error, if the pipeline failed |
+| `result` | `unknown \| undefined` | The pipeline result, if it succeeded |
+| `state` | `Record<string, unknown>` | Shared mutable state bag |
 
 ## Middleware Order
 
@@ -241,10 +335,10 @@ const asyncPlugin: PadronePlugin = {
 
 ## Which Methods Run Which Phases
 
-| Method | Parse | Validate | Execute |
-|--------|-------|----------|---------|
-| `eval()` / `cli()` | Yes | Yes | Yes |
-| `parse()` | Yes | Yes | No |
-| `run()` | No | No | Yes |
+| Method | Start | Parse | Validate | Execute | Error | Shutdown |
+|--------|-------|-------|----------|---------|-------|----------|
+| `eval()` / `cli()` | Yes | Yes | Yes | Yes | Yes | Yes |
+| `parse()` | No | Yes | Yes | No | No | No |
+| `run()` | No | No | No | Yes | No | No |
 
 Built-in features (help, version, completion, REPL) bypass plugins entirely.

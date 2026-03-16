@@ -311,7 +311,7 @@ program.use(logger);
 ```
 
 **Parameters:**
-- `plugin`: A `PadronePlugin` object with `name`, optional `order`, and phase handlers (`parse`, `validate`, `execute`)
+- `plugin`: A `PadronePlugin` object with `name`, optional `order`, and phase handlers (`start`, `parse`, `validate`, `execute`, `error`, `shutdown`)
 
 **Returns:** New builder with the plugin added (immutable)
 
@@ -614,12 +614,16 @@ import type {
   // Plugin types
   PadronePlugin,
   PluginBaseContext,
+  PluginStartContext,
   PluginParseContext,
   PluginParseResult,
   PluginValidateContext,
   PluginValidateResult,
   PluginExecuteContext,
   PluginExecuteResult,
+  PluginErrorContext,
+  PluginErrorResult,
+  PluginShutdownContext,
 
   // Runtime types
   PadroneRuntime,

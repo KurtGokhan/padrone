@@ -1008,6 +1008,34 @@ export type PluginExecuteResult = {
   result: unknown;
 };
 
+/** Context for the start phase. Runs before parsing, wraps the entire pipeline. */
+export type PluginStartContext = PluginBaseContext & {
+  /** The raw CLI input string (undefined when invoked without input). */
+  input: string | undefined;
+};
+
+/** Context for the error phase. Called when the pipeline throws. */
+export type PluginErrorContext = PluginBaseContext & {
+  /** The error that was thrown. */
+  error: unknown;
+};
+
+/** Result returned by the error phase's `next()`. */
+export type PluginErrorResult = {
+  /** The error (possibly transformed). Set to `undefined` to suppress the error. */
+  error?: unknown;
+  /** A replacement result when suppressing the error. */
+  result?: unknown;
+};
+
+/** Context for the shutdown phase. Always runs after the pipeline (success or failure). */
+export type PluginShutdownContext = PluginBaseContext & {
+  /** The error, if the pipeline failed (after error phase processing). */
+  error?: unknown;
+  /** The pipeline result, if it succeeded. */
+  result?: unknown;
+};
+
 type PluginPhaseHandler<TCtx, TResult> = (ctx: TCtx, next: () => TResult | Promise<TResult>) => TResult | Promise<TResult>;
 
 /**
@@ -1029,10 +1057,25 @@ export type PadronePlugin = {
    * Plugins with the same order preserve registration order. Defaults to `0`.
    */
   order?: number;
+  /**
+   * Runs before the pipeline (parse → validate → execute). `next()` proceeds to the pipeline.
+   * Root plugins only. Use for startup tasks like telemetry, update checks, or global config loading.
+   */
+  start?: PluginPhaseHandler<PluginStartContext, unknown>;
   /** Intercepts command routing and raw argument extraction. */
   parse?: PluginPhaseHandler<PluginParseContext, PluginParseResult>;
   /** Intercepts argument preprocessing, interactive prompting, and schema validation. */
   validate?: PluginPhaseHandler<PluginValidateContext, PluginValidateResult>;
   /** Intercepts handler execution. */
   execute?: PluginPhaseHandler<PluginExecuteContext, PluginExecuteResult>;
+  /**
+   * Called when the pipeline throws an error. `next()` passes to the next error handler
+   * (innermost returns `{ error }` unchanged). Return `{ result }` without `error` to suppress.
+   */
+  error?: PluginPhaseHandler<PluginErrorContext, PluginErrorResult>;
+  /**
+   * Always runs after the pipeline completes (success or failure). `next()` calls the next shutdown handler.
+   * Use for cleanup: closing connections, flushing logs, etc.
+   */
+  shutdown?: PluginPhaseHandler<PluginShutdownContext, void>;
 };
