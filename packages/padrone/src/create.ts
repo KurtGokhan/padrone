@@ -38,7 +38,7 @@ const commandSymbol = Symbol('padrone_command');
 const noop = <TRes>() => undefined as TRes;
 
 /** Config keys that are merged when overriding a command. */
-const configKeys = ['title', 'description', 'version', 'deprecated', 'hidden', 'needsApproval'] as const;
+const configKeys = ['title', 'description', 'version', 'deprecated', 'hidden', 'needsApproval', 'autoOutput'] as const;
 
 /**
  * Merges an existing command with an override.
@@ -91,6 +91,60 @@ function mergeCommands(existing: AnyPadroneCommand, override: AnyPadroneCommand)
 function thenMaybe<T, U>(value: T | Promise<T>, fn: (v: T) => U | Promise<U>): U | Promise<U> {
   if (value instanceof Promise) return value.then(fn);
   return fn(value);
+}
+
+function isIterator(value: unknown): value is Iterator<unknown> {
+  return typeof value === 'object' && value !== null && Symbol.iterator in value && typeof (value as any)[Symbol.iterator] === 'function';
+}
+
+function isAsyncIterator(value: unknown): value is AsyncIterator<unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Symbol.asyncIterator in value &&
+    typeof (value as any)[Symbol.asyncIterator] === 'function'
+  );
+}
+
+/**
+ * Writes a command's return value to output, handling promises, iterators, and async iterators.
+ * Values are passed directly to the output function without stringification —
+ * runtimes like Node/Bun already format objects via console.log.
+ * Returns void or a Promise depending on whether async consumption is needed.
+ */
+function outputValue(value: unknown, output: (...args: unknown[]) => void): void | Promise<void> {
+  if (value == null) return;
+
+  // Async iterator — consume and output each yielded value
+  if (isAsyncIterator(value)) {
+    return (async () => {
+      const iter = (value as any)[Symbol.asyncIterator]();
+      while (true) {
+        const { done, value: item } = await iter.next();
+        if (done) break;
+        if (item != null) output(item);
+      }
+    })();
+  }
+
+  // Sync iterator (but not a plain string/array which also have Symbol.iterator)
+  if (typeof value !== 'string' && !Array.isArray(value) && isIterator(value)) {
+    const iter = (value as any)[Symbol.iterator]();
+    while (true) {
+      const { done, value: item } = iter.next();
+      if (done) break;
+      if (item != null) output(item);
+    }
+    return;
+  }
+
+  // Promise — await then output
+  if (value instanceof Promise) {
+    return value.then((resolved) => outputValue(resolved, output));
+  }
+
+  // Pass value directly — runtime handles formatting
+  output(value);
 }
 
 /**
@@ -1296,12 +1350,23 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
         const executedOrPromise = runPluginChain('execute', commandPlugins, executeCtx, coreExecute);
 
-        return thenMaybe(executedOrPromise, (e) => ({
-          command: command as any,
-          args: v.args,
-          argsResult: v.argsResult,
-          result: e.result,
-        }));
+        return thenMaybe(executedOrPromise, (e) => {
+          const commandResult = {
+            command: command as any,
+            args: v.args,
+            argsResult: v.argsResult,
+            result: e.result,
+          };
+
+          if (command.autoOutput ?? evalOptions?.autoOutput ?? true) {
+            const outputOrPromise = outputValue(e.result, runtime.output);
+            if (outputOrPromise instanceof Promise) {
+              return outputOrPromise.then(() => commandResult);
+            }
+          }
+
+          return commandResult;
+        });
       };
 
       return warnIfUnexpectedAsync(thenMaybe(validatedOrPromise, continueAfterValidate), command) as any;
@@ -1355,6 +1420,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         const replPrefs: PadroneReplPreferences = {
           ...(typeof cliOptions?.repl === 'object' ? cliOptions.repl : {}),
           scope: builtin.scope,
+          autoOutput: (typeof cliOptions?.repl === 'object' ? cliOptions.repl.autoOutput : undefined) ?? cliOptions?.autoOutput,
         };
         const drainRepl = async () => {
           for await (const _ of replFn(replPrefs)) {
@@ -1785,7 +1851,10 @@ ${helpText}
             if (prefixLines) {
               const prefixedRuntime = {
                 ...existingCommand.runtime,
-                output: (text: string) => runtime.output(prefixLines(text)),
+                output: (...args: unknown[]) => {
+                  const first = args[0];
+                  runtime.output(typeof first === 'string' ? prefixLines(first) : first, ...args.slice(1));
+                },
                 error: (text: string) => runtime.error(prefixLines(text)),
               };
               const patchAll = (cmd: AnyPadroneCommand) => {
@@ -1829,7 +1898,8 @@ ${helpText}
             const scopedInput = scopePath ? (evalInput ? `${scopePath} ${evalInput}` : scopePath) : evalInput;
 
             try {
-              const result = await evalCommand(scopedInput);
+              const replEvalPrefs: PadroneEvalPreferences | undefined = options?.autoOutput === false ? { autoOutput: false } : undefined;
+              const result = await evalCommand(scopedInput, replEvalPrefs);
               if (result.argsResult?.issues) {
                 const issueMessages = result.argsResult.issues
                   .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)

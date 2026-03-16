@@ -35,8 +35,8 @@ export type InteractivePromptConfig = {
  * All fields are optional — unspecified fields fall back to the Node.js/Bun defaults.
  */
 export type PadroneRuntime = {
-  /** Write normal output (replaces console.log). */
-  output?: (text: string) => void;
+  /** Write normal output (replaces console.log). Receives the raw value — runtime handles formatting. */
+  output?: (...args: unknown[]) => void;
   /** Write error output (replaces console.error). */
   error?: (text: string) => void;
   /** Return the raw CLI arguments (replaces process.argv.slice(2)). */
@@ -205,7 +205,7 @@ function detectInteractiveMode(): InteractiveMode {
  */
 export function createDefaultRuntime(): ResolvedPadroneRuntime {
   return {
-    output: (text) => console.log(text),
+    output: (...args) => console.log(...args),
     error: (text) => console.error(text),
     argv: () => (typeof process !== 'undefined' ? process.argv.slice(2) : []),
     env: () => (typeof process !== 'undefined' ? (process.env as Record<string, string | undefined>) : {}),

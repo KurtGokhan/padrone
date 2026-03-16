@@ -1,0 +1,253 @@
+import { describe, expect, it, mock } from 'bun:test';
+import { createPadrone } from 'padrone';
+import * as z from 'zod/v4';
+
+describe('autoOutput', () => {
+  describe('eval', () => {
+    it('should output result by default', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('greet', (c) => c.action(() => 'hello'));
+
+      program.eval('greet');
+      expect(output).toHaveBeenCalledWith('hello');
+    });
+
+    it('should not output when autoOutput is false', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('greet', (c) => c.action(() => 'hello'));
+
+      program.eval('greet', { autoOutput: false });
+      expect(output).not.toHaveBeenCalled();
+    });
+
+    it('should output number result', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('add', (c) => c.action(() => 42));
+
+      program.eval('add');
+      expect(output).toHaveBeenCalledWith(42);
+    });
+
+    it('should output object directly without stringification', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('data', (c) => c.action(() => ({ a: 1, b: 'two' })));
+
+      program.eval('data');
+      expect(output).toHaveBeenCalledWith({ a: 1, b: 'two' });
+    });
+
+    it('should not output undefined result', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('noop', (c) => c.action(() => {}));
+
+      program.eval('noop');
+      expect(output).not.toHaveBeenCalled();
+    });
+
+    it('should not output null result', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('noop', (c) => c.action(() => null));
+
+      program.eval('noop');
+      expect(output).not.toHaveBeenCalled();
+    });
+
+    it('should await and output promise result', async () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('async', (c) => c.action(() => Promise.resolve('async-result')));
+
+      await program.eval('async');
+      expect(output).toHaveBeenCalledWith('async-result');
+    });
+
+    it('should consume and output sync iterator values', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('iter', (c) =>
+          c.action(function* () {
+            yield 'one';
+            yield 'two';
+            yield 'three';
+          } as any),
+        );
+
+      program.eval('iter');
+      expect(output).toHaveBeenCalledTimes(3);
+      expect(output.mock.calls[0]![0]).toBe('one');
+      expect(output.mock.calls[1]![0]).toBe('two');
+      expect(output.mock.calls[2]![0]).toBe('three');
+    });
+
+    it('should consume and output async iterator values', async () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('aiter', (c) =>
+          c.action(async function* () {
+            yield 'a';
+            yield 'b';
+          } as any),
+        );
+
+      await program.eval('aiter');
+      expect(output).toHaveBeenCalledTimes(2);
+      expect(output.mock.calls[0]![0]).toBe('a');
+      expect(output.mock.calls[1]![0]).toBe('b');
+    });
+
+    it('should output boolean result', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('check', (c) => c.action(() => true));
+
+      program.eval('check');
+      expect(output).toHaveBeenCalledWith(true);
+    });
+
+    it('should output array directly without stringification', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('list', (c) => c.action(() => [1, 2, 3]));
+
+      program.eval('list');
+      expect(output).toHaveBeenCalledWith([1, 2, 3]);
+    });
+
+    it('should not output when validation fails', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output, error: () => {} })
+        .command('cmd', (c) => c.arguments(z.object({ url: z.url() })).action(() => 'should not see'));
+
+      program.eval('cmd --url not-a-url');
+      expect(output).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('command-level config', () => {
+    it('should auto-output when command has autoOutput configured', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('greet', (c) => c.configure({ autoOutput: true }).action(() => 'configured-hello'));
+
+      program.eval('greet');
+      expect(output).toHaveBeenCalledWith('configured-hello');
+    });
+
+    it('command-level autoOutput should override eval prefs (command true, prefs false)', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('greet', (c) => c.configure({ autoOutput: true }).action(() => 'from-command'));
+
+      program.eval('greet', { autoOutput: false });
+      expect(output).toHaveBeenCalledWith('from-command');
+    });
+
+    it('command-level autoOutput=false should suppress output even if prefs say true', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('greet', (c) => c.configure({ autoOutput: false }).action(() => 'suppressed'));
+
+      program.eval('greet', { autoOutput: true });
+      expect(output).not.toHaveBeenCalled();
+    });
+
+    it('command-level autoOutput=false should suppress output with default prefs', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('greet', (c) => c.configure({ autoOutput: false }).action(() => 'suppressed'));
+
+      program.eval('greet');
+      expect(output).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to eval prefs when command has no autoOutput', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('greet', (c) => c.action(() => 'from-prefs'));
+
+      program.eval('greet', { autoOutput: true });
+      expect(output).toHaveBeenCalledWith('from-prefs');
+    });
+  });
+
+  describe('cli', () => {
+    it('should output result by default', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output, argv: () => ['greet'] })
+        .command('greet', (c) => c.action(() => 'cli-hello'));
+
+      program.cli();
+      expect(output).toHaveBeenCalledWith('cli-hello');
+    });
+
+    it('should not output result when autoOutput is false', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output, argv: () => ['greet'] })
+        .command('greet', (c) => c.action(() => 'cli-hello'));
+
+      program.cli({ autoOutput: false });
+      expect(output).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('repl', () => {
+    it('should output results in REPL by default', async () => {
+      const inputs = ['greet', '.exit'];
+      let inputIndex = 0;
+      const readLine = async () => (inputIndex < inputs.length ? inputs[inputIndex++]! : null);
+
+      const output: unknown[] = [];
+      const program = createPadrone('test')
+        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
+        .command('greet', (c) => c.action(() => 'repl-hello'));
+
+      for await (const _ of program.repl({ greeting: false, hint: false })) {
+        // drain
+      }
+
+      expect(output).toContain('repl-hello');
+    });
+
+    it('should not output results in REPL when autoOutput is false', async () => {
+      const inputs = ['greet', '.exit'];
+      let inputIndex = 0;
+      const readLine = async () => (inputIndex < inputs.length ? inputs[inputIndex++]! : null);
+
+      const output: unknown[] = [];
+      const program = createPadrone('test')
+        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
+        .command('greet', (c) => c.action(() => 'repl-hello'));
+
+      for await (const _ of program.repl({ autoOutput: false, greeting: false, hint: false })) {
+        // drain
+      }
+
+      expect(output).not.toContain('repl-hello');
+    });
+  });
+});

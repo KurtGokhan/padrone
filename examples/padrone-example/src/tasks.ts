@@ -55,7 +55,7 @@ export const tasksProgram = createPadrone('tasks')
   })
   .runtime({ interactive: 'supported' })
   .command(['repl', ''], (c) =>
-    c.configure({ title: 'Start interactive REPL' }).action(async (_args, { program }) => {
+    c.configure({ title: 'Start interactive REPL', autoOutput: false }).action(async (_args, { program }) => {
       for await (const _ of program.repl({
         spacing: { before: ['▆', true], after: [true, '▆', true] },
         outputPrefix: '│   ',
@@ -87,8 +87,7 @@ export const tasksProgram = createPadrone('tasks')
           tags: args.tags,
           dueDate: args.due,
         });
-        console.log(`Task added: ${formatTask(task)}`);
-        return task;
+        return `Task added: ${formatTask(task)}`;
       }),
   )
   .command('list', (c) =>
@@ -102,7 +101,7 @@ export const tasksProgram = createPadrone('tasks')
         }),
         { optionalInteractive: ['status', 'priority'] },
       )
-      .action((args, { runtime }) => {
+      .action((args) => {
         const tasks = getTasks({
           status: args.status,
           priority: args.priority,
@@ -110,16 +109,11 @@ export const tasksProgram = createPadrone('tasks')
         });
 
         if (tasks.length === 0) {
-          runtime.output('No tasks found.');
-          return tasks;
+          return 'No tasks found.';
         }
 
-        runtime.output('Tasks:\n');
-        for (const task of tasks) {
-          runtime.output(`  ${formatTask(task)}`);
-        }
-        runtime.output(`\nTotal: ${tasks.length} task(s)`);
-        return tasks;
+        const lines = ['Tasks:\n', ...tasks.map((task) => `  ${formatTask(task)}`), `\nTotal: ${tasks.length} task(s)`];
+        return lines.join('\n');
       }),
   )
   .command('show', (c) =>
@@ -138,17 +132,17 @@ export const tasksProgram = createPadrone('tasks')
           throw new Error(`Task not found: ${args.id}`);
         }
 
-        console.log('Task Details:\n');
-        console.log(`  ID:       ${task.id}`);
-        console.log(`  Title:    ${task.title}`);
-        console.log(`  Status:   ${task.status}`);
-        console.log(`  Priority: ${task.priority}`);
-        console.log(`  Tags:     ${task.tags.length > 0 ? task.tags.join(', ') : '(none)'}`);
-        console.log(`  Created:  ${task.createdAt}`);
-        if (task.dueDate) {
-          console.log(`  Due:      ${task.dueDate}`);
-        }
-        return task;
+        const lines = [
+          'Task Details:\n',
+          `  ID:       ${task.id}`,
+          `  Title:    ${task.title}`,
+          `  Status:   ${task.status}`,
+          `  Priority: ${task.priority}`,
+          `  Tags:     ${task.tags.length > 0 ? task.tags.join(', ') : '(none)'}`,
+          `  Created:  ${task.createdAt}`,
+          ...(task.dueDate ? [`  Due:      ${task.dueDate}`] : []),
+        ];
+        return lines.join('\n');
       }),
   )
   .command('complete', (c) =>
@@ -167,8 +161,7 @@ export const tasksProgram = createPadrone('tasks')
           throw new Error(`Task not found: ${args.id}`);
         }
 
-        console.log(`Task completed: ${formatTask(task)}`);
-        return task;
+        return `Task completed: ${formatTask(task)}`;
       }),
   )
   .command('start', (c) =>
@@ -187,8 +180,7 @@ export const tasksProgram = createPadrone('tasks')
           throw new Error(`Task not found: ${args.id}`);
         }
 
-        console.log(`Task started: ${formatTask(task)}`);
-        return task;
+        return `Task started: ${formatTask(task)}`;
       }),
   )
   .command('edit', (c) =>
@@ -220,8 +212,7 @@ export const tasksProgram = createPadrone('tasks')
           throw new Error(`Task not found: ${args.id}`);
         }
 
-        console.log(`Task updated: ${formatTask(task)}`);
-        return task;
+        return `Task updated: ${formatTask(task)}`;
       }),
   )
   .command('remove', (c) =>
@@ -240,8 +231,7 @@ export const tasksProgram = createPadrone('tasks')
           throw new Error(`Task not found: ${args.id}`);
         }
 
-        console.log(`Task removed: ${args.id}`);
-        return { removed: true, id: args.id };
+        return `Task removed: ${args.id}`;
       }),
   )
   .use(telemetry)
@@ -250,8 +240,7 @@ export const tasksProgram = createPadrone('tasks')
       .configure({ title: 'Advanced task operations' })
       .command('', (c) =>
         c.configure({ description: 'Placeholder for advanced operations' }).action(() => {
-          console.log('This is a placeholder for advanced operations like bulk updates, analytics, etc.');
-          return { message: 'Advanced operations coming soon!' };
+          return 'Advanced operations coming soon!';
         }),
       )
       .command('clear', (c) =>
@@ -260,8 +249,7 @@ export const tasksProgram = createPadrone('tasks')
           for (const task of tasks) {
             removeTask(task.id);
           }
-          console.log(`All tasks cleared. Total removed: ${tasks.length}`);
-          return { cleared: true, count: tasks.length };
+          return `All tasks cleared. Total removed: ${tasks.length}`;
         }),
       ),
   );

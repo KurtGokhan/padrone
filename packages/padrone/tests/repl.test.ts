@@ -145,7 +145,7 @@ describe('REPL', () => {
 
   describe('greeting and hint', () => {
     it('should display default greeting with program name', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine([null]);
       const program = createPadrone('myapp').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
 
@@ -160,7 +160,7 @@ describe('REPL', () => {
     });
 
     it('should use title in greeting when available', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine([null]);
       const program = createPadrone('myapp')
         .configure({ title: 'My Application' })
@@ -174,7 +174,7 @@ describe('REPL', () => {
     });
 
     it('should use title with version in greeting when both available', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine([null]);
       const program = createPadrone('myapp')
         .configure({ title: 'My Application', version: '3.0.0' })
@@ -188,7 +188,7 @@ describe('REPL', () => {
     });
 
     it('should display default greeting with version when available', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine([null]);
       const program = createPadrone('myapp')
         .configure({ version: '2.1.0' })
@@ -202,7 +202,7 @@ describe('REPL', () => {
     });
 
     it('should display custom greeting message', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine([null]);
       const program = createPadrone('test').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
 
@@ -214,7 +214,7 @@ describe('REPL', () => {
     });
 
     it('should suppress greeting when greeting is false', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine([null]);
       const program = createPadrone('myapp').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
 
@@ -226,7 +226,7 @@ describe('REPL', () => {
     });
 
     it('should display default hint text below greeting', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine([null]);
       const program = createPadrone('myapp').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
 
@@ -243,7 +243,7 @@ describe('REPL', () => {
     });
 
     it('should display custom hint text', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine([null]);
       const program = createPadrone('test').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
 
@@ -258,7 +258,7 @@ describe('REPL', () => {
     });
 
     it('should suppress hint when hint is false', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine([null]);
       const program = createPadrone('myapp').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
 
@@ -312,7 +312,7 @@ describe('REPL', () => {
   });
 
   it('should handle .clear command', async () => {
-    const output: string[] = [];
+    const output: unknown[] = [];
     const readLine = mockReadLine(['.clear', null]);
     const program = createPadrone('test').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
 
@@ -320,7 +320,7 @@ describe('REPL', () => {
       // no commands
     }
 
-    expect(output.some((o) => o.includes('\x1B[2J'))).toBe(true);
+    expect(output.some((o) => typeof o === 'string' && o.includes('\x1B[2J'))).toBe(true);
   });
 
   it('should throw when calling repl() while already in a REPL session', async () => {
@@ -364,7 +364,7 @@ describe('REPL', () => {
   });
 
   it('should handle .help command with REPL-specific output', async () => {
-    const output: string[] = [];
+    const output: unknown[] = [];
     const readLine = mockReadLine(['.help', null]);
     const program = createPadrone('test')
       .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
@@ -387,7 +387,7 @@ describe('REPL', () => {
   });
 
   it('should handle .history command', async () => {
-    const output: string[] = [];
+    const output: unknown[] = [];
     const readLine = mockReadLine(['greet World', 'add --a=1 --b=2', '.history', null]);
     const program = createPadrone('test')
       .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
@@ -400,13 +400,13 @@ describe('REPL', () => {
       // consume
     }
 
-    const historyOutput = output.find((o) => o.includes('1  greet World'));
+    const historyOutput = output.find((o) => typeof o === 'string' && o.includes('1  greet World'));
     expect(historyOutput).toBeDefined();
     expect(historyOutput).toContain('2  add --a=1 --b=2');
   });
 
   it('should show empty history message when no commands have been run', async () => {
-    const output: string[] = [];
+    const output: unknown[] = [];
     const readLine = mockReadLine(['.history', null]);
     const program = createPadrone('test').runtime({ readLine, output: (msg) => output.push(msg), error: () => {} });
 
@@ -431,7 +431,7 @@ describe('REPL', () => {
 
   describe('output styling', () => {
     it('should add blank lines before and after each command when spacing is true', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine(['greet World', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
@@ -451,7 +451,7 @@ describe('REPL', () => {
     });
 
     it('should use single-char spacing as repeated separator before and after', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine(['greet World', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
@@ -466,7 +466,7 @@ describe('REPL', () => {
       }
 
       const expectedWidth = process.stdout?.columns || 80;
-      const firstLine = output.at(0)!;
+      const firstLine = output.at(0) as string;
       expect(firstLine.length).toBe(expectedWidth);
       expect(firstLine).toBe('─'.repeat(expectedWidth));
       expect(output.at(1)).toBe('Hello, World!');
@@ -475,7 +475,7 @@ describe('REPL', () => {
     });
 
     it('should use multi-char spacing string as-is', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine(['greet World', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
@@ -494,7 +494,7 @@ describe('REPL', () => {
     });
 
     it('should support object form with only before or only after', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine(['greet World', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
@@ -510,14 +510,14 @@ describe('REPL', () => {
 
       // Separator before, nothing after
       const expectedWidth = process.stdout?.columns || 80;
-      const firstLine = output.at(0)!;
+      const firstLine = output.at(0) as string;
       expect(firstLine.length).toBe(expectedWidth);
       expect(firstLine).toBe('─'.repeat(expectedWidth));
       expect(output.at(-1)).toBe('Hello, World!');
     });
 
     it('should support different before and after spacing', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine(['greet World', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
@@ -531,13 +531,13 @@ describe('REPL', () => {
         // consume
       }
 
-      const firstLine = output.at(0)!;
+      const firstLine = output.at(0) as string;
       expect(firstLine).toBe('─'.repeat(firstLine.length));
       expect(output.at(-1)).toBe('');
     });
 
     it('should prefix command output lines with outputPrefix', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine(['greet World', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
@@ -573,7 +573,7 @@ describe('REPL', () => {
     });
 
     it('should restore output functions after command completes', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine(['greet World', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
@@ -595,7 +595,7 @@ describe('REPL', () => {
     });
 
     it('should support array spacing for multiple lines', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine(['greet World', null]);
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
@@ -611,7 +611,7 @@ describe('REPL', () => {
 
       // Before: blank line, then separator
       expect(output.at(0)).toBe('');
-      const sep = output.at(1)!;
+      const sep = output.at(1) as string;
       expect(sep).toBe('─'.repeat(sep.length));
       // Command output
       expect(output.at(2)).toBe('Hello, World!');
@@ -973,7 +973,7 @@ describe('REPL', () => {
     });
 
     it('should pass repl preferences from cli options', async () => {
-      const output: string[] = [];
+      const output: unknown[] = [];
       const readLine = mockReadLine([null]);
       const program = createPadrone('test')
         .runtime({ readLine, argv: () => ['--repl'], output: (msg) => output.push(msg), error: () => {} })

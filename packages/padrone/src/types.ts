@@ -176,6 +176,7 @@ export type PadroneCommand<
   deprecated?: boolean | string;
   hidden?: boolean;
   needsApproval?: boolean | ((args: TArgs) => Promise<boolean> | boolean);
+  autoOutput?: boolean;
   arguments?: TArgs;
   config?: TConfig;
   envSchema?: TEnv;
@@ -237,6 +238,12 @@ export type PadroneCommandConfig = {
   deprecated?: boolean | string;
   /** Whether the command should be hidden from help output. */
   hidden?: boolean;
+  /**
+   * Automatically write this command's return value to output in CLI/eval/REPL mode.
+   * Overrides the `autoOutput` setting in eval/cli preferences for this command.
+   * See `PadroneEvalPreferences.autoOutput` for serialization details.
+   */
+  autoOutput?: boolean;
 };
 
 /**
@@ -882,6 +889,13 @@ export type PadroneReplPreferences<TScope extends string = string> = {
    * Users can change scope at runtime with `.scope <subcommand>` and `.scope ..`/`..`.
    */
   scope?: TScope;
+
+  /**
+   * Automatically write each command's return value to output.
+   * See `PadroneEvalPreferences.autoOutput` for details on how values are serialized.
+   * Defaults to `true`.
+   */
+  autoOutput?: boolean;
 };
 
 /**
@@ -897,6 +911,18 @@ export type PadroneEvalPreferences = {
    * - `false`: suppress all interactive prompts.
    */
   interactive?: boolean;
+
+  /**
+   * Automatically write the command's return value to output.
+   *
+   * - Values are passed directly to the runtime's `output` function (no stringification).
+   * - Promises are awaited before output.
+   * - Iterators and async iterators are consumed, outputting each yielded value as it arrives.
+   * - `undefined` and `null` results produce no output.
+   *
+   * Defaults to `true`. Set to `false` to disable.
+   */
+  autoOutput?: boolean;
 };
 
 /**

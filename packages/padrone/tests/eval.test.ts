@@ -66,9 +66,9 @@ describe('eval', () => {
 
     it('should not print help or error output on validation failure', () => {
       const errors: string[] = [];
-      const output: string[] = [];
+      const output: unknown[] = [];
       const p = createPadrone('test')
-        .runtime({ error: (msg) => errors.push(msg), output: (msg) => output.push(msg) })
+        .runtime({ error: (msg) => errors.push(msg), output: (...args) => output.push(...args) })
         .command('cmd', (c) => c.arguments(z.object({ url: z.url() })).action((args) => args));
 
       p.eval('cmd --url invalid');

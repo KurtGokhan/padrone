@@ -121,9 +121,9 @@ describe('command routing', () => {
 
   describe('unknown command error', () => {
     const errors: string[] = [];
-    const output: string[] = [];
+    const output: unknown[] = [];
     const program = createPadrone('app')
-      .runtime({ error: (msg) => errors.push(msg), output: (msg) => output.push(msg) })
+      .runtime({ error: (msg) => errors.push(msg), output: (...args) => output.push(...args) })
       .command('list', (c) => c.action(() => 'listed'))
       .command('show', (c) => c.action(() => 'shown'));
 
