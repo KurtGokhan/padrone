@@ -53,6 +53,7 @@ export const tasksProgram = createPadrone('tasks')
     description: 'A task manager CLI for managing your todos with support for priorities, tags, and due dates.',
     version: '1.0.0',
   })
+  .use(telemetry)
   .runtime({ interactive: 'supported' })
   .command(['repl', ''], (c) =>
     c.configure({ title: 'Start interactive REPL', autoOutput: false }).action(async (_args, { program }) => {
@@ -234,7 +235,6 @@ export const tasksProgram = createPadrone('tasks')
         return `Task removed: ${args.id}`;
       }),
   )
-  .use(telemetry)
   .command('advanced', (c) =>
     c
       .configure({ title: 'Advanced task operations' })

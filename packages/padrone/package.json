@@ -2,6 +2,12 @@
   "name": "padrone",
   "version": "1.1.0",
   "description": "Create type-safe, interactive CLI apps with Zod schemas",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "sideEffects": false,
   "keywords": [
     "cli",
     "command-line",
@@ -23,13 +29,22 @@
     "type": "git",
     "url": "git+https://github.com/KurtGokhan/padrone.git"
   },
-  "license": "MIT",
   "author": {
     "name": "Gokhan Kurt",
     "email": "gokhan@gkurt.com",
     "url": "https://gkurt.com"
   },
-  "type": "module",
+  "bin": {
+    "padrone": "./src/cli.ts"
+  },
+  "files": [
+    "dist/",
+    "src/",
+    "media/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "imports": {
     "#*": "./*"
   },
@@ -41,23 +56,13 @@
         "default": "./dist/index.mjs"
       },
       "source": "./src/index.ts"
-    }
+    },
+    "./package.json": "./package.json"
   },
-  "main": "./dist/index.mjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
-  "sideEffects": false,
-  "files": [
-    "dist/",
-    "src/",
-    "media/",
-    "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
-  ],
   "scripts": {
     "build": "tsdown src/index.ts --dts --sourcemap",
-    "dev": "bun src/index.ts",
+    "start": "bun --conditions=padrone@dev src/cli.ts",
+    "dev": "bun --conditions=padrone@dev --watch src/cli.ts",
     "test": "bun test --conditions=padrone@dev",
     "prepack": "bun run build && bun ../../scripts/prepareForRelease.ts"
   },

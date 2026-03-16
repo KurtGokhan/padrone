@@ -1124,9 +1124,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const coreParse = (): PluginParseResult => {
       const { command, rawArgs, args, unmatchedTerms } = parseCommand(parseCtx.input);
 
-      // Default help: command with subcommands but no handler → show its help.
+      // Default help: command with no handler → show its help when there's nothing to execute.
       const hasSubcommands = command.commands && command.commands.length > 0;
-      if (hasSubcommands && !command.handler && unmatchedTerms.length === 0) {
+      const hasSchema = command.arguments != null;
+      if (!command.handler && (hasSubcommands || !hasSchema) && unmatchedTerms.length === 0) {
         const helpText = generateHelp(existingCommand, command, { format: runtime.format });
         runtime.output(helpText);
         return {
