@@ -468,8 +468,17 @@ export function createPadrone<TProgramName extends string>(name: TProgramName): 
 }
 
 export function createPadroneBuilder<TBuilder extends PadroneProgram = PadroneProgram>(
-  existingCommand: AnyPadroneCommand,
+  inputCommand: AnyPadroneCommand,
 ): TBuilder & { [commandSymbol]: AnyPadroneCommand } {
+  // Re-parent direct subcommands so getCommandRuntime walks to the current root,
+  // not a stale parent from before .runtime()/.configure()/etc.
+  const existingCommand =
+    inputCommand.commands?.length && inputCommand.commands.some((c) => c.parent && c.parent !== inputCommand)
+      ? {
+          ...inputCommand,
+          commands: inputCommand.commands.map((c) => (c.parent && c.parent !== inputCommand ? { ...c, parent: inputCommand } : c)),
+        }
+      : inputCommand;
   function findCommandByName(name: string, commands?: AnyPadroneCommand[]): AnyPadroneCommand | undefined {
     if (!commands) return undefined;
 
