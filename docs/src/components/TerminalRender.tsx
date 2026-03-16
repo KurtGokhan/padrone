@@ -1,6 +1,12 @@
 import { tasksProgram } from '@padrone/tasks-example';
 import { FitAddon, init, Terminal } from 'ghostty-web';
+import { buildReplCompleter } from 'padrone';
 import { useCallback, useRef } from 'react';
+
+// Extract the internal command object from the program for building completions
+const commandSymbol = Object.getOwnPropertySymbols(tasksProgram).find((s) => s.toString().includes('padrone'));
+const tasksCommand = commandSymbol ? (tasksProgram as any)[commandSymbol] : undefined;
+const tasksCompleter = tasksCommand ? buildReplCompleter(tasksCommand, { inScope: false }) : undefined;
 
 const terminalTheme = {
   background: '#1a1b26',
@@ -32,9 +38,14 @@ const PROMPT = '\x1b[32m$\x1b[0m ';
  * Creates a line reader bound to a ghostty-web terminal.
  * Returns { readLine, onData } — wire onData into term.onData.
  */
-function createTerminalLineReader(term: InstanceType<typeof Terminal>) {
+function createTerminalLineReader(term: InstanceType<typeof Terminal>, completer?: (line: string) => [string[], string]) {
   let currentLine = '';
+  let currentPrompt = '';
   let resolveInput: ((value: string | null) => void) | null = null;
+
+  function redrawLine() {
+    term.write(`\r\x1b[K${currentPrompt}${currentLine}`);
+  }
 
   function onData(data: string) {
     if (!resolveInput) return;
@@ -55,6 +66,29 @@ function createTerminalLineReader(term: InstanceType<typeof Terminal>) {
       term.write('^C\r\n');
       resolveInput(null);
       resolveInput = null;
+    } else if (data === '\t') {
+      if (!completer) return;
+      // For "tasks ..." input, complete after "tasks "
+      const taskMatch = currentLine.match(/^tasks\s+(.*)/);
+      if (taskMatch) {
+        const [hits, prefix] = completer(taskMatch[1]!);
+        if (hits.length === 1) {
+          // Single match — auto-complete
+          const completion = hits[0]!.slice(prefix.length);
+          currentLine += completion;
+          term.write(completion);
+        } else if (hits.length > 1) {
+          // Multiple matches — show options
+          term.write('\r\n');
+          term.writeln(hits.join('  '));
+          redrawLine();
+        }
+      } else if (!currentLine || 'tasks'.startsWith(currentLine)) {
+        // Complete the "tasks" command itself
+        const completion = 'tasks'.slice(currentLine.length);
+        currentLine += completion;
+        term.write(completion);
+      }
     } else if (data >= ' ') {
       currentLine += data;
       term.write(data);
@@ -62,6 +96,7 @@ function createTerminalLineReader(term: InstanceType<typeof Terminal>) {
   }
 
   function readLine(prompt: string): Promise<string | null> {
+    currentPrompt = prompt;
     term.write(prompt);
     return new Promise<string | null>((resolve) => {
       resolveInput = resolve;
@@ -147,7 +182,7 @@ async function initTerminal(el: HTMLDivElement) {
     textarea.style.caretColor = 'transparent';
   }
 
-  const { readLine, onData } = createTerminalLineReader(term);
+  const { readLine, onData } = createTerminalLineReader(term, tasksCompleter);
   term.onData(onData);
 
   term.writeln('Welcome to Padrone terminal!');
