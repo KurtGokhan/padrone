@@ -17,6 +17,7 @@ import {
   warnIfUnexpectedAsync,
 } from './command-utils.ts';
 import { generateCompletionOutput, type ShellType } from './completion.ts';
+import { ConfigError, RoutingError, ValidationError } from './errors.ts';
 import { generateHelp } from './help.ts';
 import { promptInteractiveFields } from './interactive.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
@@ -336,7 +337,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
   const stringify: AnyPadroneProgram['stringify'] = (command = '' as any, args) => {
     const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyPadroneCommand);
-    if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
+    if (!commandObj) throw new RoutingError(`Command "${command ?? ''}" not found`);
 
     const parts: string[] = [];
 
@@ -658,19 +659,21 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           }
 
           const suggestion = suggestSimilar(unmatchedTerms[0]!, candidateNames);
-          const errorMsg = isRootCommand
-            ? `Unknown command: ${unmatchedTerms[0]}${suggestion ? `\n\n  ${suggestion}` : ''}`
-            : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}${suggestion ? `\n\n  ${suggestion}` : ''}`;
+          const suggestions = suggestion ? [suggestion] : [];
+          const baseMsg = isRootCommand
+            ? `Unknown command: ${unmatchedTerms[0]}`
+            : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}`;
+          const errorMsg = suggestions.length ? `${baseMsg}\n\n  ${suggestions[0]}` : baseMsg;
 
           if (errorMode === 'hard') {
             const helpText = generateHelp(existingCommand, isRootCommand ? existingCommand : command, { format: runtime.format });
             runtime.error(errorMsg);
             runtime.error(helpText);
-            throw new Error(errorMsg);
+            throw new RoutingError(errorMsg, { suggestions, command: command.path || command.name });
           }
 
           // Soft mode: throw too — this is a routing error, not a validation issue
-          throw new Error(errorMsg);
+          throw new RoutingError(errorMsg, { suggestions, command: command.path || command.name });
         }
       }
 
@@ -771,7 +774,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
                 const issueMessages = result.issues
                   .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
                   .join('\n');
-                throw new Error(`Invalid config file:\n${issueMessages}`);
+                throw new ConfigError(`Invalid config file:\n${issueMessages}`, {
+                  command: command.path || command.name,
+                });
               }
               return result.value as unknown as Record<string, unknown>;
             });
@@ -867,7 +872,14 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             const helpText = generateHelp(existingCommand, command, { format: runtime.format });
             runtime.error(`Validation error:\n${issueMessages}`);
             runtime.error(helpText);
-            throw new Error(`Validation error:\n${issueMessages}`);
+            throw new ValidationError(`Validation error:\n${issueMessages}`, v.argsResult.issues as any, {
+              suggestions: v.argsResult.issues.flatMap((i: any) => {
+                const keys: string[] | undefined = i.keys ?? i.message?.match(/[Uu]nrecognized key(?:s)?[^"]*"([^"]+)"/)?.slice(1);
+                if (!keys?.length) return [];
+                return keys.map((k: string) => suggestSimilar(k, getKnownOptions())).filter(Boolean);
+              }),
+              command: command.path || command.name,
+            });
           }
 
           // Soft mode: return result with issues, skip the action
@@ -980,8 +992,8 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
   const run: AnyPadroneProgram['run'] = (command, args) => {
     const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyPadroneCommand);
-    if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
-    if (!commandObj.action) throw new Error(`Command "${commandObj.path}" has no action`);
+    if (!commandObj) throw new RoutingError(`Command "${command ?? ''}" not found`);
+    if (!commandObj.action) throw new RoutingError(`Command "${commandObj.path}" has no action`, { command: commandObj.path });
 
     const state: Record<string, unknown> = {};
     const executeCtx: PluginExecuteContext = { command: commandObj, args, state };
@@ -1131,7 +1143,7 @@ ${helpText}
 
       // Extract the underlying command from the program
       const programCommand = (program as any)[commandSymbol] as AnyPadroneCommand | undefined;
-      if (!programCommand) throw new Error('Cannot mount: not a valid Padrone program');
+      if (!programCommand) throw new RoutingError('Cannot mount: not a valid Padrone program');
 
       // Re-path the command tree under the new name
       const remounted = repathCommandTree(programCommand, name, existingCommand.path || '', existingCommand);
@@ -1187,7 +1199,7 @@ ${helpText}
         : typeof command === 'string'
           ? findCommandByName(command, existingCommand.commands)
           : (command as AnyPadroneCommand);
-      if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
+      if (!commandObj) throw new RoutingError(`Command "${command ?? ''}" not found`);
       const runtime = getCommandRuntime(existingCommand);
       return generateHelp(existingCommand, commandObj, { ...prefs, format: prefs?.format ?? runtime.format });
     },
