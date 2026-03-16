@@ -1,0 +1,317 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { buildReplCompleter, findCommandByName, getCommandRuntime } from './command-utils.ts';
+import { createTerminalReplSession, REPL_SIGINT, type ReplSessionConfig } from './runtime.ts';
+import type { AnyPadroneCommand, PadroneEvalPreferences, PadroneReplPreferences } from './types.ts';
+import { getVersion } from './utils.ts';
+
+export type ReplDeps = {
+  existingCommand: AnyPadroneCommand;
+  evalCommand: (input: string, prefs?: PadroneEvalPreferences) => any;
+  replActiveRef: { value: boolean };
+};
+
+/**
+ * Creates a REPL async iterable for running commands interactively.
+ */
+export function createReplIterator(deps: ReplDeps, options?: PadroneReplPreferences): AsyncIterable<any> {
+  const { existingCommand, evalCommand, replActiveRef } = deps;
+
+  if (replActiveRef.value) {
+    const runtime = getCommandRuntime(existingCommand);
+    runtime.error('REPL is already running. Nested REPL sessions are not supported.');
+    return (async function* () {})() as any;
+  }
+
+  const runtime = getCommandRuntime(existingCommand);
+
+  const programName = existingCommand.name || 'padrone';
+  const useAnsi =
+    runtime.format === 'ansi' ||
+    (runtime.format === 'auto' && typeof process !== 'undefined' && !process.env.NO_COLOR && !process.env.CI && process.stdout?.isTTY);
+
+  // Track command history for .history built-in
+  const commandHistory: string[] = [];
+
+  // Resolve the initial scope command from options.scope (command path like 'db' or 'db migrate')
+  const resolveScope = (scope: string): AnyPadroneCommand[] => {
+    const parts = scope.split(/\s+/);
+    const stack: AnyPadroneCommand[] = [];
+    let current = existingCommand;
+    for (const part of parts) {
+      const found = findCommandByName(part, current.commands);
+      if (!found) break;
+      stack.push(found);
+      current = found;
+    }
+    return stack;
+  };
+
+  async function* replIterator() {
+    replActiveRef.value = true;
+    const showGreeting = options?.greeting !== false;
+    const showHint = options?.hint !== false;
+
+    // Empty line before greeting/hint block
+    if (showGreeting || showHint) runtime.output('');
+
+    // Greeting: default shows program title (or name) + version, like "Welcome to My App v1.0.0"
+    if (showGreeting) {
+      if (options?.greeting) {
+        runtime.output(options.greeting);
+      } else {
+        const displayName = existingCommand.title || programName;
+        const version = existingCommand.version ? getVersion(existingCommand.version) : undefined;
+        const greeting = version ? `Welcome to ${displayName} v${version}` : `Welcome to ${displayName}`;
+        runtime.output(greeting);
+      }
+    }
+
+    // Hint: dimmed text below greeting
+    if (showHint) {
+      const hintText =
+        (typeof options?.hint === 'string' ? options.hint : undefined) ?? 'Type ".help" for more information, ".exit" to quit.';
+      runtime.output(useAnsi ? `\x1b[2m${hintText}\x1b[0m` : hintText);
+    }
+
+    // Empty line after greeting/hint block
+    if (showGreeting || showHint) runtime.output('');
+
+    // Scope stack for nested/contextual REPLs.
+    // `cd <subcommand>` pushes, `cd ..`/`..` pops. The scope path is prepended to all eval input.
+    const scopeStack: AnyPadroneCommand[] = options?.scope ? resolveScope(options.scope) : [];
+
+    const getScopeCommand = () => (scopeStack.length ? scopeStack[scopeStack.length - 1]! : existingCommand);
+    const getScopePath = () => scopeStack.map((c) => c.name).join(' ');
+
+    const buildPrompt = () => {
+      if (options?.prompt) return typeof options.prompt === 'function' ? options.prompt() : options.prompt;
+      const scopePath = getScopePath();
+      const label = scopePath ? `${programName}/${scopePath.replace(/ /g, '/')}` : programName;
+      return useAnsi ? `\x1b[1m${label}\x1b[0m ❯ ` : `${label} ❯ `;
+    };
+
+    // Build completer scoped to the current command
+    const buildScopedCompleter = () => {
+      const scopeCmd = getScopeCommand();
+      const inScope = scopeStack.length > 0;
+      return buildReplCompleter(scopeCmd, { inScope });
+    };
+
+    // Build session config with completer
+    const sessionConfig: ReplSessionConfig = { history: options?.history };
+    if (options?.completion !== false) {
+      sessionConfig.completer = buildScopedCompleter();
+    }
+
+    // If the runtime provides a custom readLine, use it (stateless, no history/completion).
+    // Otherwise, create a persistent terminal session with history + tab completion.
+    const session = runtime.readLine ? undefined : createTerminalReplSession(sessionConfig);
+    const questionFn = session ? (prompt: string) => session.question(prompt) : runtime.readLine!;
+
+    // Update the session's completer when scope changes
+    const updateCompleter = () => {
+      if (options?.completion === false) return;
+      const completer = buildScopedCompleter();
+      if (session) session.completer = completer;
+      sessionConfig.completer = completer;
+    };
+
+    // Track last SIGINT time for double Ctrl+C to exit
+    let lastSigintTime = 0;
+
+    try {
+      while (true) {
+        const promptStr = buildPrompt();
+        const input = await questionFn(promptStr);
+
+        // EOF (Ctrl+D, closed connection)
+        if (input === null) break;
+
+        // Handle Ctrl+C (SIGINT sentinel from terminal session)
+        if (input === REPL_SIGINT) {
+          const now = Date.now();
+          if (now - lastSigintTime < 2000) break; // Double Ctrl+C within 2s → exit
+          lastSigintTime = now;
+          runtime.output('(press Ctrl+C again to exit, or Ctrl+D)');
+          continue;
+        }
+
+        const trimmed = input.trim();
+        if (!trimmed) continue;
+
+        // Reset SIGINT timer on any real input
+        lastSigintTime = 0;
+
+        // Track command history for .history
+        commandHistory.push(trimmed);
+
+        // Dot-prefixed built-in REPL commands
+        if (trimmed === '.exit' || trimmed === '.quit') break;
+        if (trimmed === '.clear') {
+          runtime.output('\x1B[2J\x1B[H');
+          continue;
+        }
+        if (trimmed === '.help') {
+          const lines = [
+            'REPL Commands:',
+            '  .                 Execute the current scoped command',
+            '  .help             Print this help message',
+            '  .exit             Exit the REPL',
+            '  .clear            Clear the screen',
+            '  .history          Show command history',
+            '  .scope <cmd>      Scope into a subcommand',
+            '  .scope ..         Go up one scope level',
+          ];
+          lines.push(
+            '',
+            'Keybindings:',
+            '  Ctrl+C       Cancel current line (press twice to exit)',
+            '  Ctrl+D       Exit the REPL',
+            '  Up/Down      Navigate history',
+            '  Tab          Auto-complete',
+            '',
+            'Type "help" to see available commands.',
+          );
+          runtime.output(lines.join('\n'));
+          continue;
+        }
+        if (trimmed === '.history') {
+          // Show all previous entries (excluding the .history command itself)
+          const entries = commandHistory.slice(0, -1);
+          if (entries.length === 0) {
+            runtime.output('No history.');
+          } else {
+            runtime.output(entries.map((entry, i) => `${i + 1}  ${entry}`).join('\n'));
+          }
+          continue;
+        }
+
+        // `.scope <subcommand>` — scope the REPL to a command subtree
+        // `.scope ..` or `..` — go up one scope level
+        if (trimmed.startsWith('.scope ') || trimmed === '.scope') {
+          const target = trimmed.slice(6).trim();
+          if (target === '..' || target === '') {
+            if (scopeStack.length > 0) {
+              scopeStack.pop();
+              updateCompleter();
+            }
+          } else {
+            const scopeCmd = getScopeCommand();
+            const found = findCommandByName(target, scopeCmd.commands);
+            if (found) {
+              if (found.commands?.length) {
+                scopeStack.push(found);
+                updateCompleter();
+              } else {
+                runtime.error(`"${target}" has no subcommands to scope into.`);
+              }
+            } else {
+              runtime.error(`Unknown command: ${target}`);
+            }
+          }
+          continue;
+        }
+
+        // `..` shorthand for `.scope ..`
+        if (trimmed === '..') {
+          if (scopeStack.length > 0) {
+            scopeStack.pop();
+            updateCompleter();
+          }
+          continue;
+        }
+
+        // `.` (bare dot) — execute the current command (scoped or root)
+        let evalInput = trimmed;
+        if (trimmed === '.') {
+          evalInput = '';
+        }
+
+        const prefix = options?.outputPrefix;
+        const prefixLines = prefix
+          ? (text: string) =>
+              text
+                .split('\n')
+                .map((l) => prefix + l)
+                .join('\n')
+          : undefined;
+
+        // Temporarily patch runtime on all commands so handler output gets prefixed.
+        // Commands store parent refs from build time, so we patch each command directly.
+        const savedRuntimes: { cmd: AnyPadroneCommand; runtime: typeof existingCommand.runtime }[] = [];
+        if (prefixLines) {
+          const prefixedRuntime = {
+            ...existingCommand.runtime,
+            output: (...args: unknown[]) => {
+              const first = args[0];
+              runtime.output(typeof first === 'string' ? prefixLines(first) : first, ...args.slice(1));
+            },
+            error: (text: string) => runtime.error(prefixLines(text)),
+          };
+          const patchAll = (cmd: AnyPadroneCommand) => {
+            savedRuntimes.push({ cmd, runtime: cmd.runtime });
+            cmd.runtime = prefixedRuntime;
+            cmd.commands?.forEach(patchAll);
+          };
+          patchAll(existingCommand);
+        }
+
+        // Resolve before/after spacing from the shorthand or object form
+        const sp = options?.spacing;
+        const isSpacingObject = typeof sp === 'object' && sp !== null && !Array.isArray(sp);
+        const spacingBefore = isSpacingObject ? sp.before : sp;
+        const spacingAfter = isSpacingObject ? sp.after : sp;
+
+        const emitSpacingLine = (value: boolean | string) => {
+          if (typeof value === 'string') {
+            const sep =
+              value.length === 1
+                ? value.repeat(typeof process !== 'undefined' && process.stdout?.columns ? process.stdout.columns : 80)
+                : value;
+            runtime.output(sep);
+          } else if (value) {
+            runtime.output('');
+          }
+        };
+        const emitSpacing = (value: typeof spacingBefore) => {
+          if (!value) return;
+          if (Array.isArray(value)) {
+            for (const line of value) emitSpacingLine(line);
+          } else {
+            emitSpacingLine(value);
+          }
+        };
+
+        emitSpacing(spacingBefore);
+
+        // Prepend scope path so evalCommand resolves relative to root
+        const scopePath = getScopePath();
+        const scopedInput = scopePath ? (evalInput ? `${scopePath} ${evalInput}` : scopePath) : evalInput;
+
+        try {
+          const replEvalPrefs: PadroneEvalPreferences | undefined = options?.autoOutput === false ? { autoOutput: false } : undefined;
+          const result = await evalCommand(scopedInput, replEvalPrefs);
+          if (result.argsResult?.issues) {
+            const issueMessages = result.argsResult.issues
+              .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
+              .join('\n');
+            const msg = `Validation error:\n${issueMessages}`;
+            runtime.error(prefixLines ? prefixLines(msg) : msg);
+          }
+          yield result as any;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          runtime.error(prefixLines ? prefixLines(msg) : msg);
+        } finally {
+          for (const { cmd, runtime: saved } of savedRuntimes) cmd.runtime = saved;
+          emitSpacing(spacingAfter);
+        }
+      }
+    } finally {
+      replActiveRef.value = false;
+      session?.close();
+    }
+  }
+
+  return replIterator() as any;
+}
