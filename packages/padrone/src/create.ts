@@ -12,6 +12,7 @@ import {
   outputValue,
   repathCommandTree,
   runPluginChain,
+  suggestSimilar,
   thenMaybe,
   warnIfUnexpectedAsync,
 } from './command-utils.ts';
@@ -637,9 +638,29 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         if (!hasPositionalConfig) {
           const isRootCommand = command === existingCommand;
           const commandDisplayName = command.name || command.aliases?.[0] || command.path || '(default)';
+
+          // Collect candidate names for fuzzy suggestion
+          const candidateNames: string[] = [];
+          if (isRootCommand && existingCommand.commands) {
+            for (const cmd of existingCommand.commands) {
+              if (!cmd.hidden) {
+                candidateNames.push(cmd.name);
+                if (cmd.aliases) candidateNames.push(...cmd.aliases);
+              }
+            }
+          } else if (command.commands) {
+            for (const cmd of command.commands) {
+              if (!cmd.hidden) {
+                candidateNames.push(cmd.name);
+                if (cmd.aliases) candidateNames.push(...cmd.aliases);
+              }
+            }
+          }
+
+          const suggestion = suggestSimilar(unmatchedTerms[0]!, candidateNames);
           const errorMsg = isRootCommand
-            ? `Unknown command: ${unmatchedTerms[0]}`
-            : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}`;
+            ? `Unknown command: ${unmatchedTerms[0]}${suggestion ? `\n\n  ${suggestion}` : ''}`
+            : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}${suggestion ? `\n\n  ${suggestion}` : ''}`;
 
           if (errorMode === 'hard') {
             const helpText = generateHelp(existingCommand, isRootCommand ? existingCommand : command, { format: runtime.format });
@@ -811,8 +832,35 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       const continueAfterValidate = (v: PluginValidateResult) => {
         // Handle validation failures
         if (v.argsResult?.issues) {
+          // Collect known option names for fuzzy suggestion on unknown keys
+          let knownOptions: string[] | undefined;
+          const getKnownOptions = () => {
+            if (knownOptions) return knownOptions;
+            knownOptions = [];
+            if (command.argsSchema) {
+              try {
+                const js = command.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+                if (js.type === 'object' && js.properties) knownOptions = Object.keys(js.properties);
+              } catch {
+                /* ignore */
+              }
+            }
+            return knownOptions;
+          };
+
           const issueMessages = v.argsResult.issues
-            .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
+            .map((i: StandardSchemaV1.Issue) => {
+              const base = `  - ${i.path?.join('.') || 'root'}: ${i.message}`;
+              // Try to suggest for unrecognized key errors
+              const issueAny = i as any;
+              const unrecognizedKeys: string[] | undefined =
+                issueAny.keys ?? i.message?.match(/[Uu]nrecognized key(?:s)?[^"]*"([^"]+)"/)?.slice(1);
+              if (unrecognizedKeys?.length) {
+                const hints = unrecognizedKeys.map((k: string) => suggestSimilar(k, getKnownOptions())).filter(Boolean);
+                if (hints.length) return `${base}\n    ${hints.join('\n    ')}`;
+              }
+              return base;
+            })
             .join('\n');
 
           if (errorMode === 'hard') {
