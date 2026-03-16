@@ -42,12 +42,18 @@ function createTerminalLineReader(term: InstanceType<typeof Terminal>, completer
   let currentLine = '';
   let currentPrompt = '';
   let resolveInput: ((value: string | null) => void) | null = null;
+  // Raw key listener for select/multiselect UIs — bypasses normal line editing
+  let rawKeyListener: ((data: string) => void) | null = null;
 
   function redrawLine() {
     term.write(`\r\x1b[K${currentPrompt}${currentLine}`);
   }
 
   function onData(data: string) {
+    if (rawKeyListener) {
+      rawKeyListener(data);
+      return;
+    }
     if (!resolveInput) return;
 
     if (data === '\r') {
@@ -73,18 +79,15 @@ function createTerminalLineReader(term: InstanceType<typeof Terminal>, completer
       if (taskMatch) {
         const [hits, prefix] = completer(taskMatch[1]!);
         if (hits.length === 1) {
-          // Single match — auto-complete
           const completion = hits[0]!.slice(prefix.length);
           currentLine += completion;
           term.write(completion);
         } else if (hits.length > 1) {
-          // Multiple matches — show options
           term.write('\r\n');
           term.writeln(hits.join('  '));
           redrawLine();
         }
       } else if (!currentLine || 'tasks'.startsWith(currentLine)) {
-        // Complete the "tasks" command itself
         const completion = 'tasks'.slice(currentLine.length);
         currentLine += completion;
         term.write(completion);
@@ -103,7 +106,151 @@ function createTerminalLineReader(term: InstanceType<typeof Terminal>, completer
     });
   }
 
-  return { readLine, onData };
+  function waitForKey(): Promise<string> {
+    return new Promise<string>((resolve) => {
+      rawKeyListener = (data: string) => {
+        rawKeyListener = null;
+        resolve(data);
+      };
+    });
+  }
+
+  return { readLine, onData, waitForKey };
+}
+
+type PromptConfig = {
+  name: string;
+  message: string;
+  type: 'input' | 'confirm' | 'select' | 'multiselect' | 'password';
+  choices?: { label: string; value: unknown }[];
+  default?: unknown;
+};
+
+function createTerminalPrompt(
+  term: InstanceType<typeof Terminal>,
+  readLine: (prompt: string) => Promise<string | null>,
+  waitForKey: () => Promise<string>,
+) {
+  return async (config: PromptConfig): Promise<unknown> => {
+    const defaultHint = config.default != null ? ` \x1b[2m(${config.default})\x1b[0m` : '';
+
+    if (config.type === 'input' || config.type === 'password') {
+      const answer = await readLine(`\x1b[36m?\x1b[0m ${config.message}${defaultHint}: `);
+      if (answer === null) return config.default;
+      return answer || config.default;
+    }
+
+    if (config.type === 'confirm') {
+      const hint = config.default ? ' (Y/n)' : ' (y/N)';
+      const answer = await readLine(`\x1b[36m?\x1b[0m ${config.message}${hint}: `);
+      if (answer === null) return config.default ?? false;
+      const lower = answer.trim().toLowerCase();
+      if (lower === 'y' || lower === 'yes') return true;
+      if (lower === 'n' || lower === 'no') return false;
+      return config.default ?? false;
+    }
+
+    if (config.type === 'select' && config.choices?.length) {
+      const choices = config.choices;
+      let selected = 0;
+
+      const render = () => {
+        // Move cursor up to overwrite previous render (except first time)
+        term.write(`\x1b[36m?\x1b[0m ${config.message}\r\n`);
+        for (let i = 0; i < choices.length; i++) {
+          const cursor = i === selected ? '\x1b[36m❯\x1b[0m' : ' ';
+          const label = i === selected ? `\x1b[1m${choices[i]!.label}\x1b[0m` : choices[i]!.label;
+          term.write(`  ${cursor} ${label}\r\n`);
+        }
+      };
+
+      const clear = () => {
+        // Move up and clear all choice lines + question line
+        for (let i = 0; i <= choices.length; i++) {
+          term.write('\x1b[A\x1b[K');
+        }
+      };
+
+      render();
+
+      while (true) {
+        const key = await waitForKey();
+        if (key === '\x1b[A' && selected > 0) {
+          selected--;
+          clear();
+          render();
+        } else if (key === '\x1b[B' && selected < choices.length - 1) {
+          selected++;
+          clear();
+          render();
+        } else if (key === '\r') {
+          clear();
+          term.write(`\x1b[36m?\x1b[0m ${config.message}: \x1b[1m${choices[selected]!.label}\x1b[0m\r\n`);
+          return choices[selected]!.value;
+        } else if (key === '\x03') {
+          clear();
+          term.write(`\x1b[36m?\x1b[0m ${config.message}: \x1b[2mskipped\x1b[0m\r\n`);
+          return config.default;
+        }
+      }
+    }
+
+    if (config.type === 'multiselect' && config.choices?.length) {
+      const choices = config.choices;
+      let cursor = 0;
+      const toggled = new Set<number>();
+
+      const render = () => {
+        term.write(`\x1b[36m?\x1b[0m ${config.message} \x1b[2m(space to toggle, enter to confirm)\x1b[0m\r\n`);
+        for (let i = 0; i < choices.length; i++) {
+          const pointer = i === cursor ? '\x1b[36m❯\x1b[0m' : ' ';
+          const check = toggled.has(i) ? '\x1b[32m✔\x1b[0m' : '○';
+          const label = i === cursor ? `\x1b[1m${choices[i]!.label}\x1b[0m` : choices[i]!.label;
+          term.write(`  ${pointer} ${check} ${label}\r\n`);
+        }
+      };
+
+      const clear = () => {
+        for (let i = 0; i <= choices.length; i++) {
+          term.write('\x1b[A\x1b[K');
+        }
+      };
+
+      render();
+
+      while (true) {
+        const key = await waitForKey();
+        if (key === '\x1b[A' && cursor > 0) {
+          cursor--;
+          clear();
+          render();
+        } else if (key === '\x1b[B' && cursor < choices.length - 1) {
+          cursor++;
+          clear();
+          render();
+        } else if (key === ' ') {
+          if (toggled.has(cursor)) toggled.delete(cursor);
+          else toggled.add(cursor);
+          clear();
+          render();
+        } else if (key === '\r') {
+          const selected = choices.filter((_, i) => toggled.has(i));
+          clear();
+          const labels = selected.map((c) => c.label).join(', ') || 'none';
+          term.write(`\x1b[36m?\x1b[0m ${config.message}: \x1b[1m${labels}\x1b[0m\r\n`);
+          return selected.map((c) => c.value);
+        } else if (key === '\x03') {
+          clear();
+          term.write(`\x1b[36m?\x1b[0m ${config.message}: \x1b[2mskipped\x1b[0m\r\n`);
+          return config.default ?? [];
+        }
+      }
+    }
+
+    // Fallback
+    const answer = await readLine(`\x1b[36m?\x1b[0m ${config.message}${defaultHint}: `);
+    return answer || config.default;
+  };
 }
 
 function termWrite(term: InstanceType<typeof Terminal>, text: string) {
@@ -118,6 +265,7 @@ async function executeCommand(
   input: string,
   term: InstanceType<typeof Terminal>,
   readLine: (prompt: string) => Promise<string | null>,
+  prompt: (config: PromptConfig) => Promise<unknown>,
 ): Promise<void> {
   const args = input.trim().split(/\s+/);
   const commandName = args[0];
@@ -135,8 +283,9 @@ async function executeCommand(
       argv: () => taskArgv,
       output: (text: string) => termWrite(term, text),
       error: (text: string) => termError(term, text),
-      interactive: 'disabled',
+      interactive: 'supported',
       readLine,
+      prompt,
     });
 
     try {
@@ -182,8 +331,10 @@ async function initTerminal(el: HTMLDivElement) {
     textarea.style.caretColor = 'transparent';
   }
 
-  const { readLine, onData } = createTerminalLineReader(term, tasksCompleter);
+  const { readLine, onData, waitForKey } = createTerminalLineReader(term, tasksCompleter);
   term.onData(onData);
+
+  const prompt = createTerminalPrompt(term, readLine, waitForKey);
 
   term.writeln('Welcome to Padrone terminal!');
   term.writeln('To try Padrone, type: tasks list');
@@ -194,7 +345,7 @@ async function initTerminal(el: HTMLDivElement) {
     const line = await readLine(PROMPT);
     if (line === null) break;
     if (!line.trim()) continue;
-    await executeCommand(line, term, readLine);
+    await executeCommand(line, term, readLine, prompt);
   }
 }
 
