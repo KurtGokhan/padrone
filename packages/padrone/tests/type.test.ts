@@ -218,8 +218,8 @@ describe.skip('Types - Command override', () => {
 
   // base parameter in action has original handler's return type
   program.command('greet', (c) =>
-    c.action((args, runtime, base) => {
-      const original = base(args, runtime);
+    c.action((args, ctx, base) => {
+      const original = base(args, ctx);
       expectTypeOf(original).toEqualTypeOf<string>();
       return { original, modified: true };
     }),
@@ -229,8 +229,8 @@ describe.skip('Types - Command override', () => {
   createPadrone('test')
     .command('empty', (c) => c.configure({ title: 'Empty' }))
     .command('empty', (c) =>
-      c.action((_args, _runtime, base) => {
-        const result = base(_args, _runtime);
+      c.action((_args, _ctx, base) => {
+        const result = base(_args, _ctx);
         expectTypeOf(result).toEqualTypeOf<void>();
         return 'filled';
       }),

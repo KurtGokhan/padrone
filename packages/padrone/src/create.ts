@@ -15,6 +15,7 @@ import {
 import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
+  PadroneActionContext,
   PadroneAPI,
   PadroneCommand,
   PadroneEvalPreferences,
@@ -479,6 +480,14 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           commands: inputCommand.commands.map((c) => (c.parent && c.parent !== inputCommand ? { ...c, parent: inputCommand } : c)),
         }
       : inputCommand;
+
+  /** Creates the action context passed to command handlers. References `builder` which is defined later but only called at runtime. */
+  const createActionContext = (cmd: AnyPadroneCommand): PadroneActionContext => ({
+    runtime: getCommandRuntime(cmd),
+    command: cmd,
+    program: builder as any,
+  });
+
   function findCommandByName(name: string, commands?: AnyPadroneCommand[]): AnyPadroneCommand | undefined {
     if (!commands) return undefined;
 
@@ -1281,7 +1290,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
         const coreExecute = (): PluginExecuteResult => {
           const handler = command.handler ?? noop;
-          const result = handler(executeCtx.args as any, getCommandRuntime(command));
+          const result = handler(executeCtx.args as any, createActionContext(command));
           return { result };
         };
 
@@ -1369,7 +1378,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const executeCtx: PluginExecuteContext = { command: commandObj, args, state };
 
     const coreExecute = (): PluginExecuteResult => {
-      const result = commandObj.handler!(executeCtx.args as any, getCommandRuntime(commandObj));
+      const result = commandObj.handler!(executeCtx.args as any, createActionContext(commandObj));
       return { result };
     };
 
@@ -1463,7 +1472,7 @@ ${helpText}
       const baseHandler = existingCommand.handler ?? noop;
       return createPadroneBuilder({
         ...existingCommand,
-        handler: (args: any, runtime: any) => (handler as any)(args, runtime, baseHandler),
+        handler: (args: any, ctx: any) => (handler as any)(args, ctx, baseHandler),
       }) as any;
     },
     wrap(config) {

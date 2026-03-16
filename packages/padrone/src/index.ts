@@ -23,6 +23,7 @@ export type {
   AnyPadroneCommand,
   AnyPadroneProgram,
   AsyncPadroneSchema,
+  PadroneActionContext,
   PadroneBuilder,
   PadroneCliPreferences,
   PadroneCommand,

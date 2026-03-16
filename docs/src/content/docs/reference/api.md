@@ -114,16 +114,16 @@ When `interactive` or `optionalInteractive` is set, the command becomes async â€
 Set the handler function for the command.
 
 ```typescript
-program.action((args, runtime) => {
+program.action((args, ctx) => {
   console.log('Arguments:', args);
   return { success: true };
 });
 ```
 
 **Parameters:**
-- `handler`: Function receiving `(args, runtime, base)`
+- `handler`: Function receiving `(args, ctx, base)`
   - `args`: Parsed and validated arguments object
-  - `runtime`: Resolved runtime configuration
+  - `ctx`: Action context object containing `runtime`, `command`, and `program`
   - `base`: Previous handler function (useful when [overriding commands](/padrone/guides/composition/#command-override))
 
 **Returns:** The program builder (chainable)

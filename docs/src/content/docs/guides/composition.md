@@ -94,9 +94,9 @@ const program = createPadrone('app')
   .command('deploy', (c) =>
     c
       .configure({ description: 'Enhanced deploy with logging' })
-      .action((args, runtime, base) => {
+      .action((args, ctx, base) => {
         console.log('Pre-deploy hook');
-        const result = base(args, runtime);
+        const result = base(args, ctx);
         console.log('Post-deploy hook');
         return result;
       })
@@ -109,9 +109,9 @@ When overriding a command, the `.action()` handler receives a third `base` param
 
 ```typescript
 .command('build', (c) =>
-  c.action((args, runtime, base) => {
+  c.action((args, ctx, base) => {
     // Call the original handler
-    const original = base(args, runtime);
+    const original = base(args, ctx);
 
     // Extend with additional behavior
     return { ...original, enhanced: true };
@@ -170,9 +170,9 @@ const app = createPadrone('app')
   // Override the mounted command
   .command('api', (c) =>
     c.command('serve', (c) =>
-      c.action((args, runtime, base) => {
+      c.action((args, ctx, base) => {
         console.log('Custom pre-serve logic');
-        return base(args, runtime);
+        return base(args, ctx);
       })
     )
   );

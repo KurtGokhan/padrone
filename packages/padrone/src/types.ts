@@ -25,6 +25,19 @@ type EmptyRecord = Record<string, never>;
 type DefaultArgs = UnknownRecord | void;
 
 /**
+ * Context object passed as the second argument to command action handlers.
+ * Contains the resolved runtime, the executing command, and the program instance.
+ */
+export type PadroneActionContext = {
+  /** The resolved runtime for this command (I/O, env, config, etc.). */
+  runtime: ResolvedPadroneRuntime;
+  /** The command being executed. */
+  command: AnyPadroneCommand;
+  /** The root program instance. */
+  program: AnyPadroneProgram;
+};
+
+/**
  * A schema that supports both validation (StandardSchemaV1) and JSON schema generation (StandardJSONSchemaV1).
  * This is the type required for command arguments in Padrone.
  */
@@ -167,7 +180,7 @@ export type PadroneCommand<
   config?: TConfig;
   envSchema?: TEnv;
   meta?: GetArgsMeta<TArgs>;
-  handler?: (args: StandardSchemaV1.InferOutput<TArgs>, runtime: ResolvedPadroneRuntime) => TRes;
+  handler?: (args: StandardSchemaV1.InferOutput<TArgs>, ctx: PadroneActionContext) => TRes;
   /** List of possible config file names to search for. */
   configFiles?: string[];
   /** Runtime flag indicating this command uses async validation. Set by `.async()` or `asyncSchema()`. */
@@ -429,8 +442,8 @@ export type PadroneBuilderMethods<
   action: <TNewRes>(
     handler?: (
       args: StandardSchemaV1.InferOutput<TArgs>,
-      runtime: ResolvedPadroneRuntime,
-      base: (args: StandardSchemaV1.InferOutput<TArgs>, runtime: ResolvedPadroneRuntime) => TRes,
+      ctx: PadroneActionContext,
+      base: (args: StandardSchemaV1.InferOutput<TArgs>, ctx: PadroneActionContext) => TRes,
     ) => TNewRes,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TNewRes, TCommands, TParentArgs, TConfig, TEnv, TAsync>;
 
@@ -521,8 +534,8 @@ export type PadroneBuilderMethods<
    * .command('list', (c) => c.action(() => 'list'))
    *
    * // Override — extend an existing command
-   * .command('list', (c) => c.action((args, runtime, base) => {
-   *   const original = base(args, runtime);
+   * .command('list', (c) => c.action((args, ctx, base) => {
+   *   const original = base(args, ctx);
    *   return `modified: ${original}`;
    * }))
    *

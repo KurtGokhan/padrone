@@ -297,9 +297,9 @@ const program = createPadrone('app')
       .action((args) => `deploying to ${args.target}`)
   )
   .command('deploy', (c) =>
-    c.action((args, runtime, base) => {
+    c.action((args, ctx, base) => {
       console.log('Pre-deploy hook');
-      const result = base(args, runtime);
+      const result = base(args, ctx);
       console.log('Post-deploy hook');
       return result;
     })

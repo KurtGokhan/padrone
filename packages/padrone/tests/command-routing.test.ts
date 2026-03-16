@@ -251,8 +251,8 @@ describe('command routing', () => {
       const program = createPadrone('app')
         .command('greet', (c) => c.action(() => 'original'))
         .command('greet', (c) =>
-          c.action((_args, _runtime, base) => {
-            const original = base(_args, _runtime);
+          c.action((_args, _ctx, base) => {
+            const original = base(_args, _ctx);
             return `modified: ${original}`;
           }),
         );
@@ -277,8 +277,8 @@ describe('command routing', () => {
           c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `hello ${args.name}`),
         )
         .command('greet', (c) =>
-          c.action((args, _runtime, base) => {
-            return base(args, _runtime).toUpperCase();
+          c.action((args, _ctx, base) => {
+            return base(args, _ctx).toUpperCase();
           }),
         );
 
@@ -354,8 +354,8 @@ describe('command routing', () => {
       const program = createPadrone('app')
         .command('greet', (c) => c.configure({ title: 'Greet' }))
         .command('greet', (c) =>
-          c.action((_args, _runtime, base) => {
-            const baseResult = base(_args, _runtime);
+          c.action((_args, _ctx, base) => {
+            const baseResult = base(_args, _ctx);
             return `result: ${baseResult}`;
           }),
         );
@@ -367,8 +367,8 @@ describe('command routing', () => {
     it('should chain multiple overrides with base passing', () => {
       const program = createPadrone('app')
         .command('greet', (c) => c.action(() => 'v1'))
-        .command('greet', (c) => c.action((_args, _runtime, base) => `${base(_args, _runtime)}+v2`))
-        .command('greet', (c) => c.action((_args, _runtime, base) => `${base(_args, _runtime)}+v3`));
+        .command('greet', (c) => c.action((_args, _ctx, base) => `${base(_args, _ctx)}+v2`))
+        .command('greet', (c) => c.action((_args, _ctx, base) => `${base(_args, _ctx)}+v3`));
 
       expect(program.eval('greet').result).toBe('v1+v2+v3');
     });

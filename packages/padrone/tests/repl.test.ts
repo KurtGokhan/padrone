@@ -436,7 +436,7 @@ describe('REPL', () => {
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
         .command('greet', (c) =>
-          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, { runtime: rt }) => {
             rt.output(`Hello, ${args.name}!`);
           }),
         );
@@ -456,7 +456,7 @@ describe('REPL', () => {
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
         .command('greet', (c) =>
-          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, { runtime: rt }) => {
             rt.output(`Hello, ${args.name}!`);
           }),
         );
@@ -480,7 +480,7 @@ describe('REPL', () => {
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
         .command('greet', (c) =>
-          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, { runtime: rt }) => {
             rt.output(`Hello, ${args.name}!`);
           }),
         );
@@ -499,7 +499,7 @@ describe('REPL', () => {
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
         .command('greet', (c) =>
-          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, { runtime: rt }) => {
             rt.output(`Hello, ${args.name}!`);
           }),
         );
@@ -522,7 +522,7 @@ describe('REPL', () => {
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
         .command('greet', (c) =>
-          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, { runtime: rt }) => {
             rt.output(`Hello, ${args.name}!`);
           }),
         );
@@ -542,7 +542,7 @@ describe('REPL', () => {
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
         .command('greet', (c) =>
-          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, { runtime: rt }) => {
             rt.output(`Hello, ${args.name}!`);
           }),
         );
@@ -578,7 +578,7 @@ describe('REPL', () => {
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
         .command('greet', (c) =>
-          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, { runtime: rt }) => {
             rt.output(`Hello, ${args.name}!`);
           }),
         );
@@ -600,7 +600,7 @@ describe('REPL', () => {
       const program = createPadrone('test')
         .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
         .command('greet', (c) =>
-          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, rt) => {
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args, { runtime: rt }) => {
             rt.output(`Hello, ${args.name}!`);
           }),
         );

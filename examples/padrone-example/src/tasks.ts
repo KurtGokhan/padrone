@@ -55,8 +55,8 @@ export const tasksProgram = createPadrone('tasks')
   })
   .runtime({ interactive: 'supported' })
   .command(['repl', ''], (c) =>
-    c.configure({ title: 'Start interactive REPL' }).action(async (_args, runtime) => {
-      for await (const _ of tasksProgram.runtime(runtime).repl({
+    c.configure({ title: 'Start interactive REPL' }).action(async (_args, { program }) => {
+      for await (const _ of program.repl({
         spacing: { before: ['▆', true], after: [true, '▆', true] },
         outputPrefix: '│   ',
       })) {
@@ -102,7 +102,7 @@ export const tasksProgram = createPadrone('tasks')
         }),
         { optionalInteractive: ['status', 'priority'] },
       )
-      .action((args, runtime) => {
+      .action((args, { runtime }) => {
         const tasks = getTasks({
           status: args.status,
           priority: args.priority,
