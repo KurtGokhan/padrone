@@ -16,3 +16,4 @@ export type {
   PadroneProgram,
   PadroneSchema,
 } from './types.ts';
+export type { UpdateCheckConfig } from './update-check.ts';

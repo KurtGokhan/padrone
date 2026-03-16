@@ -18,6 +18,7 @@ import type {
   ReplaceOrAppendCommand,
   SafeString,
 } from './type-utils.ts';
+import type { UpdateCheckConfig } from './update-check.ts';
 import type { WrapConfig, WrapResult } from './wrap.ts';
 
 type UnknownRecord = Record<string, unknown>;
@@ -192,6 +193,9 @@ export type PadroneCommand<
   /** Plugins registered on this command. Collected from the parent chain at execution time. */
   plugins?: PadronePlugin[];
 
+  /** Update check configuration. Only used on the root program. */
+  updateCheck?: UpdateCheckConfig;
+
   parent?: AnyPadroneCommand;
   commands?: TCommands;
 
@@ -285,16 +289,31 @@ export type PadroneBuilderMethods<
   TReturn extends 'builder' | 'program',
 > = {
   /**
-   * Configures command properties like title, description, version, deprecated, and hidden.
+   * Enables automatic update checking against a package registry.
+   * When enabled, the program checks for a newer version in the background
+   * and displays a notification after command output if an update is available.
+   *
+   * - Non-blocking: check runs in background, never delays command execution.
+   * - Non-intrusive: shows a one-line notice after command output, not before.
+   * - Respects CI: disabled when `CI=true` or non-TTY.
+   * - Respects user preference: `--no-update-check` flag or env var.
+   * - Caches last check timestamp to avoid hitting the registry on every invocation.
+   *
    * @example
    * ```ts
-   * .configure({
-   *   title: 'Build Project',
-   *   description: 'Compiles the project',
-   *   deprecated: 'Use "compile" instead',
-   * })
+   * createPadrone('myapp')
+   *   .version('1.2.3')
+   *   .updateCheck({
+   *     registry: 'npm',         // or custom URL
+   *     interval: '1d',          // check at most once per day
+   *     cache: '~/.myapp-update' // where to store last check
+   *   })
    * ```
    */
+  updateCheck: (
+    config?: UpdateCheckConfig,
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync>;
+
   /**
    * Registers a plugin that intercepts command execution phases (parse, validate, execute).
    * Plugins are applied in order: first registered = outermost wrapper (runs first before `next()`).

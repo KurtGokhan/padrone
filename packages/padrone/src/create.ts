@@ -40,6 +40,7 @@ import type {
   PluginValidateContext,
   PluginValidateResult,
 } from './types.ts';
+import { createUpdateChecker } from './update-check.ts';
 import { getVersion } from './utils.ts';
 import { createWrapHandler } from './wrap.ts';
 
@@ -997,7 +998,33 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       }
     }
 
-    return execCommand(resolvedInput, cliOptions, 'hard');
+    // Start background update check (non-blocking)
+    let showUpdateNotification: (() => void) | undefined;
+    if (existingCommand.updateCheck) {
+      // Respect --no-update-check flag
+      const hasNoUpdateCheckFlag =
+        resolvedInput &&
+        parseCliInputToParts(resolvedInput).some((p) => p.type === 'named' && p.key.length === 1 && p.key[0] === 'no-update-check');
+      if (!hasNoUpdateCheckFlag) {
+        const currentVersion = getVersion(existingCommand.version);
+        showUpdateNotification = createUpdateChecker(existingCommand.name, currentVersion, existingCommand.updateCheck, runtime);
+      }
+    }
+
+    const result = execCommand(resolvedInput, cliOptions, 'hard');
+
+    // Show update notification after command output
+    if (showUpdateNotification) {
+      if (result instanceof Promise) {
+        return result.then((r) => {
+          showUpdateNotification!();
+          return r;
+        }) as any;
+      }
+      showUpdateNotification();
+    }
+
+    return result;
   };
 
   const run: AnyPadroneProgram['run'] = (command, args) => {
@@ -1178,6 +1205,10 @@ ${helpText}
         ...existingCommand,
         plugins: [...(existingCommand.plugins ?? []), plugin],
       }) as any;
+    },
+
+    updateCheck(config = {}) {
+      return createPadroneBuilder({ ...existingCommand, updateCheck: config }) as any;
     },
 
     run,

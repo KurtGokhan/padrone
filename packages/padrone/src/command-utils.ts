@@ -39,7 +39,16 @@ export const commandSymbol = Symbol('padrone_command');
 export const noop = <TRes>() => undefined as TRes;
 
 /** Config keys that are merged when overriding a command. */
-export const configKeys = ['title', 'description', 'version', 'deprecated', 'hidden', 'needsApproval', 'autoOutput'] as const;
+export const configKeys = [
+  'title',
+  'description',
+  'version',
+  'deprecated',
+  'hidden',
+  'needsApproval',
+  'autoOutput',
+  'updateCheck',
+] as const;
 
 /**
  * Merges an existing command with an override.
