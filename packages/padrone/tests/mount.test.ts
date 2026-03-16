@@ -155,7 +155,7 @@ describe('mount', () => {
     const pluggedProgram = createPadrone('plugged')
       .use({
         name: 'test-plugin',
-        execute: (ctx, next) => {
+        execute: (_ctx, next) => {
           calls.push('plugin-before');
           const result = next();
           calls.push('plugin-after');

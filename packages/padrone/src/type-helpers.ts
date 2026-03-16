@@ -8,7 +8,7 @@ import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand, PadroneSchem
  * type Args = InferArgsInput<typeof myCommand>;
  * ```
  */
-export type InferArgsInput<T extends AnyPadroneCommand> = T['~types']['argumentsInput'];
+export type InferArgsInput<T extends AnyPadroneCommand> = T['~types']['argsInput'];
 
 /**
  * Extracts the output type of the arguments schema from a command.
@@ -17,7 +17,7 @@ export type InferArgsInput<T extends AnyPadroneCommand> = T['~types']['arguments
  * type Args = InferArgsOutput<typeof myCommand>;
  * ```
  */
-export type InferArgsOutput<T extends AnyPadroneCommand> = T['~types']['argumentsOutput'];
+export type InferArgsOutput<T extends AnyPadroneCommand> = T['~types']['argsOutput'];
 
 /**
  * Extracts the input type of the config schema from a command.
@@ -26,7 +26,7 @@ export type InferArgsOutput<T extends AnyPadroneCommand> = T['~types']['argument
  * type Config = InferConfigInput<typeof myCommand>;
  * ```
  */
-export type InferConfigInput<T extends AnyPadroneCommand> = T['config'] extends PadroneSchema<infer I, any> ? I : never;
+export type InferConfigInput<T extends AnyPadroneCommand> = T['configSchema'] extends PadroneSchema<infer I, any> ? I : never;
 
 /**
  * Extracts the output type of the config schema from a command.
@@ -36,7 +36,7 @@ export type InferConfigInput<T extends AnyPadroneCommand> = T['config'] extends 
  * type ConfigOutput = InferConfigOutput<typeof myCommand>;
  * ```
  */
-export type InferConfigOutput<T extends AnyPadroneCommand> = T['config'] extends PadroneSchema<any, infer O> ? O : never;
+export type InferConfigOutput<T extends AnyPadroneCommand> = T['configSchema'] extends PadroneSchema<any, infer O> ? O : never;
 
 /**
  * Extracts the input type of the env schema from a command.

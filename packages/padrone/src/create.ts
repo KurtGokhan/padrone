@@ -43,7 +43,7 @@ const configKeys = ['title', 'description', 'version', 'deprecated', 'hidden', '
 /**
  * Merges an existing command with an override.
  * - Config fields are shallow-merged (new overrides old).
- * - Handler, arguments, meta, config schema, env schema are taken from the override if set.
+ * - Action, arguments, meta, config schema, env schema are taken from the override if set.
  * - Subcommands are recursively merged by name.
  */
 function mergeCommands(existing: AnyPadroneCommand, override: AnyPadroneCommand): AnyPadroneCommand {
@@ -55,10 +55,10 @@ function mergeCommands(existing: AnyPadroneCommand, override: AnyPadroneCommand)
   }
 
   // Override fields: take from override if explicitly set (not inherited from existing via spread)
-  if (override.handler !== existing.handler) merged.handler = override.handler;
-  if (override.arguments !== existing.arguments) merged.arguments = override.arguments;
+  if (override.action !== existing.action) merged.action = override.action;
+  if (override.argsSchema !== existing.argsSchema) merged.argsSchema = override.argsSchema;
   if (override.meta !== existing.meta) merged.meta = override.meta;
-  if (override.config !== existing.config) merged.config = override.config;
+  if (override.configSchema !== existing.configSchema) merged.configSchema = override.configSchema;
   if (override.envSchema !== existing.envSchema) merged.envSchema = override.envSchema;
   if (override.configFiles !== existing.configFiles) merged.configFiles = override.configFiles;
   if (override.isAsync !== existing.isAsync) merged.isAsync = override.isAsync || existing.isAsync;
@@ -303,11 +303,11 @@ export function buildReplCompleter(
 
       // Get options for this command
       const options: string[] = [];
-      if (targetCommand.arguments) {
+      if (targetCommand.argsSchema) {
         try {
           const argsMeta = targetCommand.meta?.fields;
-          const { aliases } = extractSchemaMetadata(targetCommand.arguments, argsMeta);
-          const jsonSchema = targetCommand.arguments['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+          const { aliases } = extractSchemaMetadata(targetCommand.argsSchema, argsMeta);
+          const jsonSchema = targetCommand.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
           if (jsonSchema.type === 'object' && jsonSchema.properties) {
             for (const key of Object.keys(jsonSchema.properties)) {
               options.push(`--${key}`);
@@ -384,9 +384,9 @@ async function promptInteractiveFields(
   // Extract JSON schema properties for prompt type detection
   let jsonProperties: Record<string, any> = {};
   let requiredFields: Set<string> = new Set();
-  if (command.arguments) {
+  if (command.argsSchema) {
     try {
-      const jsonSchema = command.arguments['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+      const jsonSchema = command.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
       if (jsonSchema.type === 'object' && jsonSchema.properties) {
         jsonProperties = jsonSchema.properties;
       }
@@ -628,14 +628,14 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     // Extract argument metadata from the nested arguments object in meta
     const argsMeta = curCommand.meta?.fields;
-    const schemaMetadata = curCommand.arguments ? extractSchemaMetadata(curCommand.arguments, argsMeta) : { aliases: {} };
+    const schemaMetadata = curCommand.argsSchema ? extractSchemaMetadata(curCommand.argsSchema, argsMeta) : { aliases: {} };
     const { aliases } = schemaMetadata;
 
     // Get array arguments from schema (arrays are always variadic)
     const arrayArguments = new Set<string>();
-    if (curCommand.arguments) {
+    if (curCommand.argsSchema) {
       try {
-        const jsonSchema = curCommand.arguments['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+        const jsonSchema = curCommand.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
         if (jsonSchema.type === 'object' && jsonSchema.properties) {
           for (const [key, prop] of Object.entries(jsonSchema.properties as Record<string, any>)) {
             if (prop?.type === 'array') arrayArguments.add(key);
@@ -740,10 +740,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
    * Returns sync or async result depending on the schema's validate method.
    */
   const validateCommandArgs = (command: AnyPadroneCommand, preprocessedArgs: Record<string, unknown>) => {
-    const argsParsed = command.arguments ? command.arguments['~standard'].validate(preprocessedArgs) : { value: preprocessedArgs };
+    const argsParsed = command.argsSchema ? command.argsSchema['~standard'].validate(preprocessedArgs) : { value: preprocessedArgs };
 
     // Return undefined for args when there's no schema and no meaningful args
-    const hasArgs = command.arguments || Object.keys(preprocessedArgs).length > 0;
+    const hasArgs = command.argsSchema || Object.keys(preprocessedArgs).length > 0;
 
     const buildResult = (parsed: StandardSchemaV1.Result<unknown>) => ({
       args: parsed.issues ? undefined : hasArgs ? (parsed.value as any) : undefined,
@@ -1124,10 +1124,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const coreParse = (): PluginParseResult => {
       const { command, rawArgs, args, unmatchedTerms } = parseCommand(parseCtx.input);
 
-      // Default help: command with no handler → show its help when there's nothing to execute.
+      // Default help: command with no action → show its help when there's nothing to execute.
       const hasSubcommands = command.commands && command.commands.length > 0;
-      const hasSchema = command.arguments != null;
-      if (!command.handler && (hasSubcommands || !hasSchema) && unmatchedTerms.length === 0) {
+      const hasSchema = command.argsSchema != null;
+      if (!command.action && (hasSubcommands || !hasSchema) && unmatchedTerms.length === 0) {
         const helpText = generateHelp(existingCommand, command, { format: runtime.format });
         runtime.output(helpText);
         return {
@@ -1220,9 +1220,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         };
         const effectiveConfigFiles = resolveConfigFiles(command);
 
-        // Resolve config schema: command's own config > inherited from parent/root
-        const resolveConfigSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['config'] => {
-          if (cmd.config !== undefined) return cmd.config;
+        // Resolve config schema: command's own configSchema > inherited from parent/root
+        const resolveConfigSchema = (cmd: AnyPadroneCommand): AnyPadroneCommand['configSchema'] => {
+          if (cmd.configSchema !== undefined) return cmd.configSchema;
           if (cmd.parent) return resolveConfigSchema(cmd.parent);
           return undefined;
         };
@@ -1344,7 +1344,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         };
 
         const coreExecute = (): PluginExecuteResult => {
-          const handler = command.handler ?? noop;
+          const handler = command.action ?? noop;
           const result = handler(executeCtx.args as any, createActionContext(command));
           return { result };
         };
@@ -1439,13 +1439,13 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   const run: AnyPadroneProgram['run'] = (command, args) => {
     const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyPadroneCommand);
     if (!commandObj) throw new Error(`Command "${command ?? ''}" not found`);
-    if (!commandObj.handler) throw new Error(`Command "${commandObj.path}" has no handler`);
+    if (!commandObj.action) throw new Error(`Command "${commandObj.path}" has no action`);
 
     const state: Record<string, unknown> = {};
     const executeCtx: PluginExecuteContext = { command: commandObj, args, state };
 
     const coreExecute = (): PluginExecuteResult => {
-      const result = commandObj.handler!(executeCtx.args as any, createActionContext(commandObj));
+      const result = commandObj.action!(executeCtx.args as any, createActionContext(commandObj));
       return { result };
     };
 
@@ -1520,31 +1520,31 @@ ${helpText}
     },
     arguments(schema, meta) {
       // If schema is a function, call it with parent's arguments as base
-      const resolvedArgs = typeof schema === 'function' ? schema(existingCommand.arguments as any) : schema;
+      const resolvedArgs = typeof schema === 'function' ? schema(existingCommand.argsSchema as any) : schema;
       const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedArgs) || hasInteractiveConfig(meta);
-      return createPadroneBuilder({ ...existingCommand, arguments: resolvedArgs, meta, isAsync }) as any;
+      return createPadroneBuilder({ ...existingCommand, argsSchema: resolvedArgs, meta, isAsync }) as any;
     },
     configFile(file, schema) {
       const configFiles = file === undefined ? undefined : Array.isArray(file) ? file : [file];
-      const resolvedConfig = typeof schema === 'function' ? schema(existingCommand.arguments) : (schema ?? existingCommand.arguments);
+      const resolvedConfig = typeof schema === 'function' ? schema(existingCommand.argsSchema) : (schema ?? existingCommand.argsSchema);
       const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedConfig);
-      return createPadroneBuilder({ ...existingCommand, configFiles, config: resolvedConfig as any, isAsync }) as any;
+      return createPadroneBuilder({ ...existingCommand, configFiles, configSchema: resolvedConfig as any, isAsync }) as any;
     },
     env(schema) {
-      const resolvedEnv = typeof schema === 'function' ? schema(existingCommand.arguments) : schema;
+      const resolvedEnv = typeof schema === 'function' ? schema(existingCommand.argsSchema) : schema;
       const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedEnv);
       return createPadroneBuilder({ ...existingCommand, envSchema: resolvedEnv as any, isAsync }) as any;
     },
     action(handler = noop) {
-      const baseHandler = existingCommand.handler ?? noop;
+      const baseHandler = existingCommand.action ?? noop;
       return createPadroneBuilder({
         ...existingCommand,
-        handler: (args: any, ctx: any) => (handler as any)(args, ctx, baseHandler),
+        action: (args: any, ctx: any) => (handler as any)(args, ctx, baseHandler),
       }) as any;
     },
     wrap(config) {
-      const handler = createWrapHandler(config, existingCommand.arguments as any, existingCommand.meta?.positional);
-      return createPadroneBuilder({ ...existingCommand, handler }) as any;
+      const handler = createWrapHandler(config, existingCommand.argsSchema as any, existingCommand.meta?.positional);
+      return createPadroneBuilder({ ...existingCommand, action: handler }) as any;
     },
     command(nameOrNames, builderFn) {
       // Extract name and aliases from the input

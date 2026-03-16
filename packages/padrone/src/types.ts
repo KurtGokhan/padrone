@@ -107,12 +107,12 @@ type InitialCommandBuilder<
         TProgramName,
         TNameNested,
         TParentPath,
-        E['~types']['args'],
+        E['~types']['argsSchema'],
         E['~types']['result'],
         E['~types']['commands'],
         TParentArgs,
-        E['~types']['config'],
-        E['~types']['env'],
+        E['~types']['configSchema'],
+        E['~types']['envSchema'],
         E['~types']['async']
       >
     : PadroneBuilder<
@@ -145,12 +145,12 @@ type DefaultCommandBuilder<
         TProgramName,
         TNameNested,
         TParentPath,
-        E['~types']['args'],
+        E['~types']['argsSchema'],
         E['~types']['result'],
         E['~types']['commands'],
         TParentArgs,
-        E['~types']['config'],
-        E['~types']['env'],
+        E['~types']['configSchema'],
+        E['~types']['envSchema'],
         E['~types']['async']
       >
     : PadroneBuilder<TProgramName, TNameNested, TParentPath, any, void, [], TParentArgs, any, any, false>;
@@ -177,11 +177,11 @@ export type PadroneCommand<
   hidden?: boolean;
   needsApproval?: boolean | ((args: TArgs) => Promise<boolean> | boolean);
   autoOutput?: boolean;
-  arguments?: TArgs;
-  config?: TConfig;
+  argsSchema?: TArgs;
+  configSchema?: TConfig;
   envSchema?: TEnv;
   meta?: GetArgsMeta<TArgs>;
-  handler?: (args: StandardSchemaV1.InferOutput<TArgs>, ctx: PadroneActionContext) => TRes;
+  action?: (args: StandardSchemaV1.InferOutput<TArgs>, ctx: PadroneActionContext) => TRes;
   /** List of possible config file names to search for. */
   configFiles?: string[];
   /** Runtime flag indicating this command uses async validation. Set by `.async()` or `asyncSchema()`. */
@@ -201,13 +201,13 @@ export type PadroneCommand<
     parentName: TParentName;
     path: FullCommandName<TName, TParentName>;
     aliases: TAliases;
-    args: TArgs;
-    argumentsInput: StandardSchemaV1.InferInput<TArgs>;
-    argumentsOutput: StandardSchemaV1.InferOutput<TArgs>;
+    argsSchema: TArgs;
+    argsInput: StandardSchemaV1.InferInput<TArgs>;
+    argsOutput: StandardSchemaV1.InferOutput<TArgs>;
     result: TRes;
     commands: TCommands;
-    config: TConfig;
-    env: TEnv;
+    configSchema: TConfig;
+    envSchema: TEnv;
     async: TAsync;
   };
 };
@@ -623,15 +623,15 @@ export type PadroneBuilderMethods<
             PadroneCommand<
               TNameNested,
               FullCommandName<TName, TParentName>,
-              TProgram['~types']['command']['~types']['args'],
+              TProgram['~types']['command']['~types']['argsSchema'],
               TProgram['~types']['command']['~types']['result'],
               RepathCommands<
                 TProgram['~types']['command']['~types']['commands'],
                 FullCommandName<TNameNested, FullCommandName<TName, TParentName>>
               >,
               [],
-              TProgram['~types']['command']['~types']['config'],
-              TProgram['~types']['command']['~types']['env'],
+              TProgram['~types']['command']['~types']['configSchema'],
+              TProgram['~types']['command']['~types']['envSchema'],
               TProgram['~types']['command']['~types']['async']
             >,
             TAliases
@@ -643,15 +643,15 @@ export type PadroneBuilderMethods<
               PadroneCommand<
                 TNameNested,
                 FullCommandName<TName, TParentName>,
-                TProgram['~types']['command']['~types']['args'],
+                TProgram['~types']['command']['~types']['argsSchema'],
                 TProgram['~types']['command']['~types']['result'],
                 RepathCommands<
                   TProgram['~types']['command']['~types']['commands'],
                   FullCommandName<TNameNested, FullCommandName<TName, TParentName>>
                 >,
                 [],
-                TProgram['~types']['command']['~types']['config'],
-                TProgram['~types']['command']['~types']['env'],
+                TProgram['~types']['command']['~types']['configSchema'],
+                TProgram['~types']['command']['~types']['envSchema'],
                 TProgram['~types']['command']['~types']['async']
               >,
               TAliases
@@ -664,15 +664,15 @@ export type PadroneBuilderMethods<
               PadroneCommand<
                 TNameNested,
                 FullCommandName<TName, TParentName>,
-                TProgram['~types']['command']['~types']['args'],
+                TProgram['~types']['command']['~types']['argsSchema'],
                 TProgram['~types']['command']['~types']['result'],
                 RepathCommands<
                   TProgram['~types']['command']['~types']['commands'],
                   FullCommandName<TNameNested, FullCommandName<TName, TParentName>>
                 >,
                 [],
-                TProgram['~types']['command']['~types']['config'],
-                TProgram['~types']['command']['~types']['env'],
+                TProgram['~types']['command']['~types']['configSchema'],
+                TProgram['~types']['command']['~types']['envSchema'],
                 TProgram['~types']['command']['~types']['async']
               >,
               ResolvedAliases<TCommands, TNameNested, TAliases>
@@ -691,7 +691,7 @@ export type PadroneBuilderMethods<
     parentName: TParentName;
     path: FullCommandName<TName, TParentName>;
     aliases: [];
-    arguments: TArgs;
+    argsSchema: TArgs;
     result: TRes;
     commands: TCommands;
     async: TAsync;
@@ -951,10 +951,10 @@ type PadroneAPICommand<TCommand extends AnyPadroneCommand> = (args: GetArguments
 
 type NormalizeArguments<TArgs> = IsGeneric<TArgs> extends true ? void | EmptyRecord : TArgs;
 type GetArguments<TDir extends 'in' | 'out', TCommand extends AnyPadroneCommand> = TDir extends 'in'
-  ? NormalizeArguments<TCommand['~types']['argumentsInput']>
-  : NormalizeArguments<TCommand['~types']['argumentsOutput']>;
+  ? NormalizeArguments<TCommand['~types']['argsInput']>
+  : NormalizeArguments<TCommand['~types']['argsOutput']>;
 
-type GetResults<TCommand extends AnyPadroneCommand> = ReturnType<NonNullable<TCommand['handler']>>;
+type GetResults<TCommand extends AnyPadroneCommand> = ReturnType<NonNullable<TCommand['action']>>;
 
 type GetArgsMeta<TArgs extends PadroneSchema> = PadroneArgsSchemaMeta<NonNullable<StandardSchemaV1.InferInput<TArgs>>>;
 
@@ -999,7 +999,7 @@ export type PluginValidateResult = {
 
 /** Context for the execute phase. */
 export type PluginExecuteContext = PluginBaseContext & {
-  /** Validated arguments that will be passed to the handler. Mutable — modify before `next()` to override. */
+  /** Validated arguments that will be passed to the action. Mutable — modify before `next()` to override. */
   args: unknown;
 };
 

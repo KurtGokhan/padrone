@@ -230,12 +230,12 @@ export type RepathCommands<TCommands extends [...AnyPadroneCommand[]], TNewParen
 type RepathCommand<TCommand extends AnyPadroneCommand, TNewParentName extends string> = PadroneCommand<
   TCommand['~types']['name'],
   TNewParentName,
-  TCommand['~types']['args'],
+  TCommand['~types']['argsSchema'],
   TCommand['~types']['result'],
   RepathCommands<TCommand['~types']['commands'], FullCommandName<TCommand['~types']['name'], TNewParentName>>,
   TCommand['~types']['aliases'],
-  TCommand['~types']['config'],
-  TCommand['~types']['env'],
+  TCommand['~types']['configSchema'],
+  TCommand['~types']['envSchema'],
   TCommand['~types']['async']
 >;
 

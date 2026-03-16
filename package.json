@@ -29,6 +29,7 @@
     "lint": "biome lint",
     "format": "biome format",
     "check": "biome check",
+    "fix": "biome check --write",
     "checks": "bun check && bun run test && bun typecheck",
     "prepare": "husky",
     "changeset": "changeset",

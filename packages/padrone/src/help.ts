@@ -164,8 +164,8 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] =
   const displayAliases = isDefaultCommand ? [...remainingAliases, '[default]'] : nonEmptyAliases;
 
   // Extract positional args from schema based on meta.positional
-  const { args: positionalArgs, positionalNames } = cmd.arguments
-    ? extractPositionalArgsInfo(cmd.arguments, cmd.meta)
+  const { args: positionalArgs, positionalNames } = cmd.argsSchema
+    ? extractPositionalArgsInfo(cmd.argsSchema, cmd.meta)
     : { args: [], positionalNames: new Set<string>() };
 
   const hasPositionals = positionalArgs.length > 0;
@@ -181,7 +181,7 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] =
       command: rootCmd === cmd ? commandName : `${rootCmd.name} ${commandName}`,
       hasSubcommands: !!(cmd.commands && cmd.commands.length > 0),
       hasPositionals,
-      hasArguments: !!cmd.arguments,
+      hasArguments: !!cmd.argsSchema,
     },
   };
 
@@ -189,7 +189,7 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] =
   if (cmd.commands && cmd.commands.length > 0) {
     const visibleCommands = detail === 'full' ? cmd.commands : cmd.commands.filter((c) => !c.hidden);
     // If the command has both a handler and subcommands, show the handler as a "[default]" entry
-    const selfEntry: typeof helpInfo.subcommands = cmd.handler
+    const selfEntry: typeof helpInfo.subcommands = cmd.action
       ? [{ name: '[default]', title: cmd.title, description: cmd.description }]
       : [];
 
@@ -207,9 +207,9 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] =
 
         // If a command has subcommands AND a default handler (direct or '' subcommand),
         // show two entries: one for the default action, one for the subcommand router
-        const hasDefaultHandler = c.handler || c.commands?.some((sub) => !sub.name || sub.aliases?.includes(''));
+        const hasDefaultHandler = c.action || c.commands?.some((sub) => !sub.name || sub.aliases?.includes(''));
         if (hasSubcommands && hasDefaultHandler) {
-          const defaultSub = !c.handler ? c.commands?.find((sub) => !sub.name || sub.aliases?.includes('')) : undefined;
+          const defaultSub = !c.action ? c.commands?.find((sub) => !sub.name || sub.aliases?.includes('')) : undefined;
           const hasDefaultSubInfo = defaultSub && (defaultSub.title || defaultSub.description);
           return [
             {
@@ -257,12 +257,12 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] =
   }
 
   // Build arguments info with aliases (excluding positional args)
-  if (cmd.arguments) {
-    const argsInfo = extractArgsInfo(cmd.arguments, cmd.meta, positionalNames);
+  if (cmd.argsSchema) {
+    const argsInfo = extractArgsInfo(cmd.argsSchema, cmd.meta, positionalNames);
     const argMap: Record<string, HelpArgumentInfo> = Object.fromEntries(argsInfo.map((arg) => [arg.name, arg]));
 
     // Merge aliases into arguments
-    const { aliases } = extractSchemaMetadata(cmd.arguments, cmd.meta?.fields);
+    const { aliases } = extractSchemaMetadata(cmd.argsSchema, cmd.meta?.fields);
     for (const [alias, name] of Object.entries(aliases)) {
       const arg = argMap[name];
       if (!arg) continue;

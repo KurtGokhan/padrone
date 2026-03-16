@@ -66,11 +66,11 @@ function collectAllCommands(cmd: AnyPadroneCommand): AnyPadroneCommand[] {
 function extractArguments(cmd: AnyPadroneCommand): { name: string; alias?: string; isBoolean: boolean }[] {
   const argList: { name: string; alias?: string; isBoolean: boolean }[] = [];
 
-  if (!cmd.arguments) return argList;
+  if (!cmd.argsSchema) return argList;
 
   try {
     const argsMeta = cmd.meta?.fields;
-    const { aliases } = extractSchemaMetadata(cmd.arguments, argsMeta);
+    const { aliases } = extractSchemaMetadata(cmd.argsSchema, argsMeta);
 
     // Reverse aliases map (alias -> arg name)
     const aliasToArgument: Record<string, string> = {};
@@ -78,7 +78,7 @@ function extractArguments(cmd: AnyPadroneCommand): { name: string; alias?: strin
       aliasToArgument[alias] = arg;
     }
 
-    const jsonSchema = cmd.arguments['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+    const jsonSchema = cmd.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
 
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
       for (const [key, prop] of Object.entries(jsonSchema.properties as Record<string, any>)) {
