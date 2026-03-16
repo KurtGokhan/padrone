@@ -28,36 +28,91 @@ const terminalTheme = {
 
 const PROMPT = '\x1b[32m$\x1b[0m ';
 
-async function executeCommand(input: string): Promise<string> {
-  const args = input.trim().split(/\s+/);
-  const commandName = args[0];
+/**
+ * Creates a line reader bound to a ghostty-web terminal.
+ * Returns { readLine, onData } — wire onData into term.onData.
+ */
+function createTerminalLineReader(term: InstanceType<typeof Terminal>) {
+  let currentLine = '';
+  let resolveInput: ((value: string | null) => void) | null = null;
 
-  if (!commandName) return '';
+  function onData(data: string) {
+    if (!resolveInput) return;
 
-  if (commandName === 'clear') return '\x1b[CLEAR]';
-
-  if (commandName === 'tasks') {
-    const output: string[] = [];
-    const originalLog = console.log;
-    const originalError = console.error;
-    const originalWarn = console.warn;
-
-    console.log = (...a) => output.push(a.map(String).join(' '));
-    console.error = (...a) => output.push(a.map(String).join(' '));
-    console.warn = (...a) => output.push(a.map(String).join(' '));
-
-    try {
-      const result = await tasksProgram.eval(args.slice(1).join(' '));
-      const consoleOutput = output.join('\n');
-      return consoleOutput + (result.result ? (consoleOutput ? '\n' : '') + result.result : '');
-    } finally {
-      console.log = originalLog;
-      console.error = originalError;
-      console.warn = originalWarn;
+    if (data === '\r') {
+      term.write('\r\n');
+      const line = currentLine;
+      currentLine = '';
+      resolveInput(line);
+      resolveInput = null;
+    } else if (data === '\x7f') {
+      if (currentLine.length > 0) {
+        currentLine = currentLine.slice(0, -1);
+        term.write('\b \b');
+      }
+    } else if (data === '\x03') {
+      currentLine = '';
+      term.write('^C\r\n');
+      resolveInput(null);
+      resolveInput = null;
+    } else if (data >= ' ') {
+      currentLine += data;
+      term.write(data);
     }
   }
 
-  return `Command not found: ${commandName}`;
+  function readLine(prompt: string): Promise<string | null> {
+    term.write(prompt);
+    return new Promise<string | null>((resolve) => {
+      resolveInput = resolve;
+    });
+  }
+
+  return { readLine, onData };
+}
+
+function termWrite(term: InstanceType<typeof Terminal>, text: string) {
+  term.write(`${text.replace(/\n/g, '\r\n')}\r\n`);
+}
+
+function termError(term: InstanceType<typeof Terminal>, text: string) {
+  term.write(`\x1b[31m${text.replace(/\n/g, '\r\n')}\x1b[0m\r\n`);
+}
+
+async function executeCommand(
+  input: string,
+  term: InstanceType<typeof Terminal>,
+  readLine: (prompt: string) => Promise<string | null>,
+): Promise<void> {
+  const args = input.trim().split(/\s+/);
+  const commandName = args[0];
+
+  if (!commandName) return;
+
+  if (commandName === 'clear') {
+    term.clear();
+    return;
+  }
+
+  if (commandName === 'tasks') {
+    const taskArgv = args.slice(1);
+    const program = tasksProgram.runtime({
+      argv: () => taskArgv,
+      output: (text: string) => termWrite(term, text),
+      error: (text: string) => termError(term, text),
+      interactive: 'disabled',
+      readLine,
+    });
+
+    try {
+      await (await program.cli())?.result;
+    } catch {
+      // Validation errors etc. are already printed via runtime.error
+    }
+    return;
+  }
+
+  termError(term, `Command not found: ${commandName}`);
 }
 
 async function initTerminal(el: HTMLDivElement) {
@@ -92,80 +147,20 @@ async function initTerminal(el: HTMLDivElement) {
     textarea.style.caretColor = 'transparent';
   }
 
-  let currentLine = '';
-  let busy = false;
-  const history: string[] = [];
-  let historyIndex = -1;
-
-  function writePrompt() {
-    term.write(PROMPT);
-  }
+  const { readLine, onData } = createTerminalLineReader(term);
+  term.onData(onData);
 
   term.writeln('Welcome to Padrone terminal!');
-  term.writeln('To try Padrone, type: tasks list\r\n');
-  writePrompt();
+  term.writeln('To try Padrone, type: tasks list');
+  term.writeln('For REPL mode, type: tasks --repl\r\n');
 
-  term.onData((data: string) => {
-    if (busy) return;
-
-    if (data === '\r') {
-      term.write('\r\n');
-      const input = currentLine;
-      if (input.trim()) history.push(input.trim());
-      historyIndex = -1;
-      currentLine = '';
-      if (!input.trim()) {
-        writePrompt();
-        return;
-      }
-      busy = true;
-      executeCommand(input).then((output) => {
-        if (output === '\x1b[CLEAR]') {
-          term.clear();
-        } else if (output) {
-          term.writeln(output.replace(/\n/g, '\r\n'));
-        }
-        busy = false;
-        writePrompt();
-      });
-    } else if (data === '\x7f') {
-      if (currentLine.length > 0) {
-        currentLine = currentLine.slice(0, -1);
-        term.write('\b \b');
-      }
-    } else if (data === '\x03') {
-      currentLine = '';
-      term.write('^C\r\n');
-      writePrompt();
-    } else if (data === '\x1b[A') {
-      if (history.length > 0) {
-        if (historyIndex === -1) historyIndex = history.length;
-        if (historyIndex > 0) {
-          historyIndex--;
-          term.write('\r\x1b[K');
-          writePrompt();
-          currentLine = history[historyIndex]!;
-          term.write(currentLine);
-        }
-      }
-    } else if (data === '\x1b[B') {
-      if (historyIndex !== -1) {
-        historyIndex++;
-        term.write('\r\x1b[K');
-        writePrompt();
-        if (historyIndex < history.length) {
-          currentLine = history[historyIndex]!;
-          term.write(currentLine);
-        } else {
-          historyIndex = -1;
-          currentLine = '';
-        }
-      }
-    } else if (data >= ' ') {
-      currentLine += data;
-      term.write(data);
-    }
-  });
+  // Shell loop
+  while (true) {
+    const line = await readLine(PROMPT);
+    if (line === null) break;
+    if (!line.trim()) continue;
+    await executeCommand(line, term, readLine);
+  }
 }
 
 export function TerminalRender() {
