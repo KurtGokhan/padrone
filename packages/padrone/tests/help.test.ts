@@ -35,6 +35,13 @@ describe('help', () => {
     expect(help).toMatchSnapshot();
   });
 
+  it('should generate help for a command with array enum options', () => {
+    const help = program.help('search', { format: 'text' });
+    expect(help).toMatchSnapshot();
+    // Verify array enum choices are shown
+    expect(help).toContain('(choices: pending, in_progress, completed)');
+  });
+
   it('should generate help for a command with deprecated arguments', () => {
     const help = program.help('deprecated-test', { format: 'text' });
     expect(help).toMatchSnapshot();

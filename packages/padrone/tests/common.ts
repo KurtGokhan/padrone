@@ -120,6 +120,27 @@ export function createTasksProgram() {
           };
         }),
     )
+    .command('search', (c) =>
+      c
+        .arguments(
+          z.object({
+            status: z
+              .array(z.enum(['pending', 'in_progress', 'completed']))
+              .optional()
+              .describe('Filter by status'),
+            query: z.string().describe('Search query'),
+          }),
+          {
+            positional: ['query'],
+            fields: {
+              status: { alias: 's' },
+            },
+          },
+        )
+        .action((args) => {
+          return { query: args.query, status: args.status };
+        }),
+    )
     .command('noop', (c) => c.action(() => undefined))
     .command('tags', (c) =>
       c
