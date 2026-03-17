@@ -181,7 +181,7 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] =
       command: rootCmd === cmd ? commandName : `${rootCmd.name} ${commandName}`,
       hasSubcommands: !!(cmd.commands && cmd.commands.length > 0),
       hasPositionals,
-      hasArguments: !!cmd.argsSchema,
+      hasArguments: false, // updated below after extracting arguments
     },
   };
 
@@ -273,6 +273,7 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] =
     const visibleArgs = argsInfo.filter((arg) => !arg.hidden);
     if (visibleArgs.length > 0) {
       helpInfo.arguments = visibleArgs;
+      helpInfo.usage.hasArguments = true;
     }
   }
 

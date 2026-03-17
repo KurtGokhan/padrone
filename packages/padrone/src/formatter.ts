@@ -270,12 +270,15 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
   const { newline, indent, join, wrapDocument, usageLabel } = layout;
 
   function formatUsageSection(info: HelpInfo): string[] {
-    const usageParts: string[] = [
-      styler.command(info.usage.command),
-      info.usage.hasSubcommands ? styler.meta('[command]') : '',
-      info.usage.hasPositionals ? styler.meta('[args...]') : '',
-      info.usage.hasArguments ? styler.meta('[arguments]') : '',
-    ];
+    const usageParts: string[] = [styler.command(info.usage.command), info.usage.hasSubcommands ? styler.meta('[command]') : ''];
+    // Show actual positional argument names in usage line
+    if (info.positionals && info.positionals.length > 0) {
+      for (const arg of info.positionals) {
+        const name = arg.name.startsWith('...') ? `${arg.name}` : arg.name;
+        usageParts.push(styler.meta(arg.optional ? `[${name}]` : `<${name}>`));
+      }
+    }
+    if (info.usage.hasArguments) usageParts.push(styler.meta('[options]'));
     return [`${usageLabel} ${join(usageParts)}`];
   }
 
@@ -364,7 +367,7 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     const lines: string[] = [];
     const argList = info.arguments || [];
 
-    lines.push(styler.label('Arguments:'));
+    lines.push(styler.label('Options:'));
 
     const maxNameLength = Math.max(...argList.map((arg) => arg.name.length));
 
@@ -518,8 +521,13 @@ function createMinimalFormatter(): Formatter {
     format(info: HelpInfo): string {
       const parts: string[] = [info.usage.command];
       if (info.usage.hasSubcommands) parts.push('[command]');
-      if (info.usage.hasPositionals) parts.push('[args...]');
-      if (info.usage.hasArguments) parts.push('[arguments]');
+      if (info.positionals && info.positionals.length > 0) {
+        for (const arg of info.positionals) {
+          const name = arg.name.startsWith('...') ? `${arg.name}` : arg.name;
+          parts.push(arg.optional ? `[${name}]` : `<${name}>`);
+        }
+      }
+      if (info.usage.hasArguments) parts.push('[options]');
       return parts.join(' ');
     },
   };

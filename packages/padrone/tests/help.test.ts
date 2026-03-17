@@ -152,29 +152,29 @@ describe('help with minimal detail mode', () => {
 
   it('should generate minimal usage for command with args and arguments', () => {
     const help = program.help('show', { detail: 'minimal' });
-    expect(help).toBe('padrone-test show [args...] [arguments]');
+    expect(help).toBe('padrone-test show <id> [options]');
   });
 
   it('should generate minimal usage for command with subcommands', () => {
     const help = program.help('list', { detail: 'minimal' });
-    expect(help).toBe('padrone-test list [command] [arguments]');
+    expect(help).toBe('padrone-test list [command] [options]');
   });
 
   it('should generate minimal usage for nested command', () => {
     const help = program.help('list extended', { detail: 'minimal' });
-    expect(help).toBe('padrone-test list extended [command] [arguments]');
+    expect(help).toBe('padrone-test list extended [command] [options]');
   });
 
   it('should generate minimal usage for command with args only (void arguments)', () => {
     const help = program.help('batch', { detail: 'minimal' });
     // batch has variadic args
-    expect(help).toBe('padrone-test batch [args...] [arguments]');
+    expect(help).toBe('padrone-test batch <...ids>');
   });
 
   it('should generate minimal usage for command with arguments only (void args)', () => {
     const help = program.help('filter', { detail: 'minimal' });
     // filter has arguments only
-    expect(help).toBe('padrone-test filter [arguments]');
+    expect(help).toBe('padrone-test filter [options]');
   });
 
   it('should generate minimal usage for noop command (void args and arguments)', () => {
