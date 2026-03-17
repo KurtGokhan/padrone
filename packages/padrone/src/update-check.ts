@@ -163,7 +163,7 @@ async function fetchLatestVersion(packageName: string, registry: string): Promis
  */
 export function formatUpdateMessage(currentVersion: string, latestVersion: string, packageName: string): string {
   const updateCommand = `npm update -g ${packageName}`;
-  return '\n' + `  Update available: ${currentVersion} \u2192 ${latestVersion}\n` + `  Run "${updateCommand}" to update\n`;
+  return `\n  Update available: ${currentVersion} \u2192 ${latestVersion}\n  Run "${updateCommand}" to update\n`;
 }
 
 /**

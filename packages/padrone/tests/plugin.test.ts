@@ -584,7 +584,7 @@ describe('plugins', () => {
 
       const plugin: PadronePlugin = {
         name: 'async-start',
-        start: async (ctx, next) => {
+        start: async (_ctx, next) => {
           log.push('async-start');
           const result = await next();
           log.push('async-start:after');
@@ -644,7 +644,7 @@ describe('plugins', () => {
         )
         .use({
           name: 'error-handler',
-          error: (ctx, next) => {
+          error: (ctx) => {
             return { error: undefined, result: `caught: ${(ctx.error as Error).message}` };
           },
         });
@@ -681,7 +681,7 @@ describe('plugins', () => {
         )
         .use({
           name: 'outer',
-          error: (ctx, next) => {
+          error: (_ctx, next) => {
             log.push('outer:before');
             const result = next();
             log.push('outer:after');

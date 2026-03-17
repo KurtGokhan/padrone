@@ -1,6 +1,6 @@
 dist/
 
 # These files are copied from root
-README.md
-LICENSE
-media/
+/README.md
+/LICENSE
+/media/
