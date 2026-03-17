@@ -153,7 +153,7 @@ function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaM
  * @param cmd - The command to build help info for
  * @param detail - The level of detail ('minimal', 'standard', or 'full')
  */
-function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] = 'standard'): HelpInfo {
+export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] = 'standard'): HelpInfo {
   const rootCmd = getRootCommand(cmd);
   // A command is a "default" command if its name is '' or it has '' as an alias
   const isDefaultCommand = cmd.parent && (!cmd.name || cmd.aliases?.includes(''));

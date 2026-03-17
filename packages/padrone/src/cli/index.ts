@@ -1,6 +1,7 @@
 import { createPadrone } from 'padrone';
 import pkg from 'padrone/package.json' with { type: 'json' };
 import * as z from 'zod/v4';
+import { runDocs } from './docs.ts';
 import { runInit } from './init.ts';
 
 const PadroneCLI = createPadrone('padrone')
@@ -27,6 +28,26 @@ const PadroneCLI = createPadrone('padrone')
       )
       .async()
       .action(runInit),
+  )
+  .command('docs', (cmd) =>
+    cmd
+      .configure({
+        description: 'Generate documentation for a Padrone CLI program',
+      })
+      .arguments(
+        z.object({
+          entry: z.string().describe('Entry file that exports a Padrone program'),
+          output: z.string().optional().default('./docs/cli').describe('Output directory'),
+          format: z.enum(['markdown', 'html', 'man', 'json']).optional().default('markdown').describe('Output format'),
+          includeHidden: z.boolean().optional().default(false).describe('Include hidden commands and options'),
+          dryRun: z.boolean().optional().default(false).describe('Print what would be generated without writing'),
+        }),
+        {
+          positional: ['entry'],
+        },
+      )
+      .async()
+      .action(runDocs),
   );
 
 if (import.meta.main) {

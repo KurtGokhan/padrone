@@ -1,0 +1,607 @@
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { commandSymbol } from '../command-utils.ts';
+import type { HelpArgumentInfo, HelpInfo, HelpPositionalInfo, HelpSubcommandInfo } from '../formatter.ts';
+import { getHelpInfo } from '../help.ts';
+import type { AnyPadroneCommand } from '../types.ts';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export type DocsFormat = 'markdown' | 'html' | 'man' | 'json';
+
+export type DocsOptions = {
+  /** Output format. Defaults to 'markdown'. */
+  format?: DocsFormat;
+  /** Output directory. If not set, docs are returned but not written. */
+  output?: string;
+  /** Include hidden commands and options. Defaults to false. */
+  includeHidden?: boolean;
+  /** Frontmatter generator for markdown files (VitePress, Starlight, etc.). */
+  frontmatter?: (info: HelpInfo, depth: number) => Record<string, unknown>;
+  /** Whether to overwrite existing files. Defaults to true. */
+  overwrite?: boolean;
+  /** Print what would be written without writing. */
+  dryRun?: boolean;
+};
+
+export type DocsPage = {
+  /** File path relative to output directory (e.g., "deploy.md", "index.md"). */
+  path: string;
+  /** Generated content for this page. */
+  content: string;
+  /** The command name this page documents. */
+  command: string;
+};
+
+export type DocsResult = {
+  /** All generated pages. */
+  pages: DocsPage[];
+  /** Files that were written (empty if no output dir). */
+  written: string[];
+  /** Files that were skipped (already exist, no overwrite). */
+  skipped: string[];
+  /** Files that failed to write. */
+  errors: { file: string; error: Error }[];
+};
+
+// ============================================================================
+// Help Info Collection
+// ============================================================================
+
+function collectAllHelpInfo(cmd: AnyPadroneCommand, includeHidden: boolean): HelpInfo[] {
+  const info = getHelpInfo(cmd, 'standard');
+  const result: HelpInfo[] = [info];
+
+  if (cmd.commands) {
+    for (const sub of cmd.commands) {
+      if (!includeHidden && sub.hidden) continue;
+      result.push(...collectAllHelpInfo(sub, includeHidden));
+    }
+  }
+
+  return result;
+}
+
+// ============================================================================
+// Markdown Generator
+// ============================================================================
+
+function generateFrontmatter(data: Record<string, unknown>): string {
+  const lines: string[] = ['---'];
+  for (const [key, value] of Object.entries(data)) {
+    if (typeof value === 'string') {
+      lines.push(`${key}: "${value.replace(/"/g, '\\"')}"`);
+    } else if (typeof value === 'number' || typeof value === 'boolean') {
+      lines.push(`${key}: ${value}`);
+    } else if (Array.isArray(value)) {
+      lines.push(`${key}:`);
+      for (const item of value) {
+        lines.push(`  - "${String(item).replace(/"/g, '\\"')}"`);
+      }
+    }
+  }
+  lines.push('---');
+  return lines.join('\n');
+}
+
+function formatMarkdownPositional(arg: HelpPositionalInfo): string {
+  const parts: string[] = [];
+  parts.push(`- \`${arg.name}\``);
+  if (arg.type) parts.push(`*(${arg.type})*`);
+  if (arg.optional) parts.push('*(optional)*');
+  if (arg.default !== undefined) parts.push(`— default: \`${String(arg.default)}\``);
+  if (arg.description) parts.push(`— ${arg.description}`);
+  return parts.join(' ');
+}
+
+function formatMarkdownArgument(arg: HelpArgumentInfo): string[] {
+  const lines: string[] = [];
+
+  const flagName = arg.negatable ? `--[no-]${arg.name}` : `--${arg.name}`;
+  const aliases = arg.aliases?.length ? `${arg.aliases.map((a) => `-${a}`).join(', ')}, ` : '';
+  const header = `#### \`${aliases}${flagName}\``;
+  lines.push(header);
+  lines.push('');
+
+  if (arg.description) {
+    lines.push(arg.description);
+    lines.push('');
+  }
+
+  const meta: string[] = [];
+  if (arg.type) meta.push(`**Type:** \`${arg.type}\``);
+  if (arg.optional) meta.push('**Optional**');
+  else meta.push('**Required**');
+  if (arg.default !== undefined) meta.push(`**Default:** \`${String(arg.default)}\``);
+  if (arg.enum) meta.push(`**Choices:** ${arg.enum.map((v) => `\`${v}\``).join(', ')}`);
+  if (arg.variadic) meta.push('**Repeatable**');
+  if (arg.deprecated) {
+    const msg = typeof arg.deprecated === 'string' ? arg.deprecated : '';
+    meta.push(`**Deprecated**${msg ? `: ${msg}` : ''}`);
+  }
+
+  if (meta.length > 0) {
+    lines.push(meta.join(' | '));
+    lines.push('');
+  }
+
+  if (arg.env) {
+    const envVars = typeof arg.env === 'string' ? [arg.env] : arg.env;
+    lines.push(`**Environment:** ${envVars.map((v) => `\`${v}\``).join(', ')}`);
+    lines.push('');
+  }
+
+  if (arg.configKey) {
+    lines.push(`**Config key:** \`${arg.configKey}\``);
+    lines.push('');
+  }
+
+  if (arg.examples?.length) {
+    lines.push(`**Examples:** ${arg.examples.map((e) => `\`${typeof e === 'string' ? e : JSON.stringify(e)}\``).join(', ')}`);
+    lines.push('');
+  }
+
+  return lines;
+}
+
+function formatMarkdownSubcommand(sub: HelpSubcommandInfo): string {
+  const parts: string[] = [];
+  const suffix = sub.hasSubcommands ? ' ...' : '';
+  parts.push(`| \`${sub.name}${suffix}\``);
+
+  const aliases = sub.aliases?.filter((a) => a !== '[default]');
+  parts.push(`| ${aliases?.length ? aliases.map((a) => `\`${a}\``).join(', ') : ''}`);
+
+  const desc = sub.title ?? sub.description ?? '';
+  parts.push(`| ${desc}`);
+  parts.push('|');
+
+  return parts.join(' ');
+}
+
+function generateMarkdownPage(info: HelpInfo, depth: number, frontmatterFn?: DocsOptions['frontmatter']): string {
+  const lines: string[] = [];
+
+  if (frontmatterFn) {
+    const fm = frontmatterFn(info, depth);
+    if (Object.keys(fm).length > 0) {
+      lines.push(generateFrontmatter(fm));
+      lines.push('');
+    }
+  }
+
+  // Title
+  const displayName = info.name === '<root>' || !info.name ? 'CLI Reference' : info.name;
+  lines.push(`# ${displayName}`);
+  lines.push('');
+
+  // Deprecation warning
+  if (info.deprecated) {
+    const msg = typeof info.deprecated === 'string' ? info.deprecated : 'This command is deprecated.';
+    lines.push(`> **Deprecated:** ${msg}`);
+    lines.push('');
+  }
+
+  // Description
+  if (info.title) {
+    lines.push(`> ${info.title}`);
+    lines.push('');
+  }
+  if (info.description) {
+    lines.push(info.description);
+    lines.push('');
+  }
+
+  // Aliases
+  if (info.aliases?.length) {
+    const realAliases = info.aliases.filter((a) => a !== '[default]');
+    if (realAliases.length > 0) {
+      lines.push(`**Aliases:** ${realAliases.map((a) => `\`${a}\``).join(', ')}`);
+      lines.push('');
+    }
+  }
+
+  // Usage
+  const usageParts: string[] = [info.usage.command];
+  if (info.usage.hasSubcommands) usageParts.push('[command]');
+  if (info.positionals?.length) {
+    for (const arg of info.positionals) {
+      usageParts.push(arg.optional ? `[${arg.name}]` : `<${arg.name}>`);
+    }
+  }
+  if (info.usage.hasArguments) usageParts.push('[options]');
+
+  lines.push('## Usage');
+  lines.push('');
+  lines.push('```');
+  lines.push(usageParts.join(' '));
+  lines.push('```');
+  lines.push('');
+
+  // Subcommands
+  if (info.subcommands?.length) {
+    const visibleSubs = info.subcommands.filter((s) => !s.hidden);
+    if (visibleSubs.length > 0) {
+      lines.push('## Commands');
+      lines.push('');
+      lines.push('| Command | Aliases | Description |');
+      lines.push('| --- | --- | --- |');
+      for (const sub of visibleSubs) {
+        lines.push(formatMarkdownSubcommand(sub));
+      }
+      lines.push('');
+    }
+  }
+
+  // Positional arguments
+  if (info.positionals?.length) {
+    lines.push('## Arguments');
+    lines.push('');
+    for (const arg of info.positionals) {
+      lines.push(formatMarkdownPositional(arg));
+    }
+    lines.push('');
+  }
+
+  // Options
+  if (info.arguments?.length) {
+    lines.push('## Options');
+    lines.push('');
+    for (const arg of info.arguments) {
+      lines.push(...formatMarkdownArgument(arg));
+    }
+  }
+
+  return `${lines.join('\n').trimEnd()}\n`;
+}
+
+// ============================================================================
+// HTML Generator
+// ============================================================================
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function generateHtmlPage(info: HelpInfo, depth: number): string {
+  const displayName = info.name === '<root>' || !info.name ? 'CLI Reference' : escapeHtml(info.name);
+
+  const sections: string[] = [];
+
+  // Header
+  sections.push(`<article class="padrone-docs-page" data-command="${escapeHtml(info.name)}" data-depth="${depth}">`);
+  sections.push(`  <h1>${displayName}</h1>`);
+
+  if (info.deprecated) {
+    const msg = typeof info.deprecated === 'string' ? escapeHtml(info.deprecated) : 'This command is deprecated.';
+    sections.push(`  <div class="deprecated-warning"><strong>Deprecated:</strong> ${msg}</div>`);
+  }
+
+  if (info.title) {
+    sections.push(`  <p class="command-title">${escapeHtml(info.title)}</p>`);
+  }
+  if (info.description) {
+    sections.push(`  <p class="command-description">${escapeHtml(info.description)}</p>`);
+  }
+
+  // Aliases
+  if (info.aliases?.length) {
+    const realAliases = info.aliases.filter((a) => a !== '[default]');
+    if (realAliases.length > 0) {
+      sections.push(`  <p><strong>Aliases:</strong> ${realAliases.map((a) => `<code>${escapeHtml(a)}</code>`).join(', ')}</p>`);
+    }
+  }
+
+  // Usage
+  const usageParts: string[] = [info.usage.command];
+  if (info.usage.hasSubcommands) usageParts.push('[command]');
+  if (info.positionals?.length) {
+    for (const arg of info.positionals) {
+      usageParts.push(arg.optional ? `[${arg.name}]` : `<${arg.name}>`);
+    }
+  }
+  if (info.usage.hasArguments) usageParts.push('[options]');
+
+  sections.push('  <h2>Usage</h2>');
+  sections.push(`  <pre><code>${escapeHtml(usageParts.join(' '))}</code></pre>`);
+
+  // Subcommands
+  if (info.subcommands?.length) {
+    const visibleSubs = info.subcommands.filter((s) => !s.hidden);
+    if (visibleSubs.length > 0) {
+      sections.push('  <h2>Commands</h2>');
+      sections.push('  <table>');
+      sections.push('    <thead><tr><th>Command</th><th>Aliases</th><th>Description</th></tr></thead>');
+      sections.push('    <tbody>');
+      for (const sub of visibleSubs) {
+        const aliases = sub.aliases?.filter((a) => a !== '[default]');
+        const desc = sub.title ?? sub.description ?? '';
+        const suffix = sub.hasSubcommands ? ' ...' : '';
+        sections.push(
+          `      <tr><td><code>${escapeHtml(sub.name + suffix)}</code></td><td>${aliases?.length ? aliases.map((a) => `<code>${escapeHtml(a)}</code>`).join(', ') : ''}</td><td>${escapeHtml(desc)}</td></tr>`,
+        );
+      }
+      sections.push('    </tbody>');
+      sections.push('  </table>');
+    }
+  }
+
+  // Positional arguments
+  if (info.positionals?.length) {
+    sections.push('  <h2>Arguments</h2>');
+    sections.push('  <dl>');
+    for (const arg of info.positionals) {
+      sections.push(
+        `    <dt><code>${escapeHtml(arg.name)}</code>${arg.type ? ` <span class="type">${escapeHtml(arg.type)}</span>` : ''}${arg.optional ? ' <em>(optional)</em>' : ''}</dt>`,
+      );
+      if (arg.description) sections.push(`    <dd>${escapeHtml(arg.description)}</dd>`);
+      if (arg.default !== undefined) sections.push(`    <dd>Default: <code>${escapeHtml(String(arg.default))}</code></dd>`);
+    }
+    sections.push('  </dl>');
+  }
+
+  // Options
+  if (info.arguments?.length) {
+    sections.push('  <h2>Options</h2>');
+    sections.push('  <dl>');
+    for (const arg of info.arguments) {
+      const flagName = arg.negatable ? `--[no-]${arg.name}` : `--${arg.name}`;
+      const aliases = arg.aliases?.length ? `${arg.aliases.map((a) => `-${a}`).join(', ')}, ` : '';
+      sections.push(
+        `    <dt><code>${escapeHtml(aliases + flagName)}</code>${arg.type ? ` <span class="type">${escapeHtml(arg.type)}</span>` : ''}</dt>`,
+      );
+      if (arg.description) sections.push(`    <dd>${escapeHtml(arg.description)}</dd>`);
+
+      const meta: string[] = [];
+      if (arg.optional) meta.push('Optional');
+      else meta.push('Required');
+      if (arg.default !== undefined) meta.push(`Default: <code>${escapeHtml(String(arg.default))}</code>`);
+      if (arg.enum) meta.push(`Choices: ${arg.enum.map((v) => `<code>${escapeHtml(v)}</code>`).join(', ')}`);
+      if (arg.variadic) meta.push('Repeatable');
+      if (arg.deprecated) {
+        const msg = typeof arg.deprecated === 'string' ? escapeHtml(arg.deprecated) : '';
+        meta.push(`Deprecated${msg ? `: ${msg}` : ''}`);
+      }
+      if (meta.length > 0) sections.push(`    <dd class="meta">${meta.join(' · ')}</dd>`);
+
+      if (arg.env) {
+        const envVars = typeof arg.env === 'string' ? [arg.env] : arg.env;
+        sections.push(`    <dd>Environment: ${envVars.map((v) => `<code>${escapeHtml(v)}</code>`).join(', ')}</dd>`);
+      }
+      if (arg.configKey) {
+        sections.push(`    <dd>Config key: <code>${escapeHtml(arg.configKey)}</code></dd>`);
+      }
+    }
+    sections.push('  </dl>');
+  }
+
+  sections.push('</article>');
+  return `${sections.join('\n')}\n`;
+}
+
+// ============================================================================
+// Man Page Generator
+// ============================================================================
+
+function escapeMan(text: string): string {
+  return text.replace(/\\/g, '\\\\').replace(/-/g, '\\-').replace(/'/g, '\\(aq');
+}
+
+function generateManPage(info: HelpInfo, _depth: number, programName: string): string {
+  const commandName = info.name === '<root>' || !info.name ? programName : info.name;
+  const manName = commandName.replace(/\s+/g, '-');
+  const lines: string[] = [];
+
+  lines.push(`.TH "${escapeMan(manName.toUpperCase())}" "1" "" "" ""`);
+
+  // NAME
+  lines.push('.SH NAME');
+  const desc = info.title ?? info.description ?? '';
+  lines.push(`${escapeMan(manName)}${desc ? ` \\- ${escapeMan(desc)}` : ''}`);
+
+  // SYNOPSIS
+  lines.push('.SH SYNOPSIS');
+  const usageParts: string[] = [`\\fB${escapeMan(commandName)}\\fR`];
+  if (info.usage.hasSubcommands) usageParts.push('[\\fIcommand\\fR]');
+  if (info.positionals?.length) {
+    for (const arg of info.positionals) {
+      usageParts.push(arg.optional ? `[\\fI${escapeMan(arg.name)}\\fR]` : `\\fI${escapeMan(arg.name)}\\fR`);
+    }
+  }
+  if (info.usage.hasArguments) usageParts.push('[\\fIoptions\\fR]');
+  lines.push(usageParts.join(' '));
+
+  // DESCRIPTION
+  if (info.description) {
+    lines.push('.SH DESCRIPTION');
+    lines.push(escapeMan(info.description));
+  }
+
+  // COMMANDS
+  if (info.subcommands?.length) {
+    const visibleSubs = info.subcommands.filter((s) => !s.hidden);
+    if (visibleSubs.length > 0) {
+      lines.push('.SH COMMANDS');
+      for (const sub of visibleSubs) {
+        const suffix = sub.hasSubcommands ? ' ...' : '';
+        lines.push(`.TP`);
+        lines.push(`\\fB${escapeMan(sub.name + suffix)}\\fR`);
+        const subDesc = sub.title ?? sub.description;
+        if (subDesc) lines.push(escapeMan(subDesc));
+      }
+    }
+  }
+
+  // ARGUMENTS
+  if (info.positionals?.length) {
+    lines.push('.SH ARGUMENTS');
+    for (const arg of info.positionals) {
+      lines.push('.TP');
+      lines.push(`\\fI${escapeMan(arg.name)}\\fR`);
+      const parts: string[] = [];
+      if (arg.description) parts.push(escapeMan(arg.description));
+      if (arg.optional) parts.push('(optional)');
+      if (arg.default !== undefined) parts.push(`Default: ${escapeMan(String(arg.default))}`);
+      if (parts.length > 0) lines.push(parts.join('. '));
+    }
+  }
+
+  // OPTIONS
+  if (info.arguments?.length) {
+    lines.push('.SH OPTIONS');
+    for (const arg of info.arguments) {
+      const flagName = arg.negatable ? `\\-\\-[no\\-]${escapeMan(arg.name)}` : `\\-\\-${escapeMan(arg.name)}`;
+      const aliases = arg.aliases?.length ? `${arg.aliases.map((a) => `\\-${escapeMan(a)}`).join(', ')}, ` : '';
+      lines.push('.TP');
+      lines.push(`\\fB${aliases}${flagName}\\fR${arg.type ? ` \\fI${escapeMan(arg.type)}\\fR` : ''}`);
+      const parts: string[] = [];
+      if (arg.description) parts.push(escapeMan(arg.description));
+      if (arg.default !== undefined) parts.push(`Default: ${escapeMan(String(arg.default))}`);
+      if (arg.enum) parts.push(`Choices: ${arg.enum.map((v) => escapeMan(v)).join(', ')}`);
+      if (parts.length > 0) lines.push(parts.join('. '));
+
+      if (arg.env) {
+        const envVars = typeof arg.env === 'string' ? [arg.env] : arg.env;
+        lines.push(`.br`);
+        lines.push(`Environment: ${envVars.map((v) => escapeMan(v)).join(', ')}`);
+      }
+    }
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+// ============================================================================
+// Page Path Helpers
+// ============================================================================
+
+function commandToPath(info: HelpInfo, ext: string, isRoot: boolean): string {
+  if (isRoot) return `index${ext}`;
+  // Split on whitespace and replace empty segments (from empty-name default commands) with "_default"
+  const segments = info.name.split(/\s+/).map((s) => s || '_default');
+  return segments.join('/') + ext;
+}
+
+// ============================================================================
+// Index Page Generators
+// ============================================================================
+
+function generateMarkdownIndex(rootInfo: HelpInfo, allInfos: HelpInfo[]): string {
+  const lines: string[] = [];
+  lines.push(`# ${rootInfo.title ?? rootInfo.name ?? 'CLI'} Reference`);
+  lines.push('');
+
+  if (rootInfo.description) {
+    lines.push(rootInfo.description);
+    lines.push('');
+  }
+
+  if (allInfos.length > 1) {
+    lines.push('## Commands');
+    lines.push('');
+    for (const info of allInfos) {
+      const path = commandToPath(info, '.md', info === rootInfo);
+      const name = info === rootInfo ? info.name || 'root' : info.name;
+      const desc = info.title ?? info.description ?? '';
+      lines.push(`- [${name}](${path})${desc ? ` — ${desc}` : ''}`);
+    }
+    lines.push('');
+  }
+
+  return `${lines.join('\n').trimEnd()}\n`;
+}
+
+// ============================================================================
+// Main Entry Point
+// ============================================================================
+
+function resolveCommand(programOrCommand: object): AnyPadroneCommand {
+  if (commandSymbol in programOrCommand) return (programOrCommand as any)[commandSymbol] as AnyPadroneCommand;
+  return programOrCommand as AnyPadroneCommand;
+}
+
+/**
+ * Generate documentation for a Padrone CLI program or command tree.
+ * Accepts either a PadroneProgram (from createPadrone()) or a raw AnyPadroneCommand.
+ */
+export function generateDocs(program: object, options: DocsOptions = {}): DocsResult {
+  const { format = 'markdown', output, includeHidden = false, frontmatter, overwrite = true, dryRun = false } = options;
+
+  const cmd = resolveCommand(program);
+  const allInfos = collectAllHelpInfo(cmd, includeHidden);
+  const rootInfo = allInfos[0]!;
+  const programName = cmd.name || 'program';
+
+  const pages: DocsPage[] = [];
+
+  const ext = format === 'markdown' ? '.md' : format === 'html' ? '.html' : format === 'man' ? '.1' : '.json';
+
+  for (let i = 0; i < allInfos.length; i++) {
+    const info = allInfos[i]!;
+    const isRoot = i === 0;
+    const depth = isRoot ? 0 : info.name.split(/\s+/).length;
+    const path = commandToPath(info, ext, isRoot);
+
+    let content: string;
+    switch (format) {
+      case 'markdown':
+        content = generateMarkdownPage(info, depth, frontmatter);
+        break;
+      case 'html':
+        content = generateHtmlPage(info, depth);
+        break;
+      case 'man':
+        content = generateManPage(info, depth, programName);
+        break;
+      case 'json':
+        content = `${JSON.stringify(info, null, 2)}\n`;
+        break;
+    }
+
+    pages.push({ path, content, command: info.name });
+  }
+
+  // Generate index page for markdown (when there are subcommands)
+  if (format === 'markdown' && allInfos.length > 1) {
+    // Replace the root page with a combined index
+    const rootPage = pages[0]!;
+    rootPage.content = generateMarkdownIndex(rootInfo, allInfos);
+  }
+
+  const result: DocsResult = { pages, written: [], skipped: [], errors: [] };
+
+  // Write to disk if output dir specified
+  if (output) {
+    const outDir = resolve(output);
+
+    for (const page of pages) {
+      const fullPath = join(outDir, page.path);
+
+      try {
+        if (existsSync(fullPath) && !overwrite) {
+          result.skipped.push(page.path);
+          continue;
+        }
+
+        if (dryRun) {
+          result.written.push(page.path);
+          continue;
+        }
+
+        const dir = dirname(fullPath);
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(fullPath, page.content, 'utf-8');
+        result.written.push(page.path);
+      } catch (err) {
+        result.errors.push({
+          file: page.path,
+          error: err instanceof Error ? err : new Error(String(err)),
+        });
+      }
+    }
+  }
+
+  return result;
+}

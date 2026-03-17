@@ -270,3 +270,5 @@ if (import.meta.main) {
     }
   }
 }
+
+export default tasksProgram;
