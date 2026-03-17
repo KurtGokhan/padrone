@@ -1,11 +1,21 @@
 import { fieldMetaToCode } from '../schema-to-code.ts';
-import type { CodeBuilder, CommandMeta, GeneratorContext } from '../types.ts';
+import type { CodeBuilder, CommandMeta, FieldMeta, GeneratorContext } from '../types.ts';
+
+export interface CommandFileOptions {
+  /** Wrap config: generates .wrap() instead of .action(). */
+  wrap?: {
+    /** The external command to wrap (e.g. 'gh'). */
+    command: string;
+    /** Fixed args preceding the options (e.g. ['pr', 'list']). */
+    args?: string[];
+  };
+}
 
 /**
  * Generate a single Padrone command file from a CommandMeta.
- * Produces a builder function that chains .configure(), .arguments(), and .action().
+ * Produces a builder function that chains .configure(), .arguments(), and .wrap() or .action().
  */
-export function generateCommandFile(command: CommandMeta, ctx: GeneratorContext): CodeBuilder {
+export function generateCommandFile(command: CommandMeta, ctx: GeneratorContext, options?: CommandFileOptions): CodeBuilder {
   const code = ctx.createCodeBuilder();
 
   const hasArgs = (command.arguments && command.arguments.length > 0) || (command.positionals && command.positionals.length > 0);
@@ -45,18 +55,46 @@ export function generateCommandFile(command: CommandMeta, ctx: GeneratorContext)
     const schemaCode = fieldMetaToCode(allFields);
 
     const positionalNames = (command.positionals || []).map((p) => (p.type === 'array' ? `'...${p.name}'` : `'${p.name}'`));
+    const aliasMap = buildAliasMap(allFields);
+    const hasMetaOptions = positionalNames.length > 0 || aliasMap;
 
-    if (positionalNames.length > 0) {
+    if (hasMetaOptions) {
       code.line(`  .arguments(${schemaCode.code}, {`);
-      code.line(`    positional: [${positionalNames.join(', ')}],`);
+      if (positionalNames.length > 0) {
+        code.line(`    positional: [${positionalNames.join(', ')}],`);
+      }
+      if (aliasMap) {
+        code.line(`    aliases: ${aliasMap},`);
+      }
       code.line(`  })`);
     } else {
       code.line(`  .arguments(${schemaCode.code})`);
     }
   }
 
-  // .action()
-  code.line(`  .action((args) => { /* TODO */ })`);
+  // .wrap() or .action()
+  if (options?.wrap) {
+    const wrapParts: string[] = [];
+    wrapParts.push(`command: ${JSON.stringify(options.wrap.command)}`);
+    if (options.wrap.args && options.wrap.args.length > 0) {
+      wrapParts.push(`args: [${options.wrap.args.map((a) => JSON.stringify(a)).join(', ')}]`);
+    }
+    code.line(`  .wrap({ ${wrapParts.join(', ')} })`);
+  } else {
+    code.line(`  .action((args) => { /* TODO */ })`);
+  }
 
   return code;
+}
+
+function buildAliasMap(fields: FieldMeta[]): string | null {
+  const entries: string[] = [];
+  for (const field of fields) {
+    if (field.aliases && field.aliases.length > 0) {
+      const values = field.aliases.map((a) => JSON.stringify(a)).join(', ');
+      entries.push(`${field.name}: [${values}]`);
+    }
+  }
+  if (entries.length === 0) return null;
+  return `{ ${entries.join(', ')} }`;
 }

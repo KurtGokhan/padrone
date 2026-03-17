@@ -6,6 +6,7 @@ import { runDocs } from './docs.ts';
 import { runDoctor } from './doctor.ts';
 import { runInit } from './init.ts';
 import { runLink, runUnlink } from './link.ts';
+import { runWrap } from './wrap.ts';
 
 const PadroneCLI = createPadrone('padrone')
   .configure({
@@ -119,6 +120,27 @@ const PadroneCLI = createPadrone('padrone')
       )
       .async()
       .action(runUnlink),
+  )
+  .command('wrap', (cmd) =>
+    cmd
+      .configure({
+        description: 'Generate a Padrone wrapper for an existing CLI tool',
+      })
+      .arguments(
+        z.object({
+          command: z.string().describe('CLI command to wrap (e.g. gh, docker, kubectl)'),
+          source: z.enum(['help', 'fish', 'zsh']).optional().default('help').describe('Parsing source (default: help)'),
+          output: z.string().optional().describe('Output directory (default: ./src/<command>)'),
+          depth: z.number().optional().describe('Max subcommand depth (default: unlimited)'),
+          dryRun: z.boolean().optional().default(false).describe('Print what would be generated without writing'),
+          overwrite: z.boolean().optional().default(false).describe('Overwrite existing files'),
+        }),
+        {
+          positional: ['command'],
+        },
+      )
+      .async()
+      .action(runWrap),
   );
 
 if (import.meta.main) {

@@ -1,25 +1,39 @@
 import type { CommandMeta, GeneratorContext } from '../types.ts';
+import type { CommandFileOptions } from './command-file.ts';
 import { generateCommandFile } from './command-file.ts';
+
+export interface CommandTreeOptions {
+  /** When set, generates .wrap() calls instead of .action(). */
+  wrap?: {
+    /** The external command being wrapped (e.g. 'gh'). */
+    command: string;
+  };
+}
 
 /**
  * Walk a CommandMeta tree and emit one file per command plus a root program file.
  * Maps nested subcommands to a directory structure.
  */
-export function generateCommandTree(root: CommandMeta, ctx: GeneratorContext): void {
+export function generateCommandTree(root: CommandMeta, ctx: GeneratorContext, options?: CommandTreeOptions): void {
   const commandImports: { name: string; path: string }[] = [];
 
   // Recursively generate command files
-  function walkCommands(cmd: CommandMeta, dirPath: string): void {
+  function walkCommands(cmd: CommandMeta, dirPath: string, parentArgs: string[]): void {
     if (cmd === root) {
       // Root's subcommands are the top-level commands
       for (const sub of cmd.subcommands || []) {
-        walkCommands(sub, 'commands');
+        walkCommands(sub, 'commands', []);
       }
       return;
     }
 
     const filePath = `${dirPath}/${cmd.name}.ts`;
-    const code = generateCommandFile(cmd, ctx);
+
+    const fileOptions: CommandFileOptions | undefined = options?.wrap
+      ? { wrap: { command: options.wrap.command, args: [...parentArgs, cmd.name] } }
+      : undefined;
+
+    const code = generateCommandFile(cmd, ctx, fileOptions);
     ctx.emitter.addFile(filePath, code.build());
 
     commandImports.push({ name: cmd.name, path: `./${filePath.replace(/\.ts$/, '.ts')}` });
@@ -27,12 +41,12 @@ export function generateCommandTree(root: CommandMeta, ctx: GeneratorContext): v
     // Recurse into subcommands
     if (cmd.subcommands && cmd.subcommands.length > 0) {
       for (const sub of cmd.subcommands) {
-        walkCommands(sub, `${dirPath}/${cmd.name}`);
+        walkCommands(sub, `${dirPath}/${cmd.name}`, [...parentArgs, cmd.name]);
       }
     }
   }
 
-  walkCommands(root, '');
+  walkCommands(root, '', []);
 
   // Generate root program.ts
   const program = ctx.createCodeBuilder();

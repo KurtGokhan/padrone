@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import type { CommandMeta, GeneratorContext } from 'padrone/codegen';
-import { createCodeBuilder, generateBarrelFile, generateCommandFile, template } from 'padrone/codegen';
+import { createCodeBuilder, generateBarrelFile, generateCommandFile, generateCommandTree, template } from 'padrone/codegen';
 
 function createMockContext(overrides?: Partial<GeneratorContext>): GeneratorContext {
   return {
@@ -110,6 +110,59 @@ describe('generateCommandFile', () => {
     expect(built.text).toContain('@deprecated Use deploy instead');
     expect(built.text).toContain('deprecated: "Use deploy instead"');
   });
+
+  it('should generate .wrap() when wrap option is provided', () => {
+    const command: CommandMeta = {
+      name: 'list',
+      description: 'List pull requests',
+      arguments: [
+        { name: 'assignee', type: 'string', aliases: ['-a'], description: 'Filter by assignee' },
+        { name: 'limit', type: 'number', default: 30, aliases: ['-l'], description: 'Maximum items' },
+      ],
+    };
+
+    const ctx = createMockContext();
+    const result = generateCommandFile(command, ctx, {
+      wrap: { command: 'gh', args: ['pr', 'list'] },
+    });
+    const built = result.build();
+
+    expect(built.text).toContain('.wrap({ command: "gh", args: ["pr", "list"] })');
+    expect(built.text).not.toContain('.action(');
+    expect(built.text).toContain('aliases: { assignee: ["-a"], limit: ["-l"] }');
+  });
+
+  it('should generate .wrap() with command only (no args)', () => {
+    const command: CommandMeta = {
+      name: 'status',
+      description: 'Show status',
+    };
+
+    const ctx = createMockContext();
+    const result = generateCommandFile(command, ctx, {
+      wrap: { command: 'git', args: ['status'] },
+    });
+    const built = result.build();
+
+    expect(built.text).toContain('.wrap({ command: "git", args: ["status"] })');
+  });
+
+  it('should include aliases in arguments meta', () => {
+    const command: CommandMeta = {
+      name: 'test',
+      arguments: [
+        { name: 'verbose', type: 'boolean', aliases: ['-v'] },
+        { name: 'output', type: 'string', aliases: ['-o'] },
+        { name: 'force', type: 'boolean' },
+      ],
+    };
+
+    const ctx = createMockContext();
+    const result = generateCommandFile(command, ctx);
+    const built = result.build();
+
+    expect(built.text).toContain('aliases: { verbose: ["-v"], output: ["-o"] }');
+  });
 });
 
 describe('generateBarrelFile', () => {
@@ -128,5 +181,65 @@ describe('generateBarrelFile', () => {
     const built = result.build();
 
     expect(built.text).toContain("export * from './utils.ts'");
+  });
+});
+
+describe('generateCommandTree with wrap', () => {
+  it('should generate wrap calls for subcommands', () => {
+    const files = new Map<string, string>();
+    const root: CommandMeta = {
+      name: 'gh',
+      description: 'GitHub CLI',
+      subcommands: [
+        {
+          name: 'pr',
+          description: 'Work with pull requests',
+          subcommands: [
+            {
+              name: 'list',
+              description: 'List pull requests',
+              arguments: [{ name: 'assignee', type: 'string', aliases: ['-a'], description: 'Filter by assignee' }],
+            },
+          ],
+        },
+        {
+          name: 'issue',
+          description: 'Work with issues',
+        },
+      ],
+    };
+
+    const ctx = createMockContext({
+      emitter: {
+        addFile: (path, content) => {
+          files.set(path, typeof content === 'string' ? content : content.text);
+        },
+        emit: async () => ({ written: [...files.keys()], skipped: [], errors: [] }),
+      },
+    });
+
+    generateCommandTree(root, ctx, { wrap: { command: 'gh' } });
+
+    // Should generate files for each subcommand
+    expect(files.has('commands/pr.ts')).toBe(true);
+    expect(files.has('commands/issue.ts')).toBe(true);
+    expect(files.has('commands/pr/list.ts')).toBe(true);
+    expect(files.has('program.ts')).toBe(true);
+    expect(files.has('index.ts')).toBe(true);
+
+    // The pr command should have .wrap() with args: ["pr"]
+    const prContent = files.get('commands/pr.ts')!;
+    expect(prContent).toContain('.wrap({ command: "gh", args: ["pr"] })');
+
+    // The list command should have .wrap() with args: ["pr", "list"]
+    const listContent = files.get('commands/pr/list.ts')!;
+    expect(listContent).toContain('.wrap({ command: "gh", args: ["pr", "list"] })');
+    expect(listContent).toContain('aliases: { assignee: ["-a"] }');
+
+    // program.ts should wire up the root
+    const programContent = files.get('program.ts')!;
+    expect(programContent).toContain('createPadrone("gh")');
+    expect(programContent).toContain('.command("pr"');
+    expect(programContent).toContain('.command("issue"');
   });
 });

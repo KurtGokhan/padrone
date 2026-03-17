@@ -96,6 +96,8 @@
     "start": "bun --conditions=padrone@dev src/cli/index.ts",
     "dev": "bun --conditions=padrone@dev --watch src/cli/index.ts",
     "test": "bun test --conditions=padrone@dev",
+    "link": "bun start link",
+    "unlink": "bun start unlink",
     "prepack": "bun run build && bun ../../scripts/prepareForRelease.ts"
   },
   "dependencies": {
