@@ -75,6 +75,7 @@ describe.skip('Types', async () => {
     | 'list extended extended'
     | 'filter'
     | 'batch'
+    | 'search'
     | 'noop'
     | 'tags'
     | 'deprecated-test'

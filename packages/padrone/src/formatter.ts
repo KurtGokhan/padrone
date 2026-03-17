@@ -56,6 +56,15 @@ export type HelpSubcommandInfo = {
 };
 
 /**
+ * Information about a built-in command/flag entry.
+ */
+export type HelpBuiltinInfo = {
+  name: string;
+  description?: string;
+  sub?: { name: string; description?: string }[];
+};
+
+/**
  * Comprehensive JSON structure for help information.
  * This is the single source of truth that all formatters use.
  */
@@ -85,6 +94,8 @@ export type HelpInfo = {
   positionals?: HelpPositionalInfo[];
   /** Arguments/flags (only visible ones, hidden filtered out) */
   arguments?: HelpArgumentInfo[];
+  /** Built-in commands and flags (shown only for root command) */
+  builtins?: HelpBuiltinInfo[];
   /** Full help info for nested commands (used in 'full' detail mode) */
   nestedCommands?: HelpInfo[];
 };
@@ -419,6 +430,44 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     return lines;
   }
 
+  function formatBuiltinsSection(info: HelpInfo): string[] {
+    const lines: string[] = [];
+    const builtins = info.builtins!;
+
+    lines.push(styler.label('Built-in:'));
+
+    // Compute max effective name length for alignment across main and sub entries
+    const allLengths: number[] = [];
+    for (const entry of builtins) {
+      allLengths.push(entry.name.length);
+      if (entry.sub) {
+        for (const sub of entry.sub) {
+          // Sub entries get extra indent(2) - indent(1) = 2 chars
+          allLengths.push(sub.name.length + 2);
+        }
+      }
+    }
+    const maxLen = Math.max(...allLengths);
+
+    for (const entry of builtins) {
+      const padding = ' '.repeat(Math.max(2, maxLen - entry.name.length + 2));
+      const parts: string[] = [styler.command(entry.name)];
+      if (entry.description) parts.push(padding + styler.description(entry.description));
+      lines.push(indent(1) + parts.join(''));
+
+      if (entry.sub) {
+        for (const sub of entry.sub) {
+          const subPadding = ' '.repeat(Math.max(2, maxLen - sub.name.length));
+          const subParts: string[] = [styler.arg(sub.name)];
+          if (sub.description) subParts.push(subPadding + styler.description(sub.description));
+          lines.push(indent(2) + subParts.join(''));
+        }
+      }
+    }
+
+    return lines;
+  }
+
   return {
     format(info: HelpInfo): string {
       const lines: string[] = [];
@@ -466,6 +515,11 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
 
       if (info.arguments && info.arguments.length > 0) {
         lines.push(...formatArgumentsSection(info));
+        lines.push('');
+      }
+
+      if (info.builtins && info.builtins.length > 0) {
+        lines.push(...formatBuiltinsSection(info));
         lines.push('');
       }
 

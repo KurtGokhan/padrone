@@ -1,5 +1,6 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
 import { extractSchemaMetadata, type PadroneArgsSchemaMeta, parsePositionalConfig } from './args.ts';
+import { findCommandByName } from './command-utils.ts';
 import {
   createFormatter,
   type HelpArgumentInfo,
@@ -274,6 +275,45 @@ function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] =
     if (visibleArgs.length > 0) {
       helpInfo.arguments = visibleArgs;
       helpInfo.usage.hasArguments = true;
+    }
+  }
+
+  // Add built-in commands/flags for root command only
+  if (!cmd.parent) {
+    const builtins: HelpInfo['builtins'] = [];
+
+    if (!findCommandByName('help', cmd.commands)) {
+      builtins.push({
+        name: 'help [command], -h, --help',
+        description: 'Show help for a command',
+        sub: [
+          { name: '--detail <level>', description: 'Detail level (minimal, standard, full)' },
+          { name: '--format <format>', description: 'Output format (text, ansi, json, markdown, html)' },
+        ],
+      });
+    }
+
+    if (!findCommandByName('version', cmd.commands)) {
+      builtins.push({
+        name: 'version, -v, --version',
+        description: 'Show version information',
+      });
+    }
+
+    if (!findCommandByName('completion', cmd.commands)) {
+      builtins.push({
+        name: 'completion [shell]',
+        description: 'Generate shell completions (bash, zsh, fish, powershell)',
+      });
+    }
+
+    builtins.push({
+      name: '[command] --repl',
+      description: 'Start interactive REPL scoped to a command',
+    });
+
+    if (builtins.length > 0) {
+      helpInfo.builtins = builtins;
     }
   }
 
