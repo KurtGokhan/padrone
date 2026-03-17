@@ -1,6 +1,6 @@
 import { tasksProgram } from '@padrone/tasks-example';
 import { FitAddon, init, Terminal } from 'ghostty-web';
-import { buildReplCompleter } from 'padrone';
+import { buildReplCompleter, REPL_SIGINT } from 'padrone';
 import { useCallback, useRef } from 'react';
 
 // Extract the internal command object from the program for building completions
@@ -70,8 +70,15 @@ function createTerminalLineReader(term: InstanceType<typeof Terminal>, completer
     } else if (data === '\x03') {
       currentLine = '';
       term.write('^C\r\n');
-      resolveInput(null);
+      resolveInput(REPL_SIGINT as any);
       resolveInput = null;
+    } else if (data === '\x04') {
+      // Ctrl+D (EOF) — only on empty line, like a real terminal
+      if (currentLine.length === 0) {
+        term.write('\r\n');
+        resolveInput(null);
+        resolveInput = null;
+      }
     } else if (data === '\t') {
       if (!completer) return;
       // For "tasks ..." input, complete after "tasks "
@@ -281,7 +288,7 @@ async function executeCommand(
     const taskArgv = args.slice(1);
     const program = tasksProgram.runtime({
       argv: () => taskArgv,
-      output: (text: string) => termWrite(term, text),
+      output: (text) => termWrite(term, String(text)),
       error: (text: string) => termError(term, text),
       interactive: 'supported',
       readLine,
@@ -344,6 +351,7 @@ async function initTerminal(el: HTMLDivElement) {
   while (true) {
     const line = await readLine(PROMPT);
     if (line === null) break;
+    if (line === (REPL_SIGINT as any)) continue;
     if (!line.trim()) continue;
     await executeCommand(line, term, readLine, prompt);
   }

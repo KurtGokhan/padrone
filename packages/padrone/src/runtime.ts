@@ -68,12 +68,13 @@ export type PadroneRuntime = {
   /**
    * Read a line of input from the user. Used by `repl()` for custom runtimes
    * (web UIs, chat interfaces, testing).
-   * Returns the input string, or `null` on EOF (e.g. Ctrl+D, closed connection).
+   * Returns the input string, `null` on EOF (e.g. Ctrl+D, closed connection),
+   * or `REPL_SIGINT` when the user presses Ctrl+C.
    *
    * When not provided, `repl()` uses a built-in Node.js readline session
    * with command history (up/down arrows) and tab completion.
    */
-  readLine?: (prompt: string) => Promise<string | null>;
+  readLine?: (prompt: string) => Promise<string | typeof REPL_SIGINT | null>;
 };
 
 /**

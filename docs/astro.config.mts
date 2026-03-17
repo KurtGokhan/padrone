@@ -46,11 +46,14 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     resolve: {
+      external: ['padrone'],
       conditions: ['padrone@dev'],
+      externalConditions: ['padrone@dev'],
     },
     ssr: {
       resolve: {
         conditions: ['padrone@dev'],
+        externalConditions: ['padrone@dev'],
       },
     },
   },
