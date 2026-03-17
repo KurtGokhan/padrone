@@ -176,7 +176,7 @@ function createShim(name: string, entry: string, dir: string, runPrefix?: string
 
   const prefix = runPrefix ?? detectRuntime(dir);
 
-  const shim = ['#!/usr/bin/env sh', `# Linked by padrone — do not edit`, `cd "${dir}" && ${prefix} "${entry}" "$@"`, ''].join('\n');
+  const shim = ['#!/usr/bin/env sh', `# Linked by padrone — do not edit`, `${prefix} "${entry}" "$@"`, ''].join('\n');
 
   writeFileSync(shimPath, shim);
   chmodSync(shimPath, 0o755);
