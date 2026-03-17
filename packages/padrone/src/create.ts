@@ -573,7 +573,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
    * - 'hard': print error + help and throw (cli-without-input behavior)
    */
   const execCommand = (resolvedInput: string | undefined, evalOptions?: PadroneEvalPreferences, errorMode: 'soft' | 'hard' = 'soft') => {
-    const runtime = getCommandRuntime(existingCommand);
+    const baseRuntime = getCommandRuntime(existingCommand);
+    const runtime = evalOptions?.runtime
+      ? Object.assign({}, baseRuntime, Object.fromEntries(Object.entries(evalOptions.runtime).filter(([, v]) => v !== undefined)))
+      : baseRuntime;
 
     // Check for built-in help/version/completion commands and flags (bypass plugins)
     const builtin = checkBuiltinCommands(resolvedInput);
@@ -902,7 +905,8 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
           const coreExecute = (): PluginExecuteResult => {
             const handler = command.action ?? noop;
-            const result = handler(executeCtx.args as any, createActionContext(command));
+            const ctx = evalOptions?.runtime ? { ...createActionContext(command), runtime } : createActionContext(command);
+            const result = handler(executeCtx.args as any, ctx);
             return { result };
           };
 
@@ -1056,15 +1060,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   };
 
   const tool: AnyPadroneProgram['tool'] = () => {
-    const helpText = generateHelp(existingCommand, undefined, { format: 'text', detail: 'full' });
+    const helpText = generateHelp(existingCommand, undefined, { format: 'text' });
 
-    const description = `\n
-This is a CLI tool created with Padrone. You can run any of the defined commands described in the help text below. If you need assistance, refer to the documentation or use the help command.
-
-<help_output>
-${helpText}
-</help_output>
-`;
+    const description = `Run a command. Pass the full command string including arguments. Use "help <command>" for detailed usage.\n\n${helpText}`;
 
     return {
       type: 'function',
@@ -1093,8 +1091,18 @@ ${helpText}
         return !!parsed.command.needsApproval;
       },
       execute: async (input) => {
-        const result = await evalCommand(input.command);
-        return result.result;
+        const output: string[] = [];
+        const errors: string[] = [];
+        const result = await evalCommand(input.command, {
+          autoOutput: false,
+          runtime: {
+            output: (...args) => output.push(args.map(String).join(' ')),
+            error: (text) => errors.push(text),
+            interactive: 'unsupported',
+            format: 'text',
+          },
+        });
+        return { result: result.result, logs: output.join('\n'), error: errors.join('\n') };
       },
     };
   };

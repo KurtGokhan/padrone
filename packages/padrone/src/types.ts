@@ -942,6 +942,13 @@ export type PadroneEvalPreferences = {
    * Defaults to `true`. Set to `false` to disable.
    */
   autoOutput?: boolean;
+
+  /**
+   * Override the runtime for this execution.
+   * Partial — only the provided fields replace the command's resolved runtime.
+   * Useful for capturing output, injecting test doubles, or running in non-terminal contexts (e.g. AI tool calls).
+   */
+  runtime?: PadroneRuntime;
 };
 
 /**
