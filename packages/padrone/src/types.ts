@@ -860,7 +860,7 @@ export type PadroneProgram<
    * const script = program.completion();
    * ```
    */
-  completion: (shell?: 'bash' | 'zsh' | 'fish' | 'powershell') => string;
+  completion: (shell?: 'bash' | 'zsh' | 'fish' | 'powershell') => Promise<string>;
 };
 
 export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any, [...AnyPadroneCommand[]]>;

@@ -1,3 +1,6 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { extractSchemaMetadata } from './args.ts';
 import type { AnyPadroneCommand } from './types.ts';
 
@@ -444,4 +447,79 @@ ${script}`;
 #   ${programName} completion zsh >> ~/.zshrc
 #   ${programName} completion fish > ~/.config/fish/completions/${programName}.fish
 #   ${programName} completion powershell >> $PROFILE`;
+}
+
+export interface SetupCompletionsResult {
+  /** The file that was written to. */
+  file: string;
+  /** Whether an existing completion block was replaced (true) or a new one was appended (false). */
+  updated: boolean;
+}
+
+/**
+ * Sets up shell completions by writing an eval snippet to the appropriate shell config file.
+ * Uses marker comments for idempotency — re-running replaces the existing block.
+ */
+export function setupCompletions(programName: string, shell: ShellType): SetupCompletionsResult {
+  const home = homedir();
+  const beginMarker = `###-begin-${programName}-completion-###`;
+  const endMarker = `###-end-${programName}-completion-###`;
+  const snippet = buildSetupSnippet(programName, shell, beginMarker, endMarker);
+
+  if (shell === 'fish') {
+    const completionsDir = join(home, '.config', 'fish', 'completions');
+    const filePath = join(completionsDir, `${programName}.fish`);
+    mkdirSync(completionsDir, { recursive: true });
+    const existed = existsSync(filePath);
+    writeFileSync(filePath, `${snippet}\n`);
+    return { file: filePath, updated: existed };
+  }
+
+  const rcFile = getRcFile(shell, home);
+  if (!rcFile) {
+    throw new Error(`Could not determine config file for ${shell}.`);
+  }
+
+  const existing = existsSync(rcFile) ? readFileSync(rcFile, 'utf-8') : '';
+
+  if (existing.includes(beginMarker)) {
+    const pattern = new RegExp(`${escapeRegExp(beginMarker)}[\\s\\S]*?${escapeRegExp(endMarker)}`);
+    writeFileSync(rcFile, existing.replace(pattern, snippet));
+    return { file: rcFile, updated: true };
+  }
+
+  const separator = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
+  writeFileSync(rcFile, `${existing}${separator}\n${snippet}\n`);
+  return { file: rcFile, updated: false };
+}
+
+function buildSetupSnippet(programName: string, shell: ShellType, beginMarker: string, endMarker: string): string {
+  const evalCmd = `${programName} completion ${shell}`;
+
+  switch (shell) {
+    case 'bash':
+    case 'zsh':
+      return `${beginMarker}\neval "$(${evalCmd})"\n${endMarker}`;
+    case 'fish':
+      return `${beginMarker}\n${evalCmd} | source\n${endMarker}`;
+    case 'powershell':
+      return `${beginMarker}\n${evalCmd} | Invoke-Expression\n${endMarker}`;
+  }
+}
+
+function getRcFile(shell: ShellType, home: string): string | null {
+  switch (shell) {
+    case 'bash':
+      return join(home, '.bashrc');
+    case 'zsh':
+      return join(home, '.zshrc');
+    case 'powershell':
+      return process.env.PROFILE || join(home, 'Documents', 'PowerShell', 'Microsoft.PowerShell_profile.ps1');
+    default:
+      return null;
+  }
+}
+
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

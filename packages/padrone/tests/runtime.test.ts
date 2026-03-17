@@ -24,13 +24,13 @@ describe('runtime', () => {
       expect(output.mock.calls[0]![0]).toBe('1.2.3');
     });
 
-    it('should use custom output for completion', () => {
+    it('should use custom output for completion', async () => {
       const output = mock();
       const program = createPadrone('app')
         .runtime({ output })
         .command('build', (c) => c.action(() => 'built'));
 
-      program.eval('completion bash');
+      await program.eval('completion bash');
       expect(output).toHaveBeenCalledTimes(1);
       expect(output.mock.calls[0]![0]).toContain('bash');
     });

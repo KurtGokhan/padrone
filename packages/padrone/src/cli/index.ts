@@ -1,6 +1,7 @@
 import { createPadrone } from 'padrone';
 import pkg from 'padrone/package.json' with { type: 'json' };
 import * as z from 'zod/v4';
+import { runCompletions } from './completions.ts';
 import { runDocs } from './docs.ts';
 import { runDoctor } from './doctor.ts';
 import { runInit } from './init.ts';
@@ -65,6 +66,23 @@ const PadroneCLI = createPadrone('padrone')
       )
       .async()
       .action(runDoctor),
+  )
+  .command('completions', (cmd) =>
+    cmd
+      .configure({
+        description: 'Show shell completion install instructions for a Padrone CLI program',
+      })
+      .arguments(
+        z.object({
+          appPath: z.string().optional().describe('Path or name of the CLI program (defaults to padrone)'),
+          for: z.enum(['bash', 'zsh', 'fish', 'powershell']).optional().describe('Target shell (auto-detected if omitted)'),
+          setup: z.boolean().optional().default(false).describe('Write completions to shell config file'),
+        }),
+        {
+          positional: ['appPath'],
+        },
+      )
+      .action(runCompletions),
   );
 
 if (import.meta.main) {

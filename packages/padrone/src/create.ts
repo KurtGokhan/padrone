@@ -17,7 +17,7 @@ import {
   warnIfUnexpectedAsync,
   wrapWithLifecycle,
 } from './command-utils.ts';
-import { generateCompletionOutput, type ShellType } from './completion.ts';
+import type { ShellType } from './completion.ts';
 import { ConfigError, RoutingError, ValidationError } from './errors.ts';
 import { generateHelp } from './help.ts';
 import { promptInteractiveFields } from './interactive.ts';
@@ -417,7 +417,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   ):
     | { type: 'help'; command?: AnyPadroneCommand; detail?: DetailLevel; format?: FormatLevel }
     | { type: 'version' }
-    | { type: 'completion'; shell?: ShellType }
+    | { type: 'completion'; shell?: ShellType; setup?: boolean }
     | { type: 'repl'; scope?: string }
     | null => {
     if (!input) return null;
@@ -519,7 +519,8 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       const shellArg = normalizedTerms[1] as ShellType | undefined;
       const validShells: ShellType[] = ['bash', 'zsh', 'fish', 'powershell'];
       const shell = shellArg && validShells.includes(shellArg) ? shellArg : undefined;
-      return { type: 'completion', shell };
+      const setup = args.some((p) => p.type === 'named' && keyIs(p.key, 'setup'));
+      return { type: 'completion', shell, setup };
     }
 
     // Handle help flag - find the command being requested
@@ -606,13 +607,29 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       }
 
       if (builtin.type === 'completion') {
-        const completionScript = generateCompletionOutput(existingCommand, builtin.shell);
-        runtime.output(completionScript);
-        return {
-          command: existingCommand,
-          args: undefined,
-          result: completionScript,
-        } as any;
+        return import('./completion.ts').then(({ detectShell, generateCompletionOutput, setupCompletions }) => {
+          if (builtin.setup) {
+            const shell = builtin.shell ?? detectShell();
+            if (!shell) {
+              throw new Error('Could not detect shell. Specify one: completion bash --setup');
+            }
+            const result = setupCompletions(existingCommand.name, shell);
+            const message = `${result.updated ? 'Updated' : 'Added'} ${existingCommand.name} completions in ${result.file}`;
+            runtime.output(message);
+            return {
+              command: existingCommand,
+              args: undefined,
+              result: message,
+            };
+          }
+          const completionScript = generateCompletionOutput(existingCommand, builtin.shell);
+          runtime.output(completionScript);
+          return {
+            command: existingCommand,
+            args: undefined,
+            result: completionScript,
+          };
+        }) as any;
       }
     }
 
@@ -1253,7 +1270,8 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       return generateHelp(existingCommand, commandObj, { ...prefs, format: prefs?.format ?? runtime.format });
     },
 
-    completion(shell) {
+    async completion(shell) {
+      const { generateCompletionOutput } = await import('./completion.ts');
       return generateCompletionOutput(existingCommand, shell as ShellType | undefined);
     },
 
