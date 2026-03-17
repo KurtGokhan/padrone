@@ -348,6 +348,14 @@ z.string().meta({
 })
 ```
 
+## 🤖 AI Coding Agent Skill
+
+Install the [Padrone skill](https://agentskills.io) to give your AI coding agent (Claude Code, etc.) knowledge of the Padrone API:
+
+```bash
+npx skills add KurtGokhan/padrone
+```
+
 ## 🛠️ Requirements
 
 - Node.js 18+ or Bun

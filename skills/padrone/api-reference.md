@@ -1,0 +1,552 @@
+# Padrone API Reference
+
+## Exports from `'padrone'`
+
+### `createPadrone(name)`
+
+Creates a root program. Returns a `PadroneProgram`.
+
+```ts
+const program = createPadrone('mycli');
+```
+
+### `createPadroneBuilder(command)`
+
+Creates a builder from an existing `AnyPadroneCommand`. Used for command merging and remounting.
+
+### `asyncSchema(schema)`
+
+Brands a schema as async, causing `parse()` and `cli()` to return Promises.
+
+```ts
+import { asyncSchema } from 'padrone';
+const schema = asyncSchema(z.object({ name: z.string() }).check(async (v) => { ... }));
+```
+
+### Error Classes
+
+#### `PadroneError`
+
+Base error. All Padrone errors extend this.
+
+```ts
+new PadroneError(message, {
+  exitCode?: number,       // default: 1
+  suggestions?: string[],  // actionable hints shown to user
+  command?: string,        // command path that produced the error
+  phase?: 'parse' | 'validate' | 'execute' | 'config',
+  cause?: unknown,
+})
+```
+
+Properties: `exitCode`, `suggestions`, `command`, `phase`.
+Method: `toJSON()` for serialization.
+
+#### `RoutingError extends PadroneError`
+
+Unknown command or routing failure. Phase defaults to `'parse'`.
+
+#### `ValidationError extends PadroneError`
+
+Schema validation failure. Phase defaults to `'validate'`.
+Additional property: `issues: readonly { path?: PropertyKey[]; message: string }[]`.
+
+#### `ConfigError extends PadroneError`
+
+Config file loading or validation failure. Phase defaults to `'config'`.
+
+#### `ActionError extends PadroneError`
+
+Throw from action handlers for structured errors. Phase defaults to `'execute'`.
+
+```ts
+throw new ActionError('Missing environment', {
+  exitCode: 1,
+  suggestions: ['Use --env production or --env staging'],
+});
+```
+
+### Exported Types
+
+```ts
+import type {
+  PadroneCommand,
+  AnyPadroneCommand,
+  PadroneProgram,
+  AnyPadroneProgram,
+  PadroneBuilder,
+  PadroneSchema,
+  AsyncPadroneSchema,
+  PadroneActionContext,
+  PadronePlugin,
+  PadroneCommandResult,
+  PadroneParseResult,
+  PadroneErrorOptions,
+  PadroneCommandConfig,
+  PadroneEvalPreferences,
+  PadroneCliPreferences,
+  PadroneReplPreferences,
+  PadroneRuntime,
+  UpdateCheckConfig,
+  InferArgsInput,
+  InferArgsOutput,
+  InferCommand,
+} from 'padrone';
+```
+
+---
+
+## Builder Methods
+
+All builder methods are immutable — they return a new instance.
+
+### `.arguments(schema?, meta?)`
+
+Defines the arguments schema for a command. Accepts any Standard Schema-compatible schema (Zod, Valibot, ArkType, etc.) directly or a function receiving the parent's schema.
+
+**Schema parameter:**
+```ts
+// Direct schema
+.arguments(z.object({
+  name: z.string(),
+  count: z.coerce.number().default(1),
+}))
+
+// Function-based (extends parent args)
+.arguments((parentSchema) => parentSchema.extend({
+  verbose: z.boolean().default(false),
+}))
+```
+
+**Meta parameter:**
+
+```ts
+type ArgsMeta = {
+  positional?: string[];              // field names; '...name' for variadic
+  interactive?: boolean | string[];   // prompt for missing required fields
+  optionalInteractive?: boolean | string[]; // prompt for optional fields too
+  fields?: Record<string, {
+    alias?: string | string[];        // short flags (-n, -v)
+    description?: string;
+    deprecated?: boolean | string;
+    hidden?: boolean;
+    examples?: unknown[];
+  }>;
+};
+```
+
+### `.action(handler?)`
+
+Defines the command handler. Called with no args to create a passthrough command (useful for commands that only have subcommands).
+
+```ts
+.action((args, ctx, base?) => result)
+```
+
+- `args`: Validated output from the schema
+- `ctx`: `{ runtime, command, program }`
+- `base`: Previous handler when overriding an existing command
+
+### `.command(name, builderFn?)`
+
+Creates or extends a subcommand.
+
+```ts
+// Simple
+.command('list', (c) => c.action(() => 'list'))
+
+// With aliases (tuple)
+.command(['list', 'ls', 'l'], (c) => c.action(() => 'list'))
+
+// Extending an existing command
+.command('list', (c) => c.action((args, ctx, base) => {
+  const original = base(args, ctx);
+  return `modified: ${original}`;
+}))
+
+// Nested subcommands
+.command('db', (c) =>
+  c.command('migrate', (s) => s.action(() => 'migrated'))
+   .command('seed', (s) => s.action(() => 'seeded'))
+)
+```
+
+### `.mount(name, program)`
+
+Mounts an existing Padrone program as a subcommand tree.
+
+```ts
+const admin = createPadrone('admin')
+  .command('users', (c) => c.action(() => 'users'))
+  .command('roles', (c) => c.action(() => 'roles'));
+
+const app = createPadrone('app')
+  .mount('admin', admin)       // app admin users, app admin roles
+  .mount(['db', 'd'], dbProgram); // with aliases
+```
+
+Re-paths all nested commands. Drops the mounted program's version. Preserves plugins.
+
+### `.configure(config)`
+
+```ts
+.configure({
+  title?: string,
+  description?: string,
+  version?: string,
+  deprecated?: boolean | string,
+  hidden?: boolean,
+  autoOutput?: boolean,
+})
+```
+
+### `.use(plugin)`
+
+Registers a plugin. See [Plugin System](#plugin-system).
+
+### `.env(schema)`
+
+Parses environment variables into argument values.
+
+```ts
+.env(z.object({
+  MY_APP_PORT: z.coerce.number(),
+  MY_APP_HOST: z.string().optional(),
+}).transform((e) => ({
+  port: e.MY_APP_PORT,
+  host: e.MY_APP_HOST,
+})))
+```
+
+### `.configFile(file, schema?)`
+
+Loads arguments from config files.
+
+```ts
+.configFile('app.config.json')
+.configFile(['app.config.json', 'app.config.yaml'], configSchema)
+```
+
+### `.wrap(config)`
+
+Wraps an external CLI tool.
+
+```ts
+.wrap({
+  command: string,          // e.g., 'git', 'docker'
+  args?: string[],          // fixed args like ['commit']
+  positional?: string[],    // positional arg names for the external tool
+  inheritStdio?: boolean,   // default: true
+  schema?: Schema | (argsSchema) => Schema,  // transform args to external format
+})
+```
+
+Returns `Promise<WrapResult>` where `WrapResult = { exitCode, stdout?, stderr?, success }`.
+
+### `.runtime(runtime)`
+
+Custom I/O adapter for non-terminal environments.
+
+```ts
+.runtime({
+  output?: (...args: unknown[]) => void,
+  error?: (text: string) => void,
+  argv?: () => string[],
+  env?: () => Record<string, string | undefined>,
+  format?: 'text' | 'ansi' | 'console' | 'markdown' | 'html' | 'json' | 'auto',
+  interactive?: 'supported' | 'unsupported' | 'forced' | 'disabled',
+  prompt?: (config) => Promise<unknown>,
+  readLine?: (prompt: string) => Promise<string | null>,
+  loadConfigFile?: (path: string) => Record<string, unknown> | undefined,
+  findFile?: (names: string[]) => string | undefined,
+})
+```
+
+### `.updateCheck(config?)`
+
+Enables background update checking.
+
+```ts
+.updateCheck({
+  packageName?: string,     // defaults to program name
+  registry?: 'npm' | string,
+  interval?: string,        // '1d', '12h', '30m' (default: '1d')
+  cache?: string,           // cache file path
+  disableEnvVar?: string,   // env var to disable (default: <NAME>_NO_UPDATE_CHECK)
+})
+```
+
+Non-blocking. Respects CI and TTY. Shows notice after command output.
+
+### `.async()`
+
+Explicitly marks the command as async. Alternative to `asyncSchema()`.
+
+---
+
+## Program Methods
+
+### `.cli(prefs?)`
+
+CLI entry point. Parses `process.argv`. Throws on validation errors.
+
+```ts
+program.cli();
+program.cli({ repl: { prompt: '> ' } });
+program.cli({ autoOutput: false });
+```
+
+Preferences:
+```ts
+type PadroneCliPreferences = {
+  interactive?: boolean,
+  autoOutput?: boolean,      // default: true
+  repl?: PadroneReplPreferences | false,
+};
+```
+
+### `.eval(input, prefs?)`
+
+Parse + validate + execute a command string. Returns issues softly (doesn't throw on validation errors).
+
+```ts
+const result = program.eval('greet --name Alice');
+if (result.argsResult?.issues) { /* validation failed */ }
+```
+
+### `.run(name, args)`
+
+Execute a command by name with an args object. Always sync. No schema validation.
+
+```ts
+const result = program.run('greet', { name: 'World' });
+const result = program.run('db migrate', { name: 'v1' });
+```
+
+### `.parse(input?)`
+
+Parse without executing. Returns `{ command, args?, argsResult? }`.
+
+### `.repl(options?)`
+
+Returns `AsyncIterable<PadroneCommandResult>`. Yields results for each executed command.
+
+```ts
+for await (const result of program.repl({
+  prompt: 'app> ',
+  greeting: 'Welcome!',
+  hint: 'Type .help for commands',
+  scope: 'db',              // start scoped to a subcommand
+  spacing: { after: true },
+  outputPrefix: '  ',
+  completion: true,
+})) {
+  // handle each result
+}
+```
+
+REPL built-in commands: `.help`, `.exit`, `.quit`, `.scope <cmd>`, `.scope ..`
+
+### `.help(command?, prefs?)`
+
+```ts
+program.help();                              // root help
+program.help('deploy');                      // command help
+program.help('deploy', { format: 'json' }); // format: text|ansi|console|markdown|html|json|auto
+program.help('deploy', { detail: 'full' }); // detail: minimal|standard|full
+```
+
+### `.completion(shell?)`
+
+Returns shell completion script. Auto-detects shell if not specified.
+
+```ts
+program.completion('bash');
+program.completion('zsh');
+program.completion('fish');
+program.completion('powershell');
+```
+
+### `.find(command)`
+
+Returns the command object or `undefined`.
+
+```ts
+const cmd = program.find('db migrate');
+```
+
+### `.api()`
+
+Type-safe programmatic API. Nested by command tree.
+
+```ts
+const api = program.api();
+api.greet({ name: 'World' });
+api.db.migrate({ name: 'v1' });
+```
+
+### `.tool()`
+
+Returns a Vercel AI SDK `Tool` definition.
+
+```ts
+import { generateText } from 'ai';
+const tool = program.tool();
+```
+
+### `.stringify(command?, args?)`
+
+Converts command and arguments back to a CLI string.
+
+---
+
+## Plugin System
+
+### PadronePlugin Type
+
+```ts
+type PadronePlugin = {
+  name: string;
+  order?: number;  // lower = outermost (default: 0)
+  start?: (ctx: PluginStartContext, next: () => T) => T;
+  parse?: (ctx: PluginParseContext, next: () => PluginParseResult) => PluginParseResult;
+  validate?: (ctx: PluginValidateContext, next: () => PluginValidateResult) => PluginValidateResult;
+  execute?: (ctx: PluginExecuteContext, next: () => PluginExecuteResult) => PluginExecuteResult;
+  error?: (ctx: PluginErrorContext, next: () => PluginErrorResult) => PluginErrorResult;
+  shutdown?: (ctx: PluginShutdownContext, next: () => void) => void;
+};
+```
+
+All handlers can return Promises for async behavior.
+
+### Phase Contexts
+
+**Shared across all phases:**
+- `command`: The resolved command
+- `state`: Mutable `Record<string, unknown>` shared across phases per execution
+
+**Phase-specific fields:**
+
+| Phase | Extra context fields | `next()` returns |
+|---|---|---|
+| start | `input` | Pipeline result |
+| parse | `input` | `{ command, rawArgs, positionalArgs }` |
+| validate | `rawArgs` (mutable), `positionalArgs` | `{ args, argsResult }` |
+| execute | `args` (mutable) | `{ result }` |
+| error | `error` | `{ error?, result? }` |
+| shutdown | `error?`, `result?` | `void` |
+
+### Phase Execution Rules
+
+| Entry point | Phases run |
+|---|---|
+| `eval()` / `cli()` | start, parse, validate, execute, [error], shutdown |
+| `parse()` | parse, validate |
+| `run()` | execute only |
+
+- Parse, start, error, shutdown use **root plugins only**
+- Validate, execute use **collected parent chain** (root outermost, subcommand innermost)
+- Subcommand plugins registered via `.use()` inside `.command()` apply only to that command
+
+### Ordering
+
+- Lower `order` = outermost (runs first before `next()`, last after)
+- Same `order` preserves registration order
+- First-registered = outermost by default
+
+---
+
+## Testing Utilities (`'padrone/test'`)
+
+### `testCli(program)`
+
+Returns a fluent test builder.
+
+```ts
+import { testCli } from 'padrone/test';
+
+const builder = testCli(program);
+```
+
+**Builder methods (all chainable):**
+
+| Method | Purpose |
+|---|---|
+| `.args(input)` | Set CLI input string |
+| `.env(vars)` | Set environment variables |
+| `.prompt(answers)` | Mock interactive prompt answers |
+| `.config(files)` | Mock config file contents |
+| `.run(input?)` | Execute and return `TestCliResult` |
+| `.repl(inputs)` | Run REPL session with array of inputs |
+
+**`TestCliResult`:**
+
+```ts
+{
+  command: AnyPadroneCommand,
+  args: unknown,
+  result: unknown,
+  issues: { message: string; path?: PropertyKey[] }[] | undefined,
+  stdout: unknown[],   // captured runtime.output() calls
+  stderr: string[],    // captured runtime.error() calls
+  error?: unknown,     // thrown error (if any)
+}
+```
+
+**`TestReplResult`:**
+
+```ts
+{
+  results: { command, args, result, issues }[],
+  stdout: unknown[],
+  stderr: string[],
+}
+```
+
+---
+
+## Type Helpers
+
+```ts
+import type {
+  InferArgsInput,   // Extract input type of a command's args schema
+  InferArgsOutput,  // Extract output type of a command's args schema
+  InferConfigInput, // Extract config schema input type
+  InferConfigOutput,// Extract config schema output type
+  InferEnvInput,    // Extract env schema input type
+  InferEnvOutput,   // Extract env schema output type
+  InferCommand,     // Get command type by path: InferCommand<typeof program, 'db migrate'>
+} from 'padrone';
+```
+
+---
+
+## Key Types Quick Reference
+
+```ts
+type PadroneActionContext = {
+  runtime: ResolvedPadroneRuntime;
+  command: AnyPadroneCommand;
+  program: AnyPadroneProgram;
+};
+
+type PadroneCommandResult<T> = {
+  command: T;
+  args?: ArgsOutput;
+  argsResult?: StandardSchemaV1.Result<ArgsOutput>;
+  result: ActionReturnType;
+};
+
+type PadroneParseResult<T> = {
+  command: T;
+  args?: ArgsOutput;
+  argsResult?: StandardSchemaV1.Result<ArgsOutput>;
+};
+
+type WrapResult = {
+  exitCode: number;
+  stdout?: string;
+  stderr?: string;
+  success: boolean;
+};
+```
