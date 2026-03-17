@@ -5,6 +5,7 @@ import { runCompletions } from './completions.ts';
 import { runDocs } from './docs.ts';
 import { runDoctor } from './doctor.ts';
 import { runInit } from './init.ts';
+import { runLink, runUnlink } from './link.ts';
 
 const PadroneCLI = createPadrone('padrone')
   .configure({
@@ -83,6 +84,41 @@ const PadroneCLI = createPadrone('padrone')
         },
       )
       .action(runCompletions),
+  )
+  .command('link', (cmd) =>
+    cmd
+      .configure({
+        description: 'Link a Padrone CLI program for global use during development',
+      })
+      .arguments(
+        z.object({
+          entry: z.string().optional().describe('Entry file (auto-detected from package.json bin field)'),
+          name: z.string().optional().describe('Command name (auto-detected from package.json)'),
+          list: z.boolean().optional().default(false).describe('List all linked programs'),
+          setup: z.boolean().optional().default(false).describe('Add ~/.padrone/bin to PATH in shell config'),
+        }),
+        {
+          positional: ['entry'],
+        },
+      )
+      .async()
+      .action(runLink),
+  )
+  .command('unlink', (cmd) =>
+    cmd
+      .configure({
+        description: 'Remove a previously linked Padrone CLI program',
+      })
+      .arguments(
+        z.object({
+          name: z.string().optional().describe('Program name to unlink (auto-detected from current directory)'),
+        }),
+        {
+          positional: ['name'],
+        },
+      )
+      .async()
+      .action(runUnlink),
   );
 
 if (import.meta.main) {

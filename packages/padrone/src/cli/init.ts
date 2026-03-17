@@ -21,7 +21,9 @@ const packageJsonTemplate = template(`{
   },
   "scripts": {
     "start": "bun src/index.ts",
-    "dev": "bun --watch src/index.ts"
+    "dev": "bun --watch src/index.ts",
+    "link": "padrone link",
+    "unlink": "padrone unlink"
   },
   "dependencies": {
     "padrone": "^{{padroneVersion}}",

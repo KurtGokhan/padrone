@@ -34,9 +34,6 @@
     "email": "gokhan@gkurt.com",
     "url": "https://gkurt.com"
   },
-  "bin": {
-    "padrone": "./src/cli/index.ts"
-  },
   "files": [
     "dist/",
     "src/",
@@ -45,6 +42,9 @@
     "LICENSE",
     "CHANGELOG.md"
   ],
+  "bin": {
+    "padrone": "./src/cli/index.ts"
+  },
   "imports": {
     "#*": "./*"
   },
