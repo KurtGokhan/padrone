@@ -112,7 +112,7 @@ function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaM
         if (positionalNames?.has(key)) continue;
 
         const isOptional = !required.includes(key);
-        const enumValues = prop.enum as string[] | undefined;
+        const enumValues = (prop.enum ?? prop.items?.enum) as string[] | undefined;
         const optMeta = argsMeta?.[key];
         const propType = prop.type as string;
 
