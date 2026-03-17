@@ -2,6 +2,7 @@ import { createPadrone } from 'padrone';
 import pkg from 'padrone/package.json' with { type: 'json' };
 import * as z from 'zod/v4';
 import { runDocs } from './docs.ts';
+import { runDoctor } from './doctor.ts';
 import { runInit } from './init.ts';
 
 const PadroneCLI = createPadrone('padrone')
@@ -48,6 +49,22 @@ const PadroneCLI = createPadrone('padrone')
       )
       .async()
       .action(runDocs),
+  )
+  .command('doctor', (cmd) =>
+    cmd
+      .configure({
+        description: 'Lint and validate a Padrone CLI program definition',
+      })
+      .arguments(
+        z.object({
+          entry: z.string().describe('Entry file that exports a Padrone program'),
+        }),
+        {
+          positional: ['entry'],
+        },
+      )
+      .async()
+      .action(runDoctor),
   );
 
 if (import.meta.main) {
