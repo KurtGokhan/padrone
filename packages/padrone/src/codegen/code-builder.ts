@@ -2,6 +2,7 @@ import type { CodeBuilder, CodeBuildResult } from './types.ts';
 
 interface ImportEntry {
   specifiers: Set<string>;
+  defaultSpecifier?: string;
   typeOnly: boolean;
 }
 
@@ -28,6 +29,17 @@ class CodeBuilderImpl implements CodeBuilder {
       existing.typeOnly = false;
     } else {
       this.imports.set(source, { specifiers: new Set(specs), typeOnly: false });
+    }
+    return this;
+  }
+
+  importDefault(name: string, source: string): CodeBuilder {
+    const existing = this.imports.get(source);
+    if (existing) {
+      existing.defaultSpecifier = name;
+      existing.typeOnly = false;
+    } else {
+      this.imports.set(source, { specifiers: new Set(), defaultSpecifier: name, typeOnly: false });
     }
     return this;
   }
@@ -86,9 +98,14 @@ class CodeBuilderImpl implements CodeBuilder {
       const existing = this.imports.get(source);
       if (existing) {
         for (const s of entry.specifiers) existing.specifiers.add(s);
+        if (entry.defaultSpecifier) existing.defaultSpecifier = entry.defaultSpecifier;
         if (!entry.typeOnly) existing.typeOnly = false;
       } else {
-        this.imports.set(source, { specifiers: new Set(entry.specifiers), typeOnly: entry.typeOnly });
+        this.imports.set(source, {
+          specifiers: new Set(entry.specifiers),
+          defaultSpecifier: entry.defaultSpecifier,
+          typeOnly: entry.typeOnly,
+        });
       }
     }
 
@@ -142,7 +159,13 @@ class CodeBuilderImpl implements CodeBuilder {
 
       for (const [source, entry] of this.imports) {
         const specs = [...entry.specifiers].sort();
-        const specStr = specs.length === 1 && !specs[0]!.includes(' ') ? `{ ${specs[0]} }` : `{ ${specs.join(', ')} }`;
+        const namedPart =
+          specs.length > 0 ? (specs.length === 1 && !specs[0]!.includes(' ') ? `{ ${specs[0]} }` : `{ ${specs.join(', ')} }`) : null;
+        const specStr = entry.defaultSpecifier
+          ? namedPart
+            ? `${entry.defaultSpecifier}, ${namedPart}`
+            : entry.defaultSpecifier
+          : namedPart!;
 
         const line = entry.typeOnly ? `import type ${specStr} from '${source}'` : `import ${specStr} from '${source}'`;
 

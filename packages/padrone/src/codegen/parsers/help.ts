@@ -174,14 +174,14 @@ function parseOptionLine(line: string): FieldMeta | null {
     const description = cobraMatch[4]?.trim();
 
     const name = normalizeOptionName(longFlag);
-    const aliases = shortFlag ? [shortFlag] : undefined;
+    const aliases = shortFlag ? [normalizeAlias(shortFlag)] : undefined;
 
     const { type, ambiguous } = resolveType(typeHint);
 
     const { defaultValue, resolvedType } = extractDefault(description, type, ambiguous);
     const { enumValues, resolvedType: finalType } = extractEnum(description, resolvedType);
 
-    return {
+    return reconcileField({
       name,
       type: finalType,
       description,
@@ -190,7 +190,7 @@ function parseOptionLine(line: string): FieldMeta | null {
       default: defaultValue,
       enumValues,
       ambiguous: ambiguous || undefined,
-    };
+    });
   }
 
   // GNU/argparse-style: "  -s, --long-name <value>    Description"
@@ -204,7 +204,7 @@ function parseOptionLine(line: string): FieldMeta | null {
     const description = gnuMatch[6]?.trim();
 
     const name = normalizeOptionName(longFlag);
-    const aliases = shortFlag ? [shortFlag] : undefined;
+    const aliases = shortFlag ? [normalizeAlias(shortFlag)] : undefined;
 
     const { type, ambiguous } = resolveType(valueName);
 
@@ -214,7 +214,7 @@ function parseOptionLine(line: string): FieldMeta | null {
     // [value] means optional, <value> means required
     const required = !gnuMatch[4];
 
-    return {
+    return reconcileField({
       name,
       type: finalType,
       description,
@@ -223,7 +223,7 @@ function parseOptionLine(line: string): FieldMeta | null {
       default: defaultValue,
       enumValues,
       ambiguous: ambiguous || undefined,
-    };
+    });
   }
 
   // Simplest pattern: "  --name    Description"
@@ -320,6 +320,34 @@ function extractEnum(
   return { enumValues: undefined, resolvedType: type };
 }
 
+/**
+ * Fix up a parsed field for edge cases:
+ * - Enum default not in the listed values → add it
+ * - Default value type doesn't match declared type → reset to type default + mark ambiguous
+ */
+function reconcileField(field: FieldMeta): FieldMeta {
+  // If enum has a default that isn't in the value list, add it
+  if (field.type === 'enum' && field.enumValues && field.default !== undefined) {
+    const defStr = String(field.default);
+    if (!field.enumValues.includes(defStr)) {
+      field.enumValues = [...field.enumValues, defStr];
+    }
+  }
+
+  // If the default value doesn't match the declared type, reset + mark ambiguous
+  if (field.default !== undefined) {
+    if (field.type === 'boolean' && typeof field.default !== 'boolean') {
+      field.default = false;
+      field.ambiguous = true;
+    } else if (field.type === 'number' && typeof field.default !== 'number') {
+      field.default = 0;
+      field.ambiguous = true;
+    }
+  }
+
+  return field;
+}
+
 function parsePositionalLine(line: string): FieldMeta | null {
   // Pattern: "  <name>    Description"
   // Pattern: "  name      Description"
@@ -336,9 +364,15 @@ function parsePositionalLine(line: string): FieldMeta | null {
 }
 
 /**
- * Convert --kebab-case to camelCase.
+ * Strip leading dashes from a flag name, preserving kebab-case.
  */
 function normalizeOptionName(flag: string): string {
-  const name = flag.replace(/^-+/, '');
-  return name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+  return flag.replace(/^-+/, '');
+}
+
+/**
+ * Strip leading dash from a short alias flag (e.g. '-v' → 'v').
+ */
+function normalizeAlias(alias: string): string {
+  return alias.replace(/^-/, '');
 }

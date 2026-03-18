@@ -13,6 +13,7 @@ interface WrapArgs {
   depth?: number;
   dryRun?: boolean;
   overwrite?: boolean;
+  yes?: boolean;
 }
 
 export async function runWrap(args: WrapArgs, ctx: PadroneActionContext) {
@@ -20,6 +21,26 @@ export async function runWrap(args: WrapArgs, ctx: PadroneActionContext) {
   const command = args.command;
   const sources: DiscoverySource[] = args.source ? [args.source] : ['help'];
   const outDir = resolve(args.output || `./src/${command}`);
+
+  // Experimental warning — skip with -y
+  if (!args.yes) {
+    output('⚠ The `wrap` command is experimental. Generated code may require manual adjustments.');
+    output('');
+
+    if (ctx.runtime.prompt) {
+      const proceed = await ctx.runtime.prompt({
+        name: 'confirm',
+        message: 'Do you want to continue?',
+        type: 'confirm',
+        default: true,
+      });
+      if (!proceed) {
+        output('Aborted.');
+        return;
+      }
+      output('');
+    }
+  }
 
   output(`Discovering ${command} CLI structure...`);
 
@@ -34,6 +55,14 @@ export async function runWrap(args: WrapArgs, ctx: PadroneActionContext) {
       success: (msg) => output(msg),
     },
   });
+
+  // Error out if the root command returned nothing useful
+  const hasSubcommands = result.command.subcommands && result.command.subcommands.length > 0;
+  const hasArguments = result.command.arguments && result.command.arguments.length > 0;
+  if (!hasSubcommands && !hasArguments && !result.command.description) {
+    error(`Could not discover CLI structure for "${command}". Make sure the command exists and supports --help.`);
+    return;
+  }
 
   if (result.warnings.length > 0) {
     output('');

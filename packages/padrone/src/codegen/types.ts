@@ -77,6 +77,8 @@ export interface CodeBuildResult {
 export interface CodeBuilder {
   /** Add a named import: import { specifier } from source */
   import(specifier: string | string[], source: string): CodeBuilder;
+  /** Add a default import: import name from source */
+  importDefault(name: string, source: string): CodeBuilder;
   /** Add a type-only import: import type { specifier } from source */
   importType(specifier: string | string[], source: string): CodeBuilder;
   /** Add a line of code (empty string or no argument for blank line) */

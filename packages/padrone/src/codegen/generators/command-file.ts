@@ -1,6 +1,66 @@
 import { fieldMetaToCode } from '../schema-to-code.ts';
 import type { CodeBuilder, CommandMeta, FieldMeta, GeneratorContext } from '../types.ts';
 
+const JS_RESERVED = new Set([
+  'break',
+  'case',
+  'catch',
+  'continue',
+  'debugger',
+  'default',
+  'delete',
+  'do',
+  'else',
+  'export',
+  'extends',
+  'finally',
+  'for',
+  'function',
+  'if',
+  'import',
+  'in',
+  'instanceof',
+  'new',
+  'return',
+  'super',
+  'switch',
+  'this',
+  'throw',
+  'try',
+  'typeof',
+  'var',
+  'void',
+  'while',
+  'with',
+  'yield',
+  'class',
+  'const',
+  'enum',
+  'let',
+  'static',
+  'implements',
+  'interface',
+  'package',
+  'private',
+  'protected',
+  'public',
+  'await',
+  'async',
+]);
+
+/** Convert a command name to a safe JS identifier (camelCase, reserved-word-safe). */
+export function toSafeIdentifier(name: string): string {
+  const camel = name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+  if (/^\d/.test(camel)) return `_${camel}`;
+  if (JS_RESERVED.has(camel)) return `_${camel}`;
+  return camel;
+}
+
+/** Build the exported function name for a command (e.g. 'repo' → 'repoCommand'). */
+export function toCommandFunctionName(name: string): string {
+  return `${toSafeIdentifier(name)}Command`;
+}
+
 export interface CommandFileOptions {
   /** Wrap config: generates .wrap() instead of .action(). */
   wrap?: {
@@ -9,11 +69,13 @@ export interface CommandFileOptions {
     /** Fixed args preceding the options (e.g. ['pr', 'list']). */
     args?: string[];
   };
+  /** Subcommand references to wire into this command via .command() calls. */
+  subcommands?: { name: string; varName: string; importPath: string; aliases?: string[] }[];
 }
 
 /**
  * Generate a single Padrone command file from a CommandMeta.
- * Produces a builder function that chains .configure(), .arguments(), and .wrap() or .action().
+ * Produces a named function that chains .configure(), .arguments(), and .wrap() or .action().
  */
 export function generateCommandFile(command: CommandMeta, ctx: GeneratorContext, options?: CommandFileOptions): CodeBuilder {
   const code = ctx.createCodeBuilder();
@@ -21,9 +83,17 @@ export function generateCommandFile(command: CommandMeta, ctx: GeneratorContext,
   const hasArgs = (command.arguments && command.arguments.length > 0) || (command.positionals && command.positionals.length > 0);
 
   if (hasArgs) {
-    code.import('z', 'zod');
+    code.import('z', 'zod/v4');
   }
-  code.importType(['PadroneBuilder'], 'padrone');
+
+  code.importType('AnyPadroneBuilder', 'padrone');
+
+  // Import subcommand modules
+  if (options?.subcommands) {
+    for (const sub of options.subcommands) {
+      code.import([sub.varName], sub.importPath);
+    }
+  }
 
   code.line();
 
@@ -32,21 +102,20 @@ export function generateCommandFile(command: CommandMeta, ctx: GeneratorContext,
     code.comment(`@deprecated ${msg}`);
   }
 
-  code.line(`export default (cmd: PadroneBuilder) => cmd`);
+  const fnName = toCommandFunctionName(command.name);
+  code.line(`export function ${fnName}<T extends AnyPadroneBuilder>(cmd: T) {`);
+  code.line(`  return cmd`);
 
   // .configure()
   const configParts: string[] = [];
   if (command.description) {
     configParts.push(`description: ${JSON.stringify(command.description)}`);
   }
-  if (command.aliases && command.aliases.length > 0) {
-    configParts.push(`aliases: [${command.aliases.map((a) => JSON.stringify(a)).join(', ')}]`);
-  }
   if (command.deprecated) {
     configParts.push(`deprecated: ${typeof command.deprecated === 'string' ? JSON.stringify(command.deprecated) : 'true'}`);
   }
   if (configParts.length > 0) {
-    code.line(`  .configure({ ${configParts.join(', ')} })`);
+    code.line(`    .configure({ ${configParts.join(', ')} })`);
   }
 
   // .arguments()
@@ -55,20 +124,31 @@ export function generateCommandFile(command: CommandMeta, ctx: GeneratorContext,
     const schemaCode = fieldMetaToCode(allFields);
 
     const positionalNames = (command.positionals || []).map((p) => (p.type === 'array' ? `'...${p.name}'` : `'${p.name}'`));
-    const aliasMap = buildAliasMap(allFields);
-    const hasMetaOptions = positionalNames.length > 0 || aliasMap;
+    const fieldsMap = buildFieldsMap(allFields);
+    const hasMetaOptions = positionalNames.length > 0 || fieldsMap;
 
     if (hasMetaOptions) {
-      code.line(`  .arguments(${schemaCode.code}, {`);
+      code.line(`    .arguments(${schemaCode.code}, {`);
       if (positionalNames.length > 0) {
-        code.line(`    positional: [${positionalNames.join(', ')}],`);
+        code.line(`      positional: [${positionalNames.join(', ')}],`);
       }
-      if (aliasMap) {
-        code.line(`    aliases: ${aliasMap},`);
+      if (fieldsMap) {
+        code.line(`      fields: ${fieldsMap},`);
       }
-      code.line(`  })`);
+      code.line(`    })`);
     } else {
-      code.line(`  .arguments(${schemaCode.code})`);
+      code.line(`    .arguments(${schemaCode.code})`);
+    }
+  }
+
+  // .command() calls for subcommands
+  if (options?.subcommands) {
+    for (const sub of options.subcommands) {
+      const nameArg =
+        sub.aliases && sub.aliases.length > 0
+          ? `[${JSON.stringify(sub.name)}, ${sub.aliases.map((a) => JSON.stringify(a)).join(', ')}]`
+          : JSON.stringify(sub.name);
+      code.line(`    .command(${nameArg}, ${sub.varName})`);
     }
   }
 
@@ -79,20 +159,24 @@ export function generateCommandFile(command: CommandMeta, ctx: GeneratorContext,
     if (options.wrap.args && options.wrap.args.length > 0) {
       wrapParts.push(`args: [${options.wrap.args.map((a) => JSON.stringify(a)).join(', ')}]`);
     }
-    code.line(`  .wrap({ ${wrapParts.join(', ')} })`);
+    code.line(`    .wrap({ ${wrapParts.join(', ')} })`);
   } else {
-    code.line(`  .action((args) => { /* TODO */ })`);
+    code.line(`    .action((args) => { /* TODO */ })`);
   }
+
+  code.line(`}`);
 
   return code;
 }
 
-function buildAliasMap(fields: FieldMeta[]): string | null {
+function buildFieldsMap(fields: FieldMeta[]): string | null {
   const entries: string[] = [];
   for (const field of fields) {
     if (field.aliases && field.aliases.length > 0) {
-      const values = field.aliases.map((a) => JSON.stringify(a)).join(', ');
-      entries.push(`${field.name}: [${values}]`);
+      const alias =
+        field.aliases.length === 1 ? JSON.stringify(field.aliases[0]) : `[${field.aliases.map((a) => JSON.stringify(a)).join(', ')}]`;
+      const key = /^[a-zA-Z_$][\w$]*$/.test(field.name) ? field.name : JSON.stringify(field.name);
+      entries.push(`${key}: { alias: ${alias} }`);
     }
   }
   if (entries.length === 0) return null;

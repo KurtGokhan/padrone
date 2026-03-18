@@ -213,6 +213,8 @@ export function createDefaultRuntime(): ResolvedPadroneRuntime {
     format: 'auto',
     loadConfigFile,
     findFile: findConfigFile,
+    prompt: defaultTerminalPrompt,
+    interactive: detectInteractiveMode(),
   };
 }
 
@@ -220,9 +222,8 @@ export function createDefaultRuntime(): ResolvedPadroneRuntime {
  * Merges a partial runtime with the default runtime.
  */
 export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime {
-  if (!partial) return createDefaultRuntime();
   const defaults = createDefaultRuntime();
-  const interactive = partial.interactive ?? detectInteractiveMode();
+  if (!partial) return defaults;
   return {
     output: partial.output ?? defaults.output,
     error: partial.error ?? defaults.error,
@@ -231,8 +232,8 @@ export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime
     format: partial.format ?? defaults.format,
     loadConfigFile: partial.loadConfigFile ?? defaults.loadConfigFile,
     findFile: partial.findFile ?? defaults.findFile,
-    interactive,
-    prompt: partial.prompt ?? defaultTerminalPrompt,
-    readLine: partial.readLine,
+    interactive: partial.interactive ?? defaults.interactive,
+    prompt: partial.prompt ?? defaults.prompt,
+    readLine: partial.readLine ?? defaults.readLine,
   };
 }

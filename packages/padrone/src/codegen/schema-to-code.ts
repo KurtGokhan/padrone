@@ -136,9 +136,64 @@ export function fieldMetaToCode(fields: FieldMeta[]): SchemaToCodeResult {
       code += ' /* TODO: verify type */';
     }
 
-    return `  ${field.name}: ${code},`;
+    const key = needsQuoting(field.name) ? JSON.stringify(field.name) : field.name;
+    return `  ${key}: ${code},`;
   });
 
   const code = `z.object({\n${entries.join('\n')}\n})`;
   return { code, imports: ['z'] };
+}
+
+const JS_RESERVED = new Set([
+  'break',
+  'case',
+  'catch',
+  'continue',
+  'debugger',
+  'default',
+  'delete',
+  'do',
+  'else',
+  'export',
+  'extends',
+  'finally',
+  'for',
+  'function',
+  'if',
+  'import',
+  'in',
+  'instanceof',
+  'new',
+  'return',
+  'super',
+  'switch',
+  'this',
+  'throw',
+  'try',
+  'typeof',
+  'var',
+  'void',
+  'while',
+  'with',
+  'yield',
+  'class',
+  'const',
+  'enum',
+  'let',
+  'static',
+  'implements',
+  'interface',
+  'package',
+  'private',
+  'protected',
+  'public',
+  'await',
+  'async',
+]);
+
+/** Returns true if the name needs quoting to be a valid JS object key. */
+function needsQuoting(name: string): boolean {
+  if (JS_RESERVED.has(name)) return true;
+  // Must be a valid identifier: starts with letter/$/_, contains only word chars
+  return !/^[a-zA-Z_$][\w$]*$/.test(name);
 }

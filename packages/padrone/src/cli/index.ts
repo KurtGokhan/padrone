@@ -131,12 +131,14 @@ const PadroneCLI = createPadrone('padrone')
           command: z.string().describe('CLI command to wrap (e.g. gh, docker, kubectl)'),
           source: z.enum(['help', 'fish', 'zsh']).optional().default('help').describe('Parsing source (default: help)'),
           output: z.string().optional().describe('Output directory (default: ./src/<command>)'),
-          depth: z.number().optional().describe('Max subcommand depth (default: unlimited)'),
+          depth: z.number().default(4).optional().describe('Max subcommand depth'),
           dryRun: z.boolean().optional().default(false).describe('Print what would be generated without writing'),
           overwrite: z.boolean().optional().default(false).describe('Overwrite existing files'),
+          yes: z.boolean().optional().default(false).describe('Skip confirmation prompt'),
         }),
         {
           positional: ['command'],
+          fields: { yes: { alias: 'y' } },
         },
       )
       .async()

@@ -32,8 +32,8 @@ describe('generateCommandFile', () => {
     const result = generateCommandFile(command, ctx);
     const built = result.build();
 
-    expect(built.text).toContain("import type { PadroneBuilder } from 'padrone'");
-    expect(built.text).toContain('export default (cmd: PadroneBuilder) => cmd');
+    expect(built.text).toContain('export function deployCommand<T extends AnyPadroneBuilder>(cmd: T) {');
+    expect(built.text).toContain("import type { AnyPadroneBuilder } from 'padrone'");
     expect(built.text).toContain('description: "Deploy the application"');
     expect(built.text).toContain('.action((args) => { /* TODO */ })');
   });
@@ -52,7 +52,7 @@ describe('generateCommandFile', () => {
     const result = generateCommandFile(command, ctx);
     const built = result.build();
 
-    expect(built.text).toContain("import { z } from 'zod'");
+    expect(built.text).toContain("import { z } from 'zod/v4'");
     expect(built.text).toContain('.arguments(z.object({');
     expect(built.text).toContain('env: z.string()');
     expect(built.text).toContain('force: z.boolean()');
@@ -84,7 +84,7 @@ describe('generateCommandFile', () => {
     expect(built.text).toContain("positional: ['...files']");
   });
 
-  it('should generate command with aliases', () => {
+  it('should not emit command aliases in the file (handled by parent)', () => {
     const command: CommandMeta = {
       name: 'deploy',
       aliases: ['d', 'dep'],
@@ -94,7 +94,8 @@ describe('generateCommandFile', () => {
     const result = generateCommandFile(command, ctx);
     const built = result.build();
 
-    expect(built.text).toContain('aliases: ["d", "dep"]');
+    // Command aliases should NOT be in the file — they're handled by the parent's .command() call
+    expect(built.text).not.toContain('aliases');
   });
 
   it('should generate deprecated command', () => {
@@ -116,8 +117,8 @@ describe('generateCommandFile', () => {
       name: 'list',
       description: 'List pull requests',
       arguments: [
-        { name: 'assignee', type: 'string', aliases: ['-a'], description: 'Filter by assignee' },
-        { name: 'limit', type: 'number', default: 30, aliases: ['-l'], description: 'Maximum items' },
+        { name: 'assignee', type: 'string', aliases: ['a'], description: 'Filter by assignee' },
+        { name: 'limit', type: 'number', default: 30, aliases: ['l'], description: 'Maximum items' },
       ],
     };
 
@@ -129,7 +130,7 @@ describe('generateCommandFile', () => {
 
     expect(built.text).toContain('.wrap({ command: "gh", args: ["pr", "list"] })');
     expect(built.text).not.toContain('.action(');
-    expect(built.text).toContain('aliases: { assignee: ["-a"], limit: ["-l"] }');
+    expect(built.text).toContain('fields: { assignee: { alias: "a" }, limit: { alias: "l" } }');
   });
 
   it('should generate .wrap() with command only (no args)', () => {
@@ -151,8 +152,8 @@ describe('generateCommandFile', () => {
     const command: CommandMeta = {
       name: 'test',
       arguments: [
-        { name: 'verbose', type: 'boolean', aliases: ['-v'] },
-        { name: 'output', type: 'string', aliases: ['-o'] },
+        { name: 'verbose', type: 'boolean', aliases: ['v'] },
+        { name: 'output', type: 'string', aliases: ['o'] },
         { name: 'force', type: 'boolean' },
       ],
     };
@@ -161,7 +162,7 @@ describe('generateCommandFile', () => {
     const result = generateCommandFile(command, ctx);
     const built = result.build();
 
-    expect(built.text).toContain('aliases: { verbose: ["-v"], output: ["-o"] }');
+    expect(built.text).toContain('fields: { verbose: { alias: "v" }, output: { alias: "o" } }');
   });
 });
 
@@ -198,7 +199,7 @@ describe('generateCommandTree with wrap', () => {
             {
               name: 'list',
               description: 'List pull requests',
-              arguments: [{ name: 'assignee', type: 'string', aliases: ['-a'], description: 'Filter by assignee' }],
+              arguments: [{ name: 'assignee', type: 'string', aliases: ['a'], description: 'Filter by assignee' }],
             },
           ],
         },
@@ -227,19 +228,23 @@ describe('generateCommandTree with wrap', () => {
     expect(files.has('program.ts')).toBe(true);
     expect(files.has('index.ts')).toBe(true);
 
-    // The pr command should have .wrap() with args: ["pr"]
+    // The pr command should have .wrap() with args: ["pr"] and wire its subcommands
     const prContent = files.get('commands/pr.ts')!;
     expect(prContent).toContain('.wrap({ command: "gh", args: ["pr"] })');
+    expect(prContent).toContain('.command("list", listCommand)');
+    expect(prContent).toContain("import { listCommand } from './pr/list.ts'");
 
     // The list command should have .wrap() with args: ["pr", "list"]
     const listContent = files.get('commands/pr/list.ts')!;
     expect(listContent).toContain('.wrap({ command: "gh", args: ["pr", "list"] })');
-    expect(listContent).toContain('aliases: { assignee: ["-a"] }');
+    expect(listContent).toContain('fields: { assignee: { alias: "a" } }');
 
     // program.ts should wire up the root
     const programContent = files.get('program.ts')!;
     expect(programContent).toContain('createPadrone("gh")');
-    expect(programContent).toContain('.command("pr"');
-    expect(programContent).toContain('.command("issue"');
+    expect(programContent).toContain('.command("pr", prCommand)');
+    expect(programContent).toContain('.command("issue", issueCommand)');
+    expect(programContent).toContain('{ prCommand }');
+    expect(programContent).toContain('{ issueCommand }');
   });
 });

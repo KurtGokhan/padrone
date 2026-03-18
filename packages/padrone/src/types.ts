@@ -129,6 +129,8 @@ type InitialCommandBuilder<
         false
       >;
 
+export type AnyPadroneBuilder = InitialCommandBuilder<string, string, string, any, [...AnyPadroneCommand[]]>;
+
 /**
  * Like InitialCommandBuilder but uses `any` for args/config/env in the fresh case.
  * Used as the default for TBuilder when no builderFn is provided.

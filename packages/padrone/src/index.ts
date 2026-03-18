@@ -6,8 +6,10 @@ export type { InteractiveMode, InteractivePromptConfig, PadroneRuntime } from '.
 export { REPL_SIGINT } from './runtime.ts';
 export type { InferArgsInput, InferArgsOutput, InferCommand } from './type-helpers.ts';
 export type {
+  AnyPadroneBuilder,
   AnyPadroneCommand,
   AnyPadroneProgram,
+  AsyncPadroneSchema,
   PadroneActionContext,
   PadroneBuilder,
   PadroneCommand,
@@ -18,3 +20,4 @@ export type {
   PadroneSchema,
 } from './types.ts';
 export type { UpdateCheckConfig } from './update-check.ts';
+export type { WrapConfig, WrapResult } from './wrap.ts';

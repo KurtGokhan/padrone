@@ -25,7 +25,7 @@ Commands:
 
     const verbose = result.arguments!.find((a) => a.name === 'verbose');
     expect(verbose?.type).toBe('boolean');
-    expect(verbose?.aliases).toEqual(['-v']);
+    expect(verbose?.aliases).toEqual(['v']);
 
     const output = result.arguments!.find((a) => a.name === 'output');
     expect(output?.type).toBe('string');
@@ -62,12 +62,12 @@ Available Commands:
 
     const env = result.arguments!.find((a) => a.name === 'env');
     expect(env?.type).toBe('string');
-    expect(env?.aliases).toEqual(['-e']);
+    expect(env?.aliases).toEqual(['e']);
 
     const force = result.arguments!.find((a) => a.name === 'force');
     expect(force?.type).toBe('boolean');
 
-    const dryRun = result.arguments!.find((a) => a.name === 'dryRun');
+    const dryRun = result.arguments!.find((a) => a.name === 'dry-run');
     expect(dryRun?.type).toBe('boolean');
 
     expect(result.subcommands!.length).toBe(2);
@@ -147,9 +147,9 @@ Options:
 
     const result = parseHelpOutput(help);
 
-    expect(result.arguments!.some((a) => a.name === 'dryRun')).toBe(true);
-    expect(result.arguments!.some((a) => a.name === 'noColor')).toBe(true);
-    expect(result.arguments!.some((a) => a.name === 'maxRetries')).toBe(true);
+    expect(result.arguments!.some((a) => a.name === 'dry-run')).toBe(true);
+    expect(result.arguments!.some((a) => a.name === 'no-color')).toBe(true);
+    expect(result.arguments!.some((a) => a.name === 'max-retries')).toBe(true);
   });
 
   it('should handle empty help text', () => {
@@ -157,6 +157,64 @@ Options:
     expect(result.name).toBe('');
     expect(result.arguments).toBeUndefined();
     expect(result.subcommands).toBeUndefined();
+  });
+
+  it('should add enum default to values list when not present', () => {
+    const help = `Usage: tool [options]
+
+Options:
+  --format <type>      Output format: {json|yaml|toml} (default "csv")
+`;
+
+    const result = parseHelpOutput(help);
+
+    const format = result.arguments!.find((a) => a.name === 'format');
+    expect(format?.type).toBe('enum');
+    expect(format?.enumValues).toEqual(['json', 'yaml', 'toml', 'csv']);
+    expect(format?.default).toBe('csv');
+  });
+
+  it('should not duplicate enum default when already in values list', () => {
+    const help = `Usage: tool [options]
+
+Options:
+  --format <type>      Output format: {json|yaml|toml} (default "json")
+`;
+
+    const result = parseHelpOutput(help);
+
+    const format = result.arguments!.find((a) => a.name === 'format');
+    expect(format?.enumValues).toEqual(['json', 'yaml', 'toml']);
+  });
+
+  it('should reset mismatched default for boolean type and mark ambiguous', () => {
+    const help = `Usage: tool [options]
+
+Options:
+  --color              Colorize output (default: "auto")
+`;
+
+    const result = parseHelpOutput(help);
+
+    const color = result.arguments!.find((a) => a.name === 'color');
+    expect(color?.type).toBe('boolean');
+    expect(color?.default).toBe(false);
+    expect(color?.ambiguous).toBe(true);
+  });
+
+  it('should reset mismatched default for number type and mark ambiguous', () => {
+    const help = `Usage: tool [options]
+
+Options:
+  --port <number>      Port number (default: "auto")
+`;
+
+    const result = parseHelpOutput(help);
+
+    const port = result.arguments!.find((a) => a.name === 'port');
+    expect(port?.type).toBe('number');
+    expect(port?.default).toBe(0);
+    expect(port?.ambiguous).toBe(true);
   });
 });
 
@@ -302,7 +360,7 @@ LEARN MORE
     expect(result.arguments).toBeDefined();
     const repo = result.arguments!.find((a) => a.name === 'repo');
     expect(repo).toBeDefined();
-    expect(repo?.aliases).toEqual(['-R']);
+    expect(repo?.aliases).toEqual(['R']);
 
     const helpFlag = result.arguments!.find((a) => a.name === 'help');
     expect(helpFlag?.type).toBe('boolean');
@@ -363,11 +421,11 @@ LEARN MORE
 
     const assignee = result.arguments!.find((a) => a.name === 'assignee');
     expect(assignee?.type).toBe('string');
-    expect(assignee?.aliases).toEqual(['-a']);
+    expect(assignee?.aliases).toEqual(['a']);
 
     const draft = result.arguments!.find((a) => a.name === 'draft');
     expect(draft?.type).toBe('boolean');
-    expect(draft?.aliases).toEqual(['-d']);
+    expect(draft?.aliases).toEqual(['d']);
 
     const jq = result.arguments!.find((a) => a.name === 'jq');
     expect(jq?.type).toBe('string');
@@ -377,12 +435,12 @@ LEARN MORE
 
     const label = result.arguments!.find((a) => a.name === 'label');
     expect(label?.type).toBe('array');
-    expect(label?.aliases).toEqual(['-l']);
+    expect(label?.aliases).toEqual(['l']);
 
     const limit = result.arguments!.find((a) => a.name === 'limit');
     expect(limit?.type).toBe('number');
     expect(limit?.default).toBe(30);
-    expect(limit?.aliases).toEqual(['-L']);
+    expect(limit?.aliases).toEqual(['L']);
 
     // Inline enum: {open|closed|merged|all}
     const state = result.arguments!.find((a) => a.name === 'state');
@@ -392,7 +450,7 @@ LEARN MORE
 
     const web = result.arguments!.find((a) => a.name === 'web');
     expect(web?.type).toBe('boolean');
-    expect(web?.aliases).toEqual(['-w']);
+    expect(web?.aliases).toEqual(['w']);
 
     // INHERITED FLAGS should also be parsed
     const helpFlag = result.arguments!.find((a) => a.name === 'help');
