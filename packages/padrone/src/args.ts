@@ -89,6 +89,22 @@ export interface PadroneArgsSchemaMeta<TObj = Record<string, any>> {
    */
   fields?: { [K in keyof TObj]?: PadroneFieldMeta };
   /**
+   * Automatically generate kebab-case aliases for camelCase option names.
+   * For example, `dryRun` automatically gets `--dry-run` as an alias.
+   * Defaults to `true`. Set to `false` to disable.
+   *
+   * @default true
+   * @example
+   * ```ts
+   * // Auto-aliases enabled (default): --dry-run → dryRun
+   * .arguments(z.object({ dryRun: z.boolean() }))
+   *
+   * // Disable auto-aliases
+   * .arguments(z.object({ dryRun: z.boolean() }), { autoAlias: false })
+   * ```
+   */
+  autoAlias?: boolean;
+  /**
    * Read from stdin and inject the data into the specified argument field.
    * Only reads when stdin is piped (not a TTY) and the field wasn't already provided via CLI flags.
    *
@@ -145,6 +161,15 @@ export interface PadroneArgsSchemaMeta<TObj = Record<string, any>> {
 }
 
 /**
+ * Convert a camelCase string to kebab-case.
+ * Returns null if the string has no uppercase letters (no conversion needed).
+ */
+export function camelToKebab(str: string): string | null {
+  if (!/[A-Z]/.test(str)) return null;
+  return str.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`);
+}
+
+/**
  * Normalizes stdin config into its explicit form.
  */
 export function parseStdinConfig(stdin: StdinConfig): { field: string; as: 'text' | 'lines' } {
@@ -185,10 +210,12 @@ function addEntries(target: Record<string, string>, key: string, items: string |
 /**
  * Extract all arg metadata from schema and meta in a single pass.
  * Returns flags (single-char, stackable) and aliases (multi-char, long names) separately.
+ * When `autoAlias` is true (default), camelCase property names automatically get kebab-case aliases.
  */
 export function extractSchemaMetadata(
   schema: StandardJSONSchemaV1,
   meta?: Record<string, PadroneFieldMeta | undefined>,
+  autoAlias?: boolean,
 ): SchemaMetadataResult {
   const flags: Record<string, string> = {};
   const aliases: Record<string, string> = {};
@@ -226,6 +253,14 @@ export function extractSchemaMetadata(
           const list = typeof propAlias === 'string' ? [propAlias] : propAlias;
           if (Array.isArray(list)) {
             addEntries(aliases, propertyName, list, (item) => item.length > 1);
+          }
+        }
+
+        // Auto-generate kebab-case alias for camelCase property names
+        if (autoAlias !== false) {
+          const kebab = camelToKebab(propertyName);
+          if (kebab && !(kebab in aliases)) {
+            aliases[kebab] = propertyName;
           }
         }
       }

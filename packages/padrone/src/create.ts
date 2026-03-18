@@ -126,7 +126,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     // Extract argument metadata from the nested arguments object in meta
     const argsMeta = curCommand.meta?.fields;
-    const schemaMetadata = curCommand.argsSchema ? extractSchemaMetadata(curCommand.argsSchema, argsMeta) : { flags: {}, aliases: {} };
+    const schemaMetadata = curCommand.argsSchema
+      ? extractSchemaMetadata(curCommand.argsSchema, argsMeta, curCommand.meta?.autoAlias)
+      : { flags: {}, aliases: {} };
     const { flags, aliases } = schemaMetadata;
 
     // Get array arguments from schema (arrays are always variadic)
@@ -262,7 +264,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     if (!command.argsSchema) return [];
 
     const argsMeta = command.meta?.fields;
-    const { flags, aliases } = extractSchemaMetadata(command.argsSchema, argsMeta);
+    const { flags, aliases } = extractSchemaMetadata(command.argsSchema, argsMeta, command.meta?.autoAlias);
 
     return detectUnknownArgs(preprocessedArgs, command.argsSchema, flags, aliases, suggestSimilar);
   };

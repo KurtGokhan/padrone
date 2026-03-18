@@ -364,7 +364,7 @@ export function buildReplCompleter(
       if (targetCommand.argsSchema) {
         try {
           const argsMeta = targetCommand.meta?.fields;
-          const { flags, aliases } = extractSchemaMetadata(targetCommand.argsSchema, argsMeta);
+          const { flags, aliases } = extractSchemaMetadata(targetCommand.argsSchema, argsMeta, targetCommand.meta?.autoAlias);
           const jsonSchema = targetCommand.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
           if (jsonSchema.type === 'object' && jsonSchema.properties) {
             for (const key of Object.keys(jsonSchema.properties)) {

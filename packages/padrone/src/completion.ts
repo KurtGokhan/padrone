@@ -32,7 +32,7 @@ function extractArguments(cmd: AnyPadroneCommand): { name: string; alias?: strin
 
   try {
     const argsMeta = cmd.meta?.fields;
-    const { aliases } = extractSchemaMetadata(cmd.argsSchema, argsMeta);
+    const { aliases } = extractSchemaMetadata(cmd.argsSchema, argsMeta, cmd.meta?.autoAlias);
 
     // Reverse aliases map (alias -> arg name)
     const aliasToArgument: Record<string, string> = {};

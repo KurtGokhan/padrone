@@ -540,6 +540,66 @@ describe('CLI', () => {
     });
   });
 
+  describe('auto-alias (camelCase → kebab-case)', () => {
+    it('should auto-generate kebab-case alias for camelCase args', () => {
+      const program = createPadrone('test').command('run', (c) =>
+        c.arguments(z.object({ dryRun: z.boolean().optional(), outputDir: z.string().optional() })).action((args) => args),
+      );
+
+      const result = program.parse('run --dry-run --output-dir=dist');
+      expect(result.args?.dryRun).toBe(true);
+      expect(result.args?.outputDir).toBe('dist');
+    });
+
+    it('should not generate alias for non-camelCase args', () => {
+      const program = createPadrone('test').command('run', (c) =>
+        c.arguments(z.object({ verbose: z.boolean().optional() })).action((args) => args),
+      );
+
+      // 'verbose' has no uppercase letters, so no auto-alias is generated
+      const result = program.parse('run --verbose');
+      expect(result.args?.verbose).toBe(true);
+    });
+
+    it('should prefer explicit alias over auto-alias', () => {
+      const program = createPadrone('test').command('run', (c) =>
+        c
+          .arguments(z.object({ dryRun: z.boolean().optional() }), {
+            fields: { dryRun: { alias: 'dry' } },
+          })
+          .action((args) => args),
+      );
+
+      // Explicit alias should work
+      const result = program.parse('run --dry');
+      expect(result.args?.dryRun).toBe(true);
+
+      // Auto-alias should also work
+      const result2 = program.parse('run --dry-run');
+      expect(result2.args?.dryRun).toBe(true);
+    });
+
+    it('should disable auto-alias when autoAlias is false', () => {
+      const program = createPadrone('test').command('run', (c) =>
+        c.arguments(z.object({ dryRun: z.boolean().optional() }), { autoAlias: false }).action((args) => args),
+      );
+
+      // --dry-run should NOT resolve to dryRun
+      const result = program.parse('run --dry-run');
+      expect(result.args?.dryRun).toBeUndefined();
+    });
+
+    it('should not show auto-aliases in help text', () => {
+      const program = createPadrone('test').command('run', (c) =>
+        c.arguments(z.object({ dryRun: z.boolean().optional().describe('Skip actual execution') })).action(),
+      );
+
+      const helpText = program.help('run', { detail: 'full' });
+      expect(helpText).toContain('dryRun');
+      expect(helpText).not.toContain('dry-run');
+    });
+  });
+
   describe('stringify', () => {
     it('should stringify a simple command with args', () => {
       const result = program.stringify('show', { id: 'task 1', priority: 'medium' });
