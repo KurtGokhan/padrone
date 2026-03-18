@@ -21,4 +21,27 @@ jobs:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
       - run: bun i
+
+      - name: Get next version
+        id: version
+        run: |
+          bunx changeset status --output=$RUNNER_TEMP/changeset-status.json
+          VERSION=$(jq -r '.releases[0].newVersion // empty' $RUNNER_TEMP/changeset-status.json)
+          echo "next=${VERSION:+v$VERSION}" >> "$GITHUB_OUTPUT"
+
       - uses: changesets/action@v1
+        id: changesets
+        with:
+          publish: bunx changeset publish
+          commit: "chore: release ${{ steps.version.outputs.next }}"
+          title: "chore: release ${{ steps.version.outputs.next }}"
+          commitMode: github-api
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Label release PR
+        if: steps.changesets.outputs.published != 'true'
+        run: gh pr edit changeset-release/main --add-label "release"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
