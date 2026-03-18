@@ -130,7 +130,7 @@ describe('generateCommandFile', () => {
 
     expect(built.text).toContain('.wrap({ command: "gh", args: ["pr", "list"] })');
     expect(built.text).not.toContain('.action(');
-    expect(built.text).toContain('fields: { assignee: { alias: "a" }, limit: { alias: "l" } }');
+    expect(built.text).toContain('fields: { assignee: { flags: "a" }, limit: { flags: "l" } }');
   });
 
   it('should generate .wrap() with command only (no args)', () => {
@@ -162,7 +162,7 @@ describe('generateCommandFile', () => {
     const result = generateCommandFile(command, ctx);
     const built = result.build();
 
-    expect(built.text).toContain('fields: { verbose: { alias: "v" }, output: { alias: "o" } }');
+    expect(built.text).toContain('fields: { verbose: { flags: "v" }, output: { flags: "o" } }');
   });
 });
 
@@ -237,7 +237,7 @@ describe('generateCommandTree with wrap', () => {
     // The list command should have .wrap() with args: ["pr", "list"]
     const listContent = files.get('commands/pr/list.ts')!;
     expect(listContent).toContain('.wrap({ command: "gh", args: ["pr", "list"] })');
-    expect(listContent).toContain('fields: { assignee: { alias: "a" } }');
+    expect(listContent).toContain('fields: { assignee: { flags: "a" } }');
 
     // program.ts should wire up the root
     const programContent = files.get('program.ts')!;

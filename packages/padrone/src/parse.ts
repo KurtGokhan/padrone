@@ -149,14 +149,30 @@ export function parseCliInputToParts(input: string): ParsePart[] {
       if (typeof value === 'undefined') pendingValue = p;
       result.push(p);
     } else if (part.startsWith('-') && part.length > 1 && !/^-\d/.test(part)) {
-      // Short arg (but not negative numbers like -5)
-      // Aliases cannot be nested, so key is always a single-element array
+      // Short flag(s) (but not negative numbers like -5)
+      // Supports flag stacking: -abc → -a -b -c (last flag can take a value)
       const [keyStr = '', value] = splitNamedArgValue(part.slice(1));
-      const key = [keyStr];
 
-      const p = { type: 'alias' as const, key, value };
-      if (typeof value === 'undefined') pendingValue = p;
-      result.push(p);
+      if (keyStr.length > 1 && typeof value === 'undefined') {
+        // Flag stacking: -abc → -a, -b, -c (all set to true except last which can take next arg's value)
+        for (let ci = 0; ci < keyStr.length - 1; ci++) {
+          result.push({ type: 'alias' as const, key: [keyStr[ci]!], value: undefined });
+        }
+        const lastFlag = { type: 'alias' as const, key: [keyStr[keyStr.length - 1]!], value: undefined as string | string[] | undefined };
+        pendingValue = lastFlag;
+        result.push(lastFlag);
+      } else if (keyStr.length > 1 && typeof value !== 'undefined') {
+        // -abc=val → -a, -b, -c=val (stacked with value on last)
+        for (let ci = 0; ci < keyStr.length - 1; ci++) {
+          result.push({ type: 'alias' as const, key: [keyStr[ci]!], value: undefined });
+        }
+        result.push({ type: 'alias' as const, key: [keyStr[keyStr.length - 1]!], value });
+      } else {
+        // Single char: -v or -v=value
+        const p = { type: 'alias' as const, key: [keyStr], value };
+        if (typeof value === 'undefined') pendingValue = p;
+        result.push(p);
+      }
     } else if (wasPending) {
       wasPending.value = part;
     } else if (/^[a-zA-Z0-9_-]+$/.test(part) && allowTerm) {

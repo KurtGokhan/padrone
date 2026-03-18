@@ -1,7 +1,41 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
 
+type Letter =
+  | 'a'
+  | 'b'
+  | 'c'
+  | 'd'
+  | 'e'
+  | 'f'
+  | 'g'
+  | 'h'
+  | 'i'
+  | 'j'
+  | 'k'
+  | 'l'
+  | 'm'
+  | 'n'
+  | 'o'
+  | 'p'
+  | 'q'
+  | 'r'
+  | 's'
+  | 't'
+  | 'u'
+  | 'v'
+  | 'w'
+  | 'x'
+  | 'y'
+  | 'z';
+
+/** A single letter character, valid as a short CLI flag (e.g. `'v'`, `'n'`, `'V'`). */
+export type SingleChar = Letter | Uppercase<Letter>;
+
 export interface PadroneFieldMeta {
   description?: string;
+  /** Single-character short flags (stackable: `-abc` = `-a -b -c`). Used with single dash. */
+  flags?: SingleChar[] | SingleChar;
+  /** Multi-character alternative long names. Used with double dash (e.g. `--dry-run` for `--dryRun`). */
   alias?: string[] | string;
   deprecated?: boolean | string;
   hidden?: boolean;
@@ -133,17 +167,30 @@ export function parsePositionalConfig(positional: string[]): { name: string; var
  * Result type for extractSchemaMetadata function.
  */
 interface SchemaMetadataResult {
+  /** Single-char flags: maps flag char → full arg name (e.g. `{ v: 'verbose' }`) */
+  flags: Record<string, string>;
+  /** Multi-char aliases: maps alias → full arg name (e.g. `{ 'dry-run': 'dryRun' }`) */
   aliases: Record<string, string>;
+}
+
+function addEntries(target: Record<string, string>, key: string, items: string | string[], filter?: (item: string) => boolean) {
+  const list = typeof items === 'string' ? [items] : items;
+  for (const item of list) {
+    if (typeof item === 'string' && item && item !== key && !(item in target) && (!filter || filter(item))) {
+      target[item] = key;
+    }
+  }
 }
 
 /**
  * Extract all arg metadata from schema and meta in a single pass.
- * This consolidates aliases, env bindings, and config keys extraction.
+ * Returns flags (single-char, stackable) and aliases (multi-char, long names) separately.
  */
 export function extractSchemaMetadata(
   schema: StandardJSONSchemaV1,
   meta?: Record<string, PadroneFieldMeta | undefined>,
 ): SchemaMetadataResult {
+  const flags: Record<string, string> = {};
   const aliases: Record<string, string> = {};
 
   // Extract from meta object
@@ -151,14 +198,11 @@ export function extractSchemaMetadata(
     for (const [key, value] of Object.entries(meta)) {
       if (!value) continue;
 
-      // Extract aliases
+      if (value.flags) {
+        addEntries(flags, key, value.flags, (item) => item.length === 1);
+      }
       if (value.alias) {
-        const list = typeof value.alias === 'string' ? [value.alias] : value.alias;
-        for (const aliasKey of list) {
-          if (typeof aliasKey === 'string' && aliasKey && aliasKey !== key) {
-            aliases[aliasKey] = key;
-          }
-        }
+        addEntries(aliases, key, value.alias, (item) => item.length > 1);
       }
     }
   }
@@ -170,16 +214,18 @@ export function extractSchemaMetadata(
       for (const [propertyName, propertySchema] of Object.entries(jsonSchema.properties as Record<string, any>)) {
         if (!propertySchema) continue;
 
-        // Extract aliases from schema
+        // Extract flags from schema `.meta({ flags: ... })`
+        const propFlags = propertySchema.flags;
+        if (propFlags) {
+          addEntries(flags, propertyName, propFlags, (item) => item.length === 1);
+        }
+
+        // Extract aliases from schema `.meta({ alias: ... })`
         const propAlias = propertySchema.alias;
         if (propAlias) {
           const list = typeof propAlias === 'string' ? [propAlias] : propAlias;
           if (Array.isArray(list)) {
-            for (const aliasKey of list) {
-              if (typeof aliasKey === 'string' && aliasKey && aliasKey !== propertyName && !(aliasKey in aliases)) {
-                aliases[aliasKey] = propertyName;
-              }
-            }
+            addEntries(aliases, propertyName, list, (item) => item.length > 1);
           }
         }
       }
@@ -188,18 +234,18 @@ export function extractSchemaMetadata(
     // Ignore errors from JSON schema generation
   }
 
-  return { aliases };
+  return { flags, aliases };
 }
 
-function preprocessAliases(data: Record<string, unknown>, aliases: Record<string, string>): Record<string, unknown> {
+function preprocessMappings(data: Record<string, unknown>, mappings: Record<string, string>): Record<string, unknown> {
   const result = { ...data };
 
-  for (const [aliasKey, fullArgName] of Object.entries(aliases)) {
-    if (aliasKey in data && aliasKey !== fullArgName) {
-      const aliasValue = data[aliasKey];
+  for (const [mappedKey, fullArgName] of Object.entries(mappings)) {
+    if (mappedKey in data && mappedKey !== fullArgName) {
+      const mappedValue = data[mappedKey];
       // Prefer full arg name if it exists
-      if (!(fullArgName in result)) result[fullArgName] = aliasValue;
-      delete result[aliasKey];
+      if (!(fullArgName in result)) result[fullArgName] = mappedValue;
+      delete result[mappedKey];
     }
   }
 
@@ -207,6 +253,7 @@ function preprocessAliases(data: Record<string, unknown>, aliases: Record<string
 }
 
 interface ParseArgsContext {
+  flags?: Record<string, string>;
   aliases?: Record<string, string>;
   stdinData?: Record<string, unknown>;
   envData?: Record<string, unknown>;
@@ -238,9 +285,12 @@ function applyValues(data: Record<string, unknown>, values: Record<string, unkno
 export function preprocessArgs(data: Record<string, unknown>, ctx: ParseArgsContext): Record<string, unknown> {
   let result = { ...data };
 
-  // 1. Apply aliases first
+  // 1. Apply flags and aliases first
+  if (ctx.flags && Object.keys(ctx.flags).length > 0) {
+    result = preprocessMappings(result, ctx.flags);
+  }
   if (ctx.aliases && Object.keys(ctx.aliases).length > 0) {
-    result = preprocessAliases(result, ctx.aliases);
+    result = preprocessMappings(result, ctx.aliases);
   }
 
   // 2. Apply stdin data (higher precedence than env)
@@ -333,6 +383,7 @@ const frameworkReservedKeys = new Set(['config', 'c']);
 export function detectUnknownArgs(
   data: Record<string, unknown>,
   schema: StandardJSONSchemaV1,
+  flags: Record<string, string>,
   aliases: Record<string, string>,
   suggestFn: (input: string, candidates: string[]) => string,
 ): { key: string; suggestion: string }[] {
@@ -350,7 +401,13 @@ export function detectUnknownArgs(
 
   if (isLoose) return [];
 
-  const knownKeys = new Set<string>([...Object.keys(properties), ...Object.keys(aliases), ...Object.values(aliases)]);
+  const knownKeys = new Set<string>([
+    ...Object.keys(properties),
+    ...Object.keys(flags),
+    ...Object.values(flags),
+    ...Object.keys(aliases),
+    ...Object.values(aliases),
+  ]);
   const propertyNames = Object.keys(properties);
   const unknowns: { key: string; suggestion: string }[] = [];
 

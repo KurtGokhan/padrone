@@ -100,8 +100,9 @@ function formatMarkdownArgument(arg: HelpArgumentInfo): string[] {
   const lines: string[] = [];
 
   const flagName = arg.negatable ? `--[no-]${arg.name}` : `--${arg.name}`;
-  const aliases = arg.aliases?.length ? `${arg.aliases.map((a) => `-${a}`).join(', ')}, ` : '';
-  const header = `#### \`${aliases}${flagName}\``;
+  const flagStr = arg.flags?.length ? `${arg.flags.map((f) => `-${f}`).join(', ')}, ` : '';
+  const aliasStr = arg.aliases?.length ? `${arg.aliases.map((a) => `--${a}`).join(', ')}, ` : '';
+  const header = `#### \`${flagStr}${aliasStr}${flagName}\``;
   lines.push(header);
   lines.push('');
 
@@ -348,9 +349,10 @@ function generateHtmlPage(info: HelpInfo, depth: number): string {
     sections.push('  <dl>');
     for (const arg of info.arguments) {
       const flagName = arg.negatable ? `--[no-]${arg.name}` : `--${arg.name}`;
-      const aliases = arg.aliases?.length ? `${arg.aliases.map((a) => `-${a}`).join(', ')}, ` : '';
+      const flagStr = arg.flags?.length ? `${arg.flags.map((f) => `-${f}`).join(', ')}, ` : '';
+      const aliasStr = arg.aliases?.length ? `${arg.aliases.map((a) => `--${a}`).join(', ')}, ` : '';
       sections.push(
-        `    <dt><code>${escapeHtml(aliases + flagName)}</code>${arg.type ? ` <span class="type">${escapeHtml(arg.type)}</span>` : ''}</dt>`,
+        `    <dt><code>${escapeHtml(flagStr + aliasStr + flagName)}</code>${arg.type ? ` <span class="type">${escapeHtml(arg.type)}</span>` : ''}</dt>`,
       );
       if (arg.description) sections.push(`    <dd>${escapeHtml(arg.description)}</dd>`);
 
@@ -453,9 +455,10 @@ function generateManPage(info: HelpInfo, _depth: number, programName: string): s
     lines.push('.SH OPTIONS');
     for (const arg of info.arguments) {
       const flagName = arg.negatable ? `\\-\\-[no\\-]${escapeMan(arg.name)}` : `\\-\\-${escapeMan(arg.name)}`;
-      const aliases = arg.aliases?.length ? `${arg.aliases.map((a) => `\\-${escapeMan(a)}`).join(', ')}, ` : '';
+      const flagStr = arg.flags?.length ? `${arg.flags.map((f) => `\\-${escapeMan(f)}`).join(', ')}, ` : '';
+      const aliasStr = arg.aliases?.length ? `${arg.aliases.map((a) => `\\-\\-${escapeMan(a)}`).join(', ')}, ` : '';
       lines.push('.TP');
-      lines.push(`\\fB${aliases}${flagName}\\fR${arg.type ? ` \\fI${escapeMan(arg.type)}\\fR` : ''}`);
+      lines.push(`\\fB${flagStr}${aliasStr}${flagName}\\fR${arg.type ? ` \\fI${escapeMan(arg.type)}\\fR` : ''}`);
       const parts: string[] = [];
       if (arg.description) parts.push(escapeMan(arg.description));
       if (arg.default !== undefined) parts.push(`Default: ${escapeMan(String(arg.default))}`);

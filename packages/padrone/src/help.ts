@@ -263,8 +263,13 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
     const argsInfo = extractArgsInfo(cmd.argsSchema, cmd.meta, positionalNames);
     const argMap: Record<string, HelpArgumentInfo> = Object.fromEntries(argsInfo.map((arg) => [arg.name, arg]));
 
-    // Merge aliases into arguments
-    const { aliases } = extractSchemaMetadata(cmd.argsSchema, cmd.meta?.fields);
+    // Merge flags and aliases into arguments
+    const { flags, aliases } = extractSchemaMetadata(cmd.argsSchema, cmd.meta?.fields);
+    for (const [flag, name] of Object.entries(flags)) {
+      const arg = argMap[name];
+      if (!arg) continue;
+      arg.flags = [...(arg.flags || []), flag];
+    }
     for (const [alias, name] of Object.entries(aliases)) {
       const arg = argMap[name];
       if (!arg) continue;

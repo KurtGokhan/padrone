@@ -126,8 +126,8 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     // Extract argument metadata from the nested arguments object in meta
     const argsMeta = curCommand.meta?.fields;
-    const schemaMetadata = curCommand.argsSchema ? extractSchemaMetadata(curCommand.argsSchema, argsMeta) : { aliases: {} };
-    const { aliases } = schemaMetadata;
+    const schemaMetadata = curCommand.argsSchema ? extractSchemaMetadata(curCommand.argsSchema, argsMeta) : { flags: {}, aliases: {} };
+    const { flags, aliases } = schemaMetadata;
 
     // Get array arguments from schema (arrays are always variadic)
     const arrayArguments = new Set<string>();
@@ -148,9 +148,15 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const rawArgs: Record<string, unknown> = {};
 
     for (const arg of argParts) {
-      // For aliases, resolve to the full key name (aliases map single char to full key name)
-      // arg.key is now a string[] - for aliases it's always single element like ['v']
-      const key: string[] = arg.type === 'alias' && arg.key.length === 1 && aliases[arg.key[0]!] ? [aliases[arg.key[0]!]!] : arg.key;
+      // Resolve flags (single-char, from alias parts: -v) and aliases (multi-char, from named parts: --dry-run)
+      let key: string[];
+      if (arg.type === 'alias' && arg.key.length === 1 && flags[arg.key[0]!]) {
+        key = [flags[arg.key[0]!]!];
+      } else if (arg.type === 'named' && arg.key.length === 1 && aliases[arg.key[0]!]) {
+        key = [aliases[arg.key[0]!]!];
+      } else {
+        key = arg.key;
+      }
 
       const rootKey = key[0]!;
 
@@ -202,7 +208,8 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   ): Record<string, unknown> => {
     // Apply preprocessing (stdin, env, and config bindings)
     let preprocessedArgs = preprocessArgs(rawArgs, {
-      aliases: {}, // Already resolved aliases in parseCommand
+      flags: {}, // Already resolved in parseCommand
+      aliases: {}, // Already resolved in parseCommand
       stdinData: context?.stdinData,
       envData: context?.envData,
       configData: context?.configData,
@@ -255,9 +262,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     if (!command.argsSchema) return [];
 
     const argsMeta = command.meta?.fields;
-    const { aliases } = extractSchemaMetadata(command.argsSchema, argsMeta);
+    const { flags, aliases } = extractSchemaMetadata(command.argsSchema, argsMeta);
 
-    return detectUnknownArgs(preprocessedArgs, command.argsSchema, aliases, suggestSimilar);
+    return detectUnknownArgs(preprocessedArgs, command.argsSchema, flags, aliases, suggestSimilar);
   };
 
   /**

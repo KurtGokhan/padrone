@@ -28,6 +28,9 @@ export type HelpArgumentInfo = {
   default?: unknown;
   type?: string;
   enum?: string[];
+  /** Single-character short flags (shown as `-v`) */
+  flags?: string[];
+  /** Multi-character alternative long names (shown as `--dry-run`) */
   aliases?: string[];
   deprecated?: boolean | string;
   hidden?: boolean;
@@ -388,8 +391,10 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     for (const arg of argList) {
       // Format arg name: --[no-]arg for booleans, --arg otherwise
       const argName = arg.negatable ? `--[no-]${arg.name}` : `--${arg.name}`;
-      const aliasNames = arg.aliases && arg.aliases.length > 0 ? arg.aliases.map((a) => `-${a}`).join(', ') : '';
-      const fullArgName = aliasNames ? `${argName}, ${aliasNames}` : argName;
+      const flagNames = arg.flags && arg.flags.length > 0 ? arg.flags.map((f) => `-${f}`).join(', ') : '';
+      const aliasNames = arg.aliases && arg.aliases.length > 0 ? arg.aliases.map((a) => `--${a}`).join(', ') : '';
+      const shortNames = [flagNames, aliasNames].filter(Boolean).join(', ');
+      const fullArgName = shortNames ? `${argName}, ${shortNames}` : argName;
       const padding = ' '.repeat(Math.max(0, maxNameLength - arg.name.length + 2));
       const isDeprecated = !!arg.deprecated;
       const formattedArgName = isDeprecated ? styler.deprecated(fullArgName) : styler.arg(fullArgName);

@@ -133,7 +133,7 @@ export function createTasksProgram() {
           {
             positional: ['query'],
             fields: {
-              status: { alias: 's' },
+              status: { flags: 's' },
             },
           },
         )
@@ -151,7 +151,7 @@ export function createTasksProgram() {
           {
             fields: {
               verbose: {
-                alias: 'v',
+                flags: 'v',
                 description: 'Show detailed information',
               },
             },

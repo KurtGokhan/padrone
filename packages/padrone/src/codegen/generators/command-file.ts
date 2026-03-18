@@ -173,10 +173,23 @@ function buildFieldsMap(fields: FieldMeta[]): string | null {
   const entries: string[] = [];
   for (const field of fields) {
     if (field.aliases && field.aliases.length > 0) {
-      const alias =
-        field.aliases.length === 1 ? JSON.stringify(field.aliases[0]) : `[${field.aliases.map((a) => JSON.stringify(a)).join(', ')}]`;
+      // Split into flags (single-char) and aliases (multi-char)
+      const singleChar = field.aliases.filter((a) => a.replace(/^-+/, '').length === 1).map((a) => a.replace(/^-+/, ''));
+      const multiChar = field.aliases.filter((a) => a.replace(/^-+/, '').length > 1).map((a) => a.replace(/^-+/, ''));
+
       const key = /^[a-zA-Z_$][\w$]*$/.test(field.name) ? field.name : JSON.stringify(field.name);
-      entries.push(`${key}: { alias: ${alias} }`);
+      const parts: string[] = [];
+      if (singleChar.length > 0) {
+        const flags = singleChar.length === 1 ? JSON.stringify(singleChar[0]) : `[${singleChar.map((a) => JSON.stringify(a)).join(', ')}]`;
+        parts.push(`flags: ${flags}`);
+      }
+      if (multiChar.length > 0) {
+        const alias = multiChar.length === 1 ? JSON.stringify(multiChar[0]) : `[${multiChar.map((a) => JSON.stringify(a)).join(', ')}]`;
+        parts.push(`alias: ${alias}`);
+      }
+      if (parts.length > 0) {
+        entries.push(`${key}: { ${parts.join(', ')} }`);
+      }
     }
   }
   if (entries.length === 0) return null;

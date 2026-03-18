@@ -403,7 +403,7 @@ describe('Interactive', () => {
           c
             .arguments(
               z.object({
-                input: z.string().meta({ alias: 'i' }),
+                input: z.string().meta({ flags: 'i' }),
               }),
             )
             .action((args) => args),

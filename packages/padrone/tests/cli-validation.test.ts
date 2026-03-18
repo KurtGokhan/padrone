@@ -123,7 +123,7 @@ describe('CLI validation improvements', () => {
       const program = createPadrone('app').command('list', (c) =>
         c
           .arguments(z.object({ status: z.string().optional() }), {
-            fields: { status: { alias: 's' } },
+            fields: { status: { flags: 's' } },
           })
           .action((args) => args),
       );

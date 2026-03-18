@@ -658,7 +658,7 @@ describe('REPL', () => {
         createPadrone('test').command('list', (c) =>
           c
             .arguments(z.object({ priority: z.string(), verbose: z.boolean().default(false) }), {
-              fields: { priority: { alias: 'p' }, verbose: { alias: 'v' } },
+              fields: { priority: { flags: 'p' }, verbose: { flags: 'v' } },
             })
             .action(() => 'listed'),
         ),

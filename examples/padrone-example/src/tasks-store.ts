@@ -73,7 +73,7 @@ export function getTask(id: string): Task | undefined {
   return tasks.find((t) => t.id === id);
 }
 
-export function addTask(input: { title: string; priority?: TaskPriority; tags?: string[]; dueDate?: string }): Task {
+export function addTask(input: { title: string; priority?: TaskPriority; tags?: string[]; dueDate?: string; dryRun?: boolean }): Task {
   const task: Task = {
     id: `task-${nextId++}`,
     title: input.title,
@@ -83,7 +83,7 @@ export function addTask(input: { title: string; priority?: TaskPriority; tags?: 
     createdAt: new Date().toISOString(),
     dueDate: input.dueDate,
   };
-  tasks.push(task);
+  if (!input.dryRun) tasks.push(task);
   return task;
 }
 

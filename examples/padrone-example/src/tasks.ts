@@ -71,9 +71,10 @@ export const tasksProgram = createPadrone('tasks')
       .arguments(
         z.object({
           title: z.string().describe('Task title'),
-          priority: prioritySchema.optional().default('medium').describe('Task priority').meta({ alias: 'p' }),
-          tags: z.array(z.string()).optional().default([]).describe('Tags for categorization').meta({ alias: 't' }),
-          due: z.string().optional().describe('Due date (YYYY-MM-DD)').meta({ alias: 'd' }),
+          priority: prioritySchema.optional().default('medium').describe('Task priority').meta({ flags: 'p' }),
+          tags: z.array(z.string()).optional().default([]).describe('Tags for categorization').meta({ flags: 't' }),
+          due: z.string().optional().describe('Due date (YYYY-MM-DD)').meta({ flags: 'd' }),
+          dryRun: z.boolean().optional().describe('Simulate adding a task without saving').meta({}),
         }),
         {
           positional: ['title'],
@@ -88,6 +89,7 @@ export const tasksProgram = createPadrone('tasks')
           priority: args.priority,
           tags: args.tags,
           dueDate: args.due,
+          dryRun: args.dryRun,
         });
         return `Task added: ${formatTask(task)}`;
       }),
@@ -97,10 +99,10 @@ export const tasksProgram = createPadrone('tasks')
       .configure({ title: 'List all tasks' })
       .arguments(
         z.object({
-          status: z.array(statusSchema).optional().describe('Filter by status').meta({ alias: 's' }),
-          priority: prioritySchema.optional().describe('Filter by priority').meta({ alias: 'p' }),
-          tag: z.string().optional().describe('Filter by tag').meta({ alias: 't' }),
-          limit: z.number().optional().describe('Limit number of tasks displayed').meta({ alias: 'l' }),
+          status: z.array(statusSchema).optional().describe('Filter by status').meta({ flags: 's' }),
+          priority: prioritySchema.optional().describe('Filter by priority').meta({ flags: 'p' }),
+          tag: z.string().optional().describe('Filter by tag').meta({ flags: 't' }),
+          limit: z.number().optional().describe('Limit number of tasks displayed').meta({ flags: 'l' }),
         }),
         { optionalInteractive: ['status', 'priority'] },
       )
@@ -193,9 +195,9 @@ export const tasksProgram = createPadrone('tasks')
         z.object({
           id: z.string().describe('Task ID'),
           title: z.string().optional().describe('New title'),
-          priority: prioritySchema.optional().describe('New priority').meta({ alias: 'p' }),
-          tags: z.array(z.string()).optional().describe('New tags').meta({ alias: 't' }),
-          due: z.string().optional().describe('New due date (YYYY-MM-DD)').meta({ alias: 'd' }),
+          priority: prioritySchema.optional().describe('New priority').meta({ flags: 'p' }),
+          tags: z.array(z.string()).optional().describe('New tags').meta({ flags: 't' }),
+          due: z.string().optional().describe('New due date (YYYY-MM-DD)').meta({ flags: 'd' }),
         }),
         {
           positional: ['id'],

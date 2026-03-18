@@ -728,7 +728,7 @@ exports[`help with full detail mode should generate full help with all nested co
           ],
           "variadic": true,
           "negatable": false,
-          "aliases": [
+          "flags": [
             "s"
           ]
         }
@@ -759,7 +759,7 @@ exports[`help with full detail mode should generate full help with all nested co
           "type": "boolean",
           "variadic": false,
           "negatable": true,
-          "aliases": [
+          "flags": [
             "v"
           ]
         }

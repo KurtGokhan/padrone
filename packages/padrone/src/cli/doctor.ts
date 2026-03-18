@@ -160,18 +160,36 @@ function checkShadowedOptionNames(commands: AnyPadroneCommand[], diagnostics: Di
       }
     }
 
-    // Also check field aliases from meta
+    // Also check field flags and aliases from meta
     if (cmd.meta?.fields) {
       for (const [fieldName, fieldMeta] of Object.entries(cmd.meta.fields)) {
-        if (!fieldMeta?.alias) continue;
-        const aliases = typeof fieldMeta.alias === 'string' ? [fieldMeta.alias] : fieldMeta.alias;
-        for (const alias of aliases) {
-          if (builtins.has(alias)) {
-            diagnostics.push({
-              severity: 'warning',
-              command: commandDisplayName(cmd),
-              message: `Alias "${alias}" on field "${fieldName}" shadows the built-in --${alias} flag.`,
-            });
+        if (!fieldMeta) continue;
+
+        // Check flags (single-char)
+        if (fieldMeta.flags) {
+          const flagList = typeof fieldMeta.flags === 'string' ? [fieldMeta.flags] : fieldMeta.flags;
+          for (const flag of flagList) {
+            if (builtins.has(flag)) {
+              diagnostics.push({
+                severity: 'warning',
+                command: commandDisplayName(cmd),
+                message: `Flag "${flag}" on field "${fieldName}" shadows the built-in --${flag} flag.`,
+              });
+            }
+          }
+        }
+
+        // Check aliases (multi-char)
+        if (fieldMeta.alias) {
+          const aliasList = typeof fieldMeta.alias === 'string' ? [fieldMeta.alias] : fieldMeta.alias;
+          for (const alias of aliasList) {
+            if (builtins.has(alias)) {
+              diagnostics.push({
+                severity: 'warning',
+                command: commandDisplayName(cmd),
+                message: `Alias "${alias}" on field "${fieldName}" shadows the built-in --${alias} flag.`,
+              });
+            }
           }
         }
       }

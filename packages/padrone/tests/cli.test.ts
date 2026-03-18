@@ -322,11 +322,11 @@ describe('CLI', () => {
               verbose: z
                 .boolean()
                 .optional()
-                .meta({ alias: ['v'] }),
+                .meta({ flags: ['v'] }),
               help: z
                 .boolean()
                 .optional()
-                .meta({ alias: ['h'] }),
+                .meta({ flags: ['h'] }),
             }),
           )
           .action((args) => ({
@@ -350,11 +350,11 @@ describe('CLI', () => {
               unit: z
                 .string()
                 .optional()
-                .meta({ alias: ['u'] }),
+                .meta({ flags: ['u'] }),
               count: z.coerce
                 .number()
                 .optional()
-                .meta({ alias: ['c'] }),
+                .meta({ flags: ['c'] }),
             }),
           )
           .action((args) => args),
@@ -374,7 +374,7 @@ describe('CLI', () => {
               verbose: z
                 .boolean()
                 .optional()
-                .meta({ alias: ['v'] }),
+                .meta({ flags: ['v'] }),
             }),
           )
           .action((args) => ({
@@ -396,15 +396,15 @@ describe('CLI', () => {
               verbose: z
                 .boolean()
                 .optional()
-                .meta({ alias: ['v'] }),
+                .meta({ flags: ['v'] }),
               help: z
                 .boolean()
                 .optional()
-                .meta({ alias: ['h'] }),
+                .meta({ flags: ['h'] }),
               output: z
                 .string()
                 .optional()
-                .meta({ alias: ['o'] }),
+                .meta({ flags: ['o'] }),
             }),
           )
           .action((args) => args),
@@ -445,12 +445,12 @@ describe('CLI', () => {
                 .boolean()
                 .optional()
                 .describe('Enable verbose output')
-                .meta({ alias: ['v'] }),
+                .meta({ flags: ['v'] }),
               help: z
                 .boolean()
                 .optional()
                 .describe('Show help information')
-                .meta({ alias: ['h'] }),
+                .meta({ flags: ['h'] }),
             }),
           )
           .action(),
@@ -474,7 +474,7 @@ describe('CLI', () => {
                   verbose: z
                     .boolean()
                     .optional()
-                    .meta({ alias: ['v'] }),
+                    .meta({ flags: ['v'] }),
                 }),
               )
               .action((args) => ({
@@ -502,7 +502,7 @@ describe('CLI', () => {
                 {
                   fields: {
                     verbose: {
-                      alias: ['v'],
+                      flags: ['v'],
                     },
                   },
                 },
@@ -528,7 +528,7 @@ describe('CLI', () => {
               verbose: z
                 .boolean()
                 .optional()
-                .meta({ alias: ['v', 'verbose'] }),
+                .meta({ flags: ['v'] }),
             }),
           )
           .action((args) => args),
@@ -664,7 +664,7 @@ describe('CLI', () => {
             z.object({
               include: z.array(z.string()).optional(),
             }),
-            { fields: { include: { alias: ['i'] } } },
+            { fields: { include: { flags: ['i'] } } },
           )
           .action((args) => args),
       );
@@ -1261,7 +1261,7 @@ describe('CLI', () => {
             z.object({
               tags: z.array(z.string()).optional(),
             }),
-            { fields: { tags: { alias: ['t'] } } },
+            { fields: { tags: { flags: ['t'] } } },
           )
           .action((args) => args),
       );
