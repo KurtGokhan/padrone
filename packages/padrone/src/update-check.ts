@@ -94,9 +94,9 @@ export function isNewerVersion(current: string, latest: string): boolean {
  */
 function readCache(cachePath: string): CacheData | undefined {
   try {
-    const fs = require('node:fs');
-    if (!fs.existsSync(cachePath)) return undefined;
-    const data = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+    const { existsSync, readFileSync } = require('node:fs') as typeof import('node:fs');
+    if (!existsSync(cachePath)) return undefined;
+    const data = JSON.parse(readFileSync(cachePath, 'utf-8'));
     if (typeof data.lastCheck === 'number' && typeof data.latestVersion === 'string') {
       return data as CacheData;
     }
@@ -111,13 +111,13 @@ function readCache(cachePath: string): CacheData | undefined {
  */
 function writeCache(cachePath: string, data: CacheData): void {
   try {
-    const fs = require('node:fs');
-    const path = require('node:path');
-    const dir = path.dirname(cachePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    const { existsSync, mkdirSync, writeFileSync } = require('node:fs') as typeof import('node:fs');
+    const { dirname } = require('node:path') as typeof import('node:path');
+    const dir = dirname(cachePath);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(cachePath, JSON.stringify(data), 'utf-8');
+    writeFileSync(cachePath, JSON.stringify(data), 'utf-8');
   } catch {
     // Ignore errors — cache is best-effort
   }
@@ -127,12 +127,12 @@ function writeCache(cachePath: string, data: CacheData): void {
  * Resolves the cache path, expanding `~` to the home directory.
  */
 function resolveCachePath(cachePath: string): string {
+  const { homedir } = require('node:os') as typeof import('node:os');
+  const { resolve } = require('node:path') as typeof import('node:path');
   if (cachePath.startsWith('~')) {
-    const os = require('node:os');
-    return cachePath.replace('~', os.homedir());
+    return cachePath.replace('~', homedir());
   }
-  const path = require('node:path');
-  return path.resolve(cachePath);
+  return resolve(cachePath);
 }
 
 /**

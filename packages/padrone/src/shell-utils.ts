@@ -1,7 +1,3 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
-
 export type ShellType = 'bash' | 'zsh' | 'fish' | 'powershell';
 
 /**
@@ -24,9 +20,9 @@ export function detectShell(): ShellType | undefined {
 
   // Method 3: Check parent process on Unix-like systems
   try {
-    const { execSync } = require('node:child_process');
     const ppid = process.ppid;
     if (ppid) {
+      const { execSync } = require('node:child_process') as typeof import('node:child_process');
       const processName = execSync(`ps -p ${ppid} -o comm=`, {
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'ignore'],
@@ -44,6 +40,8 @@ export function detectShell(): ShellType | undefined {
 }
 
 export function getRcFile(shell: ShellType, home?: string): string | null {
+  const { homedir } = require('node:os') as typeof import('node:os');
+  const { join } = require('node:path') as typeof import('node:path');
   const h = home ?? homedir();
   switch (shell) {
     case 'bash':
@@ -68,6 +66,8 @@ export function escapeRegExp(str: string): string {
  * If a block with the same begin marker exists, it is replaced. Otherwise the snippet is appended.
  */
 export function writeToRcFile(rcFile: string, snippet: string, beginMarker: string, endMarker: string): { file: string; updated: boolean } {
+  const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('node:fs') as typeof import('node:fs');
+  const { dirname } = require('node:path') as typeof import('node:path');
   const existing = existsSync(rcFile) ? readFileSync(rcFile, 'utf-8') : '';
 
   if (existing.includes(beginMarker)) {

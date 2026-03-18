@@ -1,6 +1,3 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { extractSchemaMetadata } from './args.ts';
 import { detectShell, getRcFile, type ShellType, writeToRcFile } from './shell-utils.ts';
 import type { AnyPadroneCommand } from './types.ts';
@@ -423,6 +420,10 @@ export interface SetupCompletionsResult {
  * Uses marker comments for idempotency — re-running replaces the existing block.
  */
 export function setupCompletions(programName: string, shell: ShellType): SetupCompletionsResult {
+  const { existsSync, mkdirSync, writeFileSync } = require('node:fs') as typeof import('node:fs');
+  const { join } = require('node:path') as typeof import('node:path');
+  const { homedir } = require('node:os') as typeof import('node:os');
+
   const beginMarker = `###-begin-${programName}-completion-###`;
   const endMarker = `###-end-${programName}-completion-###`;
   const snippet = buildSetupSnippet(programName, shell, beginMarker, endMarker);

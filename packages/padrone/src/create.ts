@@ -40,7 +40,6 @@ import type {
   PluginValidateContext,
   PluginValidateResult,
 } from './types.ts';
-import { createUpdateChecker } from './update-check.ts';
 import { getVersion } from './utils.ts';
 import { createWrapHandler } from './wrap.ts';
 
@@ -1020,7 +1019,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     }
 
     // Start background update check (non-blocking)
-    let showUpdateNotification: (() => void) | undefined;
+    let updateCheckPromise: Promise<(() => void) | undefined> | undefined;
     if (existingCommand.updateCheck) {
       // Respect --no-update-check flag
       const hasNoUpdateCheckFlag =
@@ -1028,21 +1027,25 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         parseCliInputToParts(resolvedInput).some((p) => p.type === 'named' && p.key.length === 1 && p.key[0] === 'no-update-check');
       if (!hasNoUpdateCheckFlag) {
         const currentVersion = getVersion(existingCommand.version);
-        showUpdateNotification = createUpdateChecker(existingCommand.name, currentVersion, existingCommand.updateCheck, runtime);
+        updateCheckPromise = import('./update-check.ts').then(({ createUpdateChecker }) =>
+          createUpdateChecker(existingCommand.name, currentVersion, existingCommand.updateCheck!, runtime),
+        );
       }
     }
 
     const result = execCommand(resolvedInput, cliOptions, 'hard');
 
     // Show update notification after command output
-    if (showUpdateNotification) {
+    if (updateCheckPromise) {
       if (result instanceof Promise) {
-        return result.then((r) => {
-          showUpdateNotification!();
+        return result.then(async (r) => {
+          const showUpdateNotification = await updateCheckPromise;
+          showUpdateNotification?.();
           return r;
         }) as any;
       }
-      showUpdateNotification();
+      // For sync results, schedule notification for next tick (non-blocking)
+      updateCheckPromise.then((show) => show?.());
     }
 
     return result;
