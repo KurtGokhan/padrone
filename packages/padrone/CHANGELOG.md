@@ -1,5 +1,64 @@
 # padrone
 
+## 1.3.0
+
+### Minor Changes
+
+- 6f6bfe5: Auto-generate kebab-case aliases for camelCase option names
+
+  Options like `dryRun` automatically accept `--dry-run` on the CLI. This is enabled by default and can be disabled per-command with `autoAlias: false`. Auto-aliases are shown as the primary name in help text when available.
+
+  ```ts
+  // --dry-run automatically resolves to dryRun
+  .arguments(z.object({ dryRun: z.boolean() }))
+
+  // Disable auto-aliases
+  .arguments(z.object({ dryRun: z.boolean() }), { autoAlias: false })
+  ```
+
+- 07cbf35: Split option `alias` into `flags` (single-char, stackable) and `alias` (multi-char long names)
+
+  **Breaking:** `PadroneFieldMeta.alias` for single-character shortcuts is now `flags`.
+
+  - `flags`: single-char short flags used with single dash (`-v`, `-o file`). Stackable: `-abc` = `-a -b -c`.
+  - `alias`: multi-char alternative long names used with double dash (`--dry-run` for `--dryRun`).
+
+  ### Migration
+
+  ```diff
+  - { fields: { verbose: { alias: 'v' } } }
+  + { fields: { verbose: { flags: 'v' } } }
+  ```
+
+  ```diff
+  - z.string().meta({ alias: ['v'] })
+  + z.string().meta({ flags: ['v'] })
+  ```
+
+  Multi-char aliases remain as `alias`:
+
+  ```ts
+  {
+    fields: {
+      dryRun: {
+        alias: "dry-run";
+      }
+    }
+  }
+  ```
+
+- 186c2be: Improve help output formatting
+
+  - Use bracket convention for option types: `<type>` for required, `[type]` for optional, nothing for booleans
+  - Show kebab-case alias as primary name when available (e.g. `--dry-run` instead of `--dryRun`)
+  - Move choices and default values after the description
+  - Show array item types (e.g. `[string[]]` instead of `[array] (repeatable)`)
+  - Hide empty default values (empty strings and arrays)
+  - Cap description alignment at 32 characters
+  - Show `(stdin)` marker on arguments that accept stdin input
+  - Show `--no-` negation hint only when relevant (boolean options defaulting to true)
+  - Remove `[no-]` prefix from individual boolean options
+
 ## 1.2.0
 
 ### Minor Changes
