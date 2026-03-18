@@ -458,8 +458,8 @@ describe('CLI', () => {
 
       const helpText = program.help('test');
 
-      expect(helpText).toContain('--[no-]verbose');
-      expect(helpText).toContain('--[no-]help');
+      expect(helpText).toContain('--verbose');
+      expect(helpText).toContain('--help');
       expect(helpText).toContain('-v');
       expect(helpText).toContain('-h');
     });
@@ -589,14 +589,13 @@ describe('CLI', () => {
       expect(result.args?.dryRun).toBeUndefined();
     });
 
-    it('should not show auto-aliases in help text', () => {
+    it('should show kebab-case as primary name in help text', () => {
       const program = createPadrone('test').command('run', (c) =>
         c.arguments(z.object({ dryRun: z.boolean().optional().describe('Skip actual execution') })).action(),
       );
 
       const helpText = program.help('run', { detail: 'full' });
-      expect(helpText).toContain('dryRun');
-      expect(helpText).not.toContain('dry-run');
+      expect(helpText).toContain('--dry-run');
     });
   });
 
@@ -764,7 +763,7 @@ describe('CLI', () => {
       const helpText = program.help('test');
 
       expect(helpText).toContain('--include');
-      expect(helpText).toContain('(repeatable)');
+      expect(helpText).toContain('[string[]]');
     });
   });
 
@@ -814,7 +813,8 @@ describe('CLI', () => {
 
       const helpText = program.help('test');
 
-      expect(helpText).toContain('--[no-]verbose');
+      expect(helpText).toContain('--verbose');
+      expect(helpText).not.toContain('--[no-]verbose');
     });
 
     it('should stringify false boolean to --no-<arg>', () => {
@@ -833,7 +833,7 @@ describe('CLI', () => {
       expect(result).toBe('test --no-verbose');
     });
 
-    it('should not show --[no-] prefix when explicit noArg property exists', () => {
+    it('should not mark as negatable when explicit noArg property exists', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -850,9 +850,8 @@ describe('CLI', () => {
       // verbose should NOT be shown as --[no-]verbose since noVerbose exists
       expect(helpText).toContain('--verbose');
       expect(helpText).not.toContain('--[no-]verbose');
-      // noVerbose should also not be negatable (it's the negation itself)
-      expect(helpText).toContain('--noVerbose');
-      expect(helpText).not.toContain('--[no-]noVerbose');
+      // noVerbose shown as kebab-case --no-verbose
+      expect(helpText).toContain('--no-verbose');
     });
 
     it('should handle kebab-case no-arg property', () => {

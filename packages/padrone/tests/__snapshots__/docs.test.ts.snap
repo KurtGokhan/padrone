@@ -19,13 +19,11 @@ padrone-test show <id> [options]
 
 Priority level
 
-**Type:** \`string\` | **Optional** | **Default:** \`medium\` | **Choices:** \`low\`, \`medium\`, \`high\`
+**Type:** \`string\` | **Default:** \`medium\` | **Choices:** \`low\`, \`medium\`, \`high\`
 
-#### \`--[no-]verbose\`
+#### \`--verbose\`
 
 Show detailed information
-
-**Type:** \`boolean\` | **Optional**
 "
 `;
 
@@ -43,10 +41,9 @@ exports[`docs generateDocs html snapshot for show command 1`] = `
   <dl>
     <dt><code>--priority</code> <span class="type">string</span></dt>
     <dd>Priority level</dd>
-    <dd class="meta">Optional · Default: <code>medium</code> · Choices: <code>low</code>, <code>medium</code>, <code>high</code></dd>
-    <dt><code>--[no-]verbose</code> <span class="type">boolean</span></dt>
+    <dd class="meta">Default: <code>medium</code> · Choices: <code>low</code>, <code>medium</code>, <code>high</code></dd>
+    <dt><code>--verbose</code></dt>
     <dd>Show detailed information</dd>
-    <dd class="meta">Optional</dd>
   </dl>
 </article>
 "
@@ -67,7 +64,7 @@ Task ID
 \\fB\\-\\-priority\\fR \\fIstring\\fR
 Priority level. Default: medium. Choices: low, medium, high
 .TP
-\\fB\\-\\-[no\\-]verbose\\fR \\fIboolean\\fR
+\\fB\\-\\-verbose\\fR \\fIboolean\\fR
 Show detailed information
 "
 `;

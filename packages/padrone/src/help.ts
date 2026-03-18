@@ -126,12 +126,12 @@ function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaM
           description: optMeta?.description ?? prop.description,
           optional: isOptional,
           default: prop.default,
-          type: propType,
+          type: propType === 'array' ? `${prop.items?.type || 'string'}[]` : propType,
           enum: enumValues,
           deprecated: optMeta?.deprecated ?? prop?.deprecated,
           hidden: optMeta?.hidden ?? prop?.hidden,
           examples: optMeta?.examples ?? prop?.examples,
-          variadic: propType === 'array', // Arrays are always variadic
+          variadic: propType === 'array',
           negatable: isNegatable,
         });
       }
@@ -264,7 +264,7 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
     const argMap: Record<string, HelpArgumentInfo> = Object.fromEntries(argsInfo.map((arg) => [arg.name, arg]));
 
     // Merge flags and aliases into arguments
-    const { flags, aliases } = extractSchemaMetadata(cmd.argsSchema, cmd.meta?.fields, false);
+    const { flags, aliases } = extractSchemaMetadata(cmd.argsSchema, cmd.meta?.fields, cmd.meta?.autoAlias);
     for (const [flag, name] of Object.entries(flags)) {
       const arg = argMap[name];
       if (!arg) continue;

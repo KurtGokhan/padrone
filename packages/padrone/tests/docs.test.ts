@@ -31,7 +31,7 @@ describe('docs', () => {
       expect(showPage!.content).toContain('`id`');
       // Should have options
       expect(showPage!.content).toContain('--priority');
-      expect(showPage!.content).toContain('--[no-]verbose');
+      expect(showPage!.content).toContain('--verbose');
     });
 
     it('should generate html docs', () => {

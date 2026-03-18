@@ -99,7 +99,7 @@ function formatMarkdownPositional(arg: HelpPositionalInfo): string {
 function formatMarkdownArgument(arg: HelpArgumentInfo): string[] {
   const lines: string[] = [];
 
-  const flagName = arg.negatable ? `--[no-]${arg.name}` : `--${arg.name}`;
+  const flagName = `--${arg.name}`;
   const flagStr = arg.flags?.length ? `${arg.flags.map((f) => `-${f}`).join(', ')}, ` : '';
   const aliasStr = arg.aliases?.length ? `${arg.aliases.map((a) => `--${a}`).join(', ')}, ` : '';
   const header = `#### \`${flagStr}${aliasStr}${flagName}\``;
@@ -112,9 +112,8 @@ function formatMarkdownArgument(arg: HelpArgumentInfo): string[] {
   }
 
   const meta: string[] = [];
-  if (arg.type) meta.push(`**Type:** \`${arg.type}\``);
-  if (arg.optional) meta.push('**Optional**');
-  else meta.push('**Required**');
+  if (arg.type && arg.type !== 'boolean') meta.push(`**Type:** \`${arg.type}\``);
+  if (!arg.optional) meta.push('**Required**');
   if (arg.default !== undefined) meta.push(`**Default:** \`${String(arg.default)}\``);
   if (arg.enum) meta.push(`**Choices:** ${arg.enum.map((v) => `\`${v}\``).join(', ')}`);
   if (arg.variadic) meta.push('**Repeatable**');
@@ -348,17 +347,15 @@ function generateHtmlPage(info: HelpInfo, depth: number): string {
     sections.push('  <h2>Options</h2>');
     sections.push('  <dl>');
     for (const arg of info.arguments) {
-      const flagName = arg.negatable ? `--[no-]${arg.name}` : `--${arg.name}`;
+      const flagName = `--${arg.name}`;
       const flagStr = arg.flags?.length ? `${arg.flags.map((f) => `-${f}`).join(', ')}, ` : '';
       const aliasStr = arg.aliases?.length ? `${arg.aliases.map((a) => `--${a}`).join(', ')}, ` : '';
-      sections.push(
-        `    <dt><code>${escapeHtml(flagStr + aliasStr + flagName)}</code>${arg.type ? ` <span class="type">${escapeHtml(arg.type)}</span>` : ''}</dt>`,
-      );
+      const typeSpan = arg.type && arg.type !== 'boolean' ? ` <span class="type">${escapeHtml(arg.type)}</span>` : '';
+      sections.push(`    <dt><code>${escapeHtml(flagStr + aliasStr + flagName)}</code>${typeSpan}</dt>`);
       if (arg.description) sections.push(`    <dd>${escapeHtml(arg.description)}</dd>`);
 
       const meta: string[] = [];
-      if (arg.optional) meta.push('Optional');
-      else meta.push('Required');
+      if (!arg.optional) meta.push('Required');
       if (arg.default !== undefined) meta.push(`Default: <code>${escapeHtml(String(arg.default))}</code>`);
       if (arg.enum) meta.push(`Choices: ${arg.enum.map((v) => `<code>${escapeHtml(v)}</code>`).join(', ')}`);
       if (arg.variadic) meta.push('Repeatable');
@@ -454,7 +451,7 @@ function generateManPage(info: HelpInfo, _depth: number, programName: string): s
   if (info.arguments?.length) {
     lines.push('.SH OPTIONS');
     for (const arg of info.arguments) {
-      const flagName = arg.negatable ? `\\-\\-[no\\-]${escapeMan(arg.name)}` : `\\-\\-${escapeMan(arg.name)}`;
+      const flagName = `\\-\\-${escapeMan(arg.name)}`;
       const flagStr = arg.flags?.length ? `${arg.flags.map((f) => `\\-${escapeMan(f)}`).join(', ')}, ` : '';
       const aliasStr = arg.aliases?.length ? `${arg.aliases.map((a) => `\\-\\-${escapeMan(a)}`).join(', ')}, ` : '';
       lines.push('.TP');

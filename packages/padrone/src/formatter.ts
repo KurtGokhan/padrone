@@ -1,3 +1,4 @@
+import { camelToKebab } from './args.ts';
 import { createColorizer } from './colorizer.ts';
 
 export type HelpFormat = 'text' | 'ansi' | 'console' | 'markdown' | 'html' | 'json';
@@ -295,7 +296,6 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
       }
     }
     if (info.usage.hasArguments) usageParts.push(styler.meta('[options]'));
-    if (info.usage.stdinField) usageParts.push(styler.meta(`[stdin > ${info.usage.stdinField}]`));
     return [`${usageLabel} ${join(usageParts)}`];
   }
 
@@ -366,15 +366,15 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
 
     lines.push(styler.label('Arguments:'));
 
-    for (const arg of args) {
-      const parts: string[] = [styler.arg(arg.name)];
-      if (arg.optional) parts.push(styler.meta('(optional)'));
-      if (arg.default !== undefined) parts.push(styler.meta(`(default: ${String(arg.default)})`));
-      lines.push(indent(1) + join(parts));
+    const maxNameLength = Math.min(32, Math.max(...args.map((a) => a.name.length)));
 
-      if (arg.description) {
-        lines.push(indent(2) + styler.description(arg.description));
-      }
+    for (const arg of args) {
+      const padding = ' '.repeat(Math.max(2, maxNameLength - arg.name.length + 2));
+      const descParts: string[] = [];
+      if (arg.description) descParts.push(styler.description(arg.description));
+      if (info.usage.stdinField === arg.name) descParts.push(styler.meta('(stdin)'));
+      if (arg.default !== undefined) descParts.push(styler.meta(`(default: ${String(arg.default)})`));
+      lines.push(indent(1) + styler.arg(arg.name) + padding + join(descParts));
     }
 
     return lines;
@@ -386,33 +386,58 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
 
     lines.push(styler.label('Options:'));
 
-    const maxNameLength = Math.max(...argList.map((arg) => arg.name.length));
+    // Helper to check if a default value is meaningful (not empty string/array)
+    const hasDefault = (value: unknown): boolean => {
+      if (value === undefined) return false;
+      if (value === '') return false;
+      if (Array.isArray(value) && value.length === 0) return false;
+      return true;
+    };
 
-    for (const arg of argList) {
-      // Format arg name: --[no-]arg for booleans, --arg otherwise
-      const argName = arg.negatable ? `--[no-]${arg.name}` : `--${arg.name}`;
-      const flagNames = arg.flags && arg.flags.length > 0 ? arg.flags.map((f) => `-${f}`).join(', ') : '';
-      const aliasNames = arg.aliases && arg.aliases.length > 0 ? arg.aliases.map((a) => `--${a}`).join(', ') : '';
+    // Build left column (signature) for each arg to compute alignment
+    const argColumns: { plain: string; styled: string; arg: HelpArgumentInfo }[] = argList.map((arg) => {
+      // Promote kebab-case alias to primary display name if it exists
+      const kebab = camelToKebab(arg.name);
+      const primaryName = kebab && arg.aliases?.includes(kebab) ? kebab : arg.name;
+      const remainingAliases = arg.aliases?.filter((a) => a !== primaryName);
+      const argName = `--${primaryName}`;
+      const flagNames = arg.flags?.length ? arg.flags.map((f) => `-${f}`).join(', ') : '';
+      const aliasNames = remainingAliases?.length ? remainingAliases.map((a) => `--${a}`).join(', ') : '';
       const shortNames = [flagNames, aliasNames].filter(Boolean).join(', ');
       const fullArgName = shortNames ? `${argName}, ${shortNames}` : argName;
-      const padding = ' '.repeat(Math.max(0, maxNameLength - arg.name.length + 2));
       const isDeprecated = !!arg.deprecated;
       const formattedArgName = isDeprecated ? styler.deprecated(fullArgName) : styler.arg(fullArgName);
 
-      const parts: string[] = [formattedArgName];
-      if (arg.type) parts.push(styler.type(`<${arg.type}>`));
-      if (arg.optional && !arg.deprecated) parts.push(styler.meta('(optional)'));
-      if (arg.default !== undefined) parts.push(styler.meta(`(default: ${String(arg.default)})`));
-      if (arg.enum) parts.push(styler.meta(`(choices: ${arg.enum.join(', ')})`));
-      if (arg.variadic) parts.push(styler.meta('(repeatable)'));
+      const plainParts: string[] = [fullArgName];
+      const styledParts: string[] = [formattedArgName];
+
+      if (arg.type && arg.type !== 'boolean') {
+        const typePart = arg.optional ? `[${arg.type}]` : `<${arg.type}>`;
+        plainParts.push(typePart);
+        styledParts.push(styler.type(typePart));
+      }
       if (isDeprecated) {
-        const deprecatedMeta =
-          typeof arg.deprecated === 'string' ? styler.meta(`(deprecated: ${arg.deprecated})`) : styler.meta('(deprecated)');
-        parts.push(deprecatedMeta);
+        const deprecatedPart = typeof arg.deprecated === 'string' ? `(deprecated: ${arg.deprecated})` : '(deprecated)';
+        plainParts.push(deprecatedPart);
+        styledParts.push(styler.meta(deprecatedPart));
       }
 
-      const description = arg.description ? styler.description(arg.description) : '';
-      lines.push(indent(1) + join(parts) + padding + description);
+      return { plain: plainParts.join(' '), styled: join(styledParts), arg };
+    });
+
+    const maxColumnWidth = Math.min(32, Math.max(...argColumns.map((c) => c.plain.length)));
+
+    for (const { plain, styled, arg } of argColumns) {
+      const padding = ' '.repeat(Math.max(2, maxColumnWidth - plain.length + 2));
+
+      // Description followed by metadata (choices, default)
+      const descParts: string[] = [];
+      if (arg.description) descParts.push(styler.description(arg.description));
+      if (info.usage.stdinField === arg.name) descParts.push(styler.meta('(stdin)'));
+      if (arg.enum) descParts.push(styler.meta(`(choices: ${arg.enum.join(', ')})`));
+      if (hasDefault(arg.default)) descParts.push(styler.meta(`(default: ${String(arg.default)})`));
+
+      lines.push(indent(1) + styled + padding + join(descParts));
 
       // Environment variable line
       if (arg.env) {
@@ -528,6 +553,12 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
 
       if (info.builtins && info.builtins.length > 0) {
         lines.push(...formatBuiltinsSection(info));
+        lines.push('');
+      }
+
+      // Show --no- hint when there are negatable boolean options defaulting to true
+      if (info.arguments?.some((arg) => arg.negatable && arg.default === true)) {
+        lines.push(styler.meta('Boolean options can be negated with --no-<option>.'));
         lines.push('');
       }
 
