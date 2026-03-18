@@ -99,6 +99,7 @@ export const tasksProgram = createPadrone('tasks')
           status: z.array(statusSchema).optional().describe('Filter by status').meta({ alias: 's' }),
           priority: prioritySchema.optional().describe('Filter by priority').meta({ alias: 'p' }),
           tag: z.string().optional().describe('Filter by tag').meta({ alias: 't' }),
+          limit: z.number().optional().describe('Limit number of tasks displayed').meta({ alias: 'l' }),
         }),
         { optionalInteractive: ['status', 'priority'] },
       )
@@ -107,7 +108,7 @@ export const tasksProgram = createPadrone('tasks')
           status: args.status,
           priority: args.priority,
           tag: args.tag,
-        });
+        }).slice(0, args.limit);
 
         if (tasks.length === 0) {
           return 'No tasks found.';

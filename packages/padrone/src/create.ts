@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Schema } from 'ai';
-import { extractSchemaMetadata, parsePositionalConfig, preprocessArgs } from './args.ts';
+import { coerceArgs, detectUnknownArgs, extractSchemaMetadata, parsePositionalConfig, preprocessArgs } from './args.ts';
 import {
   commandSymbol,
   findCommandByName,
@@ -191,7 +191,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
   /**
    * Preprocesses raw arguments: applies env/config values and maps positional arguments.
-   * This is the first half of argument processing, before validation.
+   * Also performs auto-coercion (string→number/boolean) and unknown arg detection.
    */
   const buildCommandArgs = (
     command: AnyPadroneCommand,
@@ -200,7 +200,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     context?: { envData?: Record<string, unknown>; configData?: Record<string, unknown> },
   ): Record<string, unknown> => {
     // Apply preprocessing (env and config bindings)
-    const preprocessedArgs = preprocessArgs(rawArgs, {
+    let preprocessedArgs = preprocessArgs(rawArgs, {
       aliases: {}, // Already resolved aliases in parseCommand
       envData: context?.envData,
       configData: context?.configData,
@@ -229,14 +229,46 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       }
     }
 
+    // Auto-coerce CLI string values to match schema types (string→number, string→boolean)
+    if (command.argsSchema) {
+      preprocessedArgs = coerceArgs(preprocessedArgs, command.argsSchema);
+    }
+
     return preprocessedArgs;
   };
 
   /**
+   * Detects unknown options in args that aren't defined in the schema.
+   * Returns unknown key info with suggestions, or empty array if schema is loose.
+   */
+  const checkUnknownArgs = (
+    command: AnyPadroneCommand,
+    preprocessedArgs: Record<string, unknown>,
+  ): { key: string; suggestion: string }[] => {
+    if (!command.argsSchema) return [];
+
+    const argsMeta = command.meta?.fields;
+    const { aliases } = extractSchemaMetadata(command.argsSchema, argsMeta);
+
+    return detectUnknownArgs(preprocessedArgs, command.argsSchema, aliases, suggestSimilar);
+  };
+
+  /**
    * Validates preprocessed arguments against the command's schema.
+   * First checks for unknown args (strict by default), then runs schema validation.
    * Returns sync or async result depending on the schema's validate method.
    */
   const validateCommandArgs = (command: AnyPadroneCommand, preprocessedArgs: Record<string, unknown>) => {
+    // Check for unknown args before schema validation (strict by default)
+    const unknownArgs = checkUnknownArgs(command, preprocessedArgs);
+    if (unknownArgs.length > 0) {
+      const issues: StandardSchemaV1.Issue[] = unknownArgs.map(({ key, suggestion }) => ({
+        path: [key],
+        message: suggestion ? `Unknown option: "${key}". ${suggestion}` : `Unknown option: "${key}"`,
+      }));
+      return { args: undefined, argsResult: { issues } as any };
+    }
+
     const argsParsed = command.argsSchema ? command.argsSchema['~standard'].validate(preprocessedArgs) : { value: preprocessedArgs };
 
     // Return undefined for args when there's no schema and no meaningful args
@@ -689,9 +721,20 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             const errorMsg = suggestions.length ? `${baseMsg}\n\n  ${suggestions[0]}` : baseMsg;
 
             if (errorMode === 'hard') {
-              const helpText = generateHelp(existingCommand, isRootCommand ? existingCommand : command, { format: runtime.format });
               runtime.error(errorMsg);
-              runtime.error(helpText);
+              // When we have a suggestion, show a compact single-line "Available commands" note
+              // instead of the full help text to avoid overwhelming the user
+              if (suggestions.length > 0) {
+                const targetCmd = isRootCommand ? existingCommand : command;
+                const visibleCommands = (targetCmd.commands ?? []).filter((c) => !c.hidden && c.name);
+                if (visibleCommands.length > 0) {
+                  const cmdList = visibleCommands.map((c) => c.name).join(', ');
+                  runtime.output(`\nAvailable commands: ${cmdList}`);
+                }
+              } else {
+                const helpText = generateHelp(existingCommand, isRootCommand ? existingCommand : command, { format: runtime.format });
+                runtime.error(helpText);
+              }
               throw new RoutingError(errorMsg, { suggestions, command: command.path || command.name });
             }
 
@@ -832,10 +875,61 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
               configData: validatedConfigData,
             });
 
-            const afterInteractive =
-              !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta)
-                ? promptInteractiveFields(preprocessedArgs, command, runtime, forceInteractive || undefined)
-                : preprocessedArgs;
+            // Early validation: check provided args for errors before prompting.
+            // This catches unknown options and invalid values on explicitly-provided fields
+            // so the user isn't asked interactive questions for a doomed command.
+            const willPrompt = !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta);
+            if (willPrompt) {
+              const unknowns = checkUnknownArgs(command, preprocessedArgs);
+              if (unknowns.length > 0) {
+                const issues: StandardSchemaV1.Issue[] = unknowns.map(({ key, suggestion }) => ({
+                  path: [key],
+                  message: suggestion ? `Unknown option: "${key}". ${suggestion}` : `Unknown option: "${key}"`,
+                }));
+                return { args: undefined, argsResult: { issues } as any };
+              }
+
+              // Run schema validation on what we have so far (before prompting fills missing fields).
+              // Only fail on issues for fields the user explicitly provided — skip issues for
+              // missing/undefined fields since those will be filled by interactive prompts.
+              if (command.argsSchema) {
+                const providedKeys = new Set(Object.keys(preprocessedArgs).filter((k) => preprocessedArgs[k] !== undefined));
+                const earlyCheck = command.argsSchema['~standard'].validate(preprocessedArgs);
+                const checkForProvidedFieldErrors = (result: StandardSchemaV1.Result<unknown>): PluginValidateResult | undefined => {
+                  if (!result.issues) return undefined;
+                  // Only keep issues whose path starts with a key the user actually provided
+                  const providedFieldIssues = result.issues.filter((issue) => {
+                    const rootKey = issue.path?.[0];
+                    return rootKey !== undefined && providedKeys.has(String(rootKey));
+                  });
+                  if (providedFieldIssues.length > 0) {
+                    return { args: undefined, argsResult: { issues: providedFieldIssues } as any };
+                  }
+                  return undefined;
+                };
+                const earlyResult = thenMaybe(earlyCheck, (result) => {
+                  const errors = checkForProvidedFieldErrors(result);
+                  if (errors) return errors;
+                  return undefined;
+                });
+                if (earlyResult instanceof Promise) {
+                  return earlyResult.then((err) => {
+                    if (err) return err;
+                    return continueWithPrompt(preprocessedArgs);
+                  });
+                }
+                if (earlyResult) return earlyResult;
+              }
+            }
+
+            return continueWithPrompt(preprocessedArgs);
+          };
+
+          const continueWithPrompt = (preprocessedArgs: Record<string, unknown>): PluginValidateResult | Promise<PluginValidateResult> => {
+            const willPrompt = !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta);
+            const afterInteractive = willPrompt
+              ? promptInteractiveFields(preprocessedArgs, command, runtime, forceInteractive || undefined)
+              : preprocessedArgs;
 
             return thenMaybe(afterInteractive, (filledArgs) => {
               const validated = validateCommandArgs(command, filledArgs);

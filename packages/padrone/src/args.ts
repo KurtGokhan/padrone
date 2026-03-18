@@ -210,3 +210,103 @@ export function preprocessArgs(data: Record<string, unknown>, ctx: ParseArgsCont
 
   return result;
 }
+
+/**
+ * Auto-coerce CLI string values to match the expected schema types.
+ * Handles: string → number, string → boolean for primitive schema fields.
+ * Arrays of primitives are also coerced element-wise.
+ */
+export function coerceArgs(data: Record<string, unknown>, schema: StandardJSONSchemaV1): Record<string, unknown> {
+  let properties: Record<string, any>;
+  try {
+    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+    if (jsonSchema.type !== 'object' || !jsonSchema.properties) return data;
+    properties = jsonSchema.properties;
+  } catch {
+    return data;
+  }
+
+  const result = { ...data };
+
+  for (const [key, value] of Object.entries(result)) {
+    const prop = properties[key];
+    if (!prop) continue;
+
+    const targetType = prop.type as string | undefined;
+
+    if (targetType === 'number' || targetType === 'integer') {
+      if (typeof value === 'string') {
+        const num = Number(value);
+        if (!Number.isNaN(num)) result[key] = num;
+      }
+    } else if (targetType === 'boolean') {
+      if (typeof value === 'string') {
+        if (value === 'true' || value === '1') result[key] = true;
+        else if (value === 'false' || value === '0') result[key] = false;
+      }
+    } else if (targetType === 'array' && Array.isArray(value)) {
+      const itemType = prop.items?.type as string | undefined;
+      if (itemType === 'number' || itemType === 'integer') {
+        result[key] = value.map((v) => {
+          if (typeof v === 'string') {
+            const num = Number(v);
+            return Number.isNaN(num) ? v : num;
+          }
+          return v;
+        });
+      } else if (itemType === 'boolean') {
+        result[key] = value.map((v) => {
+          if (typeof v === 'string') {
+            if (v === 'true' || v === '1') return true;
+            if (v === 'false' || v === '0') return false;
+          }
+          return v;
+        });
+      }
+    }
+  }
+
+  return result;
+}
+
+/** Keys consumed by the CLI framework that are not user-defined args. */
+const frameworkReservedKeys = new Set(['config', 'c']);
+
+/**
+ * Detect unknown keys in the args that don't match any schema property.
+ * Returns an array of { key, suggestion? } for each unknown key.
+ * Framework-reserved keys (--config, -c) are always allowed.
+ */
+export function detectUnknownArgs(
+  data: Record<string, unknown>,
+  schema: StandardJSONSchemaV1,
+  aliases: Record<string, string>,
+  suggestFn: (input: string, candidates: string[]) => string,
+): { key: string; suggestion: string }[] {
+  let properties: Record<string, any>;
+  let isLoose = false;
+  try {
+    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+    if (jsonSchema.type !== 'object' || !jsonSchema.properties) return [];
+    properties = jsonSchema.properties;
+    // If additionalProperties is set (true, {}, or a schema), the schema allows extra keys
+    if (jsonSchema.additionalProperties !== undefined && jsonSchema.additionalProperties !== false) isLoose = true;
+  } catch {
+    return [];
+  }
+
+  if (isLoose) return [];
+
+  const knownKeys = new Set<string>([...Object.keys(properties), ...Object.keys(aliases), ...Object.values(aliases)]);
+  const propertyNames = Object.keys(properties);
+  const unknowns: { key: string; suggestion: string }[] = [];
+
+  for (const key of Object.keys(data)) {
+    if (!knownKeys.has(key) && !frameworkReservedKeys.has(key)) {
+      const suggestion = suggestFn(key, propertyNames);
+      unknowns.push({ key, suggestion });
+    }
+  }
+
+  return unknowns;
+}
