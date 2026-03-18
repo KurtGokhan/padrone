@@ -1,5 +1,5 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
-import { extractSchemaMetadata, type PadroneArgsSchemaMeta, parsePositionalConfig } from './args.ts';
+import { extractSchemaMetadata, type PadroneArgsSchemaMeta, parsePositionalConfig, parseStdinConfig } from './args.ts';
 import { findCommandByName } from './command-utils.ts';
 import {
   createFormatter,
@@ -183,6 +183,7 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
       hasSubcommands: !!(cmd.commands && cmd.commands.length > 0),
       hasPositionals,
       hasArguments: false, // updated below after extracting arguments
+      stdinField: cmd.meta?.stdin ? parseStdinConfig(cmd.meta.stdin).field : undefined,
     },
   };
 

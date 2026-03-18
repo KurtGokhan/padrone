@@ -87,6 +87,8 @@ export type HelpInfo = {
     hasSubcommands: boolean;
     hasPositionals: boolean;
     hasArguments: boolean;
+    /** The name of the field that reads from stdin, if any. Shown as `[stdin > field]` in usage. */
+    stdinField?: string;
   };
   /** List of subcommands */
   subcommands?: HelpSubcommandInfo[];
@@ -290,6 +292,7 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
       }
     }
     if (info.usage.hasArguments) usageParts.push(styler.meta('[options]'));
+    if (info.usage.stdinField) usageParts.push(styler.meta(`[stdin > ${info.usage.stdinField}]`));
     return [`${usageLabel} ${join(usageParts)}`];
   }
 

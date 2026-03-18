@@ -46,6 +46,8 @@ export type TestCliBuilder = {
   prompt(answers: Record<string, unknown>): TestCliBuilder;
   /** Provide mock config files. Keys are file paths, values are parsed config objects. */
   config(files: Record<string, Record<string, unknown>>): TestCliBuilder;
+  /** Provide mock stdin data (simulates piped input). */
+  stdin(data: string): TestCliBuilder;
   /**
    * Execute a single command via `eval()` and return the result with captured I/O.
    * @param input - Optional CLI input string. Overrides `.args()` if provided.
@@ -120,6 +122,7 @@ export function testCli(program: TestableProgram): TestCliBuilder {
   let envVars: Record<string, string | undefined> | undefined;
   let promptAnswers: Record<string, unknown> | undefined;
   let configFiles: Record<string, Record<string, unknown>> | undefined;
+  let stdinData: string | undefined;
 
   const builder: TestCliBuilder = {
     args(args: string) {
@@ -138,12 +141,16 @@ export function testCli(program: TestableProgram): TestCliBuilder {
       configFiles = files;
       return builder;
     },
+    stdin(data: string) {
+      stdinData = data;
+      return builder;
+    },
 
     async run(runInput?: string) {
       const stdout: unknown[] = [];
       const stderr: string[] = [];
 
-      const runtime = buildRuntime(stdout, stderr, { envVars, promptAnswers, configFiles });
+      const runtime = buildRuntime(stdout, stderr, { envVars, promptAnswers, configFiles, stdinData });
       const testProgram = program.runtime(runtime);
 
       try {
@@ -212,6 +219,7 @@ function buildRuntime(
     promptAnswers?: Record<string, unknown>;
     configFiles?: Record<string, Record<string, unknown>>;
     readLine?: (prompt: string) => Promise<string | null>;
+    stdinData?: string;
   },
 ): PadroneRuntime {
   const runtime: PadroneRuntime = {
@@ -235,6 +243,23 @@ function buildRuntime(
 
   if (opts.readLine) {
     runtime.readLine = opts.readLine;
+  }
+
+  if (opts.stdinData !== undefined) {
+    runtime.stdin = {
+      isTTY: false,
+      async text() {
+        return opts.stdinData!;
+      },
+      async *lines() {
+        const lines = opts.stdinData!.split('\n');
+        // Remove trailing empty line from final newline (matches readline behavior)
+        if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+        for (const line of lines) {
+          yield line;
+        }
+      },
+    };
   }
 
   return runtime;

@@ -27,6 +27,22 @@ type PositionalArgs<TObj> =
  * })
  * ```
  */
+/**
+ * Configuration for reading from stdin and mapping it to an argument field.
+ */
+export type StdinConfig<TObj = Record<string, any>> =
+  | (keyof TObj & string)
+  | {
+      /** The argument field to populate with stdin data. */
+      field: keyof TObj & string;
+      /**
+       * How to consume stdin:
+       * - `'text'` (default): read all stdin as a single string.
+       * - `'lines'`: read stdin as an array of lines (string[]).
+       */
+      as?: 'text' | 'lines';
+    };
+
 export interface PadroneArgsSchemaMeta<TObj = Record<string, any>> {
   /**
    * Array of argument names that should be treated as positional arguments.
@@ -38,6 +54,28 @@ export interface PadroneArgsSchemaMeta<TObj = Record<string, any>> {
    * Per-argument metadata.
    */
   fields?: { [K in keyof TObj]?: PadroneFieldMeta };
+  /**
+   * Read from stdin and inject the data into the specified argument field.
+   * Only reads when stdin is piped (not a TTY) and the field wasn't already provided via CLI flags.
+   *
+   * - `string`: shorthand for `{ field: name, as: 'text' }` — read all stdin as a string.
+   * - `{ field, as }`: explicit form. `as: 'text'` reads all stdin as a string,
+   *   `as: 'lines'` reads stdin as an array of line strings.
+   *
+   * Precedence: CLI flags > stdin > env vars > config file > schema defaults.
+   *
+   * @example
+   * ```ts
+   * // Shorthand: read all stdin as text into 'data' field
+   * .arguments(z.object({ data: z.string() }), { stdin: 'data' })
+   *
+   * // Explicit: read stdin lines into 'lines' field
+   * .arguments(z.object({ lines: z.string().array() }), {
+   *   stdin: { field: 'lines', as: 'lines' },
+   * })
+   * ```
+   */
+  stdin?: StdinConfig<TObj>;
   /**
    * Fields to interactively prompt for when their values are missing after CLI/env/config resolution.
    * - `true`: prompt for all required fields that are missing.
@@ -70,6 +108,14 @@ export interface PadroneArgsSchemaMeta<TObj = Record<string, any>> {
    * ```
    */
   optionalInteractive?: true | (keyof TObj & string)[];
+}
+
+/**
+ * Normalizes stdin config into its explicit form.
+ */
+export function parseStdinConfig(stdin: StdinConfig): { field: string; as: 'text' | 'lines' } {
+  if (typeof stdin === 'string') return { field: stdin, as: 'text' };
+  return { field: stdin.field as string, as: stdin.as ?? 'text' };
 }
 
 /**
@@ -162,6 +208,7 @@ function preprocessAliases(data: Record<string, unknown>, aliases: Record<string
 
 interface ParseArgsContext {
   aliases?: Record<string, string>;
+  stdinData?: Record<string, unknown>;
   envData?: Record<string, unknown>;
   configData?: Record<string, unknown>;
 }
@@ -186,7 +233,7 @@ function applyValues(data: Record<string, unknown>, values: Record<string, unkno
 
 /**
  * Combined preprocessing of arguments with all features.
- * Precedence order (highest to lowest): CLI args > env vars > config file
+ * Precedence order (highest to lowest): CLI args > stdin > env vars > config file
  */
 export function preprocessArgs(data: Record<string, unknown>, ctx: ParseArgsContext): Record<string, unknown> {
   let result = { ...data };
@@ -196,14 +243,20 @@ export function preprocessArgs(data: Record<string, unknown>, ctx: ParseArgsCont
     result = preprocessAliases(result, ctx.aliases);
   }
 
-  // 2. Apply environment variables (higher precedence than config)
-  // These only apply if CLI didn't set the arg
+  // 2. Apply stdin data (higher precedence than env)
+  // Only applies if CLI didn't set the arg
+  if (ctx.stdinData) {
+    result = applyValues(result, ctx.stdinData);
+  }
+
+  // 3. Apply environment variables (higher precedence than config)
+  // These only apply if CLI/stdin didn't set the arg
   if (ctx.envData) {
     result = applyValues(result, ctx.envData);
   }
 
-  // 3. Apply config file values (lowest precedence)
-  // These only apply if neither CLI nor env set the arg
+  // 4. Apply config file values (lowest precedence)
+  // These only apply if neither CLI, stdin, nor env set the arg
   if (ctx.configData) {
     result = applyValues(result, ctx.configData);
   }

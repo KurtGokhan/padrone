@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Schema } from 'ai';
-import { coerceArgs, detectUnknownArgs, extractSchemaMetadata, parsePositionalConfig, preprocessArgs } from './args.ts';
+import { coerceArgs, detectUnknownArgs, extractSchemaMetadata, parsePositionalConfig, parseStdinConfig, preprocessArgs } from './args.ts';
 import {
   commandSymbol,
   findCommandByName,
@@ -23,6 +23,7 @@ import { generateHelp } from './help.ts';
 import { promptInteractiveFields } from './interactive.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
 import { createReplIterator } from './repl-loop.ts';
+import { resolveStdin } from './runtime.ts';
 import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
@@ -197,11 +198,12 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     command: AnyPadroneCommand,
     rawArgs: Record<string, unknown>,
     args: string[],
-    context?: { envData?: Record<string, unknown>; configData?: Record<string, unknown> },
+    context?: { stdinData?: Record<string, unknown>; envData?: Record<string, unknown>; configData?: Record<string, unknown> },
   ): Record<string, unknown> => {
-    // Apply preprocessing (env and config bindings)
+    // Apply preprocessing (stdin, env, and config bindings)
     let preprocessedArgs = preprocessArgs(rawArgs, {
       aliases: {}, // Already resolved aliases in parseCommand
+      stdinData: context?.stdinData,
       envData: context?.envData,
       configData: context?.configData,
     });
@@ -290,7 +292,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     command: AnyPadroneCommand,
     rawArgs: Record<string, unknown>,
     args: string[],
-    context?: { envData?: Record<string, unknown>; configData?: Record<string, unknown> },
+    context?: { stdinData?: Record<string, unknown>; envData?: Record<string, unknown>; configData?: Record<string, unknown> },
   ) => {
     const preprocessedArgs = buildCommandArgs(command, rawArgs, args, context);
     return validateCommandArgs(command, preprocessedArgs);
@@ -331,12 +333,48 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         };
         const envSchema = resolveEnvSchema(command);
 
-        const finalize = (envData: Record<string, unknown> | undefined): PluginValidateResult | Promise<PluginValidateResult> => {
-          const validated = validateArgs(command, validateCtx.rawArgs, validateCtx.positionalArgs, { envData });
+        const readStdinForParse = (): Record<string, unknown> | Promise<Record<string, unknown>> => {
+          const stdinConfig = command.meta?.stdin;
+          if (!stdinConfig) return {};
+
+          const { field, as } = parseStdinConfig(stdinConfig);
+
+          // Skip if the field was already provided via CLI flags
+          if (field in validateCtx.rawArgs && validateCtx.rawArgs[field] !== undefined) return {};
+
+          const runtime = getCommandRuntime(existingCommand);
+          const stdin = resolveStdin(runtime as any);
+          if (!stdin) return {};
+
+          if (as === 'lines') {
+            return (async () => {
+              const lines: string[] = [];
+              for await (const line of stdin.lines()) {
+                lines.push(line);
+              }
+              return { [field]: lines };
+            })();
+          }
+          return stdin.text().then((text) => (text ? { [field]: text } : {}));
+        };
+
+        const finalize = (
+          envData: Record<string, unknown> | undefined,
+          stdinData: Record<string, unknown> | undefined,
+        ): PluginValidateResult | Promise<PluginValidateResult> => {
+          const validated = validateArgs(command, validateCtx.rawArgs, validateCtx.positionalArgs, { stdinData, envData });
           return thenMaybe(validated, (v) => v as PluginValidateResult);
         };
 
         let envData: Record<string, unknown> | undefined;
+        const afterEnv = (envResult: Record<string, unknown> | undefined) => {
+          const stdinDataOrPromise = readStdinForParse();
+          return thenMaybe(stdinDataOrPromise, (stdinData) => {
+            const hasStdinData = Object.keys(stdinData).length > 0;
+            return finalize(envResult, hasStdinData ? stdinData : undefined);
+          });
+        };
+
         if (envSchema) {
           const runtime = getCommandRuntime(existingCommand);
           const rawEnv = runtime.env();
@@ -346,11 +384,11 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             if (!result.issues) {
               envData = result.value as unknown as Record<string, unknown>;
             }
-            return finalize(envData);
+            return afterEnv(envData);
           });
         }
 
-        return finalize(envData);
+        return afterEnv(envData);
       };
 
       const validatedOrPromise = runPluginChain('validate', commandPlugins, validateCtx, coreValidate);
@@ -865,12 +903,47 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             return envData;
           };
 
-          // Step 3: Preprocess, interactive prompt, and validate
+          // Step 3: Read stdin if configured and not already provided via CLI
+          const readStdin = (): Record<string, unknown> | Promise<Record<string, unknown>> => {
+            const stdinConfig = command.meta?.stdin;
+            if (!stdinConfig) return {};
+
+            const { field, as } = parseStdinConfig(stdinConfig);
+
+            // Skip if the field was already provided via CLI flags (highest precedence)
+            if (field in validateCtx.rawArgs && validateCtx.rawArgs[field] !== undefined) return {};
+
+            // Resolve stdin: use runtime's custom stdin, or default if piped.
+            // Returns undefined when stdin is a TTY or unavailable.
+            const stdin = resolveStdin(runtime as any);
+            if (!stdin) return {};
+
+            if (as === 'lines') {
+              return (async () => {
+                const lines: string[] = [];
+                for await (const line of stdin.lines()) {
+                  lines.push(line);
+                }
+                return { [field]: lines };
+              })();
+            }
+
+            // Default: read all as text
+            return stdin.text().then((text) => {
+              // Don't inject empty stdin
+              if (!text) return {};
+              return { [field]: text };
+            });
+          };
+
+          // Step 4: Preprocess, interactive prompt, and validate
           const finalizeValidation = (
             validatedConfigData: Record<string, unknown> | undefined,
             envData: Record<string, unknown> | undefined,
+            stdinData: Record<string, unknown> | undefined,
           ): PluginValidateResult | Promise<PluginValidateResult> => {
             const preprocessedArgs = buildCommandArgs(command, validateCtx.rawArgs, validateCtx.positionalArgs, {
+              stdinData,
               envData,
               configData: validatedConfigData,
             });
@@ -937,12 +1010,16 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             });
           };
 
-          // Chain: config → env → validate
+          // Chain: config → env → stdin → validate
           const validatedConfig = validateConfig();
           return thenMaybe(validatedConfig, (cfgData) => {
             const validatedEnv = validateEnv();
             return thenMaybe(validatedEnv, (envData) => {
-              return finalizeValidation(cfgData, envData);
+              const stdinDataOrPromise = readStdin();
+              return thenMaybe(stdinDataOrPromise, (stdinData) => {
+                const hasStdinData = Object.keys(stdinData).length > 0;
+                return finalizeValidation(cfgData, envData, hasStdinData ? stdinData : undefined);
+              });
             });
           });
         };

@@ -50,6 +50,22 @@ export type PadroneRuntime = {
   /** Find the first existing file from a list of candidate names. */
   findFile?: (names: string[]) => string | undefined;
   /**
+   * Standard input abstraction. Provides methods to read piped data from stdin.
+   * When not provided, defaults to reading from `process.stdin`.
+   *
+   * Used by commands that declare a `stdin` field in their arguments meta.
+   * The framework reads stdin automatically during the validate phase and
+   * injects the data into the specified argument field.
+   */
+  stdin?: {
+    /** Whether stdin is a TTY (interactive terminal) vs a pipe/file. */
+    isTTY?: boolean;
+    /** Read all of stdin as a string. */
+    text: () => Promise<string>;
+    /** Async iterable of lines for streaming. */
+    lines: () => AsyncIterable<string>;
+  };
+  /**
    * Controls interactive prompting capability and default behavior.
    * - `'supported'` — runtime can handle prompts; caller (flag/pref) decides whether to prompt. This is the default when `prompt` is provided.
    * - `'unsupported'` — runtime cannot handle prompts; hard veto that nothing can override.
@@ -81,8 +97,8 @@ export type PadroneRuntime = {
  * Internal resolved runtime where all fields are guaranteed to be present.
  * The `prompt`, `interactive`, and `readLine` fields remain optional since not all runtimes provide them.
  */
-export type ResolvedPadroneRuntime = Required<Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine'>> &
-  Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine'>;
+export type ResolvedPadroneRuntime = Required<Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin'>> &
+  Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin'>;
 
 /**
  * Default terminal prompt implementation powered by Enquirer.
@@ -204,6 +220,43 @@ function detectInteractiveMode(): InteractiveMode {
 /**
  * Creates the default Node.js/Bun runtime.
  */
+/**
+ * Creates a default stdin reader from `process.stdin`.
+ * Only created when a command actually declares a `stdin` meta field.
+ */
+function createDefaultStdin(): NonNullable<PadroneRuntime['stdin']> {
+  return {
+    get isTTY() {
+      // process.stdin.isTTY is `true` when interactive, `undefined` when piped.
+      // We treat `undefined` as "unknown/not piped" (isTTY = true) to avoid
+      // accidentally blocking on stdin in environments where it's not set (tests, CI).
+      // Only `false` explicitly means "piped".
+      if (typeof process === 'undefined') return true;
+      return process.stdin?.isTTY !== false;
+    },
+    async text() {
+      if (typeof process === 'undefined') return '';
+      const chunks: Buffer[] = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+      }
+      return Buffer.concat(chunks).toString('utf-8');
+    },
+    async *lines() {
+      if (typeof process === 'undefined') return;
+      const { createInterface } = await import('node:readline');
+      const rl = createInterface({ input: process.stdin });
+      try {
+        for await (const line of rl) {
+          yield line;
+        }
+      } finally {
+        rl.close();
+      }
+    },
+  };
+}
+
 export function createDefaultRuntime(): ResolvedPadroneRuntime {
   return {
     output: (...args) => console.log(...args),
@@ -221,6 +274,19 @@ export function createDefaultRuntime(): ResolvedPadroneRuntime {
 /**
  * Merges a partial runtime with the default runtime.
  */
+/**
+ * Returns the stdin abstraction: custom runtime stdin > default process.stdin.
+ * Returns `undefined` when no custom stdin is provided and process.stdin is not piped.
+ */
+export function resolveStdin(partial?: PadroneRuntime): NonNullable<PadroneRuntime['stdin']> | undefined {
+  if (partial?.stdin) return partial.stdin;
+  const defaultStdin = createDefaultStdin();
+  // Only use default stdin if it's actually piped (isTTY === false).
+  // This avoids accidentally blocking on stdin in tests/CI.
+  if (defaultStdin.isTTY) return undefined;
+  return defaultStdin;
+}
+
 export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime {
   const defaults = createDefaultRuntime();
   if (!partial) return defaults;
@@ -235,5 +301,6 @@ export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime
     interactive: partial.interactive ?? defaults.interactive,
     prompt: partial.prompt ?? defaults.prompt,
     readLine: partial.readLine ?? defaults.readLine,
+    stdin: partial.stdin,
   };
 }
