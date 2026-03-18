@@ -1137,7 +1137,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           });
         };
 
-        return warnIfUnexpectedAsync(thenMaybe(validatedOrPromise, continueAfterValidate), command) as any;
+        return thenMaybe(warnIfUnexpectedAsync(validatedOrPromise, command), continueAfterValidate) as any;
       };
 
       return thenMaybe(parsedOrPromise, continueAfterParse) as any;
