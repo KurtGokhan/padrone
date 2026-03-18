@@ -65,7 +65,7 @@ export const tasksProgram = createPadrone('tasks')
       }
     }),
   )
-  .command('add', (c) =>
+  .command(['add', 'create'], (c) =>
     c
       .configure({ title: 'Add a new task' })
       .arguments(
@@ -79,6 +79,7 @@ export const tasksProgram = createPadrone('tasks')
           positional: ['title'],
           interactive: ['title'],
           optionalInteractive: ['priority', 'tags', 'due'],
+          stdin: { field: 'title', as: 'text' },
         },
       )
       .action((args) => {
@@ -91,7 +92,7 @@ export const tasksProgram = createPadrone('tasks')
         return `Task added: ${formatTask(task)}`;
       }),
   )
-  .command('list', (c) =>
+  .command(['list', 'ls'], (c) =>
     c
       .configure({ title: 'List all tasks' })
       .arguments(
@@ -118,7 +119,7 @@ export const tasksProgram = createPadrone('tasks')
         return lines.join('\n');
       }),
   )
-  .command('show', (c) =>
+  .command(['show', 'details'], (c) =>
     c
       .configure({ title: 'Show task details' })
       .arguments(
@@ -147,7 +148,7 @@ export const tasksProgram = createPadrone('tasks')
         return lines.join('\n');
       }),
   )
-  .command('complete', (c) =>
+  .command(['complete', 'done'], (c) =>
     c
       .configure({ title: 'Mark a task as completed' })
       .arguments(
@@ -166,7 +167,7 @@ export const tasksProgram = createPadrone('tasks')
         return `Task completed: ${formatTask(task)}`;
       }),
   )
-  .command('start', (c) =>
+  .command(['start', 'in-progress'], (c) =>
     c
       .configure({ title: 'Mark a task as in progress' })
       .arguments(
@@ -185,7 +186,7 @@ export const tasksProgram = createPadrone('tasks')
         return `Task started: ${formatTask(task)}`;
       }),
   )
-  .command('edit', (c) =>
+  .command(['edit', 'update'], (c) =>
     c
       .configure({ title: 'Edit a task' })
       .arguments(
@@ -217,7 +218,7 @@ export const tasksProgram = createPadrone('tasks')
         return `Task updated: ${formatTask(task)}`;
       }),
   )
-  .command('remove', (c) =>
+  .command(['remove', 'delete'], (c) =>
     c
       .configure({ title: 'Remove a task' })
       .arguments(

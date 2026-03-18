@@ -260,6 +260,17 @@ function buildRuntime(
         }
       },
     };
+  } else {
+    // No stdin data: simulate a TTY (no piped input) to avoid reading from process.stdin
+    runtime.stdin = {
+      isTTY: true,
+      async text() {
+        return '';
+      },
+      async *lines() {
+        // no lines
+      },
+    };
   }
 
   return runtime;

@@ -214,16 +214,21 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     // Map positional arguments to their named arguments
     if (positionalConfig.length > 0) {
       let argIndex = 0;
-      for (const { name, variadic } of positionalConfig) {
+      for (let i = 0; i < positionalConfig.length; i++) {
+        const { name, variadic } = positionalConfig[i]!;
         if (argIndex >= args.length) break;
 
         if (variadic) {
           // Collect remaining args (but leave room for non-variadic args after)
-          const remainingPositionals = positionalConfig.slice(positionalConfig.indexOf({ name, variadic }) + 1);
+          const remainingPositionals = positionalConfig.slice(i + 1);
           const nonVariadicAfter = remainingPositionals.filter((p) => !p.variadic).length;
           const variadicEnd = args.length - nonVariadicAfter;
           preprocessedArgs[name] = args.slice(argIndex, variadicEnd);
           argIndex = variadicEnd;
+        } else if (i === positionalConfig.length - 1 && args.length > argIndex + 1) {
+          // Last non-variadic positional: join all remaining tokens (e.g. `-- Hello world` → "Hello world")
+          preprocessedArgs[name] = args.slice(argIndex).join(' ');
+          argIndex = args.length;
         } else {
           preprocessedArgs[name] = args[argIndex];
           argIndex++;
@@ -827,7 +832,12 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           const runtimeDefault: boolean | undefined =
             runtime.interactive === 'forced' ? true : runtime.interactive === 'disabled' ? false : undefined;
           const effectiveInteractive: boolean | undefined = flagInteractive ?? evalOptions?.interactive ?? runtimeDefault;
-          const interactivitySuppressed = runtime.interactive === 'unsupported' || effectiveInteractive === false;
+          // Suppress interactive prompts when the command reads stdin — prompts share stdin which is already consumed/closed.
+          const commandUsesStdin = !!command.meta?.stdin;
+          const stdinIsPiped =
+            commandUsesStdin && (runtime.stdin ? !runtime.stdin.isTTY : typeof process !== 'undefined' && process.stdin?.isTTY !== true);
+          const interactivitySuppressed =
+            runtime.interactive === 'unsupported' || effectiveInteractive === false || (stdinIsPiped && effectiveInteractive !== true);
           const forceInteractive = !interactivitySuppressed && effectiveInteractive === true;
 
           // Extract config file path from --config or -c flag

@@ -227,12 +227,10 @@ function detectInteractiveMode(): InteractiveMode {
 function createDefaultStdin(): NonNullable<PadroneRuntime['stdin']> {
   return {
     get isTTY() {
-      // process.stdin.isTTY is `true` when interactive, `undefined` when piped.
-      // We treat `undefined` as "unknown/not piped" (isTTY = true) to avoid
-      // accidentally blocking on stdin in environments where it's not set (tests, CI).
-      // Only `false` explicitly means "piped".
+      // process.stdin.isTTY is `true` when interactive terminal, `undefined` when piped/redirected.
+      // Node.js never sets it to `false` — it's either `true` or absent.
       if (typeof process === 'undefined') return true;
-      return process.stdin?.isTTY !== false;
+      return process.stdin?.isTTY === true;
     },
     async text() {
       if (typeof process === 'undefined') return '';
