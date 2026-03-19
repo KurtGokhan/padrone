@@ -227,6 +227,39 @@ describe('Thenable results', () => {
       const result = await program.eval('echo hello');
       expect(result.result).toBe('hello');
     });
+
+    it('should support .catch() on sync eval result', async () => {
+      const program = createPadrone('app').command('greet', (c) =>
+        c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
+      );
+
+      const result = program.eval('greet World');
+      expect(typeof result.catch).toBe('function');
+
+      // .catch() should not be called on success
+      let catchCalled = false;
+      const value = await result.catch(() => {
+        catchCalled = true;
+      });
+      expect(catchCalled).toBe(false);
+      expect(value).toBeDefined();
+    });
+
+    it('should support .finally() on sync eval result', async () => {
+      const program = createPadrone('app').command('greet', (c) =>
+        c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
+      );
+
+      const result = program.eval('greet World');
+      expect(typeof result.finally).toBe('function');
+
+      let finallyCalled = false;
+      const value = await result.finally(() => {
+        finallyCalled = true;
+      });
+      expect(finallyCalled).toBe(true);
+      expect(value.result).toBe('Hello, World!');
+    });
   });
 
   describe('parse() returns thenable', () => {
@@ -346,10 +379,14 @@ describe.skip('Types - Thenable results', () => {
         .action((args) => args.name),
     );
 
-  // Sync eval result is thenable (has .then method)
+  // Sync eval result is thenable (has .then, .catch, .finally methods)
   const syncResult = program.eval('sync --name hello');
   expectTypeOf(syncResult).toHaveProperty('then');
+  expectTypeOf(syncResult).toHaveProperty('catch');
+  expectTypeOf(syncResult).toHaveProperty('finally');
   expectTypeOf(syncResult.then).toBeFunction();
+  expectTypeOf(syncResult.catch).toBeFunction();
+  expectTypeOf(syncResult.finally).toBeFunction();
   // But is NOT a Promise
   expectTypeOf(syncResult).not.toMatchTypeOf<Promise<any>>();
 
@@ -363,7 +400,11 @@ describe.skip('Types - Thenable results', () => {
   // Sync parse result is thenable
   const syncParse = program.parse('sync --name hello');
   expectTypeOf(syncParse).toHaveProperty('then');
+  expectTypeOf(syncParse).toHaveProperty('catch');
+  expectTypeOf(syncParse).toHaveProperty('finally');
   expectTypeOf(syncParse.then).toBeFunction();
+  expectTypeOf(syncParse.catch).toBeFunction();
+  expectTypeOf(syncParse.finally).toBeFunction();
   expectTypeOf(syncParse).not.toMatchTypeOf<Promise<any>>();
 
   // Async parse result is a Promise
@@ -373,7 +414,11 @@ describe.skip('Types - Thenable results', () => {
   // cli result is thenable
   const cliResult = program.cli();
   expectTypeOf(cliResult).toHaveProperty('then');
+  expectTypeOf(cliResult).toHaveProperty('catch');
+  expectTypeOf(cliResult).toHaveProperty('finally');
   expectTypeOf(cliResult.then).toBeFunction();
+  expectTypeOf(cliResult.catch).toBeFunction();
+  expectTypeOf(cliResult.finally).toBeFunction();
 });
 
 describe.skip('Types - Optional array enum positionals', () => {

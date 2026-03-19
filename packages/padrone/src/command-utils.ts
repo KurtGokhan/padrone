@@ -1,5 +1,6 @@
 import { extractSchemaMetadata } from './args.ts';
 import { type ResolvedPadroneRuntime, resolveRuntime } from './runtime.ts';
+import type { Thenable } from './type-utils.ts';
 import type {
   AnyPadroneCommand,
   PadronePlugin,
@@ -104,29 +105,45 @@ export function thenMaybe<T, U>(value: T | Promise<T>, fn: (v: T) => U | Promise
 }
 
 /**
- * Makes a sync result object thenable by adding a `.then()` method.
+ * Makes a sync result object thenable by adding `.then()`, `.catch()`, and `.finally()` methods.
  * If the value is already a Promise, returns it as-is.
  * This allows users to write `await program.cli()` or `program.cli().then(...)` regardless of sync/async.
  *
- * The `.then()` resolves with a plain copy (without `.then`) to avoid infinite
+ * The `.then()` resolves with a plain copy (without thenable methods) to avoid infinite
  * recursive unwrapping by the Promise resolution algorithm.
  */
-export function makeThenable<T>(value: T | Promise<T>): T & PromiseLike<T> {
+export function makeThenable<T>(value: T | Promise<T>): Thenable<T> {
   if (value instanceof Promise) return value as any;
   if (value !== null && typeof value === 'object' && !('then' in value)) {
+    const toPlain = () => {
+      const plain = { ...value } as any;
+      delete plain.then;
+      delete plain.catch;
+      delete plain.finally;
+      return plain as T;
+    };
     // biome-ignore lint/suspicious/noThenProperty: intentional thenable shim for sync results
     (value as any).then = (onfulfilled?: (v: T) => any, onrejected?: (reason: any) => any) => {
       try {
-        // Resolve with a plain copy to prevent infinite thenable unwrapping
-        const plain = { ...value } as any;
-        delete plain.then;
-        const result = onfulfilled ? onfulfilled(plain) : plain;
+        const result = onfulfilled ? onfulfilled(toPlain()) : toPlain();
         return Promise.resolve(result);
       } catch (err) {
         if (onrejected) return Promise.resolve(onrejected(err));
         return Promise.reject(err);
       }
     };
+    (value as any).catch = (onrejected?: (reason: any) => any) => (value as any).then(undefined, onrejected);
+    (value as any).finally = (onfinally?: () => void) =>
+      (value as any).then(
+        (v: any) => {
+          onfinally?.();
+          return v;
+        },
+        (err: any) => {
+          onfinally?.();
+          throw err;
+        },
+      );
   }
   return value as any;
 }
