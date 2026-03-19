@@ -17,6 +17,7 @@ export type HelpPositionalInfo = {
   optional: boolean;
   default?: unknown;
   type?: string;
+  enum?: string[];
 };
 
 /**
@@ -373,6 +374,7 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
       const descParts: string[] = [];
       if (arg.description) descParts.push(styler.description(arg.description));
       if (info.usage.stdinField === arg.name) descParts.push(styler.meta('(stdin)'));
+      if (arg.enum) descParts.push(styler.meta(`(choices: ${arg.enum.join(', ')})`));
       if (arg.default !== undefined) descParts.push(styler.meta(`(default: ${String(arg.default)})`));
       lines.push(indent(1) + styler.arg(arg.name) + padding + join(descParts));
     }

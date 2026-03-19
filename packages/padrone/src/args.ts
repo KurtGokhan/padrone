@@ -45,7 +45,7 @@ export interface PadroneFieldMeta {
 type PositionalArgs<TObj> =
   TObj extends Record<string, any>
     ? {
-        [K in keyof TObj]: TObj[K] extends Array<any> ? `...${K & string}` : K & string;
+        [K in keyof TObj]: NonNullable<TObj[K]> extends Array<any> ? `...${K & string}` | (K & string) : K & string;
       }[keyof TObj]
     : string;
 
@@ -382,10 +382,12 @@ export function coerceArgs(data: Record<string, unknown>, schema: StandardJSONSc
         if (value === 'true' || value === '1') result[key] = true;
         else if (value === 'false' || value === '0') result[key] = false;
       }
-    } else if (targetType === 'array' && Array.isArray(value)) {
+    } else if (targetType === 'array') {
+      // Coerce single items to array
+      const arr = Array.isArray(value) ? value : [value];
       const itemType = prop.items?.type as string | undefined;
       if (itemType === 'number' || itemType === 'integer') {
-        result[key] = value.map((v) => {
+        result[key] = arr.map((v) => {
           if (typeof v === 'string') {
             const num = Number(v);
             return Number.isNaN(num) ? v : num;
@@ -393,13 +395,15 @@ export function coerceArgs(data: Record<string, unknown>, schema: StandardJSONSc
           return v;
         });
       } else if (itemType === 'boolean') {
-        result[key] = value.map((v) => {
+        result[key] = arr.map((v) => {
           if (typeof v === 'string') {
             if (v === 'true' || v === '1') return true;
             if (v === 'false' || v === '0') return false;
           }
           return v;
         });
+      } else if (!Array.isArray(value)) {
+        result[key] = arr;
       }
     }
   }

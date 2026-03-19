@@ -7,6 +7,7 @@ import {
   getCommandRuntime,
   hasInteractiveConfig,
   isAsyncBranded,
+  makeThenable,
   mergeCommands,
   noop,
   outputValue,
@@ -417,7 +418,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       );
     };
 
-    return thenMaybe(parsedOrPromise, continueAfterParse) as any;
+    return makeThenable(thenMaybe(parsedOrPromise, continueAfterParse)) as any;
   };
 
   const stringify: AnyPadroneProgram['stringify'] = (command = '' as any, args) => {
@@ -1152,7 +1153,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   };
 
   const evalCommand: AnyPadroneProgram['eval'] = (input, evalOptions) => {
-    return execCommand(input as string, evalOptions, 'soft');
+    return makeThenable(execCommand(input as string, evalOptions, 'soft'));
   };
 
   /**
@@ -1238,7 +1239,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       updateCheckPromise.then((show) => show?.());
     }
 
-    return result;
+    return makeThenable(result);
   };
 
   const run: AnyPadroneProgram['run'] = (command, args) => {

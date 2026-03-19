@@ -55,11 +55,11 @@ export type OrAsyncMeta<TExisting extends boolean, TMeta> = TExisting extends tr
 /**
  * Conditionally wraps a type in Promise based on the TAsync flag.
  * - `true` → `Promise<T>`
- * - `false` → `T`
+ * - `false` → `T & PromiseLike<T>` (thenable: supports `.then()` and `await`)
  * - `boolean` (union of true|false) → `Promise<T>` (safe default when async-ness is uncertain)
  * - `any` → `T` (for generic/any typed commands like AnyPadroneCommand)
  */
-export type MaybePromise<T, TAsync> = IsAny<TAsync> extends true ? T : true extends TAsync ? Promise<T> : T;
+export type MaybePromise<T, TAsync> = IsAny<TAsync> extends true ? T : true extends TAsync ? Promise<T> : T & PromiseLike<T>;
 
 type SplitString<TName extends string, TSplitBy extends string = ' '> = TName extends `${infer FirstPart}${TSplitBy}${infer RestParts}`
   ? [FirstPart, ...SplitString<RestParts, TSplitBy>]

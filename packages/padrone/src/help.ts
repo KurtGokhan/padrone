@@ -54,6 +54,7 @@ function extractPositionalArgsInfo(
           optional: !required.includes(name),
           default: prop.default,
           type: variadic ? `array<${prop.items?.type || 'string'}>` : prop.type,
+          enum: (prop.enum ?? prop.items?.enum) as string[] | undefined,
         });
       }
     }

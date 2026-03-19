@@ -103,6 +103,34 @@ export function thenMaybe<T, U>(value: T | Promise<T>, fn: (v: T) => U | Promise
   return fn(value);
 }
 
+/**
+ * Makes a sync result object thenable by adding a `.then()` method.
+ * If the value is already a Promise, returns it as-is.
+ * This allows users to write `await program.cli()` or `program.cli().then(...)` regardless of sync/async.
+ *
+ * The `.then()` resolves with a plain copy (without `.then`) to avoid infinite
+ * recursive unwrapping by the Promise resolution algorithm.
+ */
+export function makeThenable<T>(value: T | Promise<T>): T & PromiseLike<T> {
+  if (value instanceof Promise) return value as any;
+  if (value !== null && typeof value === 'object' && !('then' in value)) {
+    // biome-ignore lint/suspicious/noThenProperty: intentional thenable shim for sync results
+    (value as any).then = (onfulfilled?: (v: T) => any, onrejected?: (reason: any) => any) => {
+      try {
+        // Resolve with a plain copy to prevent infinite thenable unwrapping
+        const plain = { ...value } as any;
+        delete plain.then;
+        const result = onfulfilled ? onfulfilled(plain) : plain;
+        return Promise.resolve(result);
+      } catch (err) {
+        if (onrejected) return Promise.resolve(onrejected(err));
+        return Promise.reject(err);
+      }
+    };
+  }
+  return value as any;
+}
+
 export function isIterator(value: unknown): value is Iterator<unknown> {
   return typeof value === 'object' && value !== null && Symbol.iterator in value && typeof (value as any)[Symbol.iterator] === 'function';
 }
