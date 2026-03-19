@@ -1,5 +1,20 @@
 # padrone
 
+## 1.4.0
+
+### Minor Changes
+
+- 365ad1f: Fix positional arguments and make results always thenable
+
+  - Show choices and default values in help output for positional arguments
+  - Fix type detection for optional array enum positionals (`z.array(z.enum([...])).optional()`)
+  - Coerce single values to arrays when schema expects an array type
+  - Make `cli()`, `eval()`, and `parse()` results always thenable (supports `.then()` and `await`)
+
+### Patch Changes
+
+- 79f51ae: Fix false async warning when action is async but validation is sync
+
 ## 1.3.0
 
 ### Minor Changes
