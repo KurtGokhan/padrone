@@ -396,70 +396,82 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
       return true;
     };
 
-    // Build left column (signature) for each arg to compute alignment
-    const argColumns: { plain: string; styled: string; arg: HelpArgumentInfo }[] = argList.map((arg) => {
+    // Build columns: flags | names | type | description
+    const argColumns = argList.map((arg) => {
       // Promote kebab-case alias to primary display name if it exists
       const kebab = camelToKebab(arg.name);
       const primaryName = kebab && arg.aliases?.includes(kebab) ? kebab : arg.name;
       const remainingAliases = arg.aliases?.filter((a) => a !== primaryName);
-      const argName = `--${primaryName}`;
-      const flagNames = arg.flags?.length ? arg.flags.map((f) => `-${f}`).join(', ') : '';
-      const aliasNames = remainingAliases?.length ? remainingAliases.map((a) => `--${a}`).join(', ') : '';
-      const shortNames = [flagNames, aliasNames].filter(Boolean).join(', ');
-      const fullArgName = shortNames ? `${argName}, ${shortNames}` : argName;
+
+      const flagsPlain = arg.flags?.length ? arg.flags.map((f) => `-${f}`).join(', ') : '';
+      const namesPlain = [`--${primaryName}`, ...(remainingAliases?.map((a) => `--${a}`) || [])].join(', ');
+      const typePlain = arg.type && arg.type !== 'boolean' ? (arg.optional ? `[${arg.type}]` : `<${arg.type}>`) : '';
+
       const isDeprecated = !!arg.deprecated;
-      const formattedArgName = isDeprecated ? styler.deprecated(fullArgName) : styler.arg(fullArgName);
 
-      const plainParts: string[] = [fullArgName];
-      const styledParts: string[] = [formattedArgName];
-
-      if (arg.type && arg.type !== 'boolean') {
-        const typePart = arg.optional ? `[${arg.type}]` : `<${arg.type}>`;
-        plainParts.push(typePart);
-        styledParts.push(styler.type(typePart));
-      }
-      if (isDeprecated) {
-        const deprecatedPart = typeof arg.deprecated === 'string' ? `(deprecated: ${arg.deprecated})` : '(deprecated)';
-        plainParts.push(deprecatedPart);
-        styledParts.push(styler.meta(deprecatedPart));
-      }
-
-      return { plain: plainParts.join(' '), styled: join(styledParts), arg };
+      return { flagsPlain, namesPlain, typePlain, isDeprecated, arg };
     });
 
-    const maxColumnWidth = Math.min(32, Math.max(...argColumns.map((c) => c.plain.length)));
+    const maxFlagsWidth = Math.min(12, Math.max(0, ...argColumns.map((c) => c.flagsPlain.length)));
+    const maxNamesWidth = Math.min(32, Math.max(0, ...argColumns.map((c) => c.namesPlain.length)));
+    const maxTypeWidth = Math.min(16, Math.max(0, ...argColumns.map((c) => c.typePlain.length)));
+    const hasAnyFlags = maxFlagsWidth > 0;
 
-    for (const { plain, styled, arg } of argColumns) {
-      const padding = ' '.repeat(Math.max(2, maxColumnWidth - plain.length + 2));
+    for (const { flagsPlain, namesPlain, typePlain, isDeprecated, arg } of argColumns) {
+      const parts: string[] = [];
 
-      // Description followed by metadata (choices, default)
+      // Flags column
+      if (hasAnyFlags) {
+        const styledFlags = isDeprecated ? (flagsPlain ? styler.deprecated(flagsPlain) : '') : flagsPlain ? styler.arg(flagsPlain) : '';
+        const flagsPadding = ' '.repeat(Math.max(0, maxFlagsWidth - flagsPlain.length));
+        const separator = flagsPlain ? ', ' : '  ';
+        parts.push(styledFlags + flagsPadding + separator);
+      }
+
+      // Names column
+      const styledNames = isDeprecated ? styler.deprecated(namesPlain) : styler.arg(namesPlain);
+      const namesPadding = ' '.repeat(Math.max(2, maxNamesWidth - namesPlain.length + 2));
+      parts.push(styledNames + namesPadding);
+
+      // Type column
+      if (maxTypeWidth > 0) {
+        const styledType = typePlain ? styler.type(typePlain) : '';
+        const typePadding = ' '.repeat(Math.max(2, maxTypeWidth - typePlain.length + 2));
+        parts.push(styledType + typePadding);
+      }
+
+      // Line 1: description
       const descParts: string[] = [];
-      if (arg.description) descParts.push(styler.description(arg.description));
-      if (info.usage.stdinField === arg.name) descParts.push(styler.meta('(stdin)'));
-      if (arg.enum) descParts.push(styler.meta(`(choices: ${arg.enum.join(', ')})`));
-      if (hasDefault(arg.default)) descParts.push(styler.meta(`(default: ${String(arg.default)})`));
+      if (arg.description) descParts.push(isDeprecated ? styler.deprecated(arg.description) : styler.description(arg.description));
+      lines.push(indent(1) + parts.join('') + join(descParts));
 
-      lines.push(indent(1) + styled + padding + join(descParts));
+      // Line 2: deprecated (no reason), default, choices
+      const line2Parts: string[] = [];
+      if (isDeprecated && typeof arg.deprecated !== 'string') line2Parts.push(styler.meta('(deprecated)'));
+      if (hasDefault(arg.default)) line2Parts.push(styler.meta(`(default: ${String(arg.default)})`));
+      if (arg.enum) line2Parts.push(styler.meta(`(choices: ${arg.enum.join(', ')})`));
+      if (line2Parts.length > 0) lines.push(indent(3) + join(line2Parts));
 
-      // Environment variable line
-      if (arg.env) {
-        const envVars = typeof arg.env === 'string' ? [arg.env] : arg.env;
-        const envParts: string[] = [styler.example('Env:'), styler.exampleValue(envVars.join(', '))];
-        lines.push(indent(3) + join(envParts));
-      }
-
-      // Config key line
-      if (arg.configKey) {
-        const configParts: string[] = [styler.example('Config:'), styler.exampleValue(arg.configKey)];
-        lines.push(indent(3) + join(configParts));
-      }
-
-      // Examples line
+      // Line 3: deprecated (with reason), examples
+      const line3Parts: string[] = [];
+      if (isDeprecated && typeof arg.deprecated === 'string') line3Parts.push(styler.meta(`(deprecated: ${arg.deprecated})`));
       if (arg.examples && arg.examples.length > 0) {
         const exampleValues = arg.examples.map((example) => (typeof example === 'string' ? example : JSON.stringify(example))).join(', ');
-        const exampleParts: string[] = [styler.example('Example:'), styler.exampleValue(exampleValues)];
-        lines.push(indent(3) + join(exampleParts));
+        line3Parts.push(styler.example('Example:'), styler.exampleValue(exampleValues));
       }
+      if (line3Parts.length > 0) lines.push(indent(3) + join(line3Parts));
+
+      // Line 4: stdin, env, config
+      const line4Parts: string[] = [];
+      if (info.usage.stdinField === arg.name) line4Parts.push(styler.meta('(stdin)'));
+      if (arg.env) {
+        const envVars = typeof arg.env === 'string' ? [arg.env] : arg.env;
+        line4Parts.push(styler.example('Env:'), styler.exampleValue(envVars.join(', ')));
+      }
+      if (arg.configKey) {
+        line4Parts.push(styler.example('Config:'), styler.exampleValue(arg.configKey));
+      }
+      if (line4Parts.length > 0) lines.push(indent(3) + join(line4Parts));
     }
 
     return lines;
