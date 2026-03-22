@@ -1,5 +1,5 @@
 import { camelToKebab } from './args.ts';
-import { createColorizer } from './colorizer.ts';
+import { type ColorConfig, type ColorTheme, createColorizer } from './colorizer.ts';
 
 export type HelpFormat = 'text' | 'ansi' | 'console' | 'markdown' | 'html' | 'json';
 export type HelpDetail = 'minimal' | 'standard' | 'full';
@@ -172,8 +172,8 @@ function createTextStyler(): Styler {
   };
 }
 
-function createAnsiStyler(): Styler {
-  const colorizer = createColorizer();
+function createAnsiStyler(theme?: ColorTheme | ColorConfig): Styler {
+  const colorizer = createColorizer(theme);
   return {
     command: colorizer.command,
     arg: colorizer.arg,
@@ -187,30 +187,8 @@ function createAnsiStyler(): Styler {
   };
 }
 
-function createConsoleStyler(): Styler {
-  const colors = {
-    reset: '\x1b[0m',
-    bold: '\x1b[1m',
-    dim: '\x1b[2m',
-    italic: '\x1b[3m',
-    underline: '\x1b[4m',
-    strikethrough: '\x1b[9m',
-    cyan: '\x1b[36m',
-    green: '\x1b[32m',
-    yellow: '\x1b[33m',
-    gray: '\x1b[90m',
-  };
-  return {
-    command: (text) => `${colors.cyan}${colors.bold}${text}${colors.reset}`,
-    arg: (text) => `${colors.green}${text}${colors.reset}`,
-    type: (text) => `${colors.yellow}${text}${colors.reset}`,
-    description: (text) => `${colors.dim}${text}${colors.reset}`,
-    label: (text) => `${colors.bold}${text}${colors.reset}`,
-    meta: (text) => `${colors.gray}${text}${colors.reset}`,
-    example: (text) => `${colors.underline}${text}${colors.reset}`,
-    exampleValue: (text) => `${colors.italic}${text}${colors.reset}`,
-    deprecated: (text) => `${colors.strikethrough}${colors.gray}${text}${colors.reset}`,
-  };
+function createConsoleStyler(theme?: ColorTheme | ColorConfig): Styler {
+  return createAnsiStyler(theme);
 }
 
 function createMarkdownStyler(): Styler {
@@ -664,11 +642,12 @@ function createMinimalFormatter(): Formatter {
   };
 }
 
-export function createFormatter(format: HelpFormat | 'auto', detail: HelpDetail = 'standard'): Formatter {
+export function createFormatter(format: HelpFormat | 'auto', detail: HelpDetail = 'standard', theme?: ColorTheme | ColorConfig): Formatter {
   if (detail === 'minimal') return createMinimalFormatter();
   if (format === 'json') return createJsonFormatter();
-  if (format === 'ansi' || (format === 'auto' && shouldUseAnsi())) return createGenericFormatter(createAnsiStyler(), createTextLayout());
-  if (format === 'console') return createGenericFormatter(createConsoleStyler(), createTextLayout());
+  if (format === 'ansi' || (format === 'auto' && shouldUseAnsi()))
+    return createGenericFormatter(createAnsiStyler(theme), createTextLayout());
+  if (format === 'console') return createGenericFormatter(createConsoleStyler(theme), createTextLayout());
   if (format === 'markdown') return createGenericFormatter(createMarkdownStyler(), createMarkdownLayout());
   if (format === 'html') return createGenericFormatter(createHtmlStyler(), createHtmlLayout());
   return createGenericFormatter(createTextStyler(), createTextLayout());

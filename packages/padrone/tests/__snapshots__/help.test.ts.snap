@@ -19,13 +19,14 @@ Commands:
 Run "padrone-test [command] --help" for more information on a command.
 
 Built-in:
-  help [command], -h, --help  Show help for a command
-    --detail <level>          Detail level (minimal, standard, full)
-    --format <format>         Output format (text, ansi, json, markdown, html)
-  version, -v, --version      Show version information
-  completion [shell]          Generate shell completions (bash, zsh, fish, powershell)
-  man                         Show or install man pages (--setup to install, --remove to uninstall)
-  [command] --repl            Start interactive REPL scoped to a command
+  help [command], -h, --help   Show help for a command
+    --detail <level>           Detail level (minimal, standard, full)
+    --format <format>          Output format (text, ansi, json, markdown, html)
+  version, -v, --version       Show version information
+  completion [shell]           Generate shell completions (bash, zsh, fish, powershell)
+  man                          Show or install man pages (--setup to install, --remove to uninstall)
+  [command] --repl             Start interactive REPL scoped to a command
+  --color [theme], --no-color  Set color theme (default, ocean, warm, monochrome) or disable colors
 "
 `;
 
@@ -48,13 +49,14 @@ Commands:
 Run "padrone-test [command] --help" for more information on a command.
 
 Built-in:
-  help [command], -h, --help  Show help for a command
-    --detail <level>          Detail level (minimal, standard, full)
-    --format <format>         Output format (text, ansi, json, markdown, html)
-  version, -v, --version      Show version information
-  completion [shell]          Generate shell completions (bash, zsh, fish, powershell)
-  man                         Show or install man pages (--setup to install, --remove to uninstall)
-  [command] --repl            Start interactive REPL scoped to a command
+  help [command], -h, --help   Show help for a command
+    --detail <level>           Detail level (minimal, standard, full)
+    --format <format>          Output format (text, ansi, json, markdown, html)
+  version, -v, --version       Show version information
+  completion [shell]           Generate shell completions (bash, zsh, fish, powershell)
+  man                          Show or install man pages (--setup to install, --remove to uninstall)
+  [command] --repl             Start interactive REPL scoped to a command
+  --color [theme], --no-color  Set color theme (default, ocean, warm, monochrome) or disable colors
 "
 `;
 
@@ -295,13 +297,14 @@ Commands:
 Run "padrone-test [command] --help" for more information on a command.
 
 Built-in:
-  help [command], -h, --help  Show help for a command
-    --detail <level>          Detail level (minimal, standard, full)
-    --format <format>         Output format (text, ansi, json, markdown, html)
-  version, -v, --version      Show version information
-  completion [shell]          Generate shell completions (bash, zsh, fish, powershell)
-  man                         Show or install man pages (--setup to install, --remove to uninstall)
-  [command] --repl            Start interactive REPL scoped to a command
+  help [command], -h, --help   Show help for a command
+    --detail <level>           Detail level (minimal, standard, full)
+    --format <format>          Output format (text, ansi, json, markdown, html)
+  version, -v, --version       Show version information
+  completion [shell]           Generate shell completions (bash, zsh, fish, powershell)
+  man                          Show or install man pages (--setup to install, --remove to uninstall)
+  [command] --repl             Start interactive REPL scoped to a command
+  --color [theme], --no-color  Set color theme (default, ocean, warm, monochrome) or disable colors
 
 Subcommand Details:
 
@@ -959,6 +962,10 @@ exports[`help with full detail mode should generate full help with all nested co
     {
       "name": "[command] --repl",
       "description": "Start interactive REPL scoped to a command"
+    },
+    {
+      "name": "--color [theme], --no-color",
+      "description": "Set color theme (default, ocean, warm, monochrome) or disable colors"
     }
   ]
 }"
@@ -1001,19 +1008,21 @@ exports[`help with full detail mode should generate full help with all nested co
 
 ### Built-in:
 
-  **help [command], -h, --help**  Show help for a command
+  **help [command], -h, --help**   Show help for a command
 
-    \`--detail <level>\`          Detail level (minimal, standard, full)
+    \`--detail <level>\`           Detail level (minimal, standard, full)
 
-    \`--format <format>\`         Output format (text, ansi, json, markdown, html)
+    \`--format <format>\`          Output format (text, ansi, json, markdown, html)
 
-  **version, -v, --version**      Show version information
+  **version, -v, --version**       Show version information
 
-  **completion [shell]**          Generate shell completions (bash, zsh, fish, powershell)
+  **completion [shell]**           Generate shell completions (bash, zsh, fish, powershell)
 
-  **man**                         Show or install man pages (--setup to install, --remove to uninstall)
+  **man**                          Show or install man pages (--setup to install, --remove to uninstall)
 
-  **[command] --repl**            Start interactive REPL scoped to a command
+  **[command] --repl**             Start interactive REPL scoped to a command
+
+  **--color [theme], --no-color**  Set color theme (default, ocean, warm, monochrome) or disable colors
 
 
 
@@ -1417,12 +1426,13 @@ Quality:
 Run "group-test [command] --help" for more information on a command.
 
 Built-in:
-  help [command], -h, --help  Show help for a command
-    --detail <level>          Detail level (minimal, standard, full)
-    --format <format>         Output format (text, ansi, json, markdown, html)
-  version, -v, --version      Show version information
-  completion [shell]          Generate shell completions (bash, zsh, fish, powershell)
-  man                         Show or install man pages (--setup to install, --remove to uninstall)
-  [command] --repl            Start interactive REPL scoped to a command
+  help [command], -h, --help   Show help for a command
+    --detail <level>           Detail level (minimal, standard, full)
+    --format <format>          Output format (text, ansi, json, markdown, html)
+  version, -v, --version       Show version information
+  completion [shell]           Generate shell completions (bash, zsh, fish, powershell)
+  man                          Show or install man pages (--setup to install, --remove to uninstall)
+  [command] --repl             Start interactive REPL scoped to a command
+  --color [theme], --no-color  Set color theme (default, ocean, warm, monochrome) or disable colors
 "
 `;

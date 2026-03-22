@@ -1,3 +1,4 @@
+import type { ColorConfig, ColorTheme } from './colorizer.ts';
 import type { HelpFormat } from './formatter.ts';
 import { findConfigFile, loadConfigFile } from './utils.ts';
 
@@ -86,6 +87,8 @@ export type PadroneRuntime = {
   env?: () => Record<string, string | undefined>;
   /** Default help output format. */
   format?: HelpFormat | 'auto';
+  /** Color theme for ANSI/console help output. A theme name or partial color config. */
+  theme?: ColorTheme | ColorConfig;
   /** Load and parse a config file by path. Return undefined if not found or unparsable. */
   loadConfigFile?: (path: string) => Record<string, unknown> | undefined;
   /** Find the first existing file from a list of candidate names. */
@@ -144,8 +147,10 @@ export type PadroneRuntime = {
  * Internal resolved runtime where all fields are guaranteed to be present.
  * The `prompt`, `interactive`, and `readLine` fields remain optional since not all runtimes provide them.
  */
-export type ResolvedPadroneRuntime = Required<Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress'>> &
-  Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress'>;
+export type ResolvedPadroneRuntime = Required<
+  Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress' | 'theme'>
+> &
+  Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress' | 'theme'>;
 
 /**
  * Default terminal prompt implementation powered by Enquirer.
@@ -478,5 +483,6 @@ export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime
     readLine: partial.readLine ?? defaults.readLine,
     progress: partial.progress ?? defaults.progress,
     stdin: partial.stdin,
+    theme: partial.theme,
   };
 }

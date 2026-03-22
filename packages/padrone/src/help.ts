@@ -1,5 +1,6 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
 import { extractSchemaMetadata, type PadroneArgsSchemaMeta, parsePositionalConfig, parseStdinConfig } from './args.ts';
+import type { ColorConfig, ColorTheme } from './colorizer.ts';
 import { findCommandByName } from './command-utils.ts';
 import {
   createFormatter,
@@ -16,6 +17,7 @@ import { getRootCommand } from './utils.ts';
 export type HelpPreferences = {
   format?: HelpFormat | 'auto';
   detail?: HelpDetail;
+  theme?: ColorTheme | ColorConfig;
 };
 
 /**
@@ -330,6 +332,11 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
       description: 'Start interactive REPL scoped to a command',
     });
 
+    builtins.push({
+      name: '--color [theme], --no-color',
+      description: 'Set color theme (default, ocean, warm, monochrome) or disable colors',
+    });
+
     if (builtins.length > 0) {
       helpInfo.builtins = builtins;
     }
@@ -344,6 +351,6 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
 
 export function generateHelp(rootCommand: AnyPadroneCommand, commandObj: AnyPadroneCommand = rootCommand, prefs?: HelpPreferences): string {
   const helpInfo = getHelpInfo(commandObj, prefs?.detail);
-  const formatter = createFormatter(prefs?.format ?? 'auto', prefs?.detail);
+  const formatter = createFormatter(prefs?.format ?? 'auto', prefs?.detail, prefs?.theme);
   return formatter.format(helpInfo);
 }

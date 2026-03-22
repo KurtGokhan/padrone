@@ -1,6 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Schema } from 'ai';
 import { coerceArgs, detectUnknownArgs, extractSchemaMetadata, parsePositionalConfig, parseStdinConfig, preprocessArgs } from './args.ts';
+import { type ColorConfig, type ColorTheme, colorThemes } from './colorizer.ts';
 import {
   commandSymbol,
   createLazyIndicator,
@@ -671,6 +672,35 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   };
 
   /**
+   * Extract --color flag from input.
+   * - `--color` or `--color=true` → use default theme
+   * - `--color=false` or `--no-color` → disable colors (text format)
+   * - `--color=<theme>` → use the named theme
+   * Returns `undefined` if no --color flag is present.
+   */
+  const extractColorFlag = (input: string | undefined): { theme?: ColorTheme | ColorConfig; disableColor?: boolean } | undefined => {
+    if (!input) return undefined;
+
+    const parts = parseCliInputToParts(input);
+    const args = parts.filter((p) => p.type === 'named');
+    const keyIs = (key: string[], name: string) => key.length === 1 && key[0] === name;
+
+    for (const arg of args) {
+      if (arg.type === 'named' && keyIs(arg.key, 'no-color')) {
+        return { disableColor: true };
+      }
+      if (arg.type === 'named' && keyIs(arg.key, 'color')) {
+        if (arg.negated) return { disableColor: true };
+        if (arg.value === undefined || arg.value === 'true') return { theme: 'default' };
+        if (arg.value === 'false') return { disableColor: true };
+        if (typeof arg.value === 'string' && arg.value in colorThemes) return { theme: arg.value as ColorTheme };
+        return undefined;
+      }
+    }
+    return undefined;
+  };
+
+  /**
    * Core execution logic shared by eval() and cli().
    * errorMode controls validation error behavior:
    * - 'soft': return result with issues (eval behavior)
@@ -678,9 +708,18 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
    */
   const execCommand = (resolvedInput: string | undefined, evalOptions?: PadroneEvalPreferences, errorMode: 'soft' | 'hard' = 'soft') => {
     const baseRuntime = getCommandRuntime(existingCommand);
-    const runtime = evalOptions?.runtime
+    let runtime = evalOptions?.runtime
       ? Object.assign({}, baseRuntime, Object.fromEntries(Object.entries(evalOptions.runtime).filter(([, v]) => v !== undefined)))
       : baseRuntime;
+
+    // Apply --color / --no-color flag to runtime
+    const colorFlag = extractColorFlag(resolvedInput);
+    if (colorFlag) {
+      runtime = {
+        ...runtime,
+        ...(colorFlag.disableColor ? { format: 'text' as const, theme: undefined } : { theme: colorFlag.theme }),
+      };
+    }
 
     // Check for built-in help/version/completion commands and flags (bypass plugins)
     const builtin = checkBuiltinCommands(resolvedInput);
@@ -690,6 +729,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         const helpText = generateHelp(existingCommand, builtin.command ?? existingCommand, {
           detail: builtin.detail,
           format: builtin.format ?? runtime.format,
+          theme: runtime.theme,
         });
         runtime.output(helpText);
         return withDrain({
@@ -788,7 +828,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         const hasSubcommands = command.commands && command.commands.length > 0;
         const hasSchema = command.argsSchema != null;
         if (!command.action && (hasSubcommands || !hasSchema) && unmatchedTerms.length === 0) {
-          const helpText = generateHelp(existingCommand, command, { format: runtime.format });
+          const helpText = generateHelp(existingCommand, command, { format: runtime.format, theme: runtime.theme });
           runtime.output(helpText);
           return {
             command: command,
@@ -841,7 +881,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
                   runtime.output(`\nAvailable commands: ${cmdList}`);
                 }
               } else {
-                const helpText = generateHelp(existingCommand, isRootCommand ? existingCommand : command, { format: runtime.format });
+                const helpText = generateHelp(existingCommand, isRootCommand ? existingCommand : command, {
+                  format: runtime.format,
+                  theme: runtime.theme,
+                });
                 runtime.error(helpText);
               }
               throw new RoutingError(errorMsg, { suggestions, command: command.path || command.name });
@@ -928,6 +971,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
               delete validateCtx.rawArgs.i;
             }
           }
+
+          // Strip --color / --no-color from rawArgs (handled globally)
+          delete validateCtx.rawArgs.color;
+          delete validateCtx.rawArgs['no-color'];
 
           const runtimeDefault: boolean | undefined =
             runtime.interactive === 'forced' ? true : runtime.interactive === 'disabled' ? false : undefined;
@@ -1172,7 +1219,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
               .join('\n');
 
             if (errorMode === 'hard') {
-              const helpText = generateHelp(existingCommand, command, { format: runtime.format });
+              const helpText = generateHelp(existingCommand, command, { format: runtime.format, theme: runtime.theme });
               runtime.error(`Validation error:\n${issueMessages}`);
               runtime.error(helpText);
               throw new ValidationError(`Validation error:\n${issueMessages}`, v.argsResult.issues as any, {
@@ -1629,7 +1676,11 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           : (command as AnyPadroneCommand);
       if (!commandObj) throw new RoutingError(`Command "${command ?? ''}" not found`);
       const runtime = getCommandRuntime(existingCommand);
-      return generateHelp(existingCommand, commandObj, { ...prefs, format: prefs?.format ?? runtime.format });
+      return generateHelp(existingCommand, commandObj, {
+        ...prefs,
+        format: prefs?.format ?? runtime.format,
+        theme: prefs?.theme ?? runtime.theme,
+      });
     },
 
     async completion(shell) {

@@ -1,3 +1,5 @@
+export type { AnsiStyle, ColorConfig, ColorTheme } from './colorizer.ts';
+export { colorThemes } from './colorizer.ts';
 export { asyncSchema, buildReplCompleter, createPadrone } from './create.ts';
 export type { PadroneErrorOptions } from './errors.ts';
 export { ActionError, ConfigError, PadroneError, RoutingError, ValidationError } from './errors.ts';
