@@ -295,7 +295,7 @@ export function errorResult(error: unknown, partial?: { command?: unknown; args?
  */
 export function runPluginChain<TCtx, TResult>(
   phase: 'start' | 'parse' | 'validate' | 'execute' | 'error' | 'shutdown',
-  plugins: PadronePlugin[],
+  plugins: PadronePlugin<any, any>[],
   ctx: TCtx,
   core: () => TResult | Promise<TResult>,
 ): TResult | Promise<TResult> {
@@ -327,7 +327,7 @@ export function runPluginChain<TCtx, TResult>(
  * - Always: `shutdown` plugins run (success or failure).
  */
 export function wrapWithLifecycle<T>(
-  plugins: PadronePlugin[],
+  plugins: PadronePlugin<any, any>[],
   command: AnyPadroneCommand,
   state: Record<string, unknown>,
   input: string | undefined,

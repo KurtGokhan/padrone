@@ -1362,8 +1362,8 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
    * `.use()` was called on the program). We substitute `programRoot` for the
    * top of the chain to ensure program-level plugins are always included.
    */
-  const collectPlugins = (cmd: AnyPadroneCommand): PadronePlugin[] => {
-    const chain: PadronePlugin[][] = [];
+  const collectPlugins = (cmd: AnyPadroneCommand): PadronePlugin<any, any>[] => {
+    const chain: PadronePlugin<any, any>[][] = [];
     let current: AnyPadroneCommand | undefined = cmd;
     while (current) {
       // If this is the root (no parent), use existingCommand's plugins instead
@@ -1634,7 +1634,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       return createPadroneBuilder({ ...existingCommand, commands: updatedCommands }) as any;
     },
 
-    use(plugin: PadronePlugin) {
+    use(plugin: PadronePlugin<any, any>) {
       return createPadroneBuilder({
         ...existingCommand,
         plugins: [...(existingCommand.plugins ?? []), plugin],

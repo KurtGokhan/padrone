@@ -32,6 +32,17 @@ export type {
   PadroneProgressMessage,
   PadroneProgressPrefs as PadroneProgressConfig,
   PadroneSchema,
+  PluginBaseContext,
+  PluginErrorContext,
+  PluginErrorResult,
+  PluginExecuteContext,
+  PluginExecuteResult,
+  PluginParseContext,
+  PluginParseResult,
+  PluginShutdownContext,
+  PluginStartContext,
+  PluginValidateContext,
+  PluginValidateResult,
 } from './types.ts';
 export type { UpdateCheckConfig } from './update-check.ts';
 export type { WrapConfig, WrapResult } from './wrap.ts';

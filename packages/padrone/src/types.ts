@@ -211,7 +211,7 @@ export type PadroneCommand<
   runtime?: PadroneRuntime;
 
   /** Plugins registered on this command. Collected from the parent chain at execution time. */
-  plugins?: PadronePlugin[];
+  plugins?: PadronePlugin<any, any>[];
 
   /** Update check configuration. Only used on the root program. */
   updateCheck?: UpdateCheckConfig;
@@ -372,7 +372,7 @@ export type PadroneBuilderMethods<
    * On subcommands, only validate and execute plugins apply (parse is handled by the root program).
    */
   use: (
-    plugin: PadronePlugin,
+    plugin: PadronePlugin<StandardSchemaV1.InferOutput<TArgs>, TRes>,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync>;
 
   configure: (
@@ -1126,20 +1126,20 @@ export type PluginValidateContext = PluginBaseContext & {
 };
 
 /** Result returned by the validate phase's `next()`. */
-export type PluginValidateResult = {
-  args: unknown;
-  argsResult: StandardSchemaV1.Result<unknown>;
+export type PluginValidateResult<TArgs = unknown> = {
+  args: TArgs;
+  argsResult: StandardSchemaV1.Result<TArgs>;
 };
 
 /** Context for the execute phase. */
-export type PluginExecuteContext = PluginBaseContext & {
+export type PluginExecuteContext<TArgs = unknown> = PluginBaseContext & {
   /** Validated arguments that will be passed to the action. Mutable — modify before `next()` to override. */
-  args: unknown;
+  args: TArgs;
 };
 
 /** Result returned by the execute phase's `next()`. */
-export type PluginExecuteResult = {
-  result: unknown;
+export type PluginExecuteResult<TResult = unknown> = {
+  result: TResult;
 };
 
 /** Context for the start phase. Runs before parsing, wraps the entire pipeline. */
@@ -1155,26 +1155,45 @@ export type PluginErrorContext = PluginBaseContext & {
 };
 
 /** Result returned by the error phase's `next()`. */
-export type PluginErrorResult = {
+export type PluginErrorResult<TResult = unknown> = {
   /** The error (possibly transformed). Set to `undefined` to suppress the error. */
   error?: unknown;
   /** A replacement result when suppressing the error. */
-  result?: unknown;
+  result?: TResult;
 };
 
 /** Context for the shutdown phase. Always runs after the pipeline (success or failure). */
-export type PluginShutdownContext = PluginBaseContext & {
+export type PluginShutdownContext<TResult = unknown> = PluginBaseContext & {
   /** The error, if the pipeline failed (after error phase processing). */
   error?: unknown;
   /** The pipeline result, if it succeeded. */
-  result?: unknown;
+  result?: TResult;
 };
 
-type PluginPhaseHandler<TCtx, TResult> = (ctx: TCtx, next: () => TResult | Promise<TResult>) => TResult | Promise<TResult>;
+/**
+ * A phase handler function for the plugin middleware chain.
+ *
+ * - `TCtx` — the context object available to the handler.
+ * - `TNextResult` — the typed result returned by `next()`, giving the handler type-safe access to downstream output.
+ * - `TReturn` — the type the handler itself returns. Defaults to `TNextResult` but can be wider,
+ *   allowing plugins to transform or replace the result (e.g., error-recovery plugins returning a different type).
+ */
+type PluginPhaseHandler<TCtx, TNextResult, TReturn = TNextResult> = (
+  ctx: TCtx,
+  next: () => TNextResult | Promise<TNextResult>,
+) => TReturn | Promise<TReturn>;
 
 /**
  * A Padrone plugin that can intercept the parse, validate, and execute phases of command execution.
- * Plugins are registered at the program level with `.use()` and apply to all commands.
+ * Plugins are registered at the program or subcommand level with `.use()`.
+ *
+ * Type parameters:
+ * - `TArgs` — the validated arguments type (output of the args schema). Provides typed `ctx.args` in the execute phase
+ *   and typed `args` in the validate result from `next()`.
+ * - `TResult` — the command's return type. Provides typed `result` in execute/error/shutdown phases.
+ *
+ * When registered inline on a builder, these are inferred from the command's types automatically.
+ * For reusable plugins that work with any command, use `PadronePlugin<any, any>`.
  *
  * Each phase handler receives a context and a `next()` function (onion/middleware pattern):
  * - Call `next()` to proceed to the next plugin or the core operation.
@@ -1183,7 +1202,7 @@ type PluginPhaseHandler<TCtx, TResult> = (ctx: TCtx, next: () => TResult | Promi
  * - Modify context fields before `next()` to alter inputs.
  * - Transform the return value of `next()` to alter outputs.
  */
-export type PadronePlugin = {
+export type PadronePlugin<TArgs = unknown, TResult = unknown> = {
   /** Unique name for this plugin. Used for identification and future disable/override support. */
   name: string;
   /**
@@ -1199,17 +1218,17 @@ export type PadronePlugin = {
   /** Intercepts command routing and raw argument extraction. */
   parse?: PluginPhaseHandler<PluginParseContext, PluginParseResult>;
   /** Intercepts argument preprocessing, interactive prompting, and schema validation. */
-  validate?: PluginPhaseHandler<PluginValidateContext, PluginValidateResult>;
+  validate?: PluginPhaseHandler<PluginValidateContext, PluginValidateResult<TArgs>, PluginValidateResult>;
   /** Intercepts handler execution. */
-  execute?: PluginPhaseHandler<PluginExecuteContext, PluginExecuteResult>;
+  execute?: PluginPhaseHandler<PluginExecuteContext<TArgs>, PluginExecuteResult<TResult>, PluginExecuteResult>;
   /**
    * Called when the pipeline throws an error. `next()` passes to the next error handler
    * (innermost returns `{ error }` unchanged). Return `{ result }` without `error` to suppress.
    */
-  error?: PluginPhaseHandler<PluginErrorContext, PluginErrorResult>;
+  error?: PluginPhaseHandler<PluginErrorContext, PluginErrorResult<TResult>, PluginErrorResult>;
   /**
    * Always runs after the pipeline completes (success or failure). `next()` calls the next shutdown handler.
    * Use for cleanup: closing connections, flushing logs, etc.
    */
-  shutdown?: PluginPhaseHandler<PluginShutdownContext, void>;
+  shutdown?: PluginPhaseHandler<PluginShutdownContext<TResult>, void>;
 };
