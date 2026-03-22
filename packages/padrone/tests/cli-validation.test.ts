@@ -47,6 +47,30 @@ describe('CLI validation improvements', () => {
       expect(result.args?.verbose).toBe(false);
     });
 
+    it('should auto-coerce yes/no/on/off to boolean', () => {
+      const program = createPadrone('app').command('run', (c) =>
+        c.arguments(z.object({ verbose: z.boolean().optional() })).action((args) => args),
+      );
+
+      expect(program.eval('run --verbose yes').args?.verbose).toBe(true);
+      expect(program.eval('run --verbose no').args?.verbose).toBe(false);
+      expect(program.eval('run --verbose on').args?.verbose).toBe(true);
+      expect(program.eval('run --verbose off').args?.verbose).toBe(false);
+    });
+
+    it('should auto-coerce booleans case-insensitively', () => {
+      const program = createPadrone('app').command('run', (c) =>
+        c.arguments(z.object({ verbose: z.boolean().optional() })).action((args) => args),
+      );
+
+      expect(program.eval('run --verbose TRUE').args?.verbose).toBe(true);
+      expect(program.eval('run --verbose False').args?.verbose).toBe(false);
+      expect(program.eval('run --verbose YES').args?.verbose).toBe(true);
+      expect(program.eval('run --verbose NO').args?.verbose).toBe(false);
+      expect(program.eval('run --verbose On').args?.verbose).toBe(true);
+      expect(program.eval('run --verbose Off').args?.verbose).toBe(false);
+    });
+
     it('should auto-coerce number strings in arrays', () => {
       const program = createPadrone('app').command('batch', (c) =>
         c.arguments(z.object({ ids: z.array(z.number()).optional() })).action((args) => args),

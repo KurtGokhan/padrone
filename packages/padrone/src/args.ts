@@ -381,8 +381,9 @@ export function coerceArgs(data: Record<string, unknown>, schema: StandardJSONSc
       }
     } else if (targetType === 'boolean') {
       if (typeof value === 'string') {
-        if (value === 'true' || value === '1') result[key] = true;
-        else if (value === 'false' || value === '0') result[key] = false;
+        const lower = value.toLowerCase();
+        if (lower === 'true' || lower === '1' || lower === 'yes' || lower === 'on') result[key] = true;
+        else if (lower === 'false' || lower === '0' || lower === 'no' || lower === 'off') result[key] = false;
       }
     } else if (targetType === 'array') {
       // Coerce single items to array
@@ -399,8 +400,9 @@ export function coerceArgs(data: Record<string, unknown>, schema: StandardJSONSc
       } else if (itemType === 'boolean') {
         result[key] = arr.map((v) => {
           if (typeof v === 'string') {
-            if (v === 'true' || v === '1') return true;
-            if (v === 'false' || v === '0') return false;
+            const lower = v.toLowerCase();
+            if (lower === 'true' || lower === '1' || lower === 'yes' || lower === 'on') return true;
+            if (lower === 'false' || lower === '0' || lower === 'no' || lower === 'off') return false;
           }
           return v;
         });
