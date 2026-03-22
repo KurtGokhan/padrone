@@ -189,7 +189,7 @@ describe('mount', () => {
 
     it('should infer the correct result type for mounted commands', () => {
       const result = app.eval('sub greet --name=world');
-      expectTypeOf(result.result).toBeString();
+      expectTypeOf(result.result!).toBeString();
     });
 
     it('should preserve existing command types after mounting', () => {

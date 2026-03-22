@@ -215,7 +215,7 @@ describe.skip('Types - Command override', () => {
 
   // Override result type replaces original
   const overriddenResult = overridden.eval('greet World');
-  expectTypeOf(overriddenResult.result).toEqualTypeOf<number>();
+  expectTypeOf(overriddenResult.result).toEqualTypeOf<number | undefined>();
 
   // base parameter in action has original handler's return type
   program.command('greet', (c) =>
@@ -247,7 +247,7 @@ describe.skip('Types - Command override', () => {
 
   // Other commands remain unaffected
   const otherResult = overridden.eval('other');
-  expectTypeOf(otherResult.result).toEqualTypeOf<42>();
+  expectTypeOf(otherResult.result).toEqualTypeOf<42 | undefined>();
 
   // Override preserves aliases in eval/parse type resolution
   const withAliases = createPadrone('test')
@@ -255,10 +255,10 @@ describe.skip('Types - Command override', () => {
     .command('greet', (c) => c.action(() => 'hello v2' as const));
 
   const aliasResult = withAliases.eval('g');
-  expectTypeOf(aliasResult.result).toEqualTypeOf<'hello v2'>();
+  expectTypeOf(aliasResult.result).toEqualTypeOf<'hello v2' | undefined>();
 
   const aliasResult2 = withAliases.eval('hi');
-  expectTypeOf(aliasResult2.result).toEqualTypeOf<'hello v2'>();
+  expectTypeOf(aliasResult2.result).toEqualTypeOf<'hello v2' | undefined>();
 
   // Command count doesn't grow — override replaces, not appends
   type OverriddenCommands = (typeof overridden)['~types']['commands'];
@@ -280,7 +280,7 @@ describe.skip('Types - Command override', () => {
         return 'v3' as const;
       }),
     );
-  expectTypeOf(chained.eval('foo').result).toEqualTypeOf<'v3'>();
+  expectTypeOf(chained.eval('foo').result).toEqualTypeOf<'v3' | undefined>();
 
   // Override with subcommands: builder sees existing subcommands
   const withSubs = createPadrone('test')
@@ -296,8 +296,8 @@ describe.skip('Types - Command override', () => {
       ),
     );
 
-  expectTypeOf(withSubs.eval('db migrate').result).toEqualTypeOf<'migrated-v2'>();
-  expectTypeOf(withSubs.eval('db seed').result).toEqualTypeOf<'seeded'>();
+  expectTypeOf(withSubs.eval('db migrate').result).toEqualTypeOf<'migrated-v2' | undefined>();
+  expectTypeOf(withSubs.eval('db seed').result).toEqualTypeOf<'seeded' | undefined>();
 });
 
 /** This test verifies that async commands return Promises and sync commands don't */

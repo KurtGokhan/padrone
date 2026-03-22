@@ -3,6 +3,7 @@ import type { Schema } from 'ai';
 import { coerceArgs, detectUnknownArgs, extractSchemaMetadata, parsePositionalConfig, parseStdinConfig, preprocessArgs } from './args.ts';
 import {
   commandSymbol,
+  errorResult,
   findCommandByName,
   getCommandRuntime,
   hasInteractiveConfig,
@@ -16,6 +17,8 @@ import {
   suggestSimilar,
   thenMaybe,
   warnIfUnexpectedAsync,
+  withDrain,
+  withPromiseDrain,
   wrapWithLifecycle,
 } from './command-utils.ts';
 import type { ShellType } from './completion.ts';
@@ -1096,12 +1099,12 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             }
 
             // Soft mode: return result with issues, skip the action
-            return {
+            return withDrain({
               command: command as any,
               args: undefined,
               argsResult: v.argsResult,
               result: undefined,
-            };
+            });
           }
 
           const executeCtx: PluginExecuteContext = {
@@ -1120,12 +1123,12 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           const executedOrPromise = runPluginChain('execute', commandPlugins, executeCtx, coreExecute);
 
           return thenMaybe(executedOrPromise, (e) => {
-            const commandResult = {
+            const commandResult = withDrain({
               command: command as any,
               args: v.args,
               argsResult: v.argsResult,
               result: e.result,
-            };
+            });
 
             if (command.autoOutput ?? evalOptions?.autoOutput ?? true) {
               const outputOrPromise = outputValue(e.result, runtime.output);
@@ -1144,16 +1147,24 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       return thenMaybe(parsedOrPromise, continueAfterParse) as any;
     };
 
-    return wrapWithLifecycle(rootPlugins, existingCommand, state, resolvedInput, runPipeline, (result) => ({
-      command: existingCommand,
-      args: undefined,
-      argsResult: undefined,
-      result,
-    })) as any;
+    return wrapWithLifecycle(rootPlugins, existingCommand, state, resolvedInput, runPipeline, (result) =>
+      withDrain({
+        command: existingCommand,
+        args: undefined,
+        argsResult: undefined,
+        result,
+      }),
+    ) as any;
   };
 
   const evalCommand: AnyPadroneProgram['eval'] = (input, evalOptions) => {
-    return makeThenable(execCommand(input as string, evalOptions, 'soft'));
+    try {
+      const result = execCommand(input as string, evalOptions, 'soft');
+      if (result instanceof Promise) return withPromiseDrain(result.catch((err: unknown) => errorResult(err))) as any;
+      return makeThenable(result);
+    } catch (err) {
+      return makeThenable(errorResult(err)) as any;
+    }
   };
 
   /**
@@ -1187,87 +1198,102 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   const replActiveRef = { value: false };
 
   const cli: AnyPadroneProgram['cli'] = (cliOptions) => {
-    const runtime = getCommandRuntime(existingCommand);
-    const resolvedInput = (runtime.argv().join(' ') || undefined) as string | undefined;
+    try {
+      const runtime = getCommandRuntime(existingCommand);
+      const resolvedInput = (runtime.argv().join(' ') || undefined) as string | undefined;
 
-    // Check for --repl flag before normal execution
-    if (cliOptions?.repl !== false) {
-      const builtin = checkBuiltinCommands(resolvedInput);
-      if (builtin?.type === 'repl') {
-        const replPrefs: PadroneReplPreferences = {
-          ...(typeof cliOptions?.repl === 'object' ? cliOptions.repl : {}),
-          scope: builtin.scope,
-          autoOutput: (typeof cliOptions?.repl === 'object' ? cliOptions.repl.autoOutput : undefined) ?? cliOptions?.autoOutput,
-        };
-        const drainRepl = async () => {
-          for await (const _ of replFn(replPrefs)) {
-            // Results are handled by command actions
-          }
-          return { command: existingCommand, args: undefined, result: undefined } as any;
-        };
-        return drainRepl() as any;
+      // Check for --repl flag before normal execution
+      if (cliOptions?.repl !== false) {
+        const builtin = checkBuiltinCommands(resolvedInput);
+        if (builtin?.type === 'repl') {
+          const replPrefs: PadroneReplPreferences = {
+            ...(typeof cliOptions?.repl === 'object' ? cliOptions.repl : {}),
+            scope: builtin.scope,
+            autoOutput: (typeof cliOptions?.repl === 'object' ? cliOptions.repl.autoOutput : undefined) ?? cliOptions?.autoOutput,
+          };
+          const drainRepl = async () => {
+            for await (const _ of replFn(replPrefs)) {
+              // Results are handled by command actions
+            }
+            return withDrain({ command: existingCommand, args: undefined, result: undefined }) as any;
+          };
+          return withPromiseDrain(drainRepl()) as any;
+        }
       }
-    }
 
-    // Start background update check (non-blocking)
-    let updateCheckPromise: Promise<(() => void) | undefined> | undefined;
-    if (existingCommand.updateCheck) {
-      // Respect --no-update-check flag
-      const hasNoUpdateCheckFlag =
-        resolvedInput &&
-        parseCliInputToParts(resolvedInput).some((p) => p.type === 'named' && p.key.length === 1 && p.key[0] === 'no-update-check');
-      if (!hasNoUpdateCheckFlag) {
-        const currentVersion = getVersion(existingCommand.version);
-        updateCheckPromise = import('./update-check.ts').then(({ createUpdateChecker }) =>
-          createUpdateChecker(existingCommand.name, currentVersion, existingCommand.updateCheck!, runtime),
-        );
+      // Start background update check (non-blocking)
+      let updateCheckPromise: Promise<(() => void) | undefined> | undefined;
+      if (existingCommand.updateCheck) {
+        // Respect --no-update-check flag
+        const hasNoUpdateCheckFlag =
+          resolvedInput &&
+          parseCliInputToParts(resolvedInput).some((p) => p.type === 'named' && p.key.length === 1 && p.key[0] === 'no-update-check');
+        if (!hasNoUpdateCheckFlag) {
+          const currentVersion = getVersion(existingCommand.version);
+          updateCheckPromise = import('./update-check.ts').then(({ createUpdateChecker }) =>
+            createUpdateChecker(existingCommand.name, currentVersion, existingCommand.updateCheck!, runtime),
+          );
+        }
       }
-    }
 
-    const result = execCommand(resolvedInput, cliOptions, 'hard');
+      const result = execCommand(resolvedInput, cliOptions, 'hard');
 
-    // Show update notification after command output
-    if (updateCheckPromise) {
-      if (result instanceof Promise) {
-        return result.then(async (r) => {
-          const showUpdateNotification = await updateCheckPromise;
-          showUpdateNotification?.();
-          return r;
-        }) as any;
+      // Show update notification after command output
+      if (updateCheckPromise) {
+        if (result instanceof Promise) {
+          return withPromiseDrain(
+            result
+              .then(async (r) => {
+                const showUpdateNotification = await updateCheckPromise;
+                showUpdateNotification?.();
+                return r;
+              })
+              .catch((err: unknown) => errorResult(err)),
+          ) as any;
+        }
+        // For sync results, schedule notification for next tick (non-blocking)
+        updateCheckPromise.then((show) => show?.());
       }
-      // For sync results, schedule notification for next tick (non-blocking)
-      updateCheckPromise.then((show) => show?.());
-    }
 
-    return makeThenable(result);
+      if (result instanceof Promise) return withPromiseDrain(result.catch((err: unknown) => errorResult(err))) as any;
+      return makeThenable(result);
+    } catch (err) {
+      return makeThenable(errorResult(err)) as any;
+    }
   };
 
   const run: AnyPadroneProgram['run'] = (command, args) => {
-    const commandObj = typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyPadroneCommand);
-    if (!commandObj) throw new RoutingError(`Command "${command ?? ''}" not found`);
-    if (!commandObj.action) throw new RoutingError(`Command "${commandObj.path}" has no action`, { command: commandObj.path });
+    try {
+      const commandObj =
+        typeof command === 'string' ? findCommandByName(command, existingCommand.commands) : (command as AnyPadroneCommand);
+      if (!commandObj) throw new RoutingError(`Command "${command ?? ''}" not found`);
+      if (!commandObj.action) throw new RoutingError(`Command "${commandObj.path}" has no action`, { command: commandObj.path });
 
-    const state: Record<string, unknown> = {};
-    const executeCtx: PluginExecuteContext = { command: commandObj, args, state };
+      const state: Record<string, unknown> = {};
+      const executeCtx: PluginExecuteContext = { command: commandObj, args, state };
 
-    const coreExecute = (): PluginExecuteResult => {
-      const result = commandObj.action!(executeCtx.args as any, createActionContext(commandObj));
-      return { result };
-    };
+      const coreExecute = (): PluginExecuteResult => {
+        const result = commandObj.action!(executeCtx.args as any, createActionContext(commandObj));
+        return { result };
+      };
 
-    const commandObjPlugins = collectPlugins(commandObj);
-    const executedOrPromise = runPluginChain('execute', commandObjPlugins, executeCtx, coreExecute);
+      const commandObjPlugins = collectPlugins(commandObj);
+      const executedOrPromise = runPluginChain('execute', commandObjPlugins, executeCtx, coreExecute);
 
-    const toResult = (e: PluginExecuteResult) => ({
-      command: commandObj as any,
-      args: args as any,
-      result: e.result,
-    });
+      const toResult = (e: PluginExecuteResult) =>
+        withDrain({
+          command: commandObj as any,
+          args: args as any,
+          result: e.result,
+        });
 
-    if (executedOrPromise instanceof Promise) {
-      return executedOrPromise.then(toResult) as any;
+      if (executedOrPromise instanceof Promise) {
+        return executedOrPromise.then(toResult).catch((err: unknown) => errorResult(err, { command: commandObj, args })) as any;
+      }
+      return toResult(executedOrPromise);
+    } catch (err) {
+      return errorResult(err) as any;
     }
-    return toResult(executedOrPromise);
   };
 
   const tool: AnyPadroneProgram['tool'] = () => {

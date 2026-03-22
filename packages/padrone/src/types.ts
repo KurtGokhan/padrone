@@ -4,6 +4,7 @@ import type { PadroneArgsSchemaMeta } from './args.ts';
 import type { HelpPreferences } from './help.ts';
 import type { PadroneRuntime, ResolvedPadroneRuntime } from './runtime.ts';
 import type {
+  Drained,
   FindDirectChild,
   FlattenCommands,
   FullCommandName,
@@ -769,8 +770,8 @@ export type PadroneProgram<
   eval: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, true>>(
     input: TCommand | SafeString,
     prefs?: PadroneEvalPreferences,
-  ) => MaybePromise<
-    PadroneCommandResult<PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>,
+  ) => MaybePromiseCommandResult<
+    PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>,
     PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>['~types']['async']
   >;
 
@@ -781,7 +782,7 @@ export type PadroneProgram<
    */
   cli: (
     prefs?: PadroneCliPreferences<PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>>,
-  ) => MaybePromise<PadroneCommandResult<FlattenCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>>, TAsync>;
+  ) => MaybePromiseCommandResult<FlattenCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>, TAsync>;
 
   /**
    * Parses CLI input (or the provided input string) into command and arguments without executing anything.
@@ -961,8 +962,42 @@ export type PadroneCliPreferences<TScope extends string = string> = PadroneEvalP
   repl?: PadroneReplPreferences<TScope> | false;
 };
 
-export type PadroneCommandResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> = PadroneParseResult<TCommand> & {
-  result: GetResults<TCommand>;
+/**
+ * Result of `drain()` — a discriminated union that never throws.
+ * On success, `value` holds the fully resolved/collected result; on failure, `error` holds the error.
+ */
+export type PadroneDrainResult<TResult> = { value: Drained<TResult>; error?: never } | { error: unknown; value?: never };
+
+/**
+ * Result returned by `eval()`, `cli()`, and `run()`. Never thrown — errors are captured in the `error` field.
+ * Discriminated union: check `error` to distinguish success from failure.
+ *
+ * On success: `command`, `args`, `argsResult`, `result` are populated; `error` is absent.
+ * On failure: `error` is populated; `command` may be present if routing succeeded.
+ */
+export type PadroneCommandResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> =
+  | (PadroneParseResult<TCommand> & {
+      result: GetResults<TCommand>;
+      error?: never;
+      /** Flattens the result: awaits Promises, collects iterables, catches errors. Never throws. */
+      drain: () => Promise<PadroneDrainResult<GetResults<TCommand>>>;
+    })
+  | {
+      command?: TCommand;
+      args?: GetArguments<'out', TCommand>;
+      argsResult?: StandardSchemaV1.Result<GetArguments<'out', TCommand>>;
+      error: unknown;
+      result?: never;
+      /** Returns `{ error }` since there is no result to drain. */
+      drain: () => Promise<PadroneDrainResult<GetResults<TCommand>>>;
+    };
+
+/**
+ * Like `MaybePromise<PadroneCommandResult<TCommand>, TAsync>` but ensures `drain()` is available
+ * at the outer level in all cases — both sync (Thenable) and async (Promise).
+ */
+type MaybePromiseCommandResult<TCommand extends AnyPadroneCommand, TAsync> = MaybePromise<PadroneCommandResult<TCommand>, TAsync> & {
+  drain: () => Promise<PadroneDrainResult<GetResults<TCommand>>>;
 };
 
 export type PadroneParseResult<TCommand extends AnyPadroneCommand = AnyPadroneCommand> = {

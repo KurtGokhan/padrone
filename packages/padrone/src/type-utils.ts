@@ -53,6 +53,24 @@ export type OrAsyncMeta<TExisting extends boolean, TMeta> = TExisting extends tr
     : false;
 
 /**
+ * Unwraps a result type by resolving Promises and collecting iterables into arrays.
+ * - `AsyncIterable<U>` → `U[]`
+ * - `Iterable<U>` (excluding strings) → `U[]`
+ * - `Promise<U>` → `Drained<U>` (recursively unwraps)
+ * - `T` → `T`
+ */
+export type Drained<T> =
+  T extends Promise<infer U>
+    ? Drained<U>
+    : T extends AsyncIterable<infer U>
+      ? U[]
+      : T extends string
+        ? T
+        : T extends Iterable<infer U>
+          ? U[]
+          : T;
+
+/**
  * A sync value augmented with Promise-like methods (.then, .catch, .finally).
  * Unlike a real Promise, properties of T are accessible synchronously.
  */

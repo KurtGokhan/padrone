@@ -12,7 +12,7 @@ describe('CLI', () => {
     it('should execute a simple command with args and args', () => {
       const result = program.run('show', { id: 'task-1', priority: 'high', verbose: true });
 
-      expect(result.command.path).toBe('show');
+      expect(result.command?.path).toBe('show');
       expect(result.args).toMatchInlineSnapshot(`
         {
           "id": "task-1",
@@ -20,42 +20,42 @@ describe('CLI', () => {
           "verbose": true,
         }
       `);
-      expect(result.result.id).toBe('task-1');
-      expect(result.result.title).toBe('Important Task');
-      expect(result.result.stats?.total).toBe(5);
+      expect(result.result?.id).toBe('task-1');
+      expect(result.result?.title).toBe('Important Task');
+      expect(result.result?.stats?.total).toBe(5);
     });
 
     it('should execute a command with default args', () => {
       const result = program.run('show', { id: 'task-2' });
 
-      expect(result.command.path).toBe('show');
-      expect(result.result.title).toBe('Regular Task'); // Default medium priority
-      expect(result.result.stats).toBeUndefined(); // verbose not set
+      expect(result.command?.path).toBe('show');
+      expect(result.result?.title).toBe('Regular Task'); // Default medium priority
+      expect(result.result?.stats).toBeUndefined(); // verbose not set
     });
 
     it('should execute nested commands', () => {
       const result = program.run('list extended', { status: 'pending', priority: 'high' });
 
-      expect(result.command.path).toBe('list extended');
+      expect(result.command?.path).toBe('list extended');
       expect(result.args?.status).toEqual('pending');
       expect(result.args?.priority).toEqual('high');
-      expect(result.result.status).toBe('pending');
-      expect(result.result.extendedList).toBeDefined();
+      expect(result.result?.status).toBe('pending');
+      expect(result.result?.extendedList).toBeDefined();
     });
 
     it('should execute a command with array args', () => {
       const result = program.run('batch', { ids: ['task-1', 'task-2', 'task-3'] });
 
-      expect(result.command.path).toBe('batch');
+      expect(result.command?.path).toBe('batch');
       expect(result.args?.ids).toEqual(['task-1', 'task-2', 'task-3']);
-      expect(result.result.ids).toEqual(['task-1', 'task-2', 'task-3']);
-      expect(result.result.results).toHaveLength(3);
+      expect(result.result?.ids).toEqual(['task-1', 'task-2', 'task-3']);
+      expect(result.result?.results).toHaveLength(3);
     });
 
     it('should execute a command with void args and args', () => {
       const result = program.run('noop', undefined);
 
-      expect(result.command.path).toBe('noop');
+      expect(result.command?.path).toBe('noop');
       expect(result.args).toBeUndefined();
       expect(result.result).toBeUndefined();
     });
@@ -123,10 +123,10 @@ describe('CLI', () => {
 
       expect(result).toBeDefined();
       if (!result) throw new Error('Result is undefined');
-      expect(result.command.path).toBe('show');
+      expect(result.command?.path).toBe('show');
       expect(result.args?.id).toEqual('task-1');
-      expect(result.result.id).toBe('task-1');
-      expect(result.result.title).toBe('Important Task');
+      expect(result.result?.id).toBe('task-1');
+      expect(result.result?.title).toBe('Important Task');
     });
 
     it('should show help for empty CLI input when root has no handler', () => {
@@ -139,14 +139,14 @@ describe('CLI', () => {
       const result = program.eval('list extended --status pending --priority high');
 
       expect(result).toBeDefined();
-      expect(result?.command.path).toBe('list extended');
-      expect(result?.result.status).toBe('pending');
+      expect(result?.command?.path).toBe('list extended');
+      expect(result?.result?.status).toBe('pending');
     });
 
-    it('should throw error for non-existent command', () => {
-      expect(() => {
-        program.run('nonexistent', {});
-      }).toThrow('Command "nonexistent" not found');
+    it('should return error for non-existent command', () => {
+      const result = program.run('nonexistent', {});
+      expect(result.error).toBeInstanceOf(Error);
+      expect((result.error as Error).message).toContain('Command "nonexistent" not found');
     });
   });
 
@@ -235,7 +235,7 @@ describe('CLI', () => {
       );
 
       const result = program.run('test', { id: 'task-1' });
-      expect(result.result.id).toBe('task-1');
+      expect(result.result?.id).toBe('task-1');
     });
 
     it('should handle deeply nested commands', () => {
@@ -244,7 +244,7 @@ describe('CLI', () => {
       );
 
       const result = program.run('level1 level2 level3', undefined);
-      expect(result.result.depth).toBe(3);
+      expect(result.result?.depth).toBe(3);
     });
 
     it('should handle command names with spaces in parsing', () => {
@@ -277,16 +277,16 @@ describe('CLI', () => {
 
       expect(results).toHaveLength(3);
       results.forEach((result, i) => {
-        expect(result.result.id).toBe(ids[i]!);
-        expect(result.result.title).toBe('Important Task');
+        expect(result.result?.id).toBe(ids[i]!);
+        expect(result.result?.title).toBe('Important Task');
       });
     });
 
     it('should handle listing tasks with custom limit', () => {
       const result = program.run('list', { limit: 5, priority: 'medium' });
 
-      expect(result.result.limit).toBe(5);
-      expect(result.result.tasks).toHaveLength(2); // Mock data only has 2 tasks
+      expect(result.result?.limit).toBe(5);
+      expect(result.result?.tasks).toHaveLength(2); // Mock data only has 2 tasks
     });
 
     it('should handle batch operations across multiple tasks', () => {
@@ -307,9 +307,9 @@ describe('CLI', () => {
         priority: 'high',
       });
 
-      expect(result.result.status).toBe('pending');
-      expect(result.result.priority).toBe('high');
-      expect(result.result.tasks).toBeDefined();
+      expect(result.result?.status).toBe('pending');
+      expect(result.result?.priority).toBe('high');
+      expect(result.result?.tasks).toBeDefined();
     });
   });
 
@@ -385,7 +385,7 @@ describe('CLI', () => {
       const result = program.eval('test -v');
 
       expect(result?.args?.verbose).toBe(true);
-      expect(result?.result.verbose).toBe(true);
+      expect(result?.result?.verbose).toBe(true);
     });
 
     it('should handle aliases mixed with full arg names', () => {
@@ -1131,9 +1131,9 @@ describe('CLI', () => {
 
       const configData = { port: 'not-a-number' };
 
-      expect(() => program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test')).toThrow(
-        /Invalid config file/,
-      );
+      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test');
+      expect(result.error).toBeInstanceOf(Error);
+      expect((result.error as Error).message).toMatch(/Invalid config file/);
     });
 
     it('should transform config data using schema', () => {
@@ -1355,7 +1355,7 @@ describe('CLI', () => {
 
       const result = program.eval('--help');
 
-      expect(result.result as string).toContain('test-cli');
+      expect(result.result as unknown as string).toContain('test-cli');
     });
 
     it('should show help with -h flag', () => {
@@ -1365,7 +1365,7 @@ describe('CLI', () => {
 
       const result = program.eval('-h');
 
-      expect(result.result as string).toContain('test-cli');
+      expect(result.result as unknown as string).toContain('test-cli');
     });
 
     it('should show help for specific command with --help flag', () => {
@@ -1377,7 +1377,7 @@ describe('CLI', () => {
 
       const result = program.eval('greet --help');
 
-      expect(result.result as string).toContain('greet');
+      expect(result.result as unknown as string).toContain('greet');
     });
 
     it('should show help for nested command with --help flag', () => {
@@ -1389,8 +1389,8 @@ describe('CLI', () => {
 
       const result = program.eval('git commit --help');
 
-      expect(result.result as string).toContain('commit');
-      expect(result.result as string).toContain('message');
+      expect(result.result as unknown as string).toContain('commit');
+      expect(result.result as unknown as string).toContain('message');
     });
 
     it('should show help with help command', () => {
@@ -1400,7 +1400,7 @@ describe('CLI', () => {
 
       const result = program.eval('help');
 
-      expect(result.result as string).toContain('test-cli');
+      expect(result.result as unknown as string).toContain('test-cli');
     });
 
     it('should show help for specific command with help command', () => {
@@ -1412,7 +1412,7 @@ describe('CLI', () => {
 
       const result = program.eval('help greet');
 
-      expect(result.result as string).toContain('greet');
+      expect(result.result as unknown as string).toContain('greet');
     });
 
     it('should show help for nested command with help command', () => {
@@ -1424,8 +1424,8 @@ describe('CLI', () => {
 
       const result = program.eval('help git commit');
 
-      expect(result.result as string).toContain('commit');
-      expect(result.result as string).toContain('message');
+      expect(result.result as unknown as string).toContain('commit');
+      expect(result.result as unknown as string).toContain('message');
     });
 
     it('should show version with --version flag', () => {
@@ -1435,7 +1435,7 @@ describe('CLI', () => {
 
       const result = program.eval('--version');
 
-      expect(result.result as string).toBe('1.2.3');
+      expect(result.result as unknown as string).toBe('1.2.3');
     });
 
     it('should show version with -v flag', () => {
@@ -1445,7 +1445,7 @@ describe('CLI', () => {
 
       const result = program.eval('-v');
 
-      expect(result.result as string).toBe('2.0.0');
+      expect(result.result as unknown as string).toBe('2.0.0');
     });
 
     it('should show version with -V flag', () => {
@@ -1455,7 +1455,7 @@ describe('CLI', () => {
 
       const result = program.eval('-V');
 
-      expect(result.result as string).toBe('3.0.0');
+      expect(result.result as unknown as string).toBe('3.0.0');
     });
 
     it('should show version with version command', () => {
@@ -1465,7 +1465,7 @@ describe('CLI', () => {
 
       const result = program.eval('version');
 
-      expect(result.result as string).toBe('4.0.0');
+      expect(result.result as unknown as string).toBe('4.0.0');
     });
 
     it('should auto-detect version from package.json when not explicitly set', () => {
@@ -1475,7 +1475,7 @@ describe('CLI', () => {
 
       // Should auto-detect from package.json (0.0.1) or npm_package_version env var
       // The actual value depends on the environment, so we just check it's not empty
-      expect(result.result as string).toMatch(/^\d+\.\d+\.\d+/);
+      expect(result.result as unknown as string).toMatch(/^\d+\.\d+\.\d+/);
     });
 
     it('should allow user to override help command', () => {
@@ -1509,7 +1509,7 @@ describe('CLI', () => {
       const result = program.eval('--help');
 
       // --help flag should still use built-in help
-      expect(result.result as string).toContain('test-cli');
+      expect(result.result as unknown as string).toContain('test-cli');
     });
 
     it('should set description on program', () => {
@@ -1517,7 +1517,7 @@ describe('CLI', () => {
 
       const result = program.eval('--help');
 
-      expect(result.result as string).toContain('My awesome CLI tool');
+      expect(result.result as unknown as string).toContain('My awesome CLI tool');
     });
 
     it('should chain description and version', () => {
@@ -1528,8 +1528,8 @@ describe('CLI', () => {
       const helpResult = program.eval('--help');
       const versionResult = program.eval('--version');
 
-      expect(helpResult.result as string).toContain('My awesome CLI tool');
-      expect(versionResult.result as string).toBe('5.0.0');
+      expect(helpResult.result as unknown as string).toContain('My awesome CLI tool');
+      expect(versionResult.result as unknown as string).toBe('5.0.0');
     });
 
     it('should accept --detail flag for help', () => {
@@ -1542,9 +1542,9 @@ describe('CLI', () => {
       const fullResult = program.eval('--help --detail=full');
 
       // All should produce help output
-      expect(minimalResult.result as string).toContain('test-cli');
-      expect(standardResult.result as string).toContain('test-cli');
-      expect(fullResult.result as string).toContain('test-cli');
+      expect(minimalResult.result as unknown as string).toContain('test-cli');
+      expect(standardResult.result as unknown as string).toContain('test-cli');
+      expect(fullResult.result as unknown as string).toContain('test-cli');
     });
 
     it('should accept -d shorthand for detail flag', () => {
@@ -1554,7 +1554,7 @@ describe('CLI', () => {
 
       const result = program.eval('--help -d full');
 
-      expect(result.result as string).toContain('test-cli');
+      expect(result.result as unknown as string).toContain('test-cli');
     });
 
     it('should accept detail flag with help command', () => {
@@ -1564,7 +1564,7 @@ describe('CLI', () => {
 
       const result = program.eval('help --detail=full');
 
-      expect(result.result as string).toContain('test-cli');
+      expect(result.result as unknown as string).toContain('test-cli');
     });
 
     it('should accept detail flag for subcommand help', () => {
@@ -1574,7 +1574,7 @@ describe('CLI', () => {
 
       const result = program.eval('greet --help --detail=full');
 
-      expect(result.result as string).toContain('greet');
+      expect(result.result as unknown as string).toContain('greet');
     });
 
     it('should accept --format flag for help', () => {
@@ -1587,9 +1587,9 @@ describe('CLI', () => {
       const jsonResult = program.eval('--help --format=json');
 
       // All should produce help output
-      expect(textResult.result as string).toContain('test-cli');
-      expect(markdownResult.result as string).toContain('test-cli');
-      expect(jsonResult.result as string).toContain('test-cli');
+      expect(textResult.result as unknown as string).toContain('test-cli');
+      expect(markdownResult.result as unknown as string).toContain('test-cli');
+      expect(jsonResult.result as unknown as string).toContain('test-cli');
     });
 
     it('should accept -f shorthand for format flag', () => {
@@ -1599,7 +1599,7 @@ describe('CLI', () => {
 
       const result = program.eval('--help -f markdown');
 
-      expect(result.result as string).toContain('test-cli');
+      expect(result.result as unknown as string).toContain('test-cli');
     });
 
     it('should accept format flag with help command', () => {
@@ -1609,7 +1609,7 @@ describe('CLI', () => {
 
       const result = program.eval('help --format=json');
 
-      expect(result.result as string).toContain('test-cli');
+      expect(result.result as unknown as string).toContain('test-cli');
     });
 
     it('should combine format and detail flags', () => {
@@ -1619,7 +1619,7 @@ describe('CLI', () => {
 
       const result = program.eval('--help --format=markdown --detail=full');
 
-      expect(result.result as string).toContain('test-cli');
+      expect(result.result as unknown as string).toContain('test-cli');
     });
 
     it('should load config from --config flag', () => {
@@ -1859,16 +1859,11 @@ describe('CLI', () => {
         c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((args) => args),
       );
 
-      try {
-        program.cli();
-        expect.unreachable('Expected cli() to throw');
-      } catch (e) {
-        expect(e).toBeInstanceOf(Error);
-        expect((e as Error).message).toContain('Validation error:');
-        expect(console.error).toHaveBeenCalledTimes(2);
-      } finally {
-        process.argv = originalArgv;
-      }
+      const result = program.cli();
+      expect(result.error).toBeInstanceOf(Error);
+      expect((result.error as Error).message).toContain('Validation error:');
+      expect(console.error).toHaveBeenCalledTimes(2);
+      process.argv = originalArgv;
     });
 
     it('should not throw when validation passes', () => {

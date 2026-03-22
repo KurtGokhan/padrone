@@ -41,8 +41,10 @@ describe('runtime', () => {
         .runtime({ error, argv: () => ['greet'] })
         .command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((args) => `Hello, ${args.name}!`));
 
-      // cli() without explicit input uses runtime.argv, and validation failure prints to runtime.error
-      expect(() => program.cli()).toThrow('Validation error');
+      // cli() without explicit input uses runtime.argv, and validation failure returns error in result
+      const result = program.cli();
+      expect(result.error).toBeInstanceOf(Error);
+      expect((result.error as Error).message).toContain('Validation error');
       expect(error).toHaveBeenCalled();
       expect(error.mock.calls[0]![0]).toContain('Validation error');
     });
@@ -130,7 +132,9 @@ describe('runtime', () => {
         .runtime({ error, argv: () => ['greet'] })
         .command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((args) => `Hello, ${args.name}!`));
 
-      expect(() => program2.cli()).toThrow('Validation error');
+      const result2 = program2.cli();
+      expect(result2.error).toBeInstanceOf(Error);
+      expect((result2.error as Error).message).toContain('Validation error');
       expect(error).toHaveBeenCalled();
     });
 

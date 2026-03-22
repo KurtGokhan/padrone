@@ -24,10 +24,10 @@ describe('wrap', () => {
       const result = await program.run('echo', { message: 'Hello World' });
       const wrapResult = await result.result;
 
-      expect(result.command.path).toBe('echo');
+      expect(result.command?.path).toBe('echo');
       expect(result.args?.message).toBe('Hello World');
-      expect(wrapResult.success).toBe(true);
-      expect(wrapResult.exitCode).toBe(0);
+      expect(wrapResult?.success).toBe(true);
+      expect(wrapResult?.exitCode).toBe(0);
     });
 
     it('should capture stdout when inheritStdio is false', async () => {
@@ -51,8 +51,8 @@ describe('wrap', () => {
       const result = await program.run('echo', { message: 'Hello' });
       const wrapResult = await result.result;
 
-      expect(wrapResult.success).toBe(true);
-      expect(wrapResult.stdout?.trim()).toBe('Hello');
+      expect(wrapResult?.success).toBe(true);
+      expect(wrapResult?.stdout?.trim()).toBe('Hello');
     });
   });
 
@@ -77,7 +77,7 @@ describe('wrap', () => {
       const result = await program.run('ls', { all: true, long: true });
       const wrapResult = await result.result;
 
-      expect(wrapResult.success).toBe(true);
+      expect(wrapResult?.success).toBe(true);
       expect(result.args?.all).toBe(true);
       expect(result.args?.long).toBe(true);
     });
@@ -100,9 +100,9 @@ describe('wrap', () => {
       const result = await program.run('test', { files: ['file1.txt', 'file2.txt'] });
       const wrapResult = await result.result;
 
-      expect(wrapResult.success).toBe(true);
-      expect(wrapResult.stdout?.includes('file1.txt')).toBe(true);
-      expect(wrapResult.stdout?.includes('file2.txt')).toBe(true);
+      expect(wrapResult?.success).toBe(true);
+      expect(wrapResult?.stdout?.includes('file1.txt')).toBe(true);
+      expect(wrapResult?.stdout?.includes('file2.txt')).toBe(true);
     });
   });
 
@@ -129,8 +129,8 @@ describe('wrap', () => {
       const result = await program.run('cat', { file: 'test.txt' });
       const wrapResult = await result.result;
 
-      expect(wrapResult.success).toBe(true);
-      expect(wrapResult.stdout?.includes('test.txt')).toBe(true);
+      expect(wrapResult?.success).toBe(true);
+      expect(wrapResult?.stdout?.includes('test.txt')).toBe(true);
     });
 
     it('should handle variadic positional arguments', async () => {
@@ -154,10 +154,10 @@ describe('wrap', () => {
       const result = await program.run('concat', { files: ['file1.txt', 'file2.txt', 'file3.txt'] });
       const wrapResult = await result.result;
 
-      expect(wrapResult.success).toBe(true);
-      expect(wrapResult.stdout?.includes('file1.txt')).toBe(true);
-      expect(wrapResult.stdout?.includes('file2.txt')).toBe(true);
-      expect(wrapResult.stdout?.includes('file3.txt')).toBe(true);
+      expect(wrapResult?.success).toBe(true);
+      expect(wrapResult?.stdout?.includes('file1.txt')).toBe(true);
+      expect(wrapResult?.stdout?.includes('file2.txt')).toBe(true);
+      expect(wrapResult?.stdout?.includes('file3.txt')).toBe(true);
     });
 
     it('should handle mixed positional and arg arguments', async () => {
@@ -183,7 +183,7 @@ describe('wrap', () => {
       const result = await program.run('grep', { pattern: 'test', file: 'file.txt', ignoreCase: true });
       const wrapResult = await result.result;
 
-      expect(wrapResult.success).toBe(true);
+      expect(wrapResult?.success).toBe(true);
     });
   });
 
@@ -220,8 +220,8 @@ describe('wrap', () => {
       const result = await program.run('false', {});
       const wrapResult = await result.result;
 
-      expect(wrapResult.success).toBe(false);
-      expect(wrapResult.exitCode).not.toBe(0);
+      expect(wrapResult?.success).toBe(false);
+      expect(wrapResult?.exitCode).not.toBe(0);
     });
   });
 
@@ -247,8 +247,8 @@ describe('wrap', () => {
       const result = await program.eval('echo "Hello from CLI"');
       const wrapResult = await result.result;
 
-      expect(wrapResult.success).toBe(true);
-      expect(wrapResult.stdout?.includes('Hello from CLI')).toBe(true);
+      expect(wrapResult?.success).toBe(true);
+      expect(wrapResult?.stdout?.includes('Hello from CLI')).toBe(true);
     });
 
     it('should work with args from CLI', async () => {
@@ -270,7 +270,7 @@ describe('wrap', () => {
       const result = await program.eval('cmd --verbose --file test.txt');
       const wrapResult = await result.result;
 
-      expect(wrapResult.success).toBe(true);
+      expect(wrapResult?.success).toBe(true);
     });
   });
 
@@ -295,8 +295,8 @@ describe('wrap', () => {
       const wrapResult = await result.result;
 
       // Note: This will succeed because we're using echo instead of actual git
-      expect(result.command.path).toBe('status');
-      expect(wrapResult.success).toBe(true);
+      expect(result.command?.path).toBe('status');
+      expect(wrapResult?.success).toBe(true);
     });
   });
 
@@ -325,7 +325,7 @@ describe('wrap', () => {
 
       expect(result.args?.message).toBe('test');
       expect(result.args?.count).toBe(5);
-      expect(wrapResult.success).toBe(true);
+      expect(wrapResult?.success).toBe(true);
     });
   });
 
@@ -362,10 +362,10 @@ describe('wrap', () => {
       const result = await program.run('git-commit', { message: 'Initial commit', all: true });
       const wrapResult = await result.result;
 
-      expect(wrapResult.success).toBe(true);
+      expect(wrapResult?.success).toBe(true);
       // The echo output should contain the transformed flags
-      expect(wrapResult.stdout?.includes('--a')).toBe(true);
-      expect(wrapResult.stdout?.includes('Initial commit')).toBe(true);
+      expect(wrapResult?.stdout?.includes('--a')).toBe(true);
+      expect(wrapResult?.stdout?.includes('Initial commit')).toBe(true);
     });
 
     it('should use custom positional config from wrap', async () => {
@@ -397,9 +397,9 @@ describe('wrap', () => {
       const result = await program.run('docker', { image: 'nginx', detach: true });
       const wrapResult = await result.result;
 
-      expect(wrapResult.success).toBe(true);
-      expect(wrapResult.stdout?.includes('nginx')).toBe(true);
-      expect(wrapResult.stdout?.includes('--d')).toBe(true);
+      expect(wrapResult?.success).toBe(true);
+      expect(wrapResult?.stdout?.includes('nginx')).toBe(true);
+      expect(wrapResult?.stdout?.includes('--d')).toBe(true);
     });
   });
 });

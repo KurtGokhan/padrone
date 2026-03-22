@@ -291,7 +291,10 @@ export function createReplIterator(deps: ReplDeps, options?: PadroneReplPreferen
         try {
           const replEvalPrefs: PadroneEvalPreferences | undefined = options?.autoOutput === false ? { autoOutput: false } : undefined;
           const result = await evalCommand(scopedInput, replEvalPrefs);
-          if (result.argsResult?.issues) {
+          if (result.error) {
+            const msg = result.error instanceof Error ? result.error.message : String(result.error);
+            runtime.error(prefixLines ? prefixLines(msg) : msg);
+          } else if (result.argsResult?.issues) {
             const issueMessages = result.argsResult.issues
               .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
               .join('\n');

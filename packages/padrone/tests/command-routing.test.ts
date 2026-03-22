@@ -16,13 +16,13 @@ describe('command routing', () => {
 
     it('should match empty-name command when no input is provided', () => {
       const result = program.eval('');
-      expect(result.command.name).toBe('');
+      expect(result.command?.name).toBe('');
       expect(result.result).toBe('default-executed');
     });
 
     it('should match empty-name command via alias', () => {
       const result = program.eval('repl');
-      expect(result.command.name).toBe('');
+      expect(result.command?.name).toBe('');
       expect(result.result).toBe('default-executed');
     });
 
@@ -88,7 +88,9 @@ describe('command routing', () => {
     });
 
     it('should use alias in error message for empty-name command with extra args', () => {
-      expect(() => program.eval('repl bogus')).toThrow("Unexpected arguments for 'repl'");
+      const result = program.eval('repl bogus');
+      expect(result.error).toBeDefined();
+      expect((result.error as Error).message).toContain("Unexpected arguments for 'repl'");
     });
   });
 
@@ -128,14 +130,18 @@ describe('command routing', () => {
       .command('show', (c) => c.action(() => 'shown'));
 
     it('should throw on unknown command in eval()', () => {
-      expect(() => program.eval('bogus')).toThrow('Unknown command: bogus');
+      const result = program.eval('bogus');
+      expect(result.error).toBeDefined();
+      expect((result.error as Error).message).toContain('Unknown command: bogus');
     });
 
     it('should throw on unknown command in cli()', () => {
       const originalArgv = process.argv;
       process.argv = ['node', 'app', 'bogus'];
       try {
-        expect(() => program.cli()).toThrow('Unknown command: bogus');
+        const result = program.cli();
+        expect(result.error).toBeDefined();
+        expect((result.error as Error).message).toContain('Unknown command: bogus');
       } finally {
         process.argv = originalArgv;
       }
@@ -146,9 +152,8 @@ describe('command routing', () => {
       const originalArgv = process.argv;
       process.argv = ['node', 'app', 'bogus'];
       try {
-        program.cli();
-      } catch {
-        // expected
+        const result = program.cli();
+        expect(result.error).toBeDefined();
       } finally {
         process.argv = originalArgv;
       }
@@ -163,7 +168,9 @@ describe('command routing', () => {
       .command('show', (c) => c.arguments(z.object({ id: z.string() }), { positional: ['id'] }).action((args) => `showing ${args.id}`));
 
     it('should reject extra terms for command without positionals', () => {
-      expect(() => program.eval('repl test')).toThrow(/Unexpected arguments for 'repl'/);
+      const result = program.eval('repl test');
+      expect(result.error).toBeDefined();
+      expect((result.error as Error).message).toMatch(/Unexpected arguments for 'repl'/);
     });
 
     it('should accept positional args for commands that define them', () => {
@@ -177,7 +184,7 @@ describe('command routing', () => {
       const result = program.eval('repl -- test');
       // repl has no positional config, so 'test' is in args but not mapped.
       // The command runs successfully since the schema is void.
-      expect(result.command.name).toBe('repl');
+      expect(result.command?.name).toBe('repl');
       expect(result.result).toBe('repl-started');
     });
 
@@ -404,7 +411,7 @@ describe('command routing', () => {
         .command('greet', (c) => c.action(() => 42 as const));
 
       const result = program.eval('greet');
-      expectTypeOf(result.result).toEqualTypeOf<42>();
+      expectTypeOf(result.result).toEqualTypeOf<42 | undefined>();
     });
   });
 
@@ -419,18 +426,18 @@ describe('command routing', () => {
 
     it('should treat tokens after -- as positional args, not command terms', () => {
       const result = program.eval('run -- --verbose --debug');
-      expect(result.result.items).toEqual(['--verbose', '--debug']);
+      expect(result.result?.items).toEqual(['--verbose', '--debug']);
     });
 
     it('should not parse flags after -- as named args', () => {
       const result = program.eval('run -- --help');
       // --help after -- should NOT trigger help output, should be a positional
-      expect(result.result.items).toEqual(['--help']);
+      expect(result.result?.items).toEqual(['--help']);
     });
 
     it('should not match terms after -- as commands', () => {
       const result = program.eval('run -- run');
-      expect(result.result.items).toEqual(['run']);
+      expect(result.result?.items).toEqual(['run']);
     });
   });
 });

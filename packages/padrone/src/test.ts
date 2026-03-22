@@ -153,21 +153,11 @@ export function testCli(program: TestableProgram): TestCliBuilder {
       const runtime = buildRuntime(stdout, stderr, { envVars, promptAnswers, configFiles, stdinData });
       const testProgram = program.runtime(runtime);
 
-      try {
-        const evalResult = await testProgram.eval(runInput ?? input ?? '', { autoOutput: false });
-        return toTestResult(evalResult, stdout, stderr);
-      } catch (err) {
-        stderr.push(err instanceof Error ? err.message : String(err));
-        return {
-          command: undefined as unknown as AnyPadroneCommand,
-          args: undefined,
-          result: undefined,
-          issues: undefined,
-          stdout,
-          stderr,
-          error: err,
-        };
+      const evalResult = await testProgram.eval(runInput ?? input ?? '', { autoOutput: false });
+      if (evalResult.error) {
+        stderr.push(evalResult.error instanceof Error ? evalResult.error.message : String(evalResult.error));
       }
+      return toTestResult(evalResult, stdout, stderr);
     },
 
     async repl(inputs: string[]) {
@@ -186,7 +176,7 @@ export function testCli(program: TestableProgram): TestCliBuilder {
 
       for await (const r of testProgram.repl({ greeting: false, hint: false })) {
         results.push({
-          command: r.command,
+          command: r.command!,
           args: r.args,
           result: r.result,
           issues: r.argsResult?.issues as TestCliResult['issues'],
@@ -202,9 +192,10 @@ export function testCli(program: TestableProgram): TestCliBuilder {
 
 function toTestResult(evalResult: PadroneCommandResult, stdout: unknown[], stderr: string[]): TestCliResult {
   return {
-    command: evalResult.command,
+    command: evalResult.command!,
     args: evalResult.args,
     result: evalResult.result,
+    error: evalResult.error,
     issues: evalResult.argsResult?.issues as TestCliResult['issues'],
     stdout,
     stderr,

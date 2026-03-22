@@ -14,7 +14,7 @@ describe('eval', () => {
   describe('command execution', () => {
     it('should execute a command with positional args', () => {
       const result = program.eval('greet World');
-      expect(result.command.path).toBe('greet');
+      expect(result.command?.path).toBe('greet');
       expect(result.args?.name).toBe('World');
       expect(result.result).toBe('Hello, World!');
     });
@@ -42,7 +42,7 @@ describe('eval', () => {
     it('should handle help for specific command', () => {
       const result = program.eval('help greet');
       expect(typeof result.result).toBe('string');
-      expect(result.result as string).toContain('greet');
+      expect(result.result! as string).toContain('greet');
     });
   });
 
@@ -85,15 +85,11 @@ describe('eval', () => {
 
       const p = createPadrone('test').command('fetch', (c) => c.arguments(z.object({ url: z.url() })).action((args) => args));
 
-      // cli() without input: hard error
-      try {
-        p.cli();
-        expect.unreachable('Expected cli() to throw');
-      } catch (e) {
-        expect((e as Error).message).toContain('Validation error');
-      } finally {
-        process.argv = originalArgv;
-      }
+      // cli() without input: hard error (returned in result.error)
+      const cliResult = p.cli();
+      expect(cliResult.error).toBeInstanceOf(Error);
+      expect((cliResult.error as Error).message).toContain('Validation error');
+      process.argv = originalArgv;
 
       // eval(): soft error
       const result = p.eval('fetch --url not-a-url');

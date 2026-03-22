@@ -148,6 +148,19 @@ export function makeThenable<T>(value: T | Promise<T>): Thenable<T> {
   return value as any;
 }
 
+/**
+ * Wraps a Promise to include a `drain()` method at the top level.
+ * This allows `await promise.drain()` without first awaiting the promise.
+ * Since cli/eval never reject, this just delegates to the resolved result's `drain()`.
+ */
+export function withPromiseDrain<T extends Promise<any>>(promise: T): T & { drain: () => Promise<any> } {
+  (promise as any).drain = async () => {
+    const resolved = await promise;
+    return resolved.drain();
+  };
+  return promise as any;
+}
+
 export function isIterator(value: unknown): value is Iterator<unknown> {
   return typeof value === 'object' && value !== null && Symbol.iterator in value && typeof (value as any)[Symbol.iterator] === 'function';
 }
@@ -200,6 +213,77 @@ export function outputValue(value: unknown, output: (...args: unknown[]) => void
 
   // Pass value directly — runtime handles formatting
   output(value);
+}
+
+/**
+ * Resolves a result value by unwrapping Promises and collecting iterables into arrays.
+ * This is the runtime counterpart of the `Drained<T>` type.
+ */
+export async function drainValue(value: unknown): Promise<unknown> {
+  // Unwrap promises first
+  if (value instanceof Promise) {
+    return drainValue(await value);
+  }
+
+  // Async iterator — collect into array
+  if (isAsyncIterator(value)) {
+    const items: unknown[] = [];
+    const iter = (value as any)[Symbol.asyncIterator]();
+    while (true) {
+      const { done, value: item } = await iter.next();
+      if (done) break;
+      items.push(item);
+    }
+    return items;
+  }
+
+  // Sync iterator (but not string/array)
+  if (typeof value !== 'string' && !Array.isArray(value) && isIterator(value)) {
+    const items: unknown[] = [];
+    const iter = (value as any)[Symbol.iterator]();
+    while (true) {
+      const { done, value: item } = iter.next();
+      if (done) break;
+      items.push(item);
+    }
+    return items;
+  }
+
+  return value;
+}
+
+/**
+ * Attaches a `drain()` method to a command result object.
+ * If the result has an `error` field, `drain()` returns `{ error }`.
+ * Otherwise, resolves the result (unwrapping Promises, collecting iterables), catches errors,
+ * and returns a discriminated union `{ value } | { error }` that never throws.
+ */
+export function withDrain<T extends Record<string, unknown>>(obj: T): T & { drain: () => Promise<any> } {
+  (obj as any).drain = async () => {
+    if ('error' in obj && obj.error !== undefined) {
+      return { error: obj.error };
+    }
+    try {
+      const value = await drainValue(obj.result);
+      return { value };
+    } catch (err) {
+      return { error: err };
+    }
+  };
+  return obj as any;
+}
+
+/**
+ * Creates an error command result with a `drain()` that returns the error.
+ */
+export function errorResult(error: unknown, partial?: { command?: unknown; args?: unknown; argsResult?: unknown }) {
+  return withDrain({
+    error,
+    result: undefined,
+    command: partial?.command,
+    args: partial?.args,
+    argsResult: partial?.argsResult,
+  });
 }
 
 /**

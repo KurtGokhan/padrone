@@ -62,35 +62,35 @@ describe('Command Aliases', () => {
   describe('Single string alias', () => {
     it('should execute command using single string alias', () => {
       const result = program.run('delete', { name: 'test' });
-      expect(result.command.name).toBe('delete');
-      expect(result.result.deleted).toBe('test');
+      expect(result.command?.name).toBe('delete');
+      expect(result.result?.deleted).toBe('test');
     });
 
     it('should parse and execute command using alias via CLI', () => {
       const result = program.eval('rm test');
-      expect(result.command.name).toBe('delete');
-      expect(result.result.deleted).toBe('test');
+      expect(result.command?.name).toBe('delete');
+      expect(result.result?.deleted).toBe('test');
     });
   });
 
   describe('Array of aliases', () => {
     it('should execute command using first alias from array', () => {
       const result = program.eval('ls');
-      expect(result.command.name).toBe('list');
-      expect(result.result.format).toBe('table');
+      expect(result.command?.name).toBe('list');
+      expect(result.result?.format).toBe('table');
     });
 
     it('should execute command using second alias from array', () => {
       const result = program.eval('show');
-      expect(result.command.name).toBe('list');
-      expect(result.result.format).toBe('table');
+      expect(result.command?.name).toBe('list');
+      expect(result.result?.format).toBe('table');
     });
 
     it('should execute command with args using alias', () => {
       const result = program.eval('ls --format json');
-      expect(result.command.name).toBe('list');
+      expect(result.command?.name).toBe('list');
       expect(result.args?.format).toBe('json');
-      expect(result.result.format).toBe('json');
+      expect(result.result?.format).toBe('json');
     });
   });
 
@@ -128,9 +128,9 @@ describe('Command Aliases', () => {
   describe('Nested command aliases', () => {
     it('should find nested command by alias', () => {
       const result = program.eval('config cfg key value');
-      expect(result.command.name).toBe('set');
-      expect(result.result.key).toBe('key');
-      expect(result.result.value).toBe('value');
+      expect(result.command?.name).toBe('set');
+      expect(result.result?.key).toBe('key');
+      expect(result.result?.value).toBe('value');
     });
 
     it('should find nested command using parent and alias', () => {
@@ -180,7 +180,7 @@ describe('Command Aliases', () => {
 
     it('should handle mixed case commands', () => {
       const result = program.eval('ls --format json');
-      expect(result.command.name).toBe('list');
+      expect(result.command?.name).toBe('list');
     });
 
     it('should prioritize exact name match over alias', () => {

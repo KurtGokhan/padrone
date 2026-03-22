@@ -70,32 +70,32 @@ describe('structured errors', () => {
     it('should be thrown for unknown commands', () => {
       const program = createPadrone('app').command('deploy', (c) => c.action(() => 'ok'));
 
-      expect(() => program.eval('nonexistent')).toThrow(RoutingError);
+      const result = program.eval('nonexistent');
+      expect(result.error).toBeInstanceOf(RoutingError);
     });
 
     it('should carry suggestions for similar commands', () => {
       const program = createPadrone('app').command('deploy', (c) => c.action(() => 'ok'));
 
-      try {
-        program.eval('deply');
-        expect.unreachable('should have thrown');
-      } catch (e) {
-        expect(e).toBeInstanceOf(RoutingError);
-        const err = e as RoutingError;
-        expect(err.suggestions).toContain('Did you mean "deploy"?');
-      }
+      const result = program.eval('deply');
+      expect(result.error).toBeInstanceOf(RoutingError);
+      const err = result.error as RoutingError;
+      expect(err.suggestions).toContain('Did you mean "deploy"?');
     });
 
     it('should be thrown when command not found in run()', () => {
       const program = createPadrone('app').command('deploy', (c) => c.action(() => 'ok'));
 
-      expect(() => program.run('nonexistent' as any, {})).toThrow(RoutingError);
+      const result = program.run('nonexistent' as any, {});
+      expect(result.error).toBeInstanceOf(RoutingError);
     });
 
     it('should be thrown when command has no action in run()', () => {
       const program = createPadrone('app').command('empty', (c) => c);
 
-      expect(() => program.run('empty', undefined as any)).toThrow(RoutingError);
+      const result = program.run('empty', undefined as any);
+      expect(result.error).toBeInstanceOf(RoutingError);
+      expect((result.error as Error).message).toContain('has no action');
     });
   });
 
@@ -122,17 +122,13 @@ describe('structured errors', () => {
 
       const p = createPadrone('test').command('fetch', (c) => c.arguments(z.object({ url: z.url() })).action((args) => args));
 
-      try {
-        p.cli();
-        expect.unreachable('Expected cli() to throw');
-      } catch (e) {
-        expect(e).toBeInstanceOf(ValidationError);
-        const err = e as ValidationError;
-        expect(err.issues.length).toBeGreaterThan(0);
-        expect(err.command).toBe('fetch');
-      } finally {
-        process.argv = originalArgv;
-      }
+      const result = p.cli();
+      expect(result.error).toBeInstanceOf(ValidationError);
+      const err = result.error as ValidationError;
+      expect(err.issues.length).toBeGreaterThan(0);
+      expect(err.command).toBe('fetch');
+
+      process.argv = originalArgv;
     });
 
     it('should NOT be thrown by eval() on validation errors (soft mode)', () => {
@@ -175,16 +171,12 @@ describe('structured errors', () => {
         }),
       );
 
-      try {
-        program.eval('deploy');
-        expect.unreachable('should have thrown');
-      } catch (e) {
-        expect(e).toBeInstanceOf(ActionError);
-        const err = e as ActionError;
-        expect(err.message).toBe('Missing environment');
-        expect(err.exitCode).toBe(1);
-        expect(err.suggestions).toContain('Use --env production or --env staging');
-      }
+      const result = program.eval('deploy');
+      expect(result.error).toBeInstanceOf(ActionError);
+      const err = result.error as ActionError;
+      expect(err.message).toBe('Missing environment');
+      expect(err.exitCode).toBe(1);
+      expect(err.suggestions).toContain('Use --env production or --env staging');
     });
 
     it('should propagate through eval without being swallowed', () => {
@@ -194,13 +186,9 @@ describe('structured errors', () => {
         }),
       );
 
-      try {
-        program.eval('fail');
-        expect.unreachable('should have thrown');
-      } catch (e) {
-        expect(e).toBeInstanceOf(ActionError);
-        expect((e as ActionError).exitCode).toBe(42);
-      }
+      const result = program.eval('fail');
+      expect(result.error).toBeInstanceOf(ActionError);
+      expect((result.error as ActionError).exitCode).toBe(42);
     });
   });
 

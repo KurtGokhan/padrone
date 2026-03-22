@@ -115,7 +115,7 @@ describe('plugins', () => {
         });
 
       const result = errorProgram.eval('fail');
-      expect(result.result as string).toBe('caught');
+      expect(result.result! as string).toBe('caught');
     });
   });
 
@@ -155,7 +155,7 @@ describe('plugins', () => {
       const program = makeProgram().use(plugin);
       const result = program.eval('hi World');
 
-      expect(result.result as string).toBe('Hello, World!');
+      expect(result.result! as string).toBe('Hello, World!');
     });
   });
 
@@ -650,7 +650,7 @@ describe('plugins', () => {
         });
 
       const result = errorProgram.eval('fail');
-      expect(result.result as string).toBe('caught: boom');
+      expect(result.result! as string).toBe('caught: boom');
     });
 
     it('should allow transforming errors', () => {
@@ -667,7 +667,9 @@ describe('plugins', () => {
           },
         });
 
-      expect(() => errorProgram.eval('fail')).toThrow('transformed: original');
+      const result = errorProgram.eval('fail');
+      expect(result.error).toBeInstanceOf(Error);
+      expect((result.error as Error).message).toBe('transformed: original');
     });
 
     it('should pass to next error handler via next()', () => {
@@ -697,7 +699,7 @@ describe('plugins', () => {
         });
 
       const result = errorProgram.eval('fail');
-      expect(result.result as string).toBe('suppressed');
+      expect(result.result! as string).toBe('suppressed');
       expect(log).toEqual(['outer:before', 'inner:suppress', 'outer:after']);
     });
 
@@ -718,7 +720,9 @@ describe('plugins', () => {
           },
         });
 
-      expect(() => errorProgram.eval('fail')).toThrow('boom');
+      const result = errorProgram.eval('fail');
+      expect(result.error).toBeInstanceOf(Error);
+      expect((result.error as Error).message).toBe('boom');
       expect(log).toEqual(['logged: boom']);
     });
 
@@ -795,7 +799,9 @@ describe('plugins', () => {
           },
         });
 
-      expect(() => errorProgram.eval('fail')).toThrow('boom');
+      const result = errorProgram.eval('fail');
+      expect(result.error).toBeInstanceOf(Error);
+      expect((result.error as Error).message).toBe('boom');
       expect(log).toEqual(['shutdown:error=boom']);
     });
 
@@ -821,7 +827,7 @@ describe('plugins', () => {
         });
 
       const result = errorProgram.eval('fail');
-      expect(result.result as string).toBe('recovered');
+      expect(result.result! as string).toBe('recovered');
       expect(log).toEqual(['error:suppress', 'shutdown:error=undefined:result=recovered']);
     });
 
@@ -928,7 +934,7 @@ describe('plugins', () => {
         });
 
       const result = program.eval('fail');
-      expect(result.result as string).toBe('recovered');
+      expect(result.result! as string).toBe('recovered');
       expect(log).toEqual(['start', 'error:boom', 'shutdown']);
     });
 

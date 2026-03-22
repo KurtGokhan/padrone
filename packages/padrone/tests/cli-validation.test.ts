@@ -152,7 +152,8 @@ describe('CLI validation improvements', () => {
         })
         .command('list', (c) => c.arguments(z.object({ status: z.string().optional() })).action((args) => args));
 
-      expect(() => program.cli()).toThrow(ValidationError);
+      const result = program.cli();
+      expect(result.error).toBeInstanceOf(ValidationError);
     });
 
     it('should not flag framework keys like --config', () => {
@@ -178,10 +179,10 @@ describe('CLI validation improvements', () => {
 
       const result = program.eval('list --statsu pending');
       expect(result.argsResult?.issues).toBeDefined();
-      const issue = result.argsResult!.issues![0]!;
-      expect(issue.message).toContain('Unknown option');
-      expect(issue.message).toContain('statsu');
-      expect(issue.message).toContain('Did you mean "status"');
+      const issue = result.argsResult?.issues?.[0];
+      expect(issue?.message).toContain('Unknown option');
+      expect(issue?.message).toContain('statsu');
+      expect(issue?.message).toContain('Did you mean "status"');
     });
 
     it('should suggest similar option for misspelling', () => {
@@ -191,7 +192,7 @@ describe('CLI validation improvements', () => {
 
       const result = program.eval('list --vrebose');
       expect(result.argsResult?.issues).toBeDefined();
-      expect(result.argsResult!.issues![0]!.message).toContain('Did you mean "verbose"');
+      expect(result.argsResult?.issues?.[0]?.message).toContain('Did you mean "verbose"');
     });
 
     it('should report unknown option without suggestion when too different', () => {
@@ -201,8 +202,8 @@ describe('CLI validation improvements', () => {
 
       const result = program.eval('list --xyz value');
       expect(result.argsResult?.issues).toBeDefined();
-      expect(result.argsResult!.issues![0]!.message).toContain('Unknown option: "xyz"');
-      expect(result.argsResult!.issues![0]!.message).not.toContain('Did you mean');
+      expect(result.argsResult?.issues?.[0]?.message).toContain('Unknown option: "xyz"');
+      expect(result.argsResult?.issues?.[0]?.message).not.toContain('Did you mean');
     });
 
     it('should suggest in hard mode (cli)', () => {
@@ -214,11 +215,8 @@ describe('CLI validation improvements', () => {
         })
         .command('run', (c) => c.arguments(z.object({ verbose: z.boolean().optional() })).action(() => 'ran'));
 
-      try {
-        program.cli();
-      } catch {
-        // expected
-      }
+      const result = program.cli();
+      expect(result.error).toBeInstanceOf(ValidationError);
       expect(errors.some((e) => e.includes('Did you mean "verbose"'))).toBe(true);
     });
   });
@@ -292,7 +290,9 @@ describe('CLI validation improvements', () => {
         .command('show', (c) => c.action(() => 'shown'))
         .command('add', (c) => c.action(() => 'added'));
 
-      expect(() => program.eval('lis')).toThrow(/Did you mean "list"/);
+      const result = program.eval('lis');
+      expect(result.error).toBeInstanceOf(RoutingError);
+      expect((result.error as Error).message).toMatch(/Did you mean "list"/);
     });
 
     it('should include the unknown command name in the error', () => {
@@ -300,7 +300,9 @@ describe('CLI validation improvements', () => {
         .command('list', (c) => c.action(() => 'listed'))
         .command('show', (c) => c.action(() => 'shown'));
 
-      expect(() => program.eval('lis')).toThrow(/Unknown command: lis/);
+      const result = program.eval('lis');
+      expect(result.error).toBeInstanceOf(RoutingError);
+      expect((result.error as Error).message).toMatch(/Unknown command: lis/);
     });
 
     it('should show compact available commands list in hard mode when suggestion exists', () => {
@@ -315,11 +317,8 @@ describe('CLI validation improvements', () => {
         .command('list', (c) => c.action(() => 'listed'))
         .command('show', (c) => c.action(() => 'shown'));
 
-      try {
-        program.cli();
-      } catch {
-        // expected
-      }
+      const result = program.cli();
+      expect(result.error).toBeInstanceOf(RoutingError);
 
       // Suggestion goes to stderr, available commands to stdout (dimmed, not red)
       const hasSuggestion = errors.some((e) => e.includes('Did you mean "list"'));
@@ -338,11 +337,8 @@ describe('CLI validation improvements', () => {
         .command('list', (c) => c.action(() => 'listed'))
         .command('show', (c) => c.action(() => 'shown'));
 
-      try {
-        program.cli();
-      } catch {
-        // expected
-      }
+      const result = program.cli();
+      expect(result.error).toBeInstanceOf(RoutingError);
 
       // Should show full help (not compact)
       const hasAvailableCommands = errors.some((e) => e.includes('Available commands'));
@@ -354,14 +350,10 @@ describe('CLI validation improvements', () => {
         .command('deploy', (c) => c.action(() => 'deployed'))
         .command('list', (c) => c.action(() => 'listed'));
 
-      try {
-        program.eval('deply');
-        expect.unreachable('should have thrown');
-      } catch (e) {
-        expect(e).toBeInstanceOf(RoutingError);
-        const err = e as RoutingError;
-        expect(err.suggestions).toContain('Did you mean "deploy"?');
-      }
+      const result = program.eval('deply');
+      expect(result.error).toBeInstanceOf(RoutingError);
+      const err = result.error as RoutingError;
+      expect(err.suggestions).toContain('Did you mean "deploy"?');
     });
   });
 });
