@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'bun:test';
-import { generateDocs } from '../src/docs/index.ts';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import { existsSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { generateDocs, removeManPages, setupManPages } from '../src/docs/index.ts';
 import { createTasksProgram } from './common.ts';
 
 describe('docs', () => {
@@ -198,6 +200,63 @@ describe('docs', () => {
       const result = generateDocs(program, { format: 'man' });
       const showPage = result.pages.find((p) => p.command === 'show');
       expect(showPage!.content).toMatchSnapshot();
+    });
+  });
+
+  describe('setupManPages', () => {
+    const testManDir = join(import.meta.dir, '..', '.test-man');
+    const origXdg = process.env.XDG_DATA_HOME;
+
+    beforeAll(() => {
+      process.env.XDG_DATA_HOME = testManDir;
+    });
+
+    afterAll(() => {
+      if (origXdg !== undefined) process.env.XDG_DATA_HOME = origXdg;
+      else delete process.env.XDG_DATA_HOME;
+      if (existsSync(testManDir)) rmSync(testManDir, { recursive: true });
+    });
+
+    it('should install man pages to XDG_DATA_HOME', () => {
+      const result = setupManPages(program);
+
+      expect(result.dir).toBe(join(testManDir, 'man', 'man1'));
+      expect(result.written.length).toBeGreaterThan(0);
+      expect(result.updated).toBe(false);
+
+      // Root page should be named after the program
+      expect(result.written).toContain('padrone-test.1');
+
+      // Subcommand pages should use hyphenated names
+      expect(result.written).toContain('show.1');
+      expect(result.written).toContain('list.1');
+
+      // Files should actually exist
+      for (const filename of result.written) {
+        expect(existsSync(join(result.dir, filename))).toBe(true);
+      }
+    });
+
+    it('should report updated=true when reinstalling', () => {
+      const result = setupManPages(program);
+      expect(result.updated).toBe(true);
+    });
+
+    it('should remove installed man pages', () => {
+      const result = removeManPages(program);
+
+      expect(result.removed.length).toBeGreaterThan(0);
+      expect(result.removed).toContain('padrone-test.1');
+
+      // Files should be gone
+      for (const filename of result.removed) {
+        expect(existsSync(join(result.dir, filename))).toBe(false);
+      }
+    });
+
+    it('should handle remove when no pages exist', () => {
+      const result = removeManPages(program);
+      expect(result.removed).toHaveLength(0);
     });
   });
 });

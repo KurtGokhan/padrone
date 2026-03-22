@@ -24,6 +24,7 @@ Built-in:
     --format <format>         Output format (text, ansi, json, markdown, html)
   version, -v, --version      Show version information
   completion [shell]          Generate shell completions (bash, zsh, fish, powershell)
+  man                         Show or install man pages (--setup to install, --remove to uninstall)
   [command] --repl            Start interactive REPL scoped to a command
 "
 `;
@@ -52,6 +53,7 @@ Built-in:
     --format <format>         Output format (text, ansi, json, markdown, html)
   version, -v, --version      Show version information
   completion [shell]          Generate shell completions (bash, zsh, fish, powershell)
+  man                         Show or install man pages (--setup to install, --remove to uninstall)
   [command] --repl            Start interactive REPL scoped to a command
 "
 `;
@@ -298,6 +300,7 @@ Built-in:
     --format <format>         Output format (text, ansi, json, markdown, html)
   version, -v, --version      Show version information
   completion [shell]          Generate shell completions (bash, zsh, fish, powershell)
+  man                         Show or install man pages (--setup to install, --remove to uninstall)
   [command] --repl            Start interactive REPL scoped to a command
 
 Subcommand Details:
@@ -950,6 +953,10 @@ exports[`help with full detail mode should generate full help with all nested co
       "description": "Generate shell completions (bash, zsh, fish, powershell)"
     },
     {
+      "name": "man",
+      "description": "Show or install man pages (--setup to install, --remove to uninstall)"
+    },
+    {
       "name": "[command] --repl",
       "description": "Start interactive REPL scoped to a command"
     }
@@ -1003,6 +1010,8 @@ exports[`help with full detail mode should generate full help with all nested co
   **version, -v, --version**      Show version information
 
   **completion [shell]**          Generate shell completions (bash, zsh, fish, powershell)
+
+  **man**                         Show or install man pages (--setup to install, --remove to uninstall)
 
   **[command] --repl**            Start interactive REPL scoped to a command
 
@@ -1413,6 +1422,7 @@ Built-in:
     --format <format>         Output format (text, ansi, json, markdown, html)
   version, -v, --version      Show version information
   completion [shell]          Generate shell completions (bash, zsh, fish, powershell)
+  man                         Show or install man pages (--setup to install, --remove to uninstall)
   [command] --repl            Start interactive REPL scoped to a command
 "
 `;

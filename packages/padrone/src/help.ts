@@ -318,6 +318,13 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
       });
     }
 
+    if (!findCommandByName('man', cmd.commands)) {
+      builtins.push({
+        name: 'man',
+        description: 'Show or install man pages (--setup to install, --remove to uninstall)',
+      });
+    }
+
     builtins.push({
       name: '[command] --repl',
       description: 'Start interactive REPL scoped to a command',

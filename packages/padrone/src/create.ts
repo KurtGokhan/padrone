@@ -512,6 +512,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     | { type: 'help'; command?: AnyPadroneCommand; detail?: DetailLevel; format?: FormatLevel }
     | { type: 'version' }
     | { type: 'completion'; shell?: ShellType; setup?: boolean }
+    | { type: 'man'; setup?: boolean; remove?: boolean }
     | { type: 'repl'; scope?: string }
     | null => {
     if (!input) return null;
@@ -615,6 +616,14 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       const shell = shellArg && validShells.includes(shellArg) ? shellArg : undefined;
       const setup = args.some((p) => p.type === 'named' && keyIs(p.key, 'setup'));
       return { type: 'completion', shell, setup };
+    }
+
+    // Check for 'man' command (only if user hasn't defined one)
+    const userManCommand = findCommandByName('man', existingCommand.commands);
+    if (!userManCommand && normalizedTerms[0] === 'man') {
+      const setup = args.some((p) => p.type === 'named' && keyIs(p.key, 'setup'));
+      const remove = args.some((p) => p.type === 'named' && keyIs(p.key, 'remove'));
+      return { type: 'man', setup, remove };
     }
 
     // Handle help flag - find the command being requested
@@ -722,6 +731,43 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             command: existingCommand,
             args: undefined,
             result: completionScript,
+          });
+        }) as any;
+      }
+
+      if (builtin.type === 'man') {
+        return import('./docs/index.ts').then(({ setupManPages, removeManPages, generateDocs }) => {
+          if (builtin.setup) {
+            const result = setupManPages(existingCommand);
+            const message = `${result.updated ? 'Updated' : 'Installed'} ${result.written.length} man page(s) in ${result.dir}`;
+            runtime.output(message);
+            return withDrain({
+              command: existingCommand,
+              args: undefined,
+              result: message,
+            });
+          }
+          if (builtin.remove) {
+            const result = removeManPages(existingCommand);
+            const message =
+              result.removed.length > 0
+                ? `Removed ${result.removed.length} man page(s) from ${result.dir}`
+                : 'No man pages found to remove.';
+            runtime.output(message);
+            return withDrain({
+              command: existingCommand,
+              args: undefined,
+              result: message,
+            });
+          }
+          // Default: generate man page for the root command and print it
+          const result = generateDocs(existingCommand, { format: 'man' });
+          const manPage = result.pages[0]?.content ?? '';
+          runtime.output(manPage);
+          return withDrain({
+            command: existingCommand,
+            args: undefined,
+            result: manPage,
           });
         }) as any;
       }

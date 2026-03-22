@@ -605,3 +605,95 @@ export function generateDocs(program: object, options: DocsOptions = {}): DocsRe
 
   return result;
 }
+
+// ============================================================================
+// Man Page Installation
+// ============================================================================
+
+export type SetupManPagesResult = {
+  /** Directory where man pages were written. */
+  dir: string;
+  /** Man page files that were written. */
+  written: string[];
+  /** Whether existing pages were overwritten (true) or newly created (false). */
+  updated: boolean;
+};
+
+/**
+ * Returns the local man page directory for the given section.
+ * Uses `~/.local/share/man/man<section>` (XDG convention).
+ */
+function getManPageDir(section = 1): string {
+  const { homedir } = require('node:os') as typeof import('node:os');
+  const { join: joinPath } = require('node:path') as typeof import('node:path');
+  return joinPath(process.env.XDG_DATA_HOME || joinPath(homedir(), '.local', 'share'), 'man', `man${section}`);
+}
+
+/**
+ * Converts a command name to a man page filename.
+ * "myapp" → "myapp.1", "myapp deploy" → "myapp-deploy.1"
+ */
+function manPageFilename(commandName: string, section = 1): string {
+  return `${commandName.replace(/\s+/g, '-')}.${section}`;
+}
+
+/**
+ * Installs man pages for a Padrone CLI program into the local man directory.
+ * Generates man pages for all commands and writes them to `~/.local/share/man/man1/`.
+ *
+ * After installation, `man <program>` and `man <program>-<subcommand>` should work
+ * (assuming `~/.local/share/man` is in `MANPATH` or `manpath` picks it up).
+ */
+export function setupManPages(program: object): SetupManPagesResult {
+  const cmd = resolveCommand(program);
+  const allInfos = collectAllHelpInfo(cmd, false);
+  const programName = cmd.name || 'program';
+  const manDir = getManPageDir(1);
+
+  mkdirSync(manDir, { recursive: true });
+
+  const written: string[] = [];
+  let updated = false;
+
+  for (let i = 0; i < allInfos.length; i++) {
+    const info = allInfos[i]!;
+    const depth = i === 0 ? 0 : info.name.split(/\s+/).length;
+    const commandName = info.name === '<root>' || !info.name ? programName : info.name;
+    const filename = manPageFilename(commandName);
+    const fullPath = join(manDir, filename);
+
+    if (existsSync(fullPath)) updated = true;
+
+    const content = generateManPage(info, depth, programName);
+    writeFileSync(fullPath, content, 'utf-8');
+    written.push(filename);
+  }
+
+  return { dir: manDir, written, updated };
+}
+
+/**
+ * Removes installed man pages for a Padrone CLI program.
+ */
+export function removeManPages(program: object): { dir: string; removed: string[] } {
+  const { unlinkSync } = require('node:fs') as typeof import('node:fs');
+  const cmd = resolveCommand(program);
+  const allInfos = collectAllHelpInfo(cmd, false);
+  const programName = cmd.name || 'program';
+  const manDir = getManPageDir(1);
+  const removed: string[] = [];
+
+  for (let i = 0; i < allInfos.length; i++) {
+    const info = allInfos[i]!;
+    const commandName = info.name === '<root>' || !info.name ? programName : info.name;
+    const filename = manPageFilename(commandName);
+    const fullPath = join(manDir, filename);
+
+    if (existsSync(fullPath)) {
+      unlinkSync(fullPath);
+      removed.push(filename);
+    }
+  }
+
+  return { dir: manDir, removed };
+}
