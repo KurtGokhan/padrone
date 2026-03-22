@@ -3,6 +3,7 @@ import type { Schema } from 'ai';
 import { coerceArgs, detectUnknownArgs, extractSchemaMetadata, parsePositionalConfig, parseStdinConfig, preprocessArgs } from './args.ts';
 import {
   commandSymbol,
+  createProgress,
   errorResult,
   findCommandByName,
   getCommandRuntime,
@@ -68,11 +69,15 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       : inputCommand;
 
   /** Creates the action context passed to command handlers. References `builder` which is defined later but only called at runtime. */
-  const createActionContext = (cmd: AnyPadroneCommand): PadroneActionContext => ({
-    runtime: getCommandRuntime(cmd),
-    command: cmd,
-    program: builder as any,
-  });
+  const createActionContext = (cmd: AnyPadroneCommand): PadroneActionContext => {
+    const runtime = getCommandRuntime(cmd);
+    return {
+      runtime,
+      command: cmd,
+      program: builder as any,
+      progress: (message: string) => createProgress(runtime, message),
+    };
+  };
 
   const find: AnyPadroneProgram['find'] = (command) => {
     if (typeof command !== 'string') return findCommandByName(command.path, existingCommand.commands) as any;
@@ -1115,29 +1120,89 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
           const coreExecute = (): PluginExecuteResult => {
             const handler = command.action ?? noop;
-            const ctx = evalOptions?.runtime ? { ...createActionContext(command), runtime } : createActionContext(command);
+            const ctx: PadroneActionContext = {
+              ...createActionContext(command),
+              runtime,
+            };
             const result = handler(executeCtx.args as any, ctx);
             return { result };
           };
 
+          // Auto-progress: start before execute, wrap output to pause/resume around writes
+          const progressConfig = command.progress;
+          if (progressConfig && runtime.progress) {
+            const isObj = typeof progressConfig === 'object';
+            const defaultMsg = typeof progressConfig === 'string' ? progressConfig : `Running ${command.name}...`;
+            const msg = isObj ? (progressConfig.progress ?? defaultMsg) : defaultMsg;
+            state._progressSuccess = isObj ? progressConfig.success : undefined;
+            state._progressError = isObj ? progressConfig.error : undefined;
+            const indicator = createProgress(runtime, msg);
+            state._progress = indicator;
+
+            const originalOutput = runtime.output;
+            const originalError = runtime.error;
+            runtime.output = (...args: unknown[]) => {
+              indicator.pause();
+              originalOutput(...args);
+              indicator.resume();
+            };
+            runtime.error = (text: string) => {
+              indicator.pause();
+              originalError(text);
+              indicator.resume();
+            };
+            state._restoreOutput = () => {
+              runtime.output = originalOutput;
+              runtime.error = originalError;
+            };
+          }
+
           const executedOrPromise = runPluginChain('execute', commandPlugins, executeCtx, coreExecute);
 
           return thenMaybe(executedOrPromise, (e) => {
-            const commandResult = withDrain({
-              command: command as any,
-              args: v.args,
-              argsResult: v.argsResult,
-              result: e.result,
-            });
-
-            if (command.autoOutput ?? evalOptions?.autoOutput ?? true) {
-              const outputOrPromise = outputValue(e.result, runtime.output);
-              if (outputOrPromise instanceof Promise) {
-                return outputOrPromise.then(() => commandResult);
+            const finalize = (result: unknown) => {
+              // Succeed auto-progress before auto-output so the spinner clears first
+              const indicator = state._progress as import('./runtime.ts').PadroneProgressIndicator | undefined;
+              if (indicator) {
+                indicator.succeed(state._progressSuccess as string | undefined);
+                (state._restoreOutput as (() => void) | undefined)?.();
+                state._progress = undefined;
+                state._restoreOutput = undefined;
               }
+
+              const commandResult = withDrain({
+                command: command as any,
+                args: v.args,
+                argsResult: v.argsResult,
+                result,
+              });
+
+              if (command.autoOutput ?? evalOptions?.autoOutput ?? true) {
+                const outputOrPromise = outputValue(result, runtime.output);
+                if (outputOrPromise instanceof Promise) {
+                  return outputOrPromise.then(() => commandResult);
+                }
+              }
+
+              return commandResult;
+            };
+
+            // If the action returned a Promise, wait for it before finalizing
+            if (e.result instanceof Promise) {
+              return e.result.then(finalize, (err: unknown) => {
+                const indicator = state._progress as import('./runtime.ts').PadroneProgressIndicator | undefined;
+                if (indicator) {
+                  const errorMsg = (state._progressError as string | undefined) ?? (err instanceof Error ? err.message : String(err));
+                  indicator.fail(errorMsg);
+                  (state._restoreOutput as (() => void) | undefined)?.();
+                  state._progress = undefined;
+                  state._restoreOutput = undefined;
+                }
+                throw err;
+              });
             }
 
-            return commandResult;
+            return finalize(e.result);
           });
         };
 

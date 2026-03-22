@@ -239,6 +239,40 @@ export const tasksProgram = createPadrone('tasks')
         return `Task removed: ${args.id}`;
       }),
   )
+  .command('sync', (c) =>
+    c
+      .configure({ title: 'Sync tasks to remote', progress: 'Syncing tasks...' })
+      .async()
+      .action(async (args, ctx) => {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        ctx.runtime.output('Finalizing sync...');
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        const tasks = getTasks();
+        return `Synced ${tasks.length} task(s) to remote.`;
+      }),
+  )
+  .command('import', (c) =>
+    c
+      .configure({ title: 'Import tasks from a file' })
+      .arguments(
+        z.object({
+          file: z.string().describe('File path to import from'),
+        }),
+        { positional: ['file'] },
+      )
+      .action((args, ctx) => {
+        const progress = ctx.progress('Importing tasks...');
+        // Simulate reading and importing
+        const count = 3;
+        for (let i = 1; i <= count; i++) {
+          addTask({ title: `Imported task ${i} from ${args.file}`, priority: 'medium', tags: ['imported'] });
+          progress.update(`Imported ${i}/${count} tasks...`);
+        }
+        progress.succeed(`Imported ${count} tasks from ${args.file}`);
+        return `Successfully imported ${count} task(s) from ${args.file}`;
+      }),
+  )
   .command('advanced', (c) =>
     c
       .configure({ title: 'Advanced task operations' })
@@ -259,19 +293,14 @@ export const tasksProgram = createPadrone('tasks')
   );
 
 if (import.meta.main) {
-  try {
-    await (await tasksProgram.cli())?.result;
-  } catch {
-    // Error handling
-  } finally {
-    if (telemetry.entries.length > 0) {
-      console.log('\n── Telemetry ──');
-      for (const entry of telemetry.entries) {
-        const time = entry.startTime.toLocaleTimeString();
-        console.log(`  ${time}  ${entry.command.padEnd(20)} ${entry.duration.toFixed(1)}ms`);
-      }
-      console.log(`  Total: ${telemetry.entries.length} command(s)`);
+  await tasksProgram.cli().drain();
+  if (telemetry.entries.length > 0) {
+    console.log('\n── Telemetry ──');
+    for (const entry of telemetry.entries) {
+      const time = entry.startTime.toLocaleTimeString();
+      console.log(`  ${time}  ${entry.command.padEnd(20)} ${entry.duration.toFixed(1)}ms`);
     }
+    console.log(`  Total: ${telemetry.entries.length} command(s)`);
   }
 }
 

@@ -1,5 +1,5 @@
 import { extractSchemaMetadata } from './args.ts';
-import { type ResolvedPadroneRuntime, resolveRuntime } from './runtime.ts';
+import { type PadroneProgressIndicator, type ResolvedPadroneRuntime, resolveRuntime } from './runtime.ts';
 import type { Thenable } from './type-utils.ts';
 import type {
   AnyPadroneCommand,
@@ -49,6 +49,7 @@ export const configKeys = [
   'needsApproval',
   'autoOutput',
   'updateCheck',
+  'progress',
 ] as const;
 
 /**
@@ -337,10 +338,48 @@ export function wrapWithLifecycle<T>(
   const hasError = plugins.some((p) => p.error);
   const hasShutdown = plugins.some((p) => p.shutdown);
 
-  // Fast path: no lifecycle plugins
-  if (!hasStart && !hasError && !hasShutdown) return pipeline();
+  const cleanupProgress = (error?: unknown) => {
+    const indicator = state._progress as PadroneProgressIndicator | undefined;
+    if (indicator) {
+      if (error !== undefined) {
+        const errorMsg = (state._progressError as string | undefined) ?? (error instanceof Error ? error.message : String(error));
+        indicator.fail(errorMsg);
+      } else {
+        indicator.succeed(state._progressSuccess as string | undefined);
+      }
+      (state._restoreOutput as (() => void) | undefined)?.();
+      state._progress = undefined;
+      state._restoreOutput = undefined;
+    }
+  };
+
+  // Fast path: no lifecycle plugins — still need progress cleanup
+  if (!hasStart && !hasError && !hasShutdown) {
+    let result: T | Promise<T>;
+    try {
+      result = pipeline();
+    } catch (e) {
+      cleanupProgress(e);
+      throw e;
+    }
+    if (result instanceof Promise) {
+      return result.then(
+        (r) => {
+          cleanupProgress();
+          return r;
+        },
+        (e) => {
+          cleanupProgress(e);
+          throw e;
+        },
+      );
+    }
+    cleanupProgress();
+    return result;
+  }
 
   const runShutdown = (error?: unknown, result?: unknown) => {
+    cleanupProgress(error);
     if (!hasShutdown) return;
     const ctx: PluginShutdownContext = { command, state, error, result };
     return runPluginChain('shutdown', plugins, ctx, () => {});
@@ -403,6 +442,21 @@ export function getCommandRuntime(cmd: AnyPadroneCommand): ResolvedPadroneRuntim
     current = current.parent;
   }
   return resolveRuntime();
+}
+
+/** No-op progress indicator returned when the runtime doesn't provide a `progress` factory. */
+const noopIndicator: PadroneProgressIndicator = {
+  update() {},
+  succeed() {},
+  fail() {},
+  stop() {},
+  pause() {},
+  resume() {},
+};
+
+/** Creates a progress indicator from the runtime, or returns a no-op if unavailable. */
+export function createProgress(runtime: ResolvedPadroneRuntime, message: string): PadroneProgressIndicator {
+  return runtime.progress?.(message) ?? noopIndicator;
 }
 
 export function isAsyncBranded(schema: unknown): boolean {

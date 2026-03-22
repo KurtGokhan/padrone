@@ -2,6 +2,25 @@ import type { HelpFormat } from './formatter.ts';
 import { findConfigFile, loadConfigFile } from './utils.ts';
 
 /**
+ * A progress indicator instance (spinner, progress bar, etc).
+ * Created by the runtime's `progress` factory and used to show loading state during command execution.
+ */
+export type PadroneProgressIndicator = {
+  /** Update the displayed message. */
+  update: (message: string) => void;
+  /** Mark as succeeded and stop. */
+  succeed: (message?: string) => void;
+  /** Mark as failed and stop. */
+  fail: (message?: string) => void;
+  /** Stop without success/fail status. */
+  stop: () => void;
+  /** Temporarily hide the indicator so other output can be written cleanly. */
+  pause: () => void;
+  /** Redraw the indicator after a `pause()`. */
+  resume: () => void;
+};
+
+/**
  * Controls interactive prompting capability and default behavior at the runtime level.
  * - `'supported'` — capable; caller decides.
  * - `'unsupported'` — hard veto; nothing can override.
@@ -82,6 +101,12 @@ export type PadroneRuntime = {
    */
   prompt?: (config: InteractivePromptConfig) => Promise<unknown>;
   /**
+   * Create a progress indicator (spinner, progress bar, etc).
+   * Used by commands that set `progress` in their config, or manually via `ctx.progress()` in actions.
+   * When not provided, auto-progress is silently skipped and `ctx.progress()` returns a no-op indicator.
+   */
+  progress?: (message: string) => PadroneProgressIndicator;
+  /**
    * Read a line of input from the user. Used by `repl()` for custom runtimes
    * (web UIs, chat interfaces, testing).
    * Returns the input string, `null` on EOF (e.g. Ctrl+D, closed connection),
@@ -97,8 +122,8 @@ export type PadroneRuntime = {
  * Internal resolved runtime where all fields are guaranteed to be present.
  * The `prompt`, `interactive`, and `readLine` fields remain optional since not all runtimes provide them.
  */
-export type ResolvedPadroneRuntime = Required<Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin'>> &
-  Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin'>;
+export type ResolvedPadroneRuntime = Required<Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress'>> &
+  Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress'>;
 
 /**
  * Default terminal prompt implementation powered by Enquirer.
@@ -255,6 +280,89 @@ function createDefaultStdin(): NonNullable<PadroneRuntime['stdin']> {
   };
 }
 
+const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
+/**
+ * Creates a built-in terminal spinner. Returns a no-op indicator in non-TTY/CI environments.
+ */
+function createTerminalSpinner(message: string): PadroneProgressIndicator {
+  if (typeof process === 'undefined' || !process.stderr?.isTTY) {
+    // Non-TTY: just log start/end, no animation
+    return {
+      update() {},
+      succeed(msg) {
+        if (msg) process?.stderr?.write?.(`✔ ${msg}\n`);
+      },
+      fail(msg) {
+        if (msg) process?.stderr?.write?.(`✖ ${msg}\n`);
+      },
+      stop() {},
+      pause() {},
+      resume() {},
+    };
+  }
+
+  let frame = 0;
+  let text = message;
+  let stopped = false;
+  let paused = false;
+
+  const writeStderr = process.stderr.write.bind(process.stderr);
+  const writeStdout = process.stdout.write.bind(process.stdout);
+  const clearLine = () => writeStderr('\x1b[2K\r');
+  const render = () => {
+    if (paused || stopped) return;
+    writeStderr(`\x1b[2K\r${spinnerFrames[frame]!} ${text}`);
+  };
+
+  const timer = setInterval(() => {
+    frame = (frame + 1) % spinnerFrames.length;
+    render();
+  }, 80);
+
+  render();
+
+  const clear = () => {
+    if (stopped) return;
+    stopped = true;
+    paused = false;
+    clearInterval(timer);
+    clearLine();
+  };
+
+  return {
+    update(msg) {
+      if (stopped) return;
+      text = msg;
+      render();
+    },
+    succeed(msg) {
+      clear();
+      writeStderr(`✔ ${msg || text}\n`);
+    },
+    fail(msg) {
+      clear();
+      writeStderr(`✖ ${msg || text}\n`);
+    },
+    stop() {
+      clear();
+    },
+    pause() {
+      if (stopped || paused) return;
+      paused = true;
+      // Clear on both streams — stderr (where the spinner rendered) and
+      // stdout (where console.log writes) to avoid buffering race conditions.
+      clearLine();
+      writeStdout('\x1b[2K\r');
+    },
+    resume() {
+      if (stopped || !paused) return;
+      paused = false;
+      render();
+    },
+  };
+}
+
 export function createDefaultRuntime(): ResolvedPadroneRuntime {
   return {
     output: (...args) => console.log(...args),
@@ -266,6 +374,7 @@ export function createDefaultRuntime(): ResolvedPadroneRuntime {
     findFile: findConfigFile,
     prompt: defaultTerminalPrompt,
     interactive: detectInteractiveMode(),
+    progress: createTerminalSpinner,
   };
 }
 
@@ -299,6 +408,7 @@ export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime
     interactive: partial.interactive ?? defaults.interactive,
     prompt: partial.prompt ?? defaults.prompt,
     readLine: partial.readLine ?? defaults.readLine,
+    progress: partial.progress ?? defaults.progress,
     stdin: partial.stdin,
   };
 }

@@ -2,7 +2,7 @@ import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/sp
 import type { Tool } from 'ai';
 import type { PadroneArgsSchemaMeta } from './args.ts';
 import type { HelpPreferences } from './help.ts';
-import type { PadroneRuntime, ResolvedPadroneRuntime } from './runtime.ts';
+import type { PadroneProgressIndicator, PadroneRuntime, ResolvedPadroneRuntime } from './runtime.ts';
 import type {
   Drained,
   FindDirectChild,
@@ -37,6 +37,11 @@ export type PadroneActionContext = {
   command: AnyPadroneCommand;
   /** The root program instance. */
   program: AnyPadroneProgram;
+  /**
+   * Create a progress indicator for manual control in actions.
+   * Returns a no-op indicator if the runtime doesn't provide a `progress` factory.
+   */
+  progress: (message: string) => PadroneProgressIndicator;
 };
 
 /**
@@ -181,6 +186,16 @@ export type PadroneCommand<
   hidden?: boolean;
   needsApproval?: boolean | ((args: TArgs) => Promise<boolean> | boolean);
   autoOutput?: boolean;
+  /**
+   * Auto-start a progress indicator when the command's execute phase begins.
+   * - `true` — generic message based on command name.
+   * - `string` — custom message for all states.
+   * - `PadroneProgressConfig` — separate messages for progress, success, and error states.
+   *
+   * The indicator is automatically stopped on success (`.succeed()`) or failure (`.fail()`).
+   * Requires a `progress` factory on the runtime — silently skipped if not available.
+   */
+  progress?: boolean | string | PadroneProgressPrefs;
   argsSchema?: TArgs;
   configSchema?: TConfig;
   envSchema?: TEnv;
@@ -234,6 +249,18 @@ type CommandTypesBase = {
 /**
  * Configuration for a command.
  */
+/**
+ * Detailed progress indicator configuration with per-state messages.
+ */
+export type PadroneProgressPrefs = {
+  /** Message shown while the command is running (the spinner text). */
+  progress?: string;
+  /** Message shown when the command succeeds. Defaults to the `progress` message. */
+  success?: string;
+  /** Message shown when the command fails. Defaults to the error message. */
+  error?: string;
+};
+
 export type PadroneCommandConfig = {
   /** A short title for the command, displayed in help. */
   title?: string;
@@ -251,6 +278,16 @@ export type PadroneCommandConfig = {
    * See `PadroneEvalPreferences.autoOutput` for serialization details.
    */
   autoOutput?: boolean;
+  /**
+   * Auto-start a progress indicator when the command's execute phase begins.
+   * - `true` — generic message based on command name.
+   * - `string` — custom message for all states.
+   * - `PadroneProgressConfig` — separate messages for progress, success, and error states.
+   *
+   * The indicator is automatically stopped on success (`.succeed()`) or failure (`.fail()`).
+   * Requires a `progress` factory on the runtime — silently skipped if not available.
+   */
+  progress?: boolean | string | PadroneProgressPrefs;
 };
 
 /**
