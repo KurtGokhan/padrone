@@ -153,33 +153,31 @@ export function createWrapHandler<TCommandArgs extends PadroneSchema, TWrapArgs 
     const allArgs = [...fixedArgs, ...regularArgs];
 
     // Execute the external command
-    const proc = Bun.spawn([command, ...allArgs], {
-      stdout: inheritStdio ? 'inherit' : 'pipe',
-      stderr: inheritStdio ? 'inherit' : 'pipe',
-      stdin: inheritStdio ? 'inherit' : 'ignore',
+    const { spawn } = await import('node:child_process');
+
+    return new Promise<WrapResult>((resolve, reject) => {
+      const proc = spawn(command, allArgs, {
+        stdio: inheritStdio ? 'inherit' : ['ignore', 'pipe', 'pipe'],
+      });
+
+      const stdoutChunks: Buffer[] = [];
+      const stderrChunks: Buffer[] = [];
+
+      if (!inheritStdio) {
+        proc.stdout!.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
+        proc.stderr!.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
+      }
+
+      proc.on('error', reject);
+      proc.on('close', (code) => {
+        const exitCode = code ?? 1;
+        resolve({
+          exitCode,
+          stdout: inheritStdio ? undefined : Buffer.concat(stdoutChunks).toString(),
+          stderr: inheritStdio ? undefined : Buffer.concat(stderrChunks).toString(),
+          success: exitCode === 0,
+        });
+      });
     });
-
-    const exitCode = await proc.exited;
-
-    let stdout: string | undefined;
-    let stderr: string | undefined;
-
-    if (!inheritStdio) {
-      if (proc.stdout) {
-        const stdoutBuffer = await new Response(proc.stdout).arrayBuffer();
-        stdout = new TextDecoder().decode(stdoutBuffer);
-      }
-      if (proc.stderr) {
-        const stderrBuffer = await new Response(proc.stderr).arrayBuffer();
-        stderr = new TextDecoder().decode(stderrBuffer);
-      }
-    }
-
-    return {
-      exitCode,
-      stdout,
-      stderr,
-      success: exitCode === 0,
-    };
   };
 }
