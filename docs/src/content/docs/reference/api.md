@@ -295,7 +295,7 @@ The `.wrap()` method maintains full type safety:
    - Positional arguments: Follow the order specified in `config.positional`
    - Argument keys are used as-is with `--` prefix
 
-3. **Process Execution**: Uses `Bun.spawn()` to execute the external command with the generated arguments
+3. **Process Execution**: Uses `spawn` to execute the external command with the generated arguments
 
 ---
 

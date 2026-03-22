@@ -451,5 +451,4 @@ console.log('Deployment successful!');
 
 - The wrapped command must be available in the system's PATH or specified as an absolute path
 - Environment variables are not automatically passed to the wrapped command (you'll need to pass them explicitly if needed)
-- The wrap method uses `Bun.spawn()`, so it requires Bun runtime or a compatible environment
 - Argument keys are used as-is with `--` prefix - use Zod's `.transform()` for custom mappings

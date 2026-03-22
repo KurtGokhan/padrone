@@ -1,3 +1,6 @@
+import { execFile } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+
 import { parseBashCompletions } from './parsers/bash.ts';
 import { parseFishCompletions } from './parsers/fish.ts';
 import { parseHelpOutput } from './parsers/help.ts';
@@ -182,24 +185,12 @@ async function runHelp(command: string, args: string[], timeout: number): Promis
  */
 async function runCommand(command: string, args: string[], timeout: number): Promise<string | null> {
   try {
-    const proc = Bun.spawn([command, ...args], {
-      stdout: 'pipe',
-      stderr: 'pipe',
-      stdin: 'ignore',
+    const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>((resolve) => {
+      execFile(command, args, { timeout, maxBuffer: 10 * 1024 * 1024 }, (_error, stdout, stderr) => {
+        // Resolve even on non-zero exit — many CLIs exit non-zero on --help
+        resolve({ stdout: (stdout ?? '').trim(), stderr: (stderr ?? '').trim() });
+      });
     });
-
-    const timer = setTimeout(() => proc.kill(), timeout);
-
-    const [_exitCode, stdoutBuf, stderrBuf] = await Promise.all([
-      proc.exited,
-      new Response(proc.stdout).arrayBuffer(),
-      new Response(proc.stderr).arrayBuffer(),
-    ]);
-
-    clearTimeout(timer);
-
-    const stdout = new TextDecoder().decode(stdoutBuf).trim();
-    const stderr = new TextDecoder().decode(stderrBuf).trim();
 
     // Some CLIs output help to stderr, some exit non-zero on --help
     const combined = stdout || stderr;
@@ -242,10 +233,7 @@ async function getCompletionScript(command: string, shell: 'bash' | 'fish' | 'zs
 
   for (const path of paths) {
     try {
-      const file = Bun.file(path);
-      if (await file.exists()) {
-        return await file.text();
-      }
+      return await readFile(path, 'utf-8');
     } catch {}
   }
 
