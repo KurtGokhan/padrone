@@ -70,7 +70,7 @@ export const tasksProgram = createPadrone('tasks')
       .configure({ title: 'Add a new task' })
       .arguments(
         z.object({
-          title: z.string().describe('Task title'),
+          title: z.string().nonempty().describe('Task title'),
           priority: prioritySchema.optional().default('medium').describe('Task priority').meta({ flags: 'p' }),
           tags: z.array(z.string()).optional().default([]).describe('Tags for categorization').meta({ flags: 't' }),
           due: z.string().optional().describe('Due date (YYYY-MM-DD)').meta({ flags: 'd' }),

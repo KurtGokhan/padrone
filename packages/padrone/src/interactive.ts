@@ -45,6 +45,46 @@ export function detectPromptConfig(
 }
 
 /**
+ * Prompt a single field and validate it against the command's schema.
+ * Re-prompts with a warning until the user provides a valid value.
+ */
+async function promptWithValidation(
+  field: string,
+  config: InteractivePromptConfig,
+  currentData: Record<string, unknown>,
+  command: AnyPadroneCommand,
+  runtime: ResolvedPadroneRuntime,
+): Promise<unknown> {
+  let promptConfig = config;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const value = await runtime.prompt!(promptConfig);
+
+    if (!command.argsSchema) return value;
+
+    // Validate the full object with the new value to catch field-level issues
+    const testData = { ...currentData, [field]: value };
+    const validated = await command.argsSchema['~standard'].validate(testData);
+
+    if (!validated.issues) return value;
+
+    // Only keep issues whose path starts with this field
+    const fieldIssues = validated.issues.filter((issue: { path?: ReadonlyArray<PropertyKey> }) => {
+      const rootKey = issue.path?.[0];
+      return rootKey !== undefined && String(rootKey) === field;
+    });
+
+    if (fieldIssues.length === 0) return value;
+
+    // Warn the user and re-prompt with the invalid value as default
+    const messages = fieldIssues.map((i: { message: string }) => i.message).join('; ');
+    runtime.error(`Invalid value for "${field}": ${messages}`);
+    promptConfig = { ...config, default: value };
+  }
+}
+
+/**
  * Prompt for missing interactive fields.
  * Runs after env/config preprocessing and before schema validation.
  *
@@ -108,14 +148,14 @@ export async function promptInteractiveFields(
     }
   }
 
-  // Prompt each required interactive field
+  // Prompt each required interactive field with per-field validation
   for (const field of fieldsToPrompt) {
     const config = detectPromptConfig(field, jsonProperties[field], fieldDescriptions[field]);
     // When forced, use the current value as the default
     if (force && result[field] !== undefined) {
       config.default = result[field];
     }
-    result[field] = await runtime.prompt(config);
+    result[field] = await promptWithValidation(field, config, result, command, runtime);
   }
 
   // Determine optional interactive fields
@@ -160,7 +200,7 @@ export async function promptInteractiveFields(
         if (force && result[field] !== undefined) {
           config.default = result[field];
         }
-        result[field] = await runtime.prompt(config);
+        result[field] = await promptWithValidation(field, config, result, command, runtime);
       }
     }
   }

@@ -584,6 +584,126 @@ describe('Interactive', () => {
     });
   });
 
+  describe('per-field validation during prompts', () => {
+    it('should re-prompt when a required field value is invalid', async () => {
+      let callCount = 0;
+      const promptFn = mock(async (config: InteractivePromptConfig) => {
+        if (config.name === 'age') {
+          callCount++;
+          // First call returns invalid value (not a number string), second returns valid
+          return callCount === 1 ? 'not-a-number' : '25';
+        }
+        return undefined;
+      });
+      const errors: string[] = [];
+
+      const program = createPadrone('test')
+        .runtime({
+          interactive: 'supported',
+          prompt: promptFn,
+          error: (msg) => errors.push(msg),
+        })
+        .command('create', (c) =>
+          c
+            .arguments(
+              z.object({
+                age: z.coerce.number().min(1),
+              }),
+              { interactive: ['age'] },
+            )
+            .action((args) => args),
+        );
+
+      const result = await program.eval('create');
+
+      expect(result.args).toEqual({ age: 25 });
+      // Should have been called twice for 'age' (invalid then valid)
+      expect(callCount).toBe(2);
+      // Should have shown an error message
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0]).toContain('age');
+    });
+
+    it('should accept valid values on first try without re-prompting', async () => {
+      const promptFn = createMockPrompt({ name: 'Alice' });
+
+      const program = createPadrone('test')
+        .runtime({ interactive: 'supported', prompt: promptFn })
+        .command('create', (c) => c.arguments(z.object({ name: z.string().min(1) }), { interactive: ['name'] }).action((args) => args));
+
+      const result = await program.eval('create');
+
+      expect(result.args).toEqual({ name: 'Alice' });
+      expect(promptFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should re-prompt with invalid value as default', async () => {
+      const configs: InteractivePromptConfig[] = [];
+      let callCount = 0;
+      const promptFn = mock(async (config: InteractivePromptConfig) => {
+        configs.push(config);
+        callCount++;
+        if (config.name === 'email') {
+          return callCount === 1 ? '' : 'alice@example.com';
+        }
+        return undefined;
+      });
+
+      const program = createPadrone('test')
+        .runtime({
+          interactive: 'supported',
+          prompt: promptFn,
+          error: () => {},
+        })
+        .command('create', (c) => c.arguments(z.object({ email: z.string().min(1) }), { interactive: ['email'] }).action((args) => args));
+
+      await program.eval('create');
+
+      // Second prompt should have the invalid value as default
+      expect(configs[1]!.default).toBe('');
+    });
+
+    it('should validate optional interactive fields too', async () => {
+      let verboseCallCount = 0;
+      const promptFn = mock(async (config: InteractivePromptConfig) => {
+        if (config.name === 'name') return 'Alice';
+        if (config.name === '_optionalFields') return ['count'];
+        if (config.name === 'count') {
+          verboseCallCount++;
+          return verboseCallCount === 1 ? 'not-a-number' : '5';
+        }
+        return undefined;
+      });
+
+      const program = createPadrone('test')
+        .runtime({
+          interactive: 'supported',
+          prompt: promptFn,
+          error: () => {},
+        })
+        .command('create', (c) =>
+          c
+            .arguments(
+              z.object({
+                name: z.string(),
+                count: z.coerce.number().min(1).default(1),
+              }),
+              {
+                interactive: ['name'],
+                optionalInteractive: ['count'],
+              },
+            )
+            .action((args) => args),
+        );
+
+      const result = await program.eval('create');
+
+      expect(result.args).toEqual({ name: 'Alice', count: 5 });
+      // count should have been prompted twice (invalid then valid)
+      expect(verboseCallCount).toBe(2);
+    });
+  });
+
   describe('parse() should not trigger interactive prompts', () => {
     it('should not prompt during parse even with interactive config', async () => {
       const promptFn = createMockPrompt({ name: 'Alice' });

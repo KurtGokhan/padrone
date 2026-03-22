@@ -216,7 +216,7 @@ describe('progress', () => {
         .runtime({ progress: factory })
         .use({
           name: 'test-plugin',
-          execute: (ctx, next) => next(),
+          execute: (_ctx, next) => next(),
         })
         .command('cmd', (c) => c.progress('Working...').action(() => 'done'));
 
@@ -466,7 +466,7 @@ describe('progress', () => {
   describe('spinner options', () => {
     it('should pass spinner config to progress factory', () => {
       let receivedOptions: any;
-      const factory = (message: string, options?: any) => {
+      const factory = (_message: string, options?: any) => {
         receivedOptions = options;
         return {
           update() {},
@@ -488,7 +488,7 @@ describe('progress', () => {
 
     it('should not pass spinner options when not configured', () => {
       let receivedOptions: any = 'NOT_CALLED';
-      const factory = (message: string, options?: any) => {
+      const factory = (_message: string, options?: any) => {
         receivedOptions = options;
         return {
           update() {},
@@ -510,7 +510,7 @@ describe('progress', () => {
 
     it('should pass spinner:false to disable spinner animation', () => {
       let receivedOptions: any;
-      const factory = (message: string, options?: any) => {
+      const factory = (_message: string, options?: any) => {
         receivedOptions = options;
         return {
           update() {},
