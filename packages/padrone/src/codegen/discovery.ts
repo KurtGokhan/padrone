@@ -1,15 +1,20 @@
+import { parseBashCompletions } from './parsers/bash.ts';
 import { parseFishCompletions } from './parsers/fish.ts';
 import { parseHelpOutput } from './parsers/help.ts';
 import { mergeCommandMeta } from './parsers/merge.ts';
 import { parseZshCompletions } from './parsers/zsh.ts';
 import type { CommandMeta, GeneratorLogger } from './types.ts';
 
-export type DiscoverySource = 'help' | 'fish' | 'zsh';
+export type DiscoverySource = 'help' | 'completion' | 'bash' | 'fish' | 'zsh';
 
 export interface DiscoveryOptions {
   /** The command to discover (e.g. 'gh', 'docker', 'kubectl'). */
   command: string;
-  /** Which parsing sources to use. Default: ['help'] */
+  /**
+   * Which parsing sources to use. Default: ['help'].
+   * Use `'completion'` to auto-detect the best shell completion source
+   * by probing `<cmd> completion <shell>` (bash → fish → zsh).
+   */
   sources?: DiscoverySource[];
   /** Max subcommand depth. 0 = root only, undefined = unlimited. */
   depth?: number;
@@ -35,7 +40,10 @@ export interface DiscoveryResult {
  * parsing shell completion scripts.
  */
 export async function discoverCli(options: DiscoveryOptions): Promise<DiscoveryResult> {
-  const { command, sources = ['help'], depth, delay = 50, log, timeout = 10000 } = options;
+  const { command, sources: rawSources = ['help'], depth, delay = 50, log, timeout = 10000 } = options;
+
+  // Resolve 'completion' source by probing for the best available shell
+  const sources = await resolveSources(rawSources, command, timeout, log);
 
   const warnings: string[] = [];
   let invocations = 0;
@@ -60,7 +68,18 @@ export async function discoverCli(options: DiscoveryOptions): Promise<DiscoveryR
     results.push(helpResult);
   }
 
-  // Source 2: Fish completions
+  // Source 2: Bash completions
+  if (sources.includes('bash')) {
+    log?.info(`Parsing bash completions for ${command}...`);
+    const bashText = await getCompletionScript(command, 'bash', timeout);
+    if (bashText) {
+      results.push(parseBashCompletions(bashText));
+    } else {
+      warnings.push('Could not obtain bash completion script');
+    }
+  }
+
+  // Source 3: Fish completions
   if (sources.includes('fish')) {
     log?.info(`Parsing fish completions for ${command}...`);
     const fishText = await getCompletionScript(command, 'fish', timeout);
@@ -71,7 +90,7 @@ export async function discoverCli(options: DiscoveryOptions): Promise<DiscoveryR
     }
   }
 
-  // Source 3: Zsh completions
+  // Source 4: Zsh completions
   if (sources.includes('zsh')) {
     log?.info(`Parsing zsh completions for ${command}...`);
     const zshText = await getCompletionScript(command, 'zsh', timeout);
@@ -199,7 +218,7 @@ async function runCommand(command: string, args: string[], timeout: number): Pro
  * Try to get a shell completion script for a command.
  * Checks both `<cmd> completion <shell>` and well-known file paths.
  */
-async function getCompletionScript(command: string, shell: 'fish' | 'zsh', timeout: number): Promise<string | null> {
+async function getCompletionScript(command: string, shell: 'bash' | 'fish' | 'zsh', timeout: number): Promise<string | null> {
   // Try `<cmd> completion <shell>`
   const completionArgs = ['completion', shell];
   let result = await runCommand(command, completionArgs, timeout);
@@ -213,7 +232,13 @@ async function getCompletionScript(command: string, shell: 'fish' | 'zsh', timeo
   const paths =
     shell === 'fish'
       ? [`/usr/share/fish/vendor_completions.d/${command}.fish`, `/usr/local/share/fish/vendor_completions.d/${command}.fish`]
-      : [`/usr/share/zsh/site-functions/_${command}`, `/usr/local/share/zsh/site-functions/_${command}`];
+      : shell === 'bash'
+        ? [
+            `/usr/share/bash-completion/completions/${command}`,
+            `/usr/local/share/bash-completion/completions/${command}`,
+            `/etc/bash_completion.d/${command}`,
+          ]
+        : [`/usr/share/zsh/site-functions/_${command}`, `/usr/local/share/zsh/site-functions/_${command}`];
 
   for (const path of paths) {
     try {
@@ -225,6 +250,45 @@ async function getCompletionScript(command: string, shell: 'fish' | 'zsh', timeo
   }
 
   return null;
+}
+
+/**
+ * Detect the best shell for completion parsing by probing the command.
+ * Tries `<cmd> completion <shell>` for bash, fish, zsh (in that order).
+ * Returns the shell name if successful, or null if no completion command exists.
+ */
+export async function detectCompletionShell(command: string, timeout = 5000): Promise<'bash' | 'fish' | 'zsh' | null> {
+  for (const shell of ['bash', 'fish', 'zsh'] as const) {
+    const result = await getCompletionScript(command, shell, timeout);
+    if (result) return shell;
+  }
+  return null;
+}
+
+/**
+ * Resolve 'completion' entries in the sources array by probing for the best available shell.
+ * Other sources are passed through unchanged.
+ */
+async function resolveSources(
+  sources: DiscoverySource[],
+  command: string,
+  timeout: number,
+  log?: GeneratorLogger,
+): Promise<DiscoverySource[]> {
+  if (!sources.includes('completion')) return sources;
+
+  log?.info(`Probing ${command} for completion command...`);
+  const shell = await detectCompletionShell(command, timeout);
+
+  return sources.flatMap((s) => {
+    if (s !== 'completion') return s;
+    if (shell) {
+      log?.info(`  Found ${shell} completion support`);
+      return shell;
+    }
+    log?.info('  No completion command found, skipping');
+    return [];
+  });
 }
 
 function sleep(ms: number): Promise<void> {
