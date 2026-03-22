@@ -73,6 +73,7 @@ program.runtime({
 | `findFile` | `(names: string[]) => string \| undefined` | Built-in file finder | Find config file by name |
 | `interactive` | `boolean` | `false` | Whether the runtime supports interactive prompts |
 | `prompt` | `(config: InteractivePromptConfig) => Promise<unknown>` | Enquirer (when `interactive: true`) | Custom prompt implementation |
+| `progress` | `(message: string, options?: PadroneProgressOptions) => PadroneProgressIndicator` | Built-in terminal spinner | Progress indicator factory. See [Progress Indicators](/padrone/guides/progress-indicators/) |
 
 Successive `.runtime()` calls merge with previous configuration.
 
@@ -123,8 +124,16 @@ program.action((args, ctx) => {
 **Parameters:**
 - `handler`: Function receiving `(args, ctx, base)`
   - `args`: Parsed and validated arguments object
-  - `ctx`: Action context object containing `runtime`, `command`, and `program`
+  - `ctx`: Action context object containing `runtime`, `command`, `program`, and `progress` (see below)
   - `base`: Previous handler function (useful when [overriding commands](/padrone/guides/composition/#command-override))
+
+**Action Context (`ctx`):**
+| Property | Type | Description |
+|----------|------|-------------|
+| `runtime` | `ResolvedPadroneRuntime` | The resolved runtime for this command |
+| `command` | `PadroneCommand` | The command being executed |
+| `program` | `PadroneProgram` | The root program instance |
+| `progress` | `PadroneProgressIndicator` | Auto-managed progress indicator, or lazy indicator for manual use. See [Progress Indicators](/padrone/guides/progress-indicators/) |
 
 **Returns:** The program builder (chainable)
 
@@ -287,6 +296,56 @@ The `.wrap()` method maintains full type safety:
    - Argument keys are used as-is with `--` prefix
 
 3. **Process Execution**: Uses `Bun.spawn()` to execute the external command with the generated arguments
+
+---
+
+### .progress(config?)
+
+Configure an auto-managed progress indicator for the command. The indicator starts before validation and is automatically stopped on success or failure. See the [Progress Indicators guide](/padrone/guides/progress-indicators/) for full details.
+
+```typescript
+// Simple message
+.progress('Deploying...')
+
+// Boolean shorthand (uses "Running <command>...")
+.progress(true)
+
+// Full config
+.progress({
+  validation: 'Validating...',
+  progress: 'Deploying...',
+  success: (result) => `Deployed v${result.version}`,
+  error: 'Deploy failed',
+  spinner: 'line',
+})
+
+// Dynamic indicator icons
+.progress({
+  progress: 'Running...',
+  success: (result) => ({ message: 'All passed', indicator: '🎉' }),
+})
+```
+
+**Parameters:**
+- `config` (optional): `boolean | string | PadroneProgressConfig`
+  - `true` — generic message based on command name
+  - `string` — custom message for all states
+  - Object — full control with per-state messages, callbacks, and spinner config
+
+**Object fields:**
+| Property | Type | Description |
+|----------|------|-------------|
+| `validation` | `string` | Message during async validation |
+| `progress` | `string` | Message during execution |
+| `success` | `string \| null \| (result) => PadroneProgressMessage` | Success message or callback |
+| `error` | `string \| null \| (error) => PadroneProgressMessage` | Error message or callback |
+| `spinner` | `PadroneSpinnerConfig` | Spinner preset, custom config, or `false` to disable |
+
+Callbacks can return a string, `null` (suppress), or `{ message, indicator }` for per-call icon customization.
+
+Requires a `progress` factory on the runtime — silently skipped if not available.
+
+**Returns:** The program builder (chainable)
 
 ---
 
@@ -631,6 +690,14 @@ import type {
   InteractivePromptConfig,
   PadroneReplPreferences,
   PadroneEvalPreferences,
+
+  // Progress types
+  PadroneProgressIndicator,
+  PadroneProgressConfig,
+  PadroneProgressMessage,
+  PadroneProgressOptions,
+  PadroneSpinnerConfig,
+  PadroneSpinnerPreset,
 
   // Type utilities
   MaybePromise,

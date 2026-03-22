@@ -67,7 +67,8 @@ program.cli();
 | `.env(schema)` | Parse environment variables into args |
 | `.configFile(file, schema?)` | Load args from config files |
 | `.wrap(config)` | Wrap an external CLI tool |
-| `.runtime(runtime)` | Custom I/O adapter (output, error, env, prompt) |
+| `.progress(config?)` | Configure auto-managed progress indicator |
+| `.runtime(runtime)` | Custom I/O adapter (output, error, env, prompt, progress) |
 | `.updateCheck(config?)` | Enable background update notifications |
 | `.async()` | Mark command as using async validation |
 
@@ -146,6 +147,33 @@ await testCli(program)
 // REPL testing
 const { results } = await testCli(program).repl(['greet Alice', 'greet Bob']);
 ```
+
+## Progress Indicators
+
+Auto-managed spinners for long-running commands:
+
+```ts
+.command('deploy', (c) =>
+  c
+    .async()
+    .progress({
+      progress: 'Deploying...',
+      success: (result) => `Deployed v${result.version}`,
+      error: 'Deploy failed',
+    })
+    .action(async () => {
+      await deploy();
+      return { version: '2.0' };
+    }),
+)
+```
+
+- **Auto-managed**: `.progress()` starts a spinner before execution, calls `succeed`/`fail` automatically
+- **Manual control**: Use `ctx.progress` in action handlers for on-demand updates (`update`, `succeed`, `fail`, `stop`, `pause`, `resume`)
+- **Dynamic messages**: `success`/`error` can be callbacks returning `string | null | { message, indicator }`
+- **Spinner config**: `spinner` field accepts preset name (`'dots'`, `'line'`, etc.), `false` to disable, or `{ frames, interval }` object
+- **Runtime factory**: `runtime({ progress: (message, options?) => indicator })` to provide a custom spinner implementation
+- **Lazy creation**: `ctx.progress` defers real indicator creation until first `update()` call; auto-stops on cleanup
 
 ## Error Classes
 

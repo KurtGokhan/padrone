@@ -83,6 +83,18 @@ for await (const result of program.repl()) {
 }
 ```
 
+### Progress Indicators
+
+Auto-managed spinners for long-running commands with dynamic messages:
+
+```typescript
+.progress({
+  progress: 'Deploying...',
+  success: (result) => `Deployed v${result.version}`,
+  spinner: 'dots',
+})
+```
+
 ### Plugin System
 
 Intercept and extend command execution with middleware-style plugins:

@@ -29,6 +29,7 @@ export default defineConfig({
             { label: 'Commands & Arguments', slug: 'guides/commands-arguments' },
             { label: 'Interactive Prompting', slug: 'guides/interactive-prompting' },
             { label: 'REPL Mode', slug: 'guides/repl' },
+            { label: 'Progress Indicators', slug: 'guides/progress-indicators' },
             { label: 'Plugins', slug: 'guides/plugins' },
             { label: 'Program Composition', slug: 'guides/composition' },
             { label: 'AI Integration', slug: 'guides/ai-integration' },
