@@ -1372,3 +1372,47 @@ Usage: \x1B[36m\x1B[1mpadrone-test list extended extended\x1B[0m \x1B[90m[option
       \x1B[90m(choices: pending, in_progress, completed)\x1B[0m
 "
 `;
+
+exports[`help with groups should group options under labeled sections 1`] = `
+"Usage: group-test deploy [options]
+
+Options:
+  --target   <string>  Deploy target
+  --verbose            Verbose output
+
+AWS:
+  --region   [string]  AWS region
+  --profile  [string]  AWS profile
+
+Advanced:
+  --retries  [number]  Retry count
+  --timeout  [number]  Timeout in seconds
+"
+`;
+
+exports[`help with groups should group subcommands under labeled sections 1`] = `
+"Usage: group-test [command]
+
+Commands:
+  init    Initialize project
+  build   Build project
+
+Cloud:
+  deploy  Deploy to cloud
+  logs    View cloud logs
+
+Quality:
+  lint    Run linter
+  test    Run tests
+
+Run "group-test [command] --help" for more information on a command.
+
+Built-in:
+  help [command], -h, --help  Show help for a command
+    --detail <level>          Detail level (minimal, standard, full)
+    --format <format>         Output format (text, ansi, json, markdown, html)
+  version, -v, --version      Show version information
+  completion [shell]          Generate shell completions (bash, zsh, fish, powershell)
+  [command] --repl            Start interactive REPL scoped to a command
+"
+`;

@@ -184,6 +184,8 @@ export type PadroneCommand<
   aliases?: TAliases;
   deprecated?: boolean | string;
   hidden?: boolean;
+  /** Group name for organizing this command under a labeled section in help output. */
+  group?: string;
   needsApproval?: boolean | ((args: TArgs) => Promise<boolean> | boolean);
   autoOutput?: boolean;
   /**
@@ -287,6 +289,8 @@ export type PadroneCommandConfig = {
   deprecated?: boolean | string;
   /** Whether the command should be hidden from help output. */
   hidden?: boolean;
+  /** Group name for organizing this command under a labeled section in help output. */
+  group?: string;
   /**
    * Automatically write this command's return value to output in CLI/eval/REPL mode.
    * Overrides the `autoOutput` setting in eval/cli preferences for this command.

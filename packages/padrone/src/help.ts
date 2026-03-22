@@ -134,6 +134,7 @@ function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaM
           examples: optMeta?.examples ?? prop?.examples,
           variadic: propType === 'array',
           negatable: isNegatable,
+          group: optMeta?.group,
         });
       }
     }
@@ -222,6 +223,7 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
               aliases: displayAliases?.length ? displayAliases : undefined,
               deprecated: c.deprecated,
               hidden: c.hidden,
+              group: c.group,
             },
             {
               name: displayName,
@@ -230,6 +232,7 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
               deprecated: c.deprecated,
               hidden: c.hidden,
               hasSubcommands: true,
+              group: c.group,
             },
           ];
         }
@@ -243,6 +246,7 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
             deprecated: c.deprecated,
             hidden: c.hidden,
             hasSubcommands,
+            group: c.group,
           },
         ];
       }),

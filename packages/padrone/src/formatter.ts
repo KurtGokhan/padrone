@@ -45,6 +45,8 @@ export type HelpArgumentInfo = {
   negatable?: boolean;
   /** Config file key that maps to this arg */
   configKey?: string;
+  /** Group name for organizing this option under a labeled section in help output */
+  group?: string;
 };
 
 /**
@@ -58,6 +60,8 @@ export type HelpSubcommandInfo = {
   deprecated?: boolean | string;
   hidden?: boolean;
   hasSubcommands?: boolean;
+  /** Group name for organizing this command under a labeled section in help output */
+  group?: string;
 };
 
 /**
@@ -304,8 +308,6 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     const lines: string[] = [];
     const subcommands = info.subcommands!;
 
-    lines.push(styler.label('Commands:'));
-
     const subcommandSuffix = (c: HelpSubcommandInfo) => (c.hasSubcommands ? ' <subcommand>' : '');
     const formatAliasParts = (c: HelpSubcommandInfo) => {
       if (!c.aliases?.length) return { plain: '', styled: '' };
@@ -323,36 +325,48 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
       }
       return { plain: parts.length ? ` ${parts.join(' ')}` : '', styled: styledParts.length ? ` ${styledParts.join(' ')}` : '' };
     };
+    // Column width is computed across all subcommands for consistent alignment
     const maxNameLength = Math.max(
       ...subcommands.map((c) => {
         return (c.name + subcommandSuffix(c) + formatAliasParts(c).plain).length;
       }),
     );
-    for (const subCmd of subcommands) {
-      const aliasParts = formatAliasParts(subCmd);
-      const suffix = subcommandSuffix(subCmd);
-      const commandDisplay = subCmd.name + suffix + aliasParts.plain;
-      const padding = ' '.repeat(Math.max(0, maxNameLength - commandDisplay.length + 2));
-      const isDeprecated = !!subCmd.deprecated;
-      const isDefaultEntry = subCmd.name === '[default]';
-      const commandName = isDeprecated
-        ? styler.deprecated(commandDisplay)
-        : (isDefaultEntry ? styler.meta(subCmd.name) : styler.command(subCmd.name)) +
-          (suffix ? styler.meta(suffix) : '') +
-          aliasParts.styled;
-      const lineParts: string[] = [commandName, padding];
 
-      // Use title if available, otherwise use description
-      const displayText = subCmd.title ?? subCmd.description;
-      if (displayText) {
-        lineParts.push(isDeprecated ? styler.deprecated(displayText) : styler.description(displayText));
+    const grouped = Object.groupBy(subcommands, (c) => c.group ?? '');
+
+    const renderSubcommands = (cmds: HelpSubcommandInfo[]) => {
+      for (const subCmd of cmds) {
+        const aliasParts = formatAliasParts(subCmd);
+        const suffix = subcommandSuffix(subCmd);
+        const commandDisplay = subCmd.name + suffix + aliasParts.plain;
+        const padding = ' '.repeat(Math.max(0, maxNameLength - commandDisplay.length + 2));
+        const isDeprecated = !!subCmd.deprecated;
+        const isDefaultEntry = subCmd.name === '[default]';
+        const commandName = isDeprecated
+          ? styler.deprecated(commandDisplay)
+          : (isDefaultEntry ? styler.meta(subCmd.name) : styler.command(subCmd.name)) +
+            (suffix ? styler.meta(suffix) : '') +
+            aliasParts.styled;
+        const lineParts: string[] = [commandName, padding];
+
+        // Use title if available, otherwise use description
+        const displayText = subCmd.title ?? subCmd.description;
+        if (displayText) {
+          lineParts.push(isDeprecated ? styler.deprecated(displayText) : styler.description(displayText));
+        }
+        if (isDeprecated) {
+          const deprecatedMeta =
+            typeof subCmd.deprecated === 'string' ? styler.meta(` (deprecated: ${subCmd.deprecated})`) : styler.meta(' (deprecated)');
+          lineParts.push(deprecatedMeta);
+        }
+        lines.push(indent(1) + lineParts.join(''));
       }
-      if (isDeprecated) {
-        const deprecatedMeta =
-          typeof subCmd.deprecated === 'string' ? styler.meta(` (deprecated: ${subCmd.deprecated})`) : styler.meta(' (deprecated)');
-        lineParts.push(deprecatedMeta);
-      }
-      lines.push(indent(1) + lineParts.join(''));
+    };
+
+    for (const [key, items] of Object.entries(grouped)) {
+      if (lines.length > 0) lines.push('');
+      lines.push(styler.label(key ? `${key}:` : 'Commands:'));
+      renderSubcommands(items!);
     }
 
     lines.push('');
@@ -386,8 +400,6 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     const lines: string[] = [];
     const argList = info.arguments || [];
 
-    lines.push(styler.label('Options:'));
-
     // Helper to check if a default value is meaningful (not empty string/array)
     const hasDefault = (value: unknown): boolean => {
       if (value === undefined) return false;
@@ -412,66 +424,78 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
       return { flagsPlain, namesPlain, typePlain, isDeprecated, arg };
     });
 
+    // Column widths are computed across all args (regardless of group) for consistent alignment
     const maxFlagsWidth = Math.min(12, Math.max(0, ...argColumns.map((c) => c.flagsPlain.length)));
     const maxNamesWidth = Math.min(32, Math.max(0, ...argColumns.map((c) => c.namesPlain.length)));
     const maxTypeWidth = Math.min(16, Math.max(0, ...argColumns.map((c) => c.typePlain.length)));
     const hasAnyFlags = maxFlagsWidth > 0;
 
-    for (const { flagsPlain, namesPlain, typePlain, isDeprecated, arg } of argColumns) {
-      const parts: string[] = [];
+    // Split into ordered groups: ungrouped first as "Options:", then each group in first-seen order
+    const grouped = Object.groupBy(argColumns, (c) => c.arg.group ?? '');
 
-      // Flags column
-      if (hasAnyFlags) {
-        const styledFlags = isDeprecated ? (flagsPlain ? styler.deprecated(flagsPlain) : '') : flagsPlain ? styler.arg(flagsPlain) : '';
-        const flagsPadding = ' '.repeat(Math.max(0, maxFlagsWidth - flagsPlain.length));
-        const separator = flagsPlain ? ', ' : '  ';
-        parts.push(styledFlags + flagsPadding + separator);
+    const renderArgColumns = (columns: typeof argColumns) => {
+      for (const { flagsPlain, namesPlain, typePlain, isDeprecated, arg } of columns) {
+        const parts: string[] = [];
+
+        // Flags column
+        if (hasAnyFlags) {
+          const styledFlags = isDeprecated ? (flagsPlain ? styler.deprecated(flagsPlain) : '') : flagsPlain ? styler.arg(flagsPlain) : '';
+          const flagsPadding = ' '.repeat(Math.max(0, maxFlagsWidth - flagsPlain.length));
+          const separator = flagsPlain ? ', ' : '  ';
+          parts.push(styledFlags + flagsPadding + separator);
+        }
+
+        // Names column
+        const styledNames = isDeprecated ? styler.deprecated(namesPlain) : styler.arg(namesPlain);
+        const namesPadding = ' '.repeat(Math.max(2, maxNamesWidth - namesPlain.length + 2));
+        parts.push(styledNames + namesPadding);
+
+        // Type column
+        if (maxTypeWidth > 0) {
+          const styledType = typePlain ? styler.type(typePlain) : '';
+          const typePadding = ' '.repeat(Math.max(2, maxTypeWidth - typePlain.length + 2));
+          parts.push(styledType + typePadding);
+        }
+
+        // Line 1: description
+        const descParts: string[] = [];
+        if (arg.description) descParts.push(isDeprecated ? styler.deprecated(arg.description) : styler.description(arg.description));
+        lines.push(indent(1) + parts.join('') + join(descParts));
+
+        // Line 2: deprecated (no reason), default, choices
+        const line2Parts: string[] = [];
+        if (isDeprecated && typeof arg.deprecated !== 'string') line2Parts.push(styler.meta('(deprecated)'));
+        if (hasDefault(arg.default)) line2Parts.push(styler.meta(`(default: ${String(arg.default)})`));
+        if (arg.enum) line2Parts.push(styler.meta(`(choices: ${arg.enum.join(', ')})`));
+        if (line2Parts.length > 0) lines.push(indent(3) + join(line2Parts));
+
+        // Line 3: deprecated (with reason), examples
+        const line3Parts: string[] = [];
+        if (isDeprecated && typeof arg.deprecated === 'string') line3Parts.push(styler.meta(`(deprecated: ${arg.deprecated})`));
+        if (arg.examples && arg.examples.length > 0) {
+          const exampleValues = arg.examples.map((example) => (typeof example === 'string' ? example : JSON.stringify(example))).join(', ');
+          line3Parts.push(styler.example('Example:'), styler.exampleValue(exampleValues));
+        }
+        if (line3Parts.length > 0) lines.push(indent(3) + join(line3Parts));
+
+        // Line 4: stdin, env, config
+        const line4Parts: string[] = [];
+        if (info.usage.stdinField === arg.name) line4Parts.push(styler.meta('(stdin)'));
+        if (arg.env) {
+          const envVars = typeof arg.env === 'string' ? [arg.env] : arg.env;
+          line4Parts.push(styler.example('Env:'), styler.exampleValue(envVars.join(', ')));
+        }
+        if (arg.configKey) {
+          line4Parts.push(styler.example('Config:'), styler.exampleValue(arg.configKey));
+        }
+        if (line4Parts.length > 0) lines.push(indent(3) + join(line4Parts));
       }
+    };
 
-      // Names column
-      const styledNames = isDeprecated ? styler.deprecated(namesPlain) : styler.arg(namesPlain);
-      const namesPadding = ' '.repeat(Math.max(2, maxNamesWidth - namesPlain.length + 2));
-      parts.push(styledNames + namesPadding);
-
-      // Type column
-      if (maxTypeWidth > 0) {
-        const styledType = typePlain ? styler.type(typePlain) : '';
-        const typePadding = ' '.repeat(Math.max(2, maxTypeWidth - typePlain.length + 2));
-        parts.push(styledType + typePadding);
-      }
-
-      // Line 1: description
-      const descParts: string[] = [];
-      if (arg.description) descParts.push(isDeprecated ? styler.deprecated(arg.description) : styler.description(arg.description));
-      lines.push(indent(1) + parts.join('') + join(descParts));
-
-      // Line 2: deprecated (no reason), default, choices
-      const line2Parts: string[] = [];
-      if (isDeprecated && typeof arg.deprecated !== 'string') line2Parts.push(styler.meta('(deprecated)'));
-      if (hasDefault(arg.default)) line2Parts.push(styler.meta(`(default: ${String(arg.default)})`));
-      if (arg.enum) line2Parts.push(styler.meta(`(choices: ${arg.enum.join(', ')})`));
-      if (line2Parts.length > 0) lines.push(indent(3) + join(line2Parts));
-
-      // Line 3: deprecated (with reason), examples
-      const line3Parts: string[] = [];
-      if (isDeprecated && typeof arg.deprecated === 'string') line3Parts.push(styler.meta(`(deprecated: ${arg.deprecated})`));
-      if (arg.examples && arg.examples.length > 0) {
-        const exampleValues = arg.examples.map((example) => (typeof example === 'string' ? example : JSON.stringify(example))).join(', ');
-        line3Parts.push(styler.example('Example:'), styler.exampleValue(exampleValues));
-      }
-      if (line3Parts.length > 0) lines.push(indent(3) + join(line3Parts));
-
-      // Line 4: stdin, env, config
-      const line4Parts: string[] = [];
-      if (info.usage.stdinField === arg.name) line4Parts.push(styler.meta('(stdin)'));
-      if (arg.env) {
-        const envVars = typeof arg.env === 'string' ? [arg.env] : arg.env;
-        line4Parts.push(styler.example('Env:'), styler.exampleValue(envVars.join(', ')));
-      }
-      if (arg.configKey) {
-        line4Parts.push(styler.example('Config:'), styler.exampleValue(arg.configKey));
-      }
-      if (line4Parts.length > 0) lines.push(indent(3) + join(line4Parts));
+    for (const [key, items] of Object.entries(grouped)) {
+      if (lines.length > 0) lines.push('');
+      lines.push(styler.label(key ? `${key}:` : 'Options:'));
+      renderArgColumns(items!);
     }
 
     return lines;

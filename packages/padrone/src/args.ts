@@ -40,6 +40,8 @@ export interface PadroneFieldMeta {
   deprecated?: boolean | string;
   hidden?: boolean;
   examples?: unknown[];
+  /** Group name for organizing this option under a labeled section in help output. */
+  group?: string;
 }
 
 type PositionalArgs<TObj> =
