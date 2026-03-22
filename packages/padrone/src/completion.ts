@@ -22,11 +22,19 @@ function collectAllCommands(cmd: AnyPadroneCommand): AnyPadroneCommand[] {
   return result;
 }
 
+interface ExtractedArg {
+  name: string;
+  alias?: string;
+  isBoolean: boolean;
+  enum?: string[];
+  description?: string;
+}
+
 /**
  * Extracts all argument names from a command's schema.
  */
-function extractArguments(cmd: AnyPadroneCommand): { name: string; alias?: string; isBoolean: boolean }[] {
-  const argList: { name: string; alias?: string; isBoolean: boolean }[] = [];
+function extractArguments(cmd: AnyPadroneCommand): ExtractedArg[] {
+  const argList: ExtractedArg[] = [];
 
   if (!cmd.argsSchema) return argList;
 
@@ -34,21 +42,24 @@ function extractArguments(cmd: AnyPadroneCommand): { name: string; alias?: strin
     const argsMeta = cmd.meta?.fields;
     const { aliases } = extractSchemaMetadata(cmd.argsSchema, argsMeta, cmd.meta?.autoAlias);
 
-    // Reverse aliases map (alias -> arg name)
-    const aliasToArgument: Record<string, string> = {};
-    for (const [arg, alias] of Object.entries(aliases)) {
-      aliasToArgument[alias] = arg;
+    // Build reverse map: argName → aliasName
+    const argToAlias: Record<string, string> = {};
+    for (const [aliasName, argName] of Object.entries(aliases)) {
+      if (!argToAlias[argName]) argToAlias[argName] = aliasName;
     }
 
     const jsonSchema = cmd.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
 
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
       for (const [key, prop] of Object.entries(jsonSchema.properties as Record<string, any>)) {
-        const alias = Object.entries(aliases).find(([arg]) => arg === key)?.[1];
+        const enumValues = (prop.enum ?? prop.items?.enum) as string[] | undefined;
+        const optMeta = argsMeta?.[key];
         argList.push({
           name: key,
-          alias: alias,
+          alias: argToAlias[key],
           isBoolean: prop?.type === 'boolean',
+          enum: enumValues,
+          description: optMeta?.description ?? prop.description,
         });
       }
     }
@@ -60,26 +71,63 @@ function extractArguments(cmd: AnyPadroneCommand): { name: string; alias?: strin
 }
 
 /**
+ * Collects unique args across all commands, preserving first-seen enum values.
+ */
+function collectUniqueArgs(program: AnyPadroneCommand, commands: AnyPadroneCommand[]): Map<string, ExtractedArg> {
+  const seen = new Map<string, ExtractedArg>();
+
+  for (const cmd of [program, ...commands]) {
+    for (const arg of extractArguments(cmd)) {
+      if (!seen.has(arg.name)) {
+        seen.set(arg.name, arg);
+      }
+    }
+  }
+
+  return seen;
+}
+
+/**
  * Generates a Bash completion script for the program.
  */
 export function generateBashCompletion(program: AnyPadroneCommand): string {
   const programName = program.name;
   const commands = collectAllCommands(program);
   const commandNames = commands.map((c) => c.name).join(' ');
+  const uniqueArgs = collectUniqueArgs(program, commands);
 
-  // Collect all args from all commands
+  // Collect all option names
   const allArguments = new Set<string>();
   allArguments.add('--help');
   allArguments.add('--version');
 
-  for (const cmd of [program, ...commands]) {
-    for (const arg of extractArguments(cmd)) {
-      allArguments.add(`--${arg.name}`);
-      if (arg.alias) allArguments.add(`-${arg.alias}`);
-    }
+  for (const arg of uniqueArgs.values()) {
+    allArguments.add(`--${arg.name}`);
+    if (arg.alias) allArguments.add(`--${arg.alias}`);
   }
 
   const argsList = Array.from(allArguments).join(' ');
+
+  // Build case branches for options with enum values
+  const enumCases: string[] = [];
+  for (const arg of uniqueArgs.values()) {
+    if (!arg.enum || arg.enum.length === 0) continue;
+    const values = arg.enum.join(' ');
+    const patterns = [`--${arg.name}`];
+    if (arg.alias) patterns.push(`--${arg.alias}`);
+    enumCases.push(`      ${patterns.join('|')}) COMPREPLY=($(compgen -W "${values}" -- "$cur")); return 0 ;;`);
+  }
+
+  const enumBlock =
+    enumCases.length > 0
+      ? `
+    # Complete option values
+    case "$prev" in
+${enumCases.join('\n')}
+    esac
+
+`
+      : '\n';
 
   return `###-begin-${programName}-completion-###
 #
@@ -104,8 +152,7 @@ if type complete &>/dev/null; then
 
     local commands="${commandNames}"
     local args="${argsList}"
-
-    # Complete args when current word starts with -
+${enumBlock}    # Complete args when current word starts with -
     if [[ "$cur" == -* ]]; then
       COMPREPLY=($(compgen -W "$args" -- "$cur"))
       return 0
@@ -161,26 +208,24 @@ export function generateZshCompletion(program: AnyPadroneCommand): string {
     })
     .join('\n');
 
-  // Collect all args with descriptions
+  // Collect all args with descriptions and enum values
   const argumentCompletions: string[] = [];
   argumentCompletions.push("      '--help[Show help information]'");
   argumentCompletions.push("      '--version[Show version number]'");
 
-  const seenArgs = new Set<string>(['help', 'version']);
+  const uniqueArgs = collectUniqueArgs(program, commands);
 
-  for (const cmd of [program, ...commands]) {
-    for (const arg of extractArguments(cmd)) {
-      if (seenArgs.has(arg.name)) continue;
-      seenArgs.add(arg.name);
+  for (const arg of uniqueArgs.values()) {
+    const desc = arg.description || '';
+    const escapedDesc = desc.replace(/'/g, "'\\''").replace(/\[/g, '\\[').replace(/\]/g, '\\]');
 
-      const desc = cmd.meta?.fields?.[arg.name]?.description || '';
-      const escapedDesc = desc.replace(/'/g, "'\\''").replace(/\[/g, '\\[').replace(/\]/g, '\\]');
+    // Zsh action spec for enum values: :label:(val1 val2 val3)
+    const valueAction = arg.enum?.length ? `: :(${arg.enum.join(' ')})` : '';
 
-      if (arg.alias) {
-        argumentCompletions.push(`      {-${arg.alias},--${arg.name}}'[${escapedDesc}]'`);
-      } else {
-        argumentCompletions.push(`      '--${arg.name}[${escapedDesc}]'`);
-      }
+    if (arg.alias) {
+      argumentCompletions.push(`      {--${arg.alias},--${arg.name}}'[${escapedDesc}]${valueAction}'`);
+    } else {
+      argumentCompletions.push(`      '--${arg.name}[${escapedDesc}]${valueAction}'`);
     }
   }
 
@@ -253,21 +298,18 @@ export function generateFishCompletion(program: AnyPadroneCommand): string {
   lines.push(`complete -c ${programName} -l help -d 'Show help information'`);
   lines.push(`complete -c ${programName} -l version -d 'Show version number'`);
 
-  const seenArgs = new Set<string>(['help', 'version']);
+  const uniqueArgs = collectUniqueArgs(program, commands);
 
-  for (const cmd of [program, ...commands]) {
-    for (const arg of extractArguments(cmd)) {
-      if (seenArgs.has(arg.name)) continue;
-      seenArgs.add(arg.name);
+  for (const arg of uniqueArgs.values()) {
+    const desc = arg.description || '';
+    const escapedDesc = desc.replace(/'/g, "\\'");
+    // Fish: -xa 'val1 val2' provides exclusive value completions
+    const valueFlag = arg.enum?.length ? ` -xa '${arg.enum.join(' ')}'` : '';
 
-      const desc = cmd.meta?.fields?.[arg.name]?.description || '';
-      const escapedDesc = desc.replace(/'/g, "\\'");
-
-      if (arg.alias) {
-        lines.push(`complete -c ${programName} -s ${arg.alias} -l ${arg.name} -d '${escapedDesc}'`);
-      } else {
-        lines.push(`complete -c ${programName} -l ${arg.name} -d '${escapedDesc}'`);
-      }
+    if (arg.alias) {
+      lines.push(`complete -c ${programName} -l ${arg.name} -s ${arg.alias} -d '${escapedDesc}'${valueFlag}`);
+    } else {
+      lines.push(`complete -c ${programName} -l ${arg.name} -d '${escapedDesc}'${valueFlag}`);
     }
   }
 
@@ -282,8 +324,40 @@ export function generateFishCompletion(program: AnyPadroneCommand): string {
 export function generatePowerShellCompletion(program: AnyPadroneCommand): string {
   const programName = program.name;
   const commands = collectAllCommands(program);
+  const uniqueArgs = collectUniqueArgs(program, commands);
 
   const commandNames = commands.map((c) => `'${c.name}'`).join(', ');
+
+  // Collect all option names
+  const argNames: string[] = ["'--help'", "'--version'"];
+  for (const arg of uniqueArgs.values()) {
+    argNames.push(`'--${arg.name}'`);
+    if (arg.alias) argNames.push(`'--${arg.alias}'`);
+  }
+
+  // Build switch cases for option value completion
+  const enumCases: string[] = [];
+  for (const arg of uniqueArgs.values()) {
+    if (!arg.enum || arg.enum.length === 0) continue;
+    const values = arg.enum.map((v) => `'${v}'`).join(', ');
+    const patterns = [`'--${arg.name}'`];
+    if (arg.alias) patterns.push(`'--${arg.alias}'`);
+    enumCases.push(`      ${patterns.join(', ')} { @(${values}) | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+        [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+      }; return }`);
+  }
+
+  const enumBlock =
+    enumCases.length > 0
+      ? `
+  # Complete option values
+  $prevWord = $commandAst.CommandElements | Select-Object -Last 2 | Select-Object -First 1
+  switch ($prevWord) {
+${enumCases.join('\n')}
+  }
+
+`
+      : '\n';
 
   return `###-begin-${programName}-completion-###
 #
@@ -296,9 +370,8 @@ Register-ArgumentCompleter -Native -CommandName ${programName} -ScriptBlock {
   param($wordToComplete, $commandAst, $cursorPosition)
 
   $commands = @(${commandNames})
-  $args = @('--help', '--version')
-
-  if ($wordToComplete -like '-*') {
+  $args = @(${argNames.join(', ')})
+${enumBlock}  if ($wordToComplete -like '-*') {
     $args | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
       [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
     }
