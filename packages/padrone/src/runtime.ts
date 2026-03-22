@@ -8,16 +8,38 @@ import { findConfigFile, loadConfigFile } from './utils.ts';
 export type PadroneProgressIndicator = {
   /** Update the displayed message. */
   update: (message: string) => void;
-  /** Mark as succeeded and stop. */
-  succeed: (message?: string) => void;
-  /** Mark as failed and stop. */
-  fail: (message?: string) => void;
+  /** Mark as succeeded and stop. Pass `null` to stop without rendering a final message. */
+  succeed: (message?: string | null, options?: { indicator?: string }) => void;
+  /** Mark as failed and stop. Pass `null` to stop without rendering a final message. */
+  fail: (message?: string | null, options?: { indicator?: string }) => void;
   /** Stop without success/fail status. */
   stop: () => void;
   /** Temporarily hide the indicator so other output can be written cleanly. */
   pause: () => void;
   /** Redraw the indicator after a `pause()`. */
   resume: () => void;
+};
+
+/** Built-in spinner presets. */
+export type PadroneSpinnerPreset = 'dots' | 'line' | 'arc' | 'bounce';
+
+/**
+ * Spinner configuration for progress indicators.
+ * - A preset name (e.g., `'dots'`) to use built-in frames.
+ * - An object with custom `frames` and/or `interval`.
+ * - `false` to disable the spinner animation (static text only).
+ */
+export type PadroneSpinnerConfig = PadroneSpinnerPreset | { frames?: string[]; interval?: number } | false;
+
+/**
+ * Options passed to the runtime's `progress` factory.
+ */
+export type PadroneProgressOptions = {
+  spinner?: PadroneSpinnerConfig;
+  /** Character/string shown before the success message. Defaults to `'✔'`. */
+  successIndicator?: string;
+  /** Character/string shown before the error message. Defaults to `'✖'`. */
+  errorIndicator?: string;
 };
 
 /**
@@ -105,7 +127,7 @@ export type PadroneRuntime = {
    * Used by commands that set `progress` in their config, or manually via `ctx.progress()` in actions.
    * When not provided, auto-progress is silently skipped and `ctx.progress()` returns a no-op indicator.
    */
-  progress?: (message: string) => PadroneProgressIndicator;
+  progress?: (message: string, options?: PadroneProgressOptions) => PadroneProgressIndicator;
   /**
    * Read a line of input from the user. Used by `repl()` for custom runtimes
    * (web UIs, chat interfaces, testing).
@@ -280,26 +302,59 @@ function createDefaultStdin(): NonNullable<PadroneRuntime['stdin']> {
   };
 }
 
-const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const spinnerPresets: Record<PadroneSpinnerPreset, string[]> = {
+  dots: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
+  line: ['-', '\\', '|', '/'],
+  arc: ['◜', '◠', '◝', '◞', '◡', '◟'],
+  bounce: ['⠁', '⠂', '⠄', '⡀', '⢀', '⠠', '⠐', '⠈'],
+};
+
+function resolveSpinnerConfig(config?: PadroneSpinnerConfig): { frames: string[]; interval: number; disabled: boolean } {
+  if (config === false) return { frames: [], interval: 80, disabled: true };
+  if (typeof config === 'string') return { frames: spinnerPresets[config], interval: 80, disabled: false };
+  if (typeof config === 'object') {
+    return {
+      frames: config.frames ?? spinnerPresets.dots,
+      interval: config.interval ?? 80,
+      disabled: false,
+    };
+  }
+  return { frames: spinnerPresets.dots, interval: 80, disabled: false };
+}
 
 /**
  * Creates a built-in terminal spinner. Returns a no-op indicator in non-TTY/CI environments.
  */
-function createTerminalSpinner(message: string): PadroneProgressIndicator {
+function createTerminalSpinner(message: string, options?: PadroneProgressOptions): PadroneProgressIndicator {
+  const { frames, interval, disabled: spinnerDisabled } = resolveSpinnerConfig(options?.spinner);
+  const successIcon = options?.successIndicator ?? '✔';
+  const errorIcon = options?.errorIndicator ?? '✖';
+
+  const formatFinal = (icon: string, msg: string) => (icon ? `${icon} ${msg}\n` : `${msg}\n`);
+
   if (typeof process === 'undefined' || !process.stderr?.isTTY) {
     // Non-TTY: just log start/end, no animation
     return {
       update() {},
-      succeed(msg) {
-        if (msg) process?.stderr?.write?.(`✔ ${msg}\n`);
+      succeed(msg, opts) {
+        if (msg === null) return;
+        const icon = opts?.indicator ?? successIcon;
+        if (msg || message) process?.stderr?.write?.(formatFinal(icon, msg || message));
       },
-      fail(msg) {
-        if (msg) process?.stderr?.write?.(`✖ ${msg}\n`);
+      fail(msg, opts) {
+        if (msg === null) return;
+        const icon = opts?.indicator ?? errorIcon;
+        if (msg || message) process?.stderr?.write?.(formatFinal(icon, msg || message));
       },
       stop() {},
       pause() {},
       resume() {},
     };
+  }
+
+  // If spinner is disabled and there's no message, nothing to render
+  if (spinnerDisabled && !message) {
+    return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
   }
 
   let frame = 0;
@@ -310,15 +365,24 @@ function createTerminalSpinner(message: string): PadroneProgressIndicator {
   const writeStderr = process.stderr.write.bind(process.stderr);
   const writeStdout = process.stdout.write.bind(process.stdout);
   const clearLine = () => writeStderr('\x1b[2K\r');
+
   const render = () => {
     if (paused || stopped) return;
-    writeStderr(`\x1b[2K\r${spinnerFrames[frame]!} ${text}`);
+    if (spinnerDisabled) {
+      // Static text only, no spinner frames
+      if (text) writeStderr(`\x1b[2K\r${text}`);
+    } else {
+      const prefix = frames[frame] ?? '';
+      writeStderr(`\x1b[2K\r${text ? `${prefix} ${text}` : prefix}`);
+    }
   };
 
-  const timer = setInterval(() => {
-    frame = (frame + 1) % spinnerFrames.length;
-    render();
-  }, 80);
+  const timer = spinnerDisabled
+    ? undefined
+    : setInterval(() => {
+        frame = (frame + 1) % frames.length;
+        render();
+      }, interval);
 
   render();
 
@@ -326,7 +390,7 @@ function createTerminalSpinner(message: string): PadroneProgressIndicator {
     if (stopped) return;
     stopped = true;
     paused = false;
-    clearInterval(timer);
+    if (timer) clearInterval(timer);
     clearLine();
   };
 
@@ -336,13 +400,19 @@ function createTerminalSpinner(message: string): PadroneProgressIndicator {
       text = msg;
       render();
     },
-    succeed(msg) {
+    succeed(msg, opts) {
       clear();
-      writeStderr(`✔ ${msg || text}\n`);
+      if (msg === null) return;
+      const finalMsg = msg ?? text;
+      const icon = opts?.indicator ?? successIcon;
+      if (finalMsg) writeStderr(formatFinal(icon, finalMsg));
     },
-    fail(msg) {
+    fail(msg, opts) {
       clear();
-      writeStderr(`✖ ${msg || text}\n`);
+      if (msg === null) return;
+      const finalMsg = msg ?? text;
+      const icon = opts?.indicator ?? errorIcon;
+      if (finalMsg) writeStderr(formatFinal(icon, finalMsg));
     },
     stop() {
       clear();
@@ -350,8 +420,6 @@ function createTerminalSpinner(message: string): PadroneProgressIndicator {
     pause() {
       if (stopped || paused) return;
       paused = true;
-      // Clear on both streams — stderr (where the spinner rendered) and
-      // stdout (where console.log writes) to avoid buffering race conditions.
       clearLine();
       writeStdout('\x1b[2K\r');
     },

@@ -49,7 +49,6 @@ export const configKeys = [
   'needsApproval',
   'autoOutput',
   'updateCheck',
-  'progress',
 ] as const;
 
 /**
@@ -77,6 +76,7 @@ export function mergeCommands(existing: AnyPadroneCommand, override: AnyPadroneC
   if (override.runtime !== existing.runtime) merged.runtime = override.runtime;
   if (override.plugins !== existing.plugins) merged.plugins = override.plugins;
   if (override.aliases !== existing.aliases) merged.aliases = override.aliases;
+  if (override.progress !== existing.progress) merged.progress = override.progress;
 
   // Recursively merge subcommands by name
   if (override.commands) {
@@ -338,14 +338,20 @@ export function wrapWithLifecycle<T>(
   const hasError = plugins.some((p) => p.error);
   const hasShutdown = plugins.some((p) => p.shutdown);
 
-  const cleanupProgress = (error?: unknown) => {
+  const cleanupProgress = (error?: unknown, result?: unknown) => {
     const indicator = state._progress as PadroneProgressIndicator | undefined;
     if (indicator) {
-      if (error !== undefined) {
-        const errorMsg = (state._progressError as string | undefined) ?? (error instanceof Error ? error.message : String(error));
-        indicator.fail(errorMsg);
+      // If there's no progress config (lazy/manual indicator), just stop it silently
+      const hasProgressConfig = '_progressMsg' in state;
+      if (!hasProgressConfig) {
+        indicator.stop();
+      } else if (error !== undefined) {
+        const fallback = error instanceof Error ? error.message : String(error);
+        const { message: errorMsg, indicator: errorIcon } = resolveProgressMessage(state._progressError, error, fallback);
+        indicator.fail(errorMsg, errorIcon !== undefined ? { indicator: errorIcon } : undefined);
       } else {
-        indicator.succeed(state._progressSuccess as string | undefined);
+        const { message: successMsg, indicator: successIcon } = resolveProgressMessage(state._progressSuccess, result);
+        indicator.succeed(successMsg, successIcon !== undefined ? { indicator: successIcon } : undefined);
       }
       (state._restoreOutput as (() => void) | undefined)?.();
       state._progress = undefined;
@@ -455,9 +461,73 @@ const noopIndicator: PadroneProgressIndicator = {
 };
 
 /** Creates a progress indicator from the runtime, or returns a no-op if unavailable. */
-export function createProgress(runtime: ResolvedPadroneRuntime, message: string): PadroneProgressIndicator {
-  return runtime.progress?.(message) ?? noopIndicator;
+export function createProgress(
+  runtime: ResolvedPadroneRuntime,
+  message: string,
+  options?: import('./runtime.ts').PadroneProgressOptions,
+): PadroneProgressIndicator {
+  return runtime.progress?.(message, options) ?? noopIndicator;
 }
+
+/**
+ * Creates a lazy progress indicator that defers real indicator creation until first use.
+ * This allows `ctx.progress` to work even without `.progress()` config, as long as the
+ * runtime provides a progress factory.
+ */
+export function createLazyIndicator(runtime: ResolvedPadroneRuntime, state: Record<string, unknown>): PadroneProgressIndicator {
+  if (!runtime.progress) return noopIndicator;
+
+  let real: PadroneProgressIndicator | undefined;
+  const ensure = (message?: string) => {
+    if (!real) {
+      real = runtime.progress!(message ?? '', undefined);
+      state._progress = real;
+    }
+    return real;
+  };
+
+  return {
+    update(msg) {
+      ensure(msg).update(msg);
+    },
+    succeed(msg) {
+      if (real) real.succeed(msg);
+    },
+    fail(msg) {
+      if (real) real.fail(msg);
+    },
+    stop() {
+      if (real) real.stop();
+    },
+    pause() {
+      if (real) real.pause();
+    },
+    resume() {
+      if (real) real.resume();
+    },
+  };
+}
+
+/**
+ * Resolves a progress message field (static or callback) into the arguments for succeed/fail.
+ * Handles string, null, `{ message, indicator }` objects, and callback functions.
+ */
+export function resolveProgressMessage(
+  field: unknown,
+  value: unknown,
+  fallback?: string,
+): { message: string | null | undefined; indicator?: string } {
+  const raw = typeof field === 'function' ? (field as (v: unknown) => unknown)(value) : field;
+  if (raw === undefined) return { message: fallback };
+  if (raw === null || typeof raw === 'string') return { message: raw };
+  if (typeof raw === 'object' && raw !== null) {
+    const obj = raw as { message?: string | null; indicator?: string };
+    return { message: obj.message, indicator: obj.indicator };
+  }
+  return { message: fallback };
+}
+
+export { noopIndicator };
 
 export function isAsyncBranded(schema: unknown): boolean {
   return !!schema && typeof schema === 'object' && '~async' in schema && (schema as any)['~async'] === true;

@@ -21,8 +21,8 @@ const program = createPadrone('todo')
         {
           positional: ['title'],
           fields: {
-            priority: { alias: 'p', description: 'Priority level' },
-            tags: { alias: 't', description: 'Tags for the task' },
+            priority: { flags: 'p', description: 'Priority level' },
+            tags: { flags: 't', description: 'Tags for the task' },
           },
         },
       )

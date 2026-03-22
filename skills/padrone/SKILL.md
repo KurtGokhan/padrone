@@ -96,8 +96,8 @@ The second parameter to `.arguments()` configures positional args, interactive p
   positional: ['source', '...files'],     // '...' prefix = variadic
   interactive: true,                       // or ['fieldName'] for specific fields
   fields: {
-    output: { alias: 'o', description: 'Output path', examples: ['./dist'] },
-    verbose: { alias: 'v', hidden: true },
+    output: { flags: 'o', description: 'Output path', examples: ['./dist'] },
+    verbose: { flags: 'v', hidden: true },
     old: { deprecated: 'Use --new instead' },
   },
 })

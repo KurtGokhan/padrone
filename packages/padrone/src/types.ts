@@ -2,7 +2,7 @@ import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/sp
 import type { Tool } from 'ai';
 import type { PadroneArgsSchemaMeta } from './args.ts';
 import type { HelpPreferences } from './help.ts';
-import type { PadroneProgressIndicator, PadroneRuntime, ResolvedPadroneRuntime } from './runtime.ts';
+import type { PadroneProgressIndicator, PadroneRuntime, PadroneSpinnerConfig, ResolvedPadroneRuntime } from './runtime.ts';
 import type {
   Drained,
   FindDirectChild,
@@ -38,10 +38,10 @@ export type PadroneActionContext = {
   /** The root program instance. */
   program: AnyPadroneProgram;
   /**
-   * Create a progress indicator for manual control in actions.
-   * Returns a no-op indicator if the runtime doesn't provide a `progress` factory.
+   * The active auto-managed progress indicator, or a no-op if none is configured.
+   * Use `.update()` to change the in-progress message mid-execution.
    */
-  progress: (message: string) => PadroneProgressIndicator;
+  progress: PadroneProgressIndicator;
 };
 
 /**
@@ -250,15 +250,30 @@ type CommandTypesBase = {
  * Configuration for a command.
  */
 /**
- * Detailed progress indicator configuration with per-state messages.
+ * A progress message value: a plain string, `null` to suppress, or an object with a message and custom indicator icon.
  */
-export type PadroneProgressPrefs = {
-  /** Message shown while the command is running (the spinner text). */
+export type PadroneProgressMessage = string | null | { message?: string | null; indicator?: string };
+
+/**
+ * Progress indicator configuration with per-state messages and optional dynamic callbacks.
+ *
+ * The `success` and `error` fields accept either a static value or a callback function:
+ * - `string` — static message.
+ * - `null` — suppress the message entirely.
+ * - `{ message, indicator }` — custom message with a per-call indicator icon override.
+ * - `(result) => PadroneProgressMessage` / `(error) => PadroneProgressMessage` — dynamic from the actual result/error.
+ */
+export type PadroneProgressPrefs<TRes = unknown> = {
+  /** Message shown during async validation. Defaults to `''` (spinner only). */
+  validation?: string;
+  /** Message shown while the command's action is running. */
   progress?: string;
-  /** Message shown when the command succeeds. Defaults to the `progress` message. */
-  success?: string;
-  /** Message shown when the command fails. Defaults to the error message. */
-  error?: string;
+  /** Message shown when the command succeeds. `null` to suppress. Defaults to the `progress` message. */
+  success?: PadroneProgressMessage | ((result: TRes) => PadroneProgressMessage);
+  /** Message shown when the command fails. `null` to suppress. Defaults to the error message. */
+  error?: PadroneProgressMessage | ((error: unknown) => PadroneProgressMessage);
+  /** Spinner configuration: a preset name, custom frames/interval, or `false` to disable. */
+  spinner?: PadroneSpinnerConfig;
 };
 
 export type PadroneCommandConfig = {
@@ -278,16 +293,6 @@ export type PadroneCommandConfig = {
    * See `PadroneEvalPreferences.autoOutput` for serialization details.
    */
   autoOutput?: boolean;
-  /**
-   * Auto-start a progress indicator when the command's execute phase begins.
-   * - `true` — generic message based on command name.
-   * - `string` — custom message for all states.
-   * - `PadroneProgressConfig` — separate messages for progress, success, and error states.
-   *
-   * The indicator is automatically stopped on success (`.succeed()`) or failure (`.fail()`).
-   * Requires a `progress` factory on the runtime — silently skipped if not available.
-   */
-  progress?: boolean | string | PadroneProgressPrefs;
 };
 
 /**
@@ -500,6 +505,31 @@ export type PadroneBuilderMethods<
     TNewEnv,
     OrAsync<TAsync, TNewEnv>
   >;
+
+  /**
+   * Configures an auto-managed progress indicator for this command.
+   * The indicator starts before validation and is automatically stopped on success or failure.
+   *
+   * - `true` — generic message based on command name.
+   * - `string` — custom message for all states.
+   * - `PadroneProgressConfig` — full control: per-state messages, dynamic callbacks, spinner config.
+   *
+   * Requires a `progress` factory on the runtime — silently skipped if not available.
+   *
+   * @example
+   * ```ts
+   * .progress('Deploying...')
+   * .progress({
+   *   progress: 'Deploying...',
+   *   success: (result) => `Deployed ${result.version}`,
+   *   error: (err) => `Deploy failed: ${err.message}`,
+   *   spinner: 'line',
+   * })
+   * ```
+   */
+  progress: (
+    config?: boolean | string | PadroneProgressPrefs<Awaited<TRes>>,
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync>;
 
   /**
    * Defines the handler function to be executed when the command is run.

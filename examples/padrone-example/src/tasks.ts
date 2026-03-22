@@ -241,15 +241,40 @@ export const tasksProgram = createPadrone('tasks')
   )
   .command('sync', (c) =>
     c
-      .configure({ title: 'Sync tasks to remote', progress: 'Syncing tasks...' })
+      .configure({ title: 'Sync tasks to remote', autoOutput: false })
       .async()
-      .action(async (args, ctx) => {
+      .arguments(
+        z.object({
+          test: z
+            .string()
+            .optional()
+            .describe('Test argument to demonstrate async progress')
+            .transform(async (val) => {
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+              return val;
+            })
+            .meta({ flags: 't' }),
+        }),
+      )
+      .action(async (_args, ctx) => {
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        ctx.runtime.output('Finalizing sync...');
+        ctx.progress.update('Finalizing sync...');
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
         const tasks = getTasks();
-        return `Synced ${tasks.length} task(s) to remote.`;
+        return {
+          count: tasks.length,
+          message: `Synced ${tasks.length} task(s) to remote.`,
+        };
+      })
+      .progress({
+        validation: 'Validating before sync...',
+        progress: 'Syncing tasks to remote...',
+        success: (res) => ({
+          message: `${res.count} tasks synced successfully!`,
+          indicator: res.count > 3 ? '🚀' : '✅',
+        }),
+        error: 'Failed to sync tasks.',
       }),
   )
   .command('import', (c) =>
@@ -262,15 +287,17 @@ export const tasksProgram = createPadrone('tasks')
         { positional: ['file'] },
       )
       .action((args, ctx) => {
-        const progress = ctx.progress('Importing tasks...');
         // Simulate reading and importing
         const count = 3;
         for (let i = 1; i <= count; i++) {
           addTask({ title: `Imported task ${i} from ${args.file}`, priority: 'medium', tags: ['imported'] });
-          progress.update(`Imported ${i}/${count} tasks...`);
+          ctx.progress.update(`Imported ${i}/${count} tasks...`);
         }
-        progress.succeed(`Imported ${count} tasks from ${args.file}`);
         return `Successfully imported ${count} task(s) from ${args.file}`;
+      })
+      .progress({
+        progress: 'Importing tasks...',
+        success: (res) => res,
       }),
   )
   .command('advanced', (c) =>
