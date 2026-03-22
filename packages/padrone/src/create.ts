@@ -683,21 +683,21 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           format: builtin.format ?? runtime.format,
         });
         runtime.output(helpText);
-        return {
+        return withDrain({
           command: existingCommand,
           args: undefined,
           result: helpText,
-        } as any;
+        }) as any;
       }
 
       if (builtin.type === 'version') {
         const version = getVersion(existingCommand.version);
         runtime.output(version);
-        return {
+        return withDrain({
           command: existingCommand,
           args: undefined,
           result: version,
-        } as any;
+        }) as any;
       }
 
       if (builtin.type === 'completion') {
@@ -710,19 +710,19 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             const result = setupCompletions(existingCommand.name, shell);
             const message = `${result.updated ? 'Updated' : 'Added'} ${existingCommand.name} completions in ${result.file}`;
             runtime.output(message);
-            return {
+            return withDrain({
               command: existingCommand,
               args: undefined,
               result: message,
-            };
+            });
           }
           const completionScript = generateCompletionOutput(existingCommand, builtin.shell);
           runtime.output(completionScript);
-          return {
+          return withDrain({
             command: existingCommand,
             args: undefined,
             result: completionScript,
-          };
+          });
         }) as any;
       }
     }

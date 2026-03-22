@@ -123,6 +123,86 @@ describe('drain()', () => {
     });
   });
 
+  describe('builtin commands', () => {
+    it('eval() help result should have drain()', async () => {
+      const program = createPadrone('app')
+        .configure({ version: '1.0.0' })
+        .command('greet', (c) => c.action(() => 'hi'));
+
+      const result = program.eval('--help');
+      expect(typeof result.drain).toBe('function');
+      const { value, error } = await result.drain();
+      expect(error).toBeUndefined();
+      expect(value as any).toContain('app');
+    });
+
+    it('eval() version result should have drain()', async () => {
+      const program = createPadrone('app')
+        .configure({ version: '2.5.0' })
+        .command('greet', (c) => c.action(() => 'hi'));
+
+      const result = program.eval('--version');
+      expect(typeof result.drain).toBe('function');
+      const { value, error } = await result.drain();
+      expect(error).toBeUndefined();
+      expect(value as any).toBe('2.5.0');
+    });
+
+    it('eval() help result should be thenable', async () => {
+      const program = createPadrone('app')
+        .configure({ version: '1.0.0' })
+        .command('greet', (c) => c.action(() => 'hi'));
+
+      const result = await program.eval('--help');
+      expect(result.result as any).toContain('app');
+    });
+
+    it('eval() version result should be thenable', async () => {
+      const program = createPadrone('app')
+        .configure({ version: '3.0.0' })
+        .command('greet', (c) => c.action(() => 'hi'));
+
+      const result = await program.eval('--version');
+      expect(result.result as any).toBe('3.0.0');
+    });
+
+    it('cli() help result should have drain()', async () => {
+      const program = createPadrone('app')
+        .configure({ version: '1.0.0' })
+        .runtime({ argv: () => ['--help'] })
+        .command('greet', (c) => c.action(() => 'hi'));
+
+      const result = program.cli();
+      expect(typeof result.drain).toBe('function');
+      const { value, error } = await result.drain();
+      expect(error).toBeUndefined();
+      expect(value).toContain('app');
+    });
+
+    it('cli() version result should have drain()', async () => {
+      const program = createPadrone('app')
+        .configure({ version: '4.0.0' })
+        .runtime({ argv: () => ['--version'] })
+        .command('greet', (c) => c.action(() => 'hi'));
+
+      const result = program.cli();
+      expect(typeof result.drain).toBe('function');
+      const { value, error } = await result.drain();
+      expect(error).toBeUndefined();
+      expect(value).toBe('4.0.0');
+    });
+
+    it('cli() help result should be thenable', async () => {
+      const program = createPadrone('app')
+        .configure({ version: '1.0.0' })
+        .runtime({ argv: () => ['--help'] })
+        .command('greet', (c) => c.action(() => 'hi'));
+
+      const result = await program.cli();
+      expect(result.result).toContain('app');
+    });
+  });
+
   describe('never-throw behavior', () => {
     it('eval() should return error instead of throwing on action error', () => {
       const program = createPadrone('app').command('fail', (c) =>
