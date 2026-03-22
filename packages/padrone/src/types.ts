@@ -1203,8 +1203,14 @@ type PluginPhaseHandler<TCtx, TNextResult, TReturn = TNextResult> = (
  * - Transform the return value of `next()` to alter outputs.
  */
 export type PadronePlugin<TArgs = unknown, TResult = unknown> = {
-  /** Unique name for this plugin. Used for identification and future disable/override support. */
+  /** Display name for this plugin. Used for identification in logs and debugging. */
   name: string;
+  /**
+   * Optional unique identifier for deduplication. When multiple plugins share the same `id`,
+   * only the last one registered is kept. Useful for allowing downstream code to override
+   * a plugin without accumulating duplicates.
+   */
+  id?: string;
   /**
    * Ordering hint. Lower values run as outer layers (earlier before `next()`, later after).
    * Plugins with the same order preserve registration order. Defaults to `0`.

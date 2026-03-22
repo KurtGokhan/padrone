@@ -288,6 +288,24 @@ export function errorResult(error: unknown, partial?: { command?: unknown; args?
 }
 
 /**
+ * Deduplicates plugins by `id`. When multiple plugins share the same `id`,
+ * only the last one in the array is kept. Plugins without an `id` are always kept.
+ */
+function deduplicatePlugins(plugins: PadronePlugin<any, any>[]): PadronePlugin<any, any>[] {
+  // Fast path: no ids at all
+  if (!plugins.some((p) => p.id)) return plugins;
+
+  // Find the last index for each id
+  const lastIndex = new Map<string, number>();
+  for (let i = 0; i < plugins.length; i++) {
+    const id = plugins[i]!.id;
+    if (id) lastIndex.set(id, i);
+  }
+
+  return plugins.filter((p, i) => !p.id || lastIndex.get(p.id) === i);
+}
+
+/**
  * Runs a plugin chain for a given phase using the onion/middleware pattern.
  * Plugins are sorted by `order` (ascending, stable), then composed so that
  * the first plugin in sorted order is the outermost wrapper.
@@ -299,8 +317,9 @@ export function runPluginChain<TCtx, TResult>(
   ctx: TCtx,
   core: () => TResult | Promise<TResult>,
 ): TResult | Promise<TResult> {
-  // Filter to plugins that have a handler for this phase, preserve insertion order
-  const phasePlugins = plugins.filter((p) => p[phase]);
+  // Deduplicate by id (last wins), then filter to plugins that have a handler for this phase
+  const deduped = deduplicatePlugins(plugins);
+  const phasePlugins = deduped.filter((p) => p[phase]);
   if (phasePlugins.length === 0) return core();
 
   // Stable sort by order (lower = outermost). Equal order preserves registration order.

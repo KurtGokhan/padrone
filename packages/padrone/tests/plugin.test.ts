@@ -1094,4 +1094,155 @@ describe('plugins', () => {
       expect(log).toEqual(['root', 'db', 'migrate']);
     });
   });
+
+  describe('id deduplication', () => {
+    it('should keep the last plugin when multiple share the same id', () => {
+      const log: string[] = [];
+
+      const program = makeProgram()
+        .use({
+          name: 'first',
+          id: 'auth',
+          execute: (_ctx, next) => {
+            log.push('first');
+            return next();
+          },
+        })
+        .use({
+          name: 'second',
+          id: 'auth',
+          execute: (_ctx, next) => {
+            log.push('second');
+            return next();
+          },
+        });
+
+      program.eval('greet World');
+      expect(log).toEqual(['second']);
+    });
+
+    it('should not affect plugins without an id', () => {
+      const log: string[] = [];
+
+      const program = makeProgram()
+        .use({
+          name: 'a',
+          execute: (_ctx, next) => {
+            log.push('a');
+            return next();
+          },
+        })
+        .use({
+          name: 'b',
+          execute: (_ctx, next) => {
+            log.push('b');
+            return next();
+          },
+        });
+
+      program.eval('greet World');
+      expect(log).toEqual(['a', 'b']);
+    });
+
+    it('should mix plugins with and without ids correctly', () => {
+      const log: string[] = [];
+
+      const program = makeProgram()
+        .use({
+          name: 'no-id-1',
+          execute: (_ctx, next) => {
+            log.push('no-id-1');
+            return next();
+          },
+        })
+        .use({
+          name: 'first-auth',
+          id: 'auth',
+          execute: (_ctx, next) => {
+            log.push('first-auth');
+            return next();
+          },
+        })
+        .use({
+          name: 'no-id-2',
+          execute: (_ctx, next) => {
+            log.push('no-id-2');
+            return next();
+          },
+        })
+        .use({
+          name: 'second-auth',
+          id: 'auth',
+          execute: (_ctx, next) => {
+            log.push('second-auth');
+            return next();
+          },
+        });
+
+      program.eval('greet World');
+      expect(log).toEqual(['no-id-1', 'no-id-2', 'second-auth']);
+    });
+
+    it('should deduplicate across parent chain (subcommand overrides parent)', () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test')
+        .command('greet', (c) =>
+          c
+            .arguments(z.object({ name: z.string() }), { positional: ['name'] })
+            .action((args) => `Hello, ${args.name}!`)
+            .use({
+              name: 'sub-auth',
+              id: 'auth',
+              execute: (_ctx, next) => {
+                log.push('sub-auth');
+                return next();
+              },
+            }),
+        )
+        .use({
+          name: 'root-auth',
+          id: 'auth',
+          execute: (_ctx, next) => {
+            log.push('root-auth');
+            return next();
+          },
+        });
+
+      program.eval('greet World');
+      // Subcommand plugin comes after root in collected chain, so it wins
+      expect(log).toEqual(['sub-auth']);
+    });
+
+    it('should deduplicate per phase independently', () => {
+      const log: string[] = [];
+
+      const program = makeProgram()
+        .use({
+          name: 'first',
+          id: 'logger',
+          validate: (_ctx, next) => {
+            log.push('validate:first');
+            return next();
+          },
+          execute: (_ctx, next) => {
+            log.push('execute:first');
+            return next();
+          },
+        })
+        .use({
+          name: 'second',
+          id: 'logger',
+          execute: (_ctx, next) => {
+            log.push('execute:second');
+            return next();
+          },
+          // no validate — but dedup still removes the first plugin entirely
+        });
+
+      program.eval('greet World');
+      // The second plugin replaced the first (same id), so first's validate is gone too
+      expect(log).toEqual(['execute:second']);
+    });
+  });
 });
