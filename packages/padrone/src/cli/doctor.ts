@@ -1,9 +1,10 @@
 import { resolve } from 'node:path';
 import { commandSymbol } from '../command-utils.ts';
 import type { AnyPadroneCommand, PadroneActionContext } from '../types.ts';
+import { detectEntry } from './link.ts';
 
 interface DoctorArgs {
-  entry: string;
+  entry?: string;
 }
 
 type Severity = 'error' | 'warning';
@@ -15,7 +16,18 @@ interface Diagnostic {
 }
 
 export async function runDoctor(args: DoctorArgs, _ctx: PadroneActionContext) {
-  const entryPath = resolve(args.entry);
+  let entryPath: string;
+
+  if (args.entry) {
+    entryPath = resolve(args.entry);
+  } else {
+    const detected = detectEntry(process.cwd());
+    if (!detected) {
+      console.error('Could not detect entry point. Provide an entry file or add a "bin" field to package.json.');
+      process.exit(1);
+    }
+    entryPath = detected.entry;
+  }
 
   let mod: Record<string, unknown>;
   try {
@@ -63,6 +75,8 @@ export async function runDoctor(args: DoctorArgs, _ctx: PadroneActionContext) {
 }
 
 function collectDiagnostics(cmd: AnyPadroneCommand, diagnostics: Diagnostic[]) {
+  checkCircularParentRefs(cmd, diagnostics);
+
   const allCommands = flattenCommands(cmd);
 
   checkDuplicateAliases(allCommands, diagnostics);
@@ -71,6 +85,11 @@ function collectDiagnostics(cmd: AnyPadroneCommand, diagnostics: Diagnostic[]) {
   checkSchemasWithoutDescriptions(allCommands, diagnostics);
   checkConflictingPositionals(allCommands, diagnostics);
   checkUnusedPlugins(allCommands, diagnostics);
+  checkDuplicateOptionFlagsAndAliases(allCommands, diagnostics);
+  checkUnreachableCommands(allCommands, diagnostics);
+  checkMissingCommandDescriptions(allCommands, diagnostics);
+  checkEmptyCommandGroups(allCommands, diagnostics);
+  checkDeprecatedWithoutHint(allCommands, diagnostics);
 }
 
 function flattenCommands(cmd: AnyPadroneCommand): AnyPadroneCommand[] {
@@ -308,6 +327,176 @@ function checkUnusedPlugins(commands: AnyPadroneCommand[], diagnostics: Diagnost
           command: commandDisplayName(cmd),
           message: `Plugin "${plugin.name}" has no phase handlers.`,
         });
+      }
+    }
+  }
+}
+
+/**
+ * Check for circular parent references in the command tree.
+ * Uses a visited set to detect cycles before flattening.
+ */
+function checkCircularParentRefs(cmd: AnyPadroneCommand, diagnostics: Diagnostic[]) {
+  const visited = new Set<AnyPadroneCommand>();
+
+  function walk(node: AnyPadroneCommand) {
+    if (visited.has(node)) {
+      diagnostics.push({
+        severity: 'error',
+        command: commandDisplayName(node),
+        message: 'Circular reference detected in command tree.',
+      });
+      return;
+    }
+    visited.add(node);
+    if (node.commands) {
+      for (const sub of node.commands) {
+        walk(sub);
+      }
+    }
+  }
+
+  walk(cmd);
+}
+
+/**
+ * Check for duplicate flags or aliases within a single command's meta fields.
+ * e.g., two different options both using `-v` or both aliased to `--output`.
+ */
+function checkDuplicateOptionFlagsAndAliases(commands: AnyPadroneCommand[], diagnostics: Diagnostic[]) {
+  for (const cmd of commands) {
+    if (!cmd.meta?.fields) continue;
+
+    const seenFlags = new Map<string, string>();
+    const seenAliases = new Map<string, string>();
+
+    for (const [fieldName, fieldMeta] of Object.entries(cmd.meta.fields)) {
+      if (!fieldMeta) continue;
+
+      if (fieldMeta.flags) {
+        const flagList = typeof fieldMeta.flags === 'string' ? [fieldMeta.flags] : fieldMeta.flags;
+        for (const flag of flagList) {
+          const existing = seenFlags.get(flag);
+          if (existing) {
+            diagnostics.push({
+              severity: 'error',
+              command: commandDisplayName(cmd),
+              message: `Flag "-${flag}" is used by both "${existing}" and "${fieldName}".`,
+            });
+          } else {
+            seenFlags.set(flag, fieldName);
+          }
+        }
+      }
+
+      if (fieldMeta.alias) {
+        const aliasList = typeof fieldMeta.alias === 'string' ? [fieldMeta.alias] : fieldMeta.alias;
+        for (const alias of aliasList) {
+          const existing = seenAliases.get(alias);
+          if (existing) {
+            diagnostics.push({
+              severity: 'error',
+              command: commandDisplayName(cmd),
+              message: `Alias "--${alias}" is used by both "${existing}" and "${fieldName}".`,
+            });
+          } else {
+            seenAliases.set(alias, fieldName);
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Check for commands that are unreachable because a parent is hidden.
+ * A hidden parent makes all its children effectively invisible to users.
+ */
+function checkUnreachableCommands(commands: AnyPadroneCommand[], diagnostics: Diagnostic[]) {
+  for (const cmd of commands) {
+    if (!cmd.parent || cmd.hidden) continue;
+
+    let ancestor: AnyPadroneCommand | undefined = cmd.parent;
+    while (ancestor) {
+      if (ancestor.hidden && ancestor.parent) {
+        diagnostics.push({
+          severity: 'warning',
+          command: commandDisplayName(cmd),
+          message: `Command is unreachable because parent "${commandDisplayName(ancestor)}" is hidden.`,
+        });
+        break;
+      }
+      ancestor = ancestor.parent;
+    }
+  }
+}
+
+/**
+ * Check for non-root commands without a title or description.
+ */
+function checkMissingCommandDescriptions(commands: AnyPadroneCommand[], diagnostics: Diagnostic[]) {
+  for (const cmd of commands) {
+    if (!cmd.parent) continue;
+    if (cmd.hidden) continue;
+
+    if (!cmd.title && !cmd.description) {
+      diagnostics.push({
+        severity: 'warning',
+        command: commandDisplayName(cmd),
+        message: 'Command has no title or description.',
+      });
+    }
+  }
+}
+
+/**
+ * Check for branch commands (have subcommands) that have no leaf descendants.
+ * This catches empty command groups where all subcommands are also empty branches.
+ */
+function checkEmptyCommandGroups(commands: AnyPadroneCommand[], diagnostics: Diagnostic[]) {
+  function hasLeafDescendant(cmd: AnyPadroneCommand): boolean {
+    if (!cmd.commands || cmd.commands.length === 0) return true;
+    return cmd.commands.some(hasLeafDescendant);
+  }
+
+  for (const cmd of commands) {
+    if (!cmd.commands || cmd.commands.length === 0) continue;
+
+    const allSubsEmpty = cmd.commands.every((sub) => sub.commands && sub.commands.length > 0 && !hasLeafDescendant(sub));
+
+    if (allSubsEmpty) {
+      diagnostics.push({
+        severity: 'warning',
+        command: commandDisplayName(cmd),
+        message: 'Command group has no reachable leaf commands.',
+      });
+    }
+  }
+}
+
+/**
+ * Check for deprecated commands that use `deprecated: true` without a hint message.
+ */
+function checkDeprecatedWithoutHint(commands: AnyPadroneCommand[], diagnostics: Diagnostic[]) {
+  for (const cmd of commands) {
+    if (cmd.deprecated === true) {
+      diagnostics.push({
+        severity: 'warning',
+        command: commandDisplayName(cmd),
+        message: 'Command is deprecated without a replacement hint. Use a string to provide guidance (e.g., "Use \'new-cmd\' instead").',
+      });
+    }
+
+    // Also check deprecated option fields
+    if (cmd.meta?.fields) {
+      for (const [fieldName, fieldMeta] of Object.entries(cmd.meta.fields)) {
+        if (fieldMeta?.deprecated === true) {
+          diagnostics.push({
+            severity: 'warning',
+            command: commandDisplayName(cmd),
+            message: `Option "${fieldName}" is deprecated without a replacement hint.`,
+          });
+        }
       }
     }
   }

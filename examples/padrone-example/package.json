@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/tasks.ts"
   },
+  "bin": "src/tasks.ts",
   "scripts": {
     "start": "bun --conditions=padrone@dev src/tasks.ts",
     "ai": "bun --conditions=padrone@dev run src/ai.ts",

@@ -49,7 +49,7 @@ function writeLinks(links: LinksData) {
   writeFileSync(LINKS_FILE, `${JSON.stringify(links, null, 2)}\n`);
 }
 
-interface DetectedEntry {
+export interface DetectedEntry {
   entry: string;
   name: string;
   /** Full run command prefix parsed from scripts (e.g. "bun --conditions=padrone@dev") */
@@ -70,7 +70,7 @@ function parseRunPrefix(script: string, entryRelative: string, dir: string): str
   return undefined;
 }
 
-function detectEntry(dir: string): DetectedEntry | undefined {
+export function detectEntry(dir: string): DetectedEntry | undefined {
   const pkgPath = resolve(dir, 'package.json');
   if (!existsSync(pkgPath)) return undefined;
 

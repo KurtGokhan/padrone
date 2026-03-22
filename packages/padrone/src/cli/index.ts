@@ -60,7 +60,7 @@ const PadroneCLI = createPadrone('padrone')
       })
       .arguments(
         z.object({
-          entry: z.string().describe('Entry file that exports a Padrone program'),
+          entry: z.string().optional().describe('Entry file that exports a Padrone program (auto-detected from package.json if omitted)'),
         }),
         {
           positional: ['entry'],
