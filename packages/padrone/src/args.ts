@@ -34,12 +34,12 @@ export type SingleChar = Letter | Uppercase<Letter>;
 export interface PadroneFieldMeta {
   description?: string;
   /** Single-character short flags (stackable: `-abc` = `-a -b -c`). Used with single dash. */
-  flags?: SingleChar[] | SingleChar;
+  flags?: readonly SingleChar[] | SingleChar;
   /** Multi-character alternative long names. Used with double dash (e.g. `--dry-run` for `--dryRun`). */
-  alias?: string[] | string;
+  alias?: readonly string[] | string;
   deprecated?: boolean | string;
   hidden?: boolean;
-  examples?: unknown[];
+  examples?: readonly unknown[];
   /** Group name for organizing this option under a labeled section in help output. */
   group?: string;
 }
@@ -85,7 +85,7 @@ export interface PadroneArgsSchemaMeta<TObj = Record<string, any>> {
    * Order in array determines position. Use '...name' prefix for variadic args.
    * @example ['source', '...files', 'dest'] - 'files' captures multiple values
    */
-  positional?: PositionalArgs<TObj>[];
+  positional?: readonly PositionalArgs<TObj>[];
   /**
    * Per-argument metadata.
    */
@@ -144,7 +144,7 @@ export interface PadroneArgsSchemaMeta<TObj = Record<string, any>> {
    * })
    * ```
    */
-  interactive?: true | (keyof TObj & string)[];
+  interactive?: true | readonly (keyof TObj & string)[];
   /**
    * Optional fields offered after required interactive prompts.
    * Users are shown a multi-select to choose which of these fields to configure.
@@ -159,7 +159,7 @@ export interface PadroneArgsSchemaMeta<TObj = Record<string, any>> {
    * })
    * ```
    */
-  optionalInteractive?: true | (keyof TObj & string)[];
+  optionalInteractive?: true | readonly (keyof TObj & string)[];
 }
 
 /**
@@ -182,7 +182,7 @@ export function parseStdinConfig(stdin: StdinConfig): { field: string; as: 'text
 /**
  * Parse positional configuration to extract names and variadic info.
  */
-export function parsePositionalConfig(positional: string[]): { name: string; variadic: boolean }[] {
+export function parsePositionalConfig(positional: readonly string[]): { name: string; variadic: boolean }[] {
   return positional.map((p) => {
     const isVariadic = p.startsWith('...');
     const name = isVariadic ? p.slice(3) : p;
@@ -200,7 +200,7 @@ interface SchemaMetadataResult {
   aliases: Record<string, string>;
 }
 
-function addEntries(target: Record<string, string>, key: string, items: string | string[], filter?: (item: string) => boolean) {
+function addEntries(target: Record<string, string>, key: string, items: string | readonly string[], filter?: (item: string) => boolean) {
   const list = typeof items === 'string' ? [items] : items;
   for (const item of list) {
     if (typeof item === 'string' && item && item !== key && !(item in target) && (!filter || filter(item))) {

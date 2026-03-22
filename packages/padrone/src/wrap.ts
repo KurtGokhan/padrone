@@ -58,7 +58,7 @@ export type WrapResult = {
 /**
  * Converts parsed arguments to CLI arguments for an external command.
  */
-function argsToCliArgs(input: Record<string, unknown> | undefined, positional: string[] = []): string[] {
+function argsToCliArgs(input: Record<string, unknown> | undefined, positional: readonly string[] = []): string[] {
   const args: string[] = [];
 
   // Handle undefined or null input
@@ -122,7 +122,7 @@ function argsToCliArgs(input: Record<string, unknown> | undefined, positional: s
 export function createWrapHandler<TCommandArgs extends PadroneSchema, TWrapArgs extends PadroneSchema>(
   config: WrapConfig<TCommandArgs, TWrapArgs>,
   commandArguments: TCommandArgs,
-  commandPositional?: string[],
+  commandPositional?: readonly string[],
 ): (args: StandardSchemaV1.InferOutput<TCommandArgs>) => Promise<WrapResult> {
   return async (args: StandardSchemaV1.InferOutput<TCommandArgs>): Promise<WrapResult> => {
     const { command, args: fixedArgs = [], inheritStdio = true, positional = commandPositional, schema: wrapSchema } = config;

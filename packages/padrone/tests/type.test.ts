@@ -339,3 +339,47 @@ describe.skip('Types - Async', () => {
   // Builder: .async() is available on builder
   expectTypeOf<'async'>().toExtend<keyof PadroneBuilder>();
 });
+
+/** This test verifies that readonly arrays are accepted in configuration */
+describe.skip('Types - Readonly arrays in configuration', () => {
+  // Readonly positional array
+  const positional = ['source', '...files'] as const;
+  createPadrone('test').command('copy', (c) =>
+    c.arguments(z.object({ source: z.string(), files: z.array(z.string()) }), { positional }).action((args) => args),
+  );
+
+  // Readonly interactive array
+  const interactive = ['name', 'template'] as const;
+  createPadrone('test').command('init', (c) =>
+    c.arguments(z.object({ name: z.string(), template: z.string() }), { interactive }).action((args) => args),
+  );
+
+  // Readonly optionalInteractive array
+  const optionalInteractive = ['verbose'] as const;
+  createPadrone('test').command('build', (c) =>
+    c.arguments(z.object({ verbose: z.boolean().default(false) }), { optionalInteractive }).action((args) => args),
+  );
+
+  // Readonly fields with flags and alias
+  const flags = ['v', 'V'] as const;
+  const alias = ['dry-run', 'no-cache'] as const;
+  createPadrone('test').command('deploy', (c) =>
+    c
+      .arguments(z.object({ verbose: z.boolean().default(false), dryRun: z.boolean().default(false) }), {
+        fields: {
+          verbose: { flags, alias },
+        },
+      })
+      .action((args) => args),
+  );
+
+  // Inline readonly arrays (as const satisfies)
+  createPadrone('test').command('run', (c) =>
+    c
+      .arguments(z.object({ file: z.string(), args: z.array(z.string()) }), {
+        positional: ['file', '...args'] as const,
+        interactive: ['file'] as const,
+      })
+      .action((args) => args),
+  );
+});

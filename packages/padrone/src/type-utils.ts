@@ -36,9 +36,9 @@ export type OrAsync<TExisting extends boolean, TSchema> = TExisting extends true
  * Detects whether argument meta contains interactive or optionalInteractive configuration.
  * When either is `true` or a `string[]`, the command requires async execution for prompting.
  */
-export type HasInteractive<TMeta> = TMeta extends { interactive: true | string[] }
+export type HasInteractive<TMeta> = TMeta extends { interactive: true | readonly string[] }
   ? true
-  : TMeta extends { optionalInteractive: true | string[] }
+  : TMeta extends { optionalInteractive: true | readonly string[] }
     ? true
     : false;
 
