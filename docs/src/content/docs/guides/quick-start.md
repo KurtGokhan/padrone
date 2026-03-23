@@ -5,9 +5,20 @@ description: Build your first CLI application with Padrone in minutes
 
 This guide walks you through creating a simple CLI application with Padrone.
 
-## Installation
+## Scaffold with `padrone init`
 
-Install Padrone and Zod:
+The fastest way to start is to scaffold a new project:
+
+```bash
+npx padrone init my-cli
+cd my-cli && bun i && bun dev
+```
+
+This generates a ready-to-run project with a starter program. See [CLI Tools](../cli-tools/#padrone-init) for all options.
+
+## Manual Installation
+
+Alternatively, add Padrone to an existing project:
 
 ```bash
 # Using npm

@@ -24,6 +24,15 @@ Built on [Standard Schema](https://github.com/standard-schema/standard-schema), 
 npm install padrone zod
 ```
 
+## Scaffold a New Project
+
+The fastest way to get started is with `padrone init`:
+
+```bash
+npx padrone init my-cli
+cd my-cli && bun i && bun dev
+```
+
 ## Quick Start
 
 ```typescript
