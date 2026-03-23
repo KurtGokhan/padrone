@@ -1,5 +1,5 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
-import { extractSchemaMetadata, type PadroneArgsSchemaMeta, parsePositionalConfig, parseStdinConfig } from './args.ts';
+import { extractSchemaMetadata, JSON_SCHEMA_OPTS, type PadroneArgsSchemaMeta, parsePositionalConfig, parseStdinConfig } from './args.ts';
 import type { ColorConfig, ColorTheme } from './colorizer.ts';
 import { findCommandByName } from './command-utils.ts';
 import {
@@ -37,7 +37,7 @@ function extractPositionalArgsInfo(
   const positionalConfig = parsePositionalConfig(meta.positional);
 
   try {
-    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+    const jsonSchema = schema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
 
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
       const properties = jsonSchema.properties as Record<string, any>;
@@ -77,7 +77,7 @@ function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaM
   const argsMeta = meta?.fields;
 
   try {
-    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+    const jsonSchema = schema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
 
     // Handle object: z.object({ key: z.string(), ... })
     if (jsonSchema.type === 'object' && jsonSchema.properties) {

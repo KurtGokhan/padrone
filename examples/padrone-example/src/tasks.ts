@@ -1,4 +1,5 @@
 import { createPadrone, type PadronePlugin } from 'padrone';
+import { zodAsyncStream } from 'padrone/zod';
 import * as z from 'zod/v4';
 import { addTask, getTask, getTasks, removeTask, setTaskStatus, updateTask } from './tasks-store.ts';
 
@@ -64,6 +65,30 @@ export const tasksProgram = createPadrone('tasks')
         // results are handled by each command's action
       }
     }),
+  )
+  .command('chat', (c) =>
+    c
+      .configure({ title: 'Start a conversation with the assistant', autoOutput: true })
+      .async()
+      .arguments(
+        z.object({
+          system: z.string().optional().describe('System prompt to set the context for the assistant').meta({ flags: 's' }),
+          messages: zodAsyncStream(z.string().nonempty()),
+        }),
+        {
+          positional: ['messages'],
+          stdin: 'messages',
+          interactive: ['system'],
+        },
+      )
+      .action(async function* (args) {
+        yield `Hello there. This is a simple echo assistant. Feel free to send messages, and I will echo them back!`;
+
+        for await (const message of args.messages) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          yield `You said: ${message}`;
+        }
+      }),
   )
   .command(['add', 'create'], (c) =>
     c

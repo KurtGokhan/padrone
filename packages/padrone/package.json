@@ -81,6 +81,14 @@
       },
       "source": "./src/docs/index.ts"
     },
+    "./zod": {
+      "padrone@dev": "./src/zod.ts",
+      "import": {
+        "types": "./dist/zod.d.mts",
+        "default": "./dist/zod.mjs"
+      },
+      "source": "./src/zod.ts"
+    },
     "./completion": {
       "padrone@dev": "./src/completion.ts",
       "import": {
@@ -92,7 +100,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsdown src/index.ts src/test.ts src/codegen/index.ts src/docs/index.ts src/completion.ts --dts --sourcemap",
+    "build": "tsdown src/index.ts src/test.ts src/zod.ts src/codegen/index.ts src/docs/index.ts src/completion.ts --dts --sourcemap",
     "start": "bun --conditions=padrone@dev src/cli/index.ts",
     "dev": "bun --conditions=padrone@dev --watch src/cli/index.ts",
     "test": "bun test --conditions=padrone@dev",

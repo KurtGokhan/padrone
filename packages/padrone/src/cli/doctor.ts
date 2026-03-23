@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { JSON_SCHEMA_OPTS } from '../args.ts';
 import { commandSymbol } from '../command-utils.ts';
 import type { AnyPadroneCommand, PadroneActionContext } from '../types.ts';
 import { detectEntry } from './link.ts';
@@ -109,7 +110,7 @@ function commandDisplayName(cmd: AnyPadroneCommand): string {
 function getJsonSchema(cmd: AnyPadroneCommand): Record<string, any> | null {
   try {
     if (!cmd.argsSchema) return null;
-    return cmd.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+    return cmd.argsSchema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
   } catch {
     return null;
   }

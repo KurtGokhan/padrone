@@ -467,6 +467,15 @@ export function resolveStdin(partial?: PadroneRuntime): NonNullable<PadroneRunti
   return defaultStdin;
 }
 
+/**
+ * Like `resolveStdin`, but always returns a stdin source even when it's a TTY.
+ * Used for async streams which support interactive (non-piped) input.
+ */
+export function resolveStdinAlways(partial?: PadroneRuntime): NonNullable<PadroneRuntime['stdin']> {
+  if (partial?.stdin) return partial.stdin;
+  return createDefaultStdin();
+}
+
 export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime {
   const defaults = createDefaultRuntime();
   if (!partial) return defaults;

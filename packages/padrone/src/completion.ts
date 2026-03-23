@@ -1,4 +1,4 @@
-import { extractSchemaMetadata } from './args.ts';
+import { extractSchemaMetadata, JSON_SCHEMA_OPTS } from './args.ts';
 import { detectShell, getRcFile, type ShellType, writeToRcFile } from './shell-utils.ts';
 import type { AnyPadroneCommand } from './types.ts';
 
@@ -48,7 +48,7 @@ function extractArguments(cmd: AnyPadroneCommand): ExtractedArg[] {
       if (!argToAlias[argName]) argToAlias[argName] = aliasName;
     }
 
-    const jsonSchema = cmd.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+    const jsonSchema = cmd.argsSchema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
 
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
       for (const [key, prop] of Object.entries(jsonSchema.properties as Record<string, any>)) {

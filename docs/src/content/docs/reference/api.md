@@ -876,10 +876,64 @@ cat urls.txt | myapp
 # args.lines = ["https://...", "https://...", ...]
 ```
 
+### Streaming with `asyncStream`
+
+For large inputs, you can receive stdin as an `AsyncIterable` instead of buffering everything into memory. Each line is yielded lazily as it arrives.
+
+```typescript
+import { zodAsyncStream } from 'padrone/zod';
+
+// String stream — yields raw lines
+.arguments(
+  z.object({ lines: zodAsyncStream() }),
+  { stdin: 'lines' }
+)
+.action(async ({ lines }) => {
+  for await (const line of lines) {
+    process.stdout.write(transform(line) + '\n');
+  }
+})
+```
+
+```typescript
+import { zodAsyncStream, jsonCodec } from 'padrone/zod';
+
+// Typed stream — each line validated through a JSON codec
+const recordSchema = z.object({ name: z.string() });
+
+.arguments(
+  z.object({ records: zodAsyncStream(jsonCodec(recordSchema)) }),
+  { stdin: 'records' }
+)
+.action(async ({ records }) => {
+  for await (const record of records) {
+    console.log(record.name);
+  }
+})
+```
+
+The `jsonCodec` helper wraps a schema to automatically `JSON.parse` each line before validation. If the input is already an object (not a string), it passes through as-is.
+
+When no stdin is piped, the stream yields nothing (empty iterable). If an item fails validation, the stream throws immediately.
+
+#### Generic `asyncStream` (non-Zod)
+
+For other Standard Schema libraries, use `asyncStream()` from `padrone` directly with `.meta()`:
+
+```typescript
+import { asyncStream } from 'padrone';
+
+// String stream (no item validation)
+z.custom<AsyncIterable<string>>().meta(asyncStream())
+
+// With item validation (item schema must handle JSON parsing itself)
+z.custom<AsyncIterable<MyType>>().meta(asyncStream(myItemSchema))
+```
+
 ### Stdin Behavior
 
 - Only reads when stdin is piped (not a TTY) and the target field wasn't provided via CLI flags
-- Read mode is inferred from the schema: `string` fields read all stdin as text, `string[]` fields read line-by-line
+- Read mode is inferred from the schema: `string` fields read all stdin as text, `string[]` fields read line-by-line, `zodAsyncStream()`/`asyncStream()` fields stream lazily
 - Resolution priority: CLI args > stdin > env vars > config files > defaults
 
 ### Runtime Stdin API

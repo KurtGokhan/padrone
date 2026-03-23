@@ -97,7 +97,7 @@ The second parameter to `.arguments()` configures positional args, interactive p
   positional: ['source', '...files'],     // '...' prefix = variadic
   interactive: true,                       // or ['fieldName'] for specific fields
   autoAlias: true,                         // auto kebab-case aliases for camelCase (default: true)
-  stdin: 'data',                           // infers text/lines from schema type
+  stdin: 'data',                           // infers text/lines from schema type; use zodAsyncStream() for streaming
   fields: {
     output: { flags: 'o', description: 'Output path', examples: ['./dist'] },
     verbose: { flags: 'v', hidden: true },

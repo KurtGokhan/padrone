@@ -30,6 +30,8 @@
       "**/*.gen.ts": true,
       "**/*.ts.snap": true
     },
+    "bun.test.enable": true,
+    "bun.test.customScript": "bun run test",
     "bun.test.customFlag": "--conditions=padrone@dev",
     "editor.formatOnSave": true,
     "js/ts.preferences.quoteStyle": "single",

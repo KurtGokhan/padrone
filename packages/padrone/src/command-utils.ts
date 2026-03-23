@@ -1,4 +1,4 @@
-import { extractSchemaMetadata } from './args.ts';
+import { extractSchemaMetadata, JSON_SCHEMA_OPTS } from './args.ts';
 import { type PadroneProgressIndicator, type ResolvedPadroneRuntime, resolveRuntime } from './runtime.ts';
 import type { Thenable } from './type-utils.ts';
 import type {
@@ -637,7 +637,7 @@ export function buildReplCompleter(
         try {
           const argsMeta = targetCommand.meta?.fields;
           const { flags, aliases } = extractSchemaMetadata(targetCommand.argsSchema, argsMeta, targetCommand.meta?.autoAlias);
-          const jsonSchema = targetCommand.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+          const jsonSchema = targetCommand.argsSchema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
           if (jsonSchema.type === 'object' && jsonSchema.properties) {
             for (const key of Object.keys(jsonSchema.properties)) {
               options.push(`--${key}`);

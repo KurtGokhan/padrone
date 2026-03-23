@@ -124,6 +124,21 @@ Read from stdin and inject the data into a specified argument field. Only reads 
   z.object({ lines: z.array(z.string()) }),
   { stdin: 'lines' }
 )
+
+// Stream stdin lazily as AsyncIterable (for large inputs)
+import { zodAsyncStream } from 'padrone/zod';
+.arguments(
+  z.object({ lines: zodAsyncStream() }),
+  { stdin: 'lines' }
+)
+
+// Typed stream with JSON codec (each line JSON.parse'd and validated)
+import { zodAsyncStream, jsonCodec } from 'padrone/zod';
+const itemSchema = z.object({ name: z.string(), age: z.number() });
+.arguments(
+  z.object({ records: zodAsyncStream(jsonCodec(itemSchema)) }),
+  { stdin: 'records' }
+)
 ```
 
 ### interactive

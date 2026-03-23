@@ -14,6 +14,8 @@ export type {
   PadroneSpinnerPreset,
 } from './runtime.ts';
 export { REPL_SIGINT } from './runtime.ts';
+export type { AsyncStreamMeta } from './stream.ts';
+export { asyncStream } from './stream.ts';
 export type { InferArgsInput, InferArgsOutput, InferCommand } from './type-helpers.ts';
 export type { Drained } from './type-utils.ts';
 export type {

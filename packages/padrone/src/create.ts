@@ -5,6 +5,8 @@ import {
   detectUnknownArgs,
   extractSchemaMetadata,
   isArrayField,
+  isAsyncStreamField,
+  JSON_SCHEMA_OPTS,
   parsePositionalConfig,
   parseStdinConfig,
   preprocessArgs,
@@ -40,7 +42,8 @@ import { generateHelp } from './help.ts';
 import { promptInteractiveFields } from './interactive.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
 import { createReplIterator } from './repl-loop.ts';
-import { type PadroneProgressIndicator, resolveStdin } from './runtime.ts';
+import { type PadroneProgressIndicator, resolveStdin, resolveStdinAlways } from './runtime.ts';
+import { createStdinStream } from './stream.ts';
 import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
@@ -155,7 +158,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     const arrayArguments = new Set<string>();
     if (curCommand.argsSchema) {
       try {
-        const jsonSchema = curCommand.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+        const jsonSchema = curCommand.argsSchema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
         if (jsonSchema.type === 'object' && jsonSchema.properties) {
           for (const [key, prop] of Object.entries(jsonSchema.properties as Record<string, any>)) {
             if (prop?.type === 'array') arrayArguments.add(key);
@@ -377,6 +380,14 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           if (field in validateCtx.rawArgs && validateCtx.rawArgs[field] !== undefined) return {};
 
           const runtime = getCommandRuntime(existingCommand);
+
+          const streamInfo = isAsyncStreamField(command.argsSchema, field);
+          if (streamInfo) {
+            // Async stream: always resolve stdin (even on TTY) for interactive use
+            const stdinForStream = resolveStdinAlways(runtime as any);
+            return { [field]: createStdinStream(stdinForStream, streamInfo.itemSchema) };
+          }
+
           const stdin = resolveStdin(runtime as any);
           if (!stdin) return {};
 
@@ -1078,6 +1089,13 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             // Skip if the field was already provided via CLI flags (highest precedence)
             if (field in validateCtx.rawArgs && validateCtx.rawArgs[field] !== undefined) return {};
 
+            const streamInfo = isAsyncStreamField(command.argsSchema, field);
+            if (streamInfo) {
+              // Async stream: always resolve stdin (even on TTY) for interactive use
+              const stdinForStream = resolveStdinAlways(runtime as any);
+              return { [field]: createStdinStream(stdinForStream, streamInfo.itemSchema) };
+            }
+
             // Resolve stdin: use runtime's custom stdin, or default if piped.
             // Returns undefined when stdin is a TTY or unavailable.
             const stdin = resolveStdin(runtime as any);
@@ -1202,7 +1220,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
               knownOptions = [];
               if (command.argsSchema) {
                 try {
-                  const js = command.argsSchema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+                  const js = command.argsSchema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
                   if (js.type === 'object' && js.properties) knownOptions = Object.keys(js.properties);
                 } catch {
                   /* ignore */

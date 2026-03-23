@@ -1,4 +1,5 @@
-import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
+import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec';
+import { asyncStreamRegistry } from './stream.ts';
 
 type Letter =
   | 'a'
@@ -168,18 +169,37 @@ export function parseStdinConfig(stdin: StdinConfig): string {
   return stdin;
 }
 
+/** Options passed to `jsonSchema.input()` to handle unrepresentable types like `z.custom()`. */
+export const JSON_SCHEMA_OPTS = { target: 'draft-2020-12', libraryOptions: { unrepresentable: 'any' } } as const;
+
+function getFieldJsonSchema(schema: StandardJSONSchemaV1 | undefined, field: string): Record<string, any> | undefined {
+  if (!schema) return undefined;
+  try {
+    const jsonSchema = schema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
+    if (jsonSchema.type === 'object' && jsonSchema.properties) return jsonSchema.properties[field];
+  } catch {}
+  return undefined;
+}
+
 /**
  * Checks if a field in the schema is an array type (e.g. `z.string().array()`).
  */
 export function isArrayField(schema: StandardJSONSchemaV1 | undefined, field: string): boolean {
-  if (!schema) return false;
-  try {
-    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
-    if (jsonSchema.type === 'object' && jsonSchema.properties) {
-      const prop = jsonSchema.properties[field];
-      return prop?.type === 'array';
-    }
-  } catch {}
+  return getFieldJsonSchema(schema, field)?.type === 'array';
+}
+
+/**
+ * Checks if a field is an async stream (marked with `asyncStream()` metadata).
+ * Returns the item schema if provided, or `true` if it's a plain string stream.
+ */
+export function isAsyncStreamField(schema: StandardJSONSchemaV1 | undefined, field: string): { itemSchema?: StandardSchemaV1 } | false {
+  const prop = getFieldJsonSchema(schema, field);
+  const asyncStreamId = prop?.asyncStream;
+  if (asyncStreamId && asyncStreamRegistry.has(asyncStreamId)) {
+    const meta = asyncStreamRegistry.get(asyncStreamId);
+    return { itemSchema: meta?.itemSchema };
+  }
+
   return false;
 }
 
@@ -242,7 +262,7 @@ export function extractSchemaMetadata(
 
   // Extract from JSON schema properties
   try {
-    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+    const jsonSchema = schema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
       for (const [propertyName, propertySchema] of Object.entries(jsonSchema.properties as Record<string, any>)) {
         if (!propertySchema) continue;
@@ -363,7 +383,7 @@ export function preprocessArgs(data: Record<string, unknown>, ctx: ParseArgsCont
 export function coerceArgs(data: Record<string, unknown>, schema: StandardJSONSchemaV1): Record<string, unknown> {
   let properties: Record<string, any>;
   try {
-    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+    const jsonSchema = schema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
     if (jsonSchema.type !== 'object' || !jsonSchema.properties) return data;
     properties = jsonSchema.properties;
   } catch {
@@ -437,7 +457,7 @@ export function detectUnknownArgs(
   let properties: Record<string, any>;
   let isLoose = false;
   try {
-    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+    const jsonSchema = schema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
     if (jsonSchema.type !== 'object' || !jsonSchema.properties) return [];
     properties = jsonSchema.properties;
     // If additionalProperties is set (true, {}, or a schema), the schema allows extra keys

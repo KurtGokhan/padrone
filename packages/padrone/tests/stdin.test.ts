@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { createPadrone } from 'padrone';
 import { testCli } from 'padrone/test';
+import { jsonCodec, zodAsyncStream } from 'padrone/zod';
 import * as z from 'zod/v4';
 import { createConsoleMocker } from './console-mocker.ts';
 
@@ -134,6 +135,63 @@ describe('stdin', () => {
       const result = await testCli(program).stdin('raw data').run('transform json');
 
       expect(result.result).toBe('json: raw data');
+    });
+  });
+
+  describe('asyncStream', () => {
+    describe('string stream (default)', () => {
+      const program = createPadrone('test').command('stream', (c) =>
+        c.arguments(z.object({ lines: zodAsyncStream() }), { stdin: 'lines' }).action(async (args) => {
+          const result: string[] = [];
+          for await (const line of args.lines) {
+            result.push(line);
+          }
+          return result;
+        }),
+      );
+
+      it('should stream stdin lines as AsyncIterable', async () => {
+        const result = await testCli(program).stdin('line1\nline2\nline3\n').run('stream');
+
+        expect(result.result).toEqual(['line1', 'line2', 'line3']);
+      });
+
+      it('should yield empty iterable when no stdin is piped', async () => {
+        const result = await testCli(program).run('stream');
+
+        expect(result.result).toEqual([]);
+      });
+    });
+
+    describe('typed stream with item validation', () => {
+      const itemSchema = z.object({ name: z.string(), age: z.number() });
+      const program = createPadrone('test').command('ingest', (c) =>
+        c
+          .arguments(z.object({ records: zodAsyncStream(jsonCodec(itemSchema)) }), {
+            stdin: 'records',
+          })
+          .action(async (args) => {
+            const result: string[] = [];
+            for await (const record of args.records) {
+              result.push(`${record.name}:${record.age}`);
+            }
+            return result;
+          }),
+      );
+
+      it('should parse and validate each JSON line', async () => {
+        const input = ['{"name":"Alice","age":30}', '{"name":"Bob","age":25}'].join('\n');
+        const result = await testCli(program).stdin(input).run('ingest');
+
+        expect(result.result).toEqual(['Alice:30', 'Bob:25']);
+      });
+
+      it('should throw on invalid item', async () => {
+        const input = ['{"name":"Alice","age":30}', '{"name":"Bad","age":"not-a-number"}'].join('\n');
+        const result = await testCli(program).stdin(input).run('ingest');
+
+        expect(result.error).toBeDefined();
+      });
     });
   });
 
