@@ -430,7 +430,22 @@ for await (const result of program.repl({
 // $ todo --repl
 ```
 
-## AI SDK Integration
+## AI Integration
+
+### Model Context Protocol (MCP)
+
+```ts
+// Start MCP server from CLI
+// $ myapp mcp
+// $ myapp mcp stdio
+// $ myapp mcp --port 8080 --host 0.0.0.0
+
+// Or programmatically
+await program.mcp({ port: 3000 });
+await program.mcp({ transport: 'stdio' });
+```
+
+### Vercel AI SDK
 
 ```ts
 import { generateText } from 'ai';

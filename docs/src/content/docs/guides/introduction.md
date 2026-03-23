@@ -52,11 +52,14 @@ createPadrone('myapp')
 
 ### AI Integration
 
-Expose your CLI as an AI tool with a single method call:
+Expose your CLI to AI assistants via Model Context Protocol or Vercel AI SDK:
 
 ```typescript
+// MCP server for Claude, Cursor, Windsurf, etc.
+await program.mcp();  // or: myapp mcp
+
+// Vercel AI SDK tool
 const tool = program.tool();
-// Use with Vercel AI SDK
 ```
 
 ### Interactive Prompting
@@ -126,6 +129,7 @@ const app = createPadrone('app')
 - **Programmatic mode**: Call commands with typed arguments via `run()`
 - **API mode**: Generate a typed function interface via `api()`
 - **REPL mode**: Interactive session with `repl()`
+- **MCP mode**: Expose commands as AI tools via `mcp()`
 
 ## Requirements
 

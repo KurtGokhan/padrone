@@ -1,11 +1,105 @@
 ---
 title: AI Integration
-description: Expose your CLI as an AI tool with Vercel AI SDK
+description: Expose your CLI as an AI tool with MCP or Vercel AI SDK
 ---
+
+Padrone provides two ways to expose your CLI to AI assistants:
+
+1. **[Model Context Protocol (MCP)](#model-context-protocol-mcp)** — Standard protocol supported by Claude, Cursor, Windsurf, and other AI tools. Works over HTTP or stdio.
+2. **[Vercel AI SDK](#vercel-ai-sdk)** — Programmatic integration for building AI-powered applications.
+
+## Model Context Protocol (MCP)
+
+The [Model Context Protocol](https://modelcontextprotocol.io/) is an open standard that lets AI assistants discover and use your CLI commands as tools. Padrone implements the [2025-11-25 MCP spec](https://modelcontextprotocol.io/specification/2025-11-25) with Streamable HTTP and stdio transports.
+
+### Quick Start
+
+Every Padrone program has a built-in `mcp` command:
+
+```bash
+# Start an MCP server over HTTP (default)
+myapp mcp
+
+# Start over stdio (for local tool integration)
+myapp mcp stdio
+
+# Custom port and host
+myapp mcp --port 8080 --host 0.0.0.0
+```
+
+### How It Works
+
+When you run `myapp mcp`, Padrone:
+
+1. Collects all non-hidden commands that have an action or schema
+2. Exposes each as an MCP tool with a JSON Schema derived from your Zod definitions
+3. Handles the JSON-RPC protocol (initialize, tools/list, tools/call, ping, etc.)
+
+For example, a CLI with `greet` and `deploy` commands becomes two MCP tools that AI assistants can discover and call.
+
+### Programmatic Usage
+
+You can also start the MCP server from code:
+
+```typescript
+import { createPadrone } from 'padrone';
+import * as z from 'zod/v4';
+
+const program = createPadrone('myapp')
+  .configure({ version: '1.0.0' })
+  .command('greet', (c) =>
+    c
+      .arguments(z.object({ name: z.string().describe('Name to greet') }), { positional: ['name'] })
+      .action((args) => `Hello, ${args.name}!`)
+  );
+
+// Start MCP server programmatically
+await program.mcp({ port: 3000, host: '127.0.0.1' });
+```
+
+### Configuration
+
+The `.mcp()` method and `mcp` command accept these options:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `transport` | `'http' \| 'stdio'` | `'http'` | Transport mode |
+| `port` | `number` | `3000` | HTTP port |
+| `host` | `string` | `'127.0.0.1'` | HTTP host |
+| `endpoint` | `string` | `'/mcp'` | HTTP endpoint path |
+| `name` | `string` | program name | Server name |
+| `version` | `string` | program version | Server version |
+| `cors` | `string \| false` | `'*'` | CORS allowed origin, or `false` to disable |
+
+### Transports
+
+**Streamable HTTP** (default) — Starts an HTTP server. Responds with `application/json` or `text/event-stream` (SSE) based on the client's `Accept` header, per the MCP spec. Includes session management with `MCP-Session-Id` headers.
+
+**stdio** — Communicates over stdin/stdout with newline-delimited JSON. Use this when the AI tool launches your CLI as a subprocess (e.g., Claude Desktop, `mcp-cli`).
+
+### Disabling MCP
+
+To disable the built-in `mcp` command in `cli()`:
+
+```typescript
+program.cli({ mcp: false });
+```
+
+### Tool Naming
+
+Commands are exposed as MCP tools using dot-separated names: `nested.sub` for a subcommand `sub` under `nested`. This follows the MCP tool naming spec (`[A-Za-z0-9_\-\.]`).
+
+### Tips for AI Readability
+
+Use `.describe()` on your Zod fields and `.configure({ description })` on commands — these become the tool descriptions that AI models read to understand your CLI.
+
+---
+
+## Vercel AI SDK
 
 Padrone provides first-class support for the [Vercel AI SDK](https://ai-sdk.dev/), allowing you to expose your CLI commands as tools that AI models can use.
 
-## Overview
+### Overview
 
 The `.tool()` method converts your Padrone program into a Vercel AI SDK compatible tool. This lets AI assistants:
 
@@ -13,7 +107,7 @@ The `.tool()` method converts your Padrone program into a Vercel AI SDK compatib
 - Execute commands with proper type validation
 - Receive structured responses
 
-## Basic Setup
+### Basic Setup
 
 ```typescript
 import { streamText } from 'ai';
@@ -68,7 +162,7 @@ const weatherCli = createPadrone('weather')
 const weatherTool = weatherCli.tool();
 ```
 
-## Using with AI Models
+### Using with AI Models
 
 Pass the tool to any Vercel AI SDK function:
 
@@ -95,7 +189,7 @@ The AI model will:
 3. Provide the required args (`city: 'London'`)
 4. Execute the command and use the response
 
-## Return Values
+### Return Values
 
 Your action handlers should return data that the AI can use:
 
@@ -111,7 +205,7 @@ Your action handlers should return data that the AI can use:
 
 The return value is passed back to the AI model, allowing it to incorporate the results into its response.
 
-## Multiple Tools
+### Multiple Tools
 
 You can provide multiple Padrone CLIs as separate tools:
 
@@ -131,7 +225,7 @@ const result = await streamText({
 });
 ```
 
-## Tool Schema
+### Tool Schema
 
 The `.tool()` method generates a JSON schema from your Zod definitions. The descriptions you provide with `.describe()` help the AI understand how to use each argument:
 
@@ -146,7 +240,7 @@ z.object({
 
 Good descriptions improve AI accuracy when selecting and using your tools.
 
-## Error Handling
+### Error Handling
 
 Handle errors gracefully so the AI can respond appropriately:
 
@@ -164,7 +258,7 @@ Handle errors gracefully so the AI can respond appropriately:
 })
 ```
 
-## Real-World Example
+### Real-World Example
 
 Here's a complete example of a task management CLI exposed as an AI tool:
 
@@ -233,7 +327,7 @@ const result = await streamText({
 });
 ```
 
-## Compatibility
+### Compatibility
 
 Padrone's AI integration requires:
 - Vercel AI SDK 5.x or 6.x (peer dependency)

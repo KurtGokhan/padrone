@@ -47,6 +47,7 @@ The core library lives in `packages/padrone/`:
 - `src/args.ts` — Schema metadata extraction (`extractSchemaMetadata`), option preprocessing (flags/aliases), positional config parsing, coercion.
 - `src/type-utils.ts` — Advanced type utilities (`MaybePromise`, `PickCommandByName`, `IsGeneric`, `OrAsync`, etc.).
 - `src/type-helpers.ts` — User-facing inference helpers (`InferArgsInput`, `InferArgsOutput`, `InferCommand`).
+- `src/mcp.ts` — Model Context Protocol server (2025-11-25 spec). Streamable HTTP and stdio transports.
 - `src/help.ts` / `src/formatter.ts` — Help generation in multiple formats (text, ansi, markdown, html, json).
 - `src/interactive.ts` — Auto-prompting for missing fields using enquirer.
 - `src/completion.ts` — Shell completion script generation (bash, zsh, fish).

@@ -652,6 +652,44 @@ program.help('', { format: 'markdown' });
 
 ---
 
+### .mcp(prefs?)
+
+Start a Model Context Protocol server, exposing all commands as MCP tools.
+
+```typescript
+// Start with defaults (HTTP on port 3000)
+await program.mcp();
+
+// With options
+await program.mcp({
+  transport: 'stdio',
+  port: 8080,
+  host: '0.0.0.0',
+  cors: 'https://example.com',
+});
+```
+
+**Parameters:**
+- `prefs` (optional): `PadroneMcpPreferences`
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `transport` | `'http' \| 'stdio'` | `'http'` | Transport mode |
+| `port` | `number` | `3000` | HTTP port |
+| `host` | `string` | `'127.0.0.1'` | HTTP host |
+| `endpoint` | `string` | `'/mcp'` | HTTP endpoint path |
+| `name` | `string` | program name | Server name reported to clients |
+| `version` | `string` | program version | Server version reported to clients |
+| `cors` | `string \| false` | `'*'` | CORS allowed origin, or `false` to disable |
+
+**Returns:** `Promise<void>` (resolves when the server shuts down)
+
+The HTTP transport implements the [2025-11-25 Streamable HTTP spec](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#streamable-http) with session management, SSE support (via `Accept: text/event-stream`), and CORS headers.
+
+Also available as a built-in CLI command: `myapp mcp [http|stdio] --port 3000 --host 0.0.0.0`
+
+---
+
 ### .tool()
 
 Generate a Vercel AI SDK compatible tool.
@@ -989,6 +1027,7 @@ import type {
   InteractivePromptConfig,
   PadroneReplPreferences,
   PadroneEvalPreferences,
+  PadroneMcpPreferences,
 
   // Progress types
   PadroneProgressIndicator,

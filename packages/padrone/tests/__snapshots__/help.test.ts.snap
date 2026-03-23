@@ -941,6 +941,20 @@ exports[`help with full detail mode should generate full help with all nested co
       "description": "Start interactive REPL scoped to a command"
     },
     {
+      "name": "mcp [http|stdio]",
+      "description": "Start a Model Context Protocol server to expose commands as AI tools",
+      "sub": [
+        {
+          "name": "--port <port>",
+          "description": "HTTP port (default: 3000)"
+        },
+        {
+          "name": "--host <host>",
+          "description": "HTTP host (default: 127.0.0.1)"
+        }
+      ]
+    },
+    {
       "name": "--color [theme], --no-color",
       "description": "Set color theme (default, ocean, warm, monochrome) or disable colors"
     }

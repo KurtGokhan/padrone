@@ -74,6 +74,9 @@ for await (const result of program.repl()) { /* ... */ }
 // AI tool for Vercel AI SDK
 const tool = program.tool();
 
+// MCP server for AI assistants (Claude, Cursor, etc.)
+await program.mcp();  // or: myapp mcp
+
 // Shell completions
 const script = program.completion('zsh');
 
@@ -130,6 +133,7 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 | `.repl(options?)` | Interactive REPL session |
 | `.help(command?, prefs?)` | Generate help (text, ansi, markdown, html, json) |
 | `.tool()` | Vercel AI SDK tool definition |
+| `.mcp(prefs?)` | Start MCP server (HTTP or stdio) |
 | `.completion(shell?)` | Shell completion script |
 | `.find(command)` | Look up command by path |
 | `.stringify(command?, args?)` | Convert back to CLI string |

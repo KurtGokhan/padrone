@@ -4,6 +4,7 @@ export { asyncSchema, buildReplCompleter, createPadrone } from './create.ts';
 export type { PadroneErrorOptions } from './errors.ts';
 export { ActionError, ConfigError, PadroneError, RoutingError, ValidationError } from './errors.ts';
 export type { HelpInfo } from './formatter.ts';
+export type { PadroneMcpPreferences } from './mcp.ts';
 export type {
   InteractiveMode,
   InteractivePromptConfig,

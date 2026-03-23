@@ -335,6 +335,17 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
       description: 'Start interactive REPL scoped to a command',
     });
 
+    if (!findCommandByName('mcp', rootCmd.commands)) {
+      builtins.push({
+        name: 'mcp [http|stdio]',
+        description: 'Start a Model Context Protocol server to expose commands as AI tools',
+        sub: [
+          { name: '--port <port>', description: 'HTTP port (default: 3000)' },
+          { name: '--host <host>', description: 'HTTP host (default: 127.0.0.1)' },
+        ],
+      });
+    }
+
     builtins.push({
       name: '--color [theme], --no-color',
       description: 'Set color theme (default, ocean, warm, monochrome) or disable colors',

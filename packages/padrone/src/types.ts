@@ -2,6 +2,7 @@ import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/sp
 import type { Tool } from 'ai';
 import type { PadroneArgsSchemaMeta } from './args.ts';
 import type { HelpPreferences } from './help.ts';
+import type { PadroneMcpPreferences } from './mcp.ts';
 import type { PadroneProgressIndicator, PadroneRuntime, PadroneSpinnerConfig, ResolvedPadroneRuntime } from './runtime.ts';
 import type {
   Drained,
@@ -937,6 +938,18 @@ export type PadroneProgram<
    * ```
    */
   completion: (shell?: 'bash' | 'zsh' | 'fish' | 'powershell') => Promise<string>;
+
+  /**
+   * Starts a Model Context Protocol (MCP) server that exposes commands as tools for AI assistants.
+   * Communicates over stdio using JSON-RPC with Content-Length framing.
+   * Returns a Promise that resolves when the connection closes.
+   *
+   * @example
+   * ```ts
+   * await program.mcp();
+   * ```
+   */
+  mcp: (prefs?: PadroneMcpPreferences) => Promise<void>;
 };
 
 export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any, [...AnyPadroneCommand[]]>;
@@ -1033,6 +1046,8 @@ export type PadroneEvalPreferences = {
 export type PadroneCliPreferences<TScope extends string = string> = PadroneEvalPreferences & {
   /** REPL preferences used when `--repl` flag is passed. Set to `false` to disable the `--repl` flag. */
   repl?: PadroneReplPreferences<TScope> | false;
+  /** MCP server preferences used when `--mcp` flag is passed. Set to `false` to disable the `--mcp` flag. */
+  mcp?: PadroneMcpPreferences | false;
 };
 
 /**

@@ -86,6 +86,7 @@ program.cli();
 | `.find(command)` | Look up a command by path |
 | `.api()` | Type-safe programmatic API |
 | `.tool()` | Vercel AI SDK tool definition |
+| `.mcp(prefs?)` | Start MCP server (HTTP or stdio) |
 | `.stringify(command?, args?)` | Convert back to CLI string |
 
 ## Arguments Meta

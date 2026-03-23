@@ -398,6 +398,22 @@ import { generateText } from 'ai';
 const tool = program.tool();
 ```
 
+### `.mcp(prefs?)`
+
+Starts a Model Context Protocol server (2025-11-25 spec). Exposes all non-hidden commands as MCP tools.
+
+```ts
+// HTTP (default) — Streamable HTTP with session management and SSE support
+await program.mcp({ port: 3000, host: '127.0.0.1' });
+
+// stdio — newline-delimited JSON over stdin/stdout
+await program.mcp({ transport: 'stdio' });
+```
+
+Options: `transport` (`'http'` | `'stdio'`), `port`, `host`, `endpoint`, `name`, `version`, `cors` (`string | false`).
+
+Also available as a built-in CLI command: `myapp mcp [http|stdio] --port 3000`
+
 ### `.stringify(command?, args?)`
 
 Converts command and arguments back to a CLI string.

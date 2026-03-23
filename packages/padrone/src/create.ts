@@ -534,6 +534,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     | { type: 'completion'; shell?: ShellType; setup?: boolean }
     | { type: 'man'; setup?: boolean; remove?: boolean }
     | { type: 'repl'; scope?: string }
+    | { type: 'mcp'; transport?: 'http' | 'stdio'; port?: number; host?: string }
     | null => {
     if (!input) return null;
 
@@ -664,6 +665,18 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     // Handle version flag (only for root command, i.e., no subcommand terms)
     if (hasVersionFlag && normalizedTerms.length === 0) {
       return { type: 'version' };
+    }
+
+    // Check for 'mcp' command (only if user hasn't defined one)
+    const userMcpCommand = findCommandByName('mcp', existingCommand.commands);
+    if (!userMcpCommand && normalizedTerms[0] === 'mcp') {
+      const transportArg = normalizedTerms[1];
+      const transport = transportArg === 'stdio' || transportArg === 'http' ? transportArg : undefined;
+      const portArg = args.find((p) => p.type === 'named' && keyIs(p.key, 'port'));
+      const port = typeof portArg?.value === 'string' ? parseInt(portArg.value, 10) : undefined;
+      const hostArg = args.find((p) => p.type === 'named' && keyIs(p.key, 'host'));
+      const host = typeof hostArg?.value === 'string' ? hostArg.value : undefined;
+      return { type: 'mcp', transport, port: port && !Number.isNaN(port) ? port : undefined, host };
     }
 
     // Check for --repl flag
@@ -1422,22 +1435,37 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       const runtime = getCommandRuntime(existingCommand);
       const resolvedInput = (runtime.argv().join(' ') || undefined) as string | undefined;
 
-      // Check for --repl flag before normal execution
-      if (cliOptions?.repl !== false) {
-        const builtin = checkBuiltinCommands(resolvedInput);
-        if (builtin?.type === 'repl') {
-          const replPrefs: PadroneReplPreferences = {
-            ...(typeof cliOptions?.repl === 'object' ? cliOptions.repl : {}),
-            scope: builtin.scope,
-            autoOutput: (typeof cliOptions?.repl === 'object' ? cliOptions.repl.autoOutput : undefined) ?? cliOptions?.autoOutput,
-          };
-          const repl = replFn(replPrefs);
-          const drainRepl = async () => {
-            const { value } = await repl.drain();
-            return withDrain({ command: existingCommand, args: undefined, result: value }) as any;
-          };
-          return withPromiseDrain(drainRepl()) as any;
-        }
+      // Check for --repl flag and mcp command before normal execution
+      const builtin = checkBuiltinCommands(resolvedInput);
+
+      if (cliOptions?.repl !== false && builtin?.type === 'repl') {
+        const replPrefs: PadroneReplPreferences = {
+          ...(typeof cliOptions?.repl === 'object' ? cliOptions.repl : {}),
+          scope: builtin.scope,
+          autoOutput: (typeof cliOptions?.repl === 'object' ? cliOptions.repl.autoOutput : undefined) ?? cliOptions?.autoOutput,
+        };
+        const repl = replFn(replPrefs);
+        const drainRepl = async () => {
+          const { value } = await repl.drain();
+          return withDrain({ command: existingCommand, args: undefined, result: value }) as any;
+        };
+        return withPromiseDrain(drainRepl()) as any;
+      }
+
+      if (cliOptions?.mcp !== false && builtin?.type === 'mcp') {
+        const basePrefs = typeof cliOptions?.mcp === 'object' ? cliOptions.mcp : {};
+        const mcpPrefs = {
+          ...basePrefs,
+          transport: builtin.transport ?? basePrefs.transport,
+          port: builtin.port ?? basePrefs.port,
+          host: builtin.host ?? basePrefs.host,
+        };
+        const startMcp = async () => {
+          const { startMcpServer } = await import('./mcp.ts');
+          await startMcpServer(builder as any, existingCommand, evalCommand, mcpPrefs);
+          return withDrain({ command: existingCommand, args: undefined, result: undefined }) as any;
+        };
+        return withPromiseDrain(startMcp()) as any;
       }
 
       // Start background update check (non-blocking)
@@ -1718,6 +1746,11 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     async completion(shell) {
       const { generateCompletionOutput } = await import('./completion.ts');
       return generateCompletionOutput(existingCommand, shell as ShellType | undefined);
+    },
+
+    async mcp(prefs) {
+      const { startMcpServer } = await import('./mcp.ts');
+      return startMcpServer(builder as any, existingCommand, evalCommand, prefs);
     },
 
     '~types': {} as any,
