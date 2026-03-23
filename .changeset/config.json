@@ -1,12 +1,10 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
-  "changelog": "@changesets/cli/changelog",
+  "changelog": ["@changesets/changelog-github", { "repo": "KurtGokhan/padrone" }],
   "commit": false,
-  "fixed": [],
-  "linked": [],
+  "fixed": [["padrone", "@padrone/root", "@padrone/docs", "@padrone/tasks-example"]],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "privatePackages": false,
-  "ignore": []
+  "privatePackages": { "version": true, "tag": false }
 }
