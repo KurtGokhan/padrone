@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { JSON_SCHEMA_OPTS } from '../args.ts';
-import { commandSymbol } from '../command-utils.ts';
+import { getCommand, isPadroneProgram } from '../command-utils.ts';
 import type { AnyPadroneCommand, PadroneActionContext } from '../types.ts';
 import { detectEntry } from './link.ts';
 
@@ -46,7 +46,7 @@ export async function runDoctor(args: DoctorArgs, _ctx: PadroneActionContext) {
     process.exit(1);
   }
 
-  const cmd = (program as any)[commandSymbol] as AnyPadroneCommand;
+  const cmd = getCommand(program as object);
   const diagnostics: Diagnostic[] = [];
 
   collectDiagnostics(cmd, diagnostics);
@@ -512,9 +512,4 @@ function findProgram(mod: Record<string, unknown>): unknown | null {
   }
 
   return null;
-}
-
-function isPadroneProgram(value: unknown): boolean {
-  if (!value || typeof value !== 'object') return false;
-  return commandSymbol in value;
 }

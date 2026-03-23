@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { commandSymbol } from '../command-utils.ts';
+import { getCommand } from '../command-utils.ts';
 import type { HelpArgumentInfo, HelpInfo, HelpPositionalInfo, HelpSubcommandInfo } from '../formatter.ts';
 import { getHelpInfo } from '../help.ts';
 import type { AnyPadroneCommand } from '../types.ts';
@@ -544,11 +544,6 @@ function generateMarkdownIndex(rootInfo: HelpInfo, allInfos: HelpInfo[]): string
 // Main Entry Point
 // ============================================================================
 
-function resolveCommand(programOrCommand: object): AnyPadroneCommand {
-  if (commandSymbol in programOrCommand) return (programOrCommand as any)[commandSymbol] as AnyPadroneCommand;
-  return programOrCommand as AnyPadroneCommand;
-}
-
 /**
  * Generate documentation for a Padrone CLI program or command tree.
  * Accepts either a PadroneProgram (from createPadrone()) or a raw AnyPadroneCommand.
@@ -556,7 +551,7 @@ function resolveCommand(programOrCommand: object): AnyPadroneCommand {
 export function generateDocs(program: object, options: DocsOptions = {}): DocsResult {
   const { format = 'markdown', output, includeHidden = false, frontmatter, overwrite = true, dryRun = false } = options;
 
-  const cmd = resolveCommand(program);
+  const cmd = getCommand(program);
   const allInfos = collectAllHelpInfo(cmd, includeHidden);
   const rootInfo = allInfos[0]!;
   const programName = cmd.name || 'program';
@@ -672,7 +667,7 @@ function manPageFilename(commandName: string, section = 1): string {
  * (assuming `~/.local/share/man` is in `MANPATH` or `manpath` picks it up).
  */
 export function setupManPages(program: object): SetupManPagesResult {
-  const cmd = resolveCommand(program);
+  const cmd = getCommand(program);
   const allInfos = collectAllHelpInfo(cmd, false);
   const programName = cmd.name || 'program';
   const manDir = getManPageDir(1);
@@ -704,7 +699,7 @@ export function setupManPages(program: object): SetupManPagesResult {
  */
 export function removeManPages(program: object): { dir: string; removed: string[] } {
   const { unlinkSync } = require('node:fs') as typeof import('node:fs');
-  const cmd = resolveCommand(program);
+  const cmd = getCommand(program);
   const allInfos = collectAllHelpInfo(cmd, false);
   const programName = cmd.name || 'program';
   const manDir = getManPageDir(1);

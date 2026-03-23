@@ -21,12 +21,15 @@ import {
   getCommandRuntime,
   hasInteractiveConfig,
   isAsyncBranded,
+  lazyResolver,
   makeThenable,
   mergeCommands,
   noop,
   noopIndicator,
   outputValue,
   repathCommandTree,
+  resolveAllCommands,
+  resolveCommand,
   resolveProgressMessage,
   runPluginChain,
   suggestSimilar,
@@ -779,6 +782,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     if (builtin) {
       if (builtin.type === 'help') {
+        resolveAllCommands(existingCommand);
         const helpText = generateHelp(existingCommand, builtin.command ?? existingCommand, {
           detail: builtin.detail,
           format: builtin.format ?? runtime.format,
@@ -804,6 +808,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       }
 
       if (builtin.type === 'completion') {
+        resolveAllCommands(existingCommand);
         return import('./completion.ts').then(({ detectShell, generateCompletionOutput, setupCompletions }) => {
           if (builtin.setup) {
             const shell = builtin.shell ?? detectShell();
@@ -830,6 +835,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       }
 
       if (builtin.type === 'man') {
+        resolveAllCommands(existingCommand);
         return import('./docs/index.ts').then(({ setupManPages, removeManPages, generateDocs }) => {
           if (builtin.setup) {
             const result = setupManPages(existingCommand);
@@ -882,6 +888,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         const hasSubcommands = command.commands && command.commands.length > 0;
         const hasSchema = command.argsSchema != null;
         if (!command.action && (hasSubcommands || !hasSchema) && unmatchedTerms.length === 0) {
+          resolveAllCommands(existingCommand);
           const helpText = generateHelp(existingCommand, command, { format: runtime.format, theme: runtime.theme });
           runtime.output(helpText);
           return {
@@ -935,6 +942,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
                   runtime.output(`\nAvailable commands: ${cmdList}`);
                 }
               } else {
+                resolveAllCommands(existingCommand);
                 const helpText = generateHelp(existingCommand, isRootCommand ? existingCommand : command, {
                   format: runtime.format,
                   theme: runtime.theme,
@@ -1280,6 +1288,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
               .join('\n');
 
             if (errorMode === 'hard') {
+              resolveAllCommands(existingCommand);
               const helpText = generateHelp(existingCommand, command, { format: runtime.format, theme: runtime.theme });
               runtime.error(`Validation error:\n${issueMessages}`);
               runtime.error(helpText);
@@ -1576,6 +1585,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   };
 
   const tool: AnyPadroneProgram['tool'] = () => {
+    resolveAllCommands(existingCommand);
     const helpText = generateHelp(existingCommand, undefined, { format: 'text' });
 
     const description = `Run a command. Pass the full command string including arguments. Use "help <command>" for detailed usage.\n\n${helpText}`;
@@ -1674,6 +1684,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       // Check if a command with this name already exists (override case)
       const existingSubcommand = existingCommand.commands?.find((c) => c.name === name) as AnyPadroneCommand | undefined;
 
+      // For override case, resolve the existing lazy command first so the builder starts with full state
+      if (existingSubcommand) resolveCommand(existingSubcommand);
+
       const initialCommand: AnyPadroneCommand = existingSubcommand
         ? { ...existingSubcommand, aliases: aliases ?? existingSubcommand.aliases, parent: existingCommand }
         : ({
@@ -1684,21 +1697,33 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             '~types': {} as any,
           } satisfies PadroneCommand);
 
-      const builder = createPadroneBuilder(initialCommand);
+      // Lazy initialization: defer builderFn invocation until the command is actually needed
+      if (builderFn) {
+        const lazyCmd: AnyPadroneCommand = { ...initialCommand };
+        (lazyCmd as any)[lazyResolver] = (target: AnyPadroneCommand) => {
+          const builder = createPadroneBuilder(target);
+          const commandObj = ((builderFn(builder as any) as unknown as typeof builder)?.[commandSymbol] as AnyPadroneCommand) ?? target;
+          const mergedCommandObj = existingSubcommand ? mergeCommands(existingSubcommand, commandObj) : commandObj;
+          Object.assign(target, mergedCommandObj);
+        };
 
-      const commandObj =
-        ((builderFn?.(builder as any) as unknown as typeof builder)?.[commandSymbol] as AnyPadroneCommand) ?? initialCommand;
+        const commands = existingCommand.commands || [];
+        const existingIndex = commands.findIndex((c) => c.name === name);
+        const updatedCommands =
+          existingIndex >= 0
+            ? [...commands.slice(0, existingIndex), lazyCmd, ...commands.slice(existingIndex + 1)]
+            : [...commands, lazyCmd];
 
-      // Merge subcommands when overriding: existing subcommands that aren't replaced are kept
-      const mergedCommandObj = existingSubcommand ? mergeCommands(existingSubcommand, commandObj) : commandObj;
+        return createPadroneBuilder({ ...existingCommand, commands: updatedCommands }) as any;
+      }
 
-      // Replace existing command or append new one
+      // No builderFn: use the initial command as-is (no lazy resolution needed)
       const commands = existingCommand.commands || [];
       const existingIndex = commands.findIndex((c) => c.name === name);
       const updatedCommands =
         existingIndex >= 0
-          ? [...commands.slice(0, existingIndex), mergedCommandObj, ...commands.slice(existingIndex + 1)]
-          : [...commands, mergedCommandObj];
+          ? [...commands.slice(0, existingIndex), initialCommand, ...commands.slice(existingIndex + 1)]
+          : [...commands, initialCommand];
 
       return createPadroneBuilder({ ...existingCommand, commands: updatedCommands }) as any;
     },
@@ -1751,6 +1776,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     repl: replFn,
 
     api() {
+      resolveAllCommands(existingCommand);
       function buildApi(command: AnyPadroneCommand) {
         const runCommand = ((args) => run(command, args).result) as PadroneAPI<AnyPadroneCommand>;
         if (!command.commands) return runCommand;
@@ -1762,6 +1788,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     },
 
     help(command, prefs) {
+      resolveAllCommands(existingCommand);
       const commandObj = !command
         ? existingCommand
         : typeof command === 'string'
@@ -1777,16 +1804,19 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     },
 
     async completion(shell) {
+      resolveAllCommands(existingCommand);
       const { generateCompletionOutput } = await import('./completion.ts');
       return generateCompletionOutput(existingCommand, shell as ShellType | undefined);
     },
 
     async mcp(prefs) {
+      resolveAllCommands(existingCommand);
       const { startMcpServer } = await import('./mcp.ts');
       return startMcpServer(builder as any, existingCommand, evalCommand, prefs);
     },
 
     async serve(prefs) {
+      resolveAllCommands(existingCommand);
       const { startServeServer } = await import('./serve.ts');
       return startServeServer(builder as any, existingCommand, evalCommand, prefs);
     },

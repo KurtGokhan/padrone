@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { commandSymbol } from '../command-utils.ts';
+import { isPadroneProgram } from '../command-utils.ts';
 import { type DocsFormat, generateDocs } from '../docs/index.ts';
 import type { PadroneActionContext } from '../types.ts';
 
@@ -77,10 +77,4 @@ function findProgram(mod: Record<string, unknown>): any {
   }
 
   return null;
-}
-
-function isPadroneProgram(value: unknown): boolean {
-  if (!value || typeof value !== 'object') return false;
-  // A PadroneProgram has the internal command symbol (set by createPadrone)
-  return commandSymbol in value;
 }

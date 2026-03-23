@@ -11,6 +11,42 @@ import type {
   PluginStartContext,
 } from './types.ts';
 
+// ---------------------------------------------------------------------------
+// Lazy command resolution
+// ---------------------------------------------------------------------------
+
+export const lazyResolver = Symbol('lazyResolver');
+
+/** Resolves a lazy command in place by calling its stored resolver. No-op if already resolved. */
+export function resolveCommand(cmd: AnyPadroneCommand): AnyPadroneCommand {
+  const resolver = (cmd as any)[lazyResolver];
+  if (resolver) {
+    delete (cmd as any)[lazyResolver];
+    resolver(cmd);
+  }
+  return cmd;
+}
+
+/** Recursively resolves a command and all its descendants. */
+export function resolveAllCommands(cmd: AnyPadroneCommand): void {
+  resolveCommand(cmd);
+  if (cmd.commands) {
+    for (const sub of cmd.commands) resolveAllCommands(sub);
+  }
+}
+
+/** Checks whether a value is a Padrone program/builder. */
+export function isPadroneProgram(value: unknown): value is object {
+  return !!value && typeof value === 'object' && commandSymbol in value;
+}
+
+/** Extracts the underlying command from a program/builder and resolves the full command tree. */
+export function getCommand(program: object): AnyPadroneCommand {
+  const cmd = commandSymbol in program ? ((program as any)[commandSymbol] as AnyPadroneCommand) : (program as AnyPadroneCommand);
+  resolveAllCommands(cmd);
+  return cmd;
+}
+
 /**
  * Brands a schema as async, signaling that its `validate()` may return a Promise.
  * When an async-branded schema is passed to `.arguments()`, `.configFile()`, or `.env()`,
@@ -59,6 +95,8 @@ export const configKeys = [
  * - Subcommands are recursively merged by name.
  */
 export function mergeCommands(existing: AnyPadroneCommand, override: AnyPadroneCommand): AnyPadroneCommand {
+  resolveCommand(existing);
+  resolveCommand(override);
   const merged: AnyPadroneCommand = { ...existing };
 
   // Merge config fields
@@ -581,6 +619,7 @@ export function repathCommandTree(
   parentPath: string,
   parent: AnyPadroneCommand,
 ): AnyPadroneCommand {
+  resolveCommand(cmd);
   const newPath = parentPath ? `${parentPath} ${newName}` : newName;
   const remounted: AnyPadroneCommand = {
     ...cmd,
@@ -608,6 +647,7 @@ export function buildReplCompleter(
     inScope?: boolean;
   },
 ): (line: string) => [string[], string] {
+  resolveAllCommands(rootCommand);
   return (line: string): [string[], string] => {
     const trimmed = line.trimStart();
     const parts = trimmed.split(/\s+/);
@@ -627,9 +667,12 @@ export function buildReplCompleter(
       const commandParts = parts.slice(0, -1).filter((p) => !p.startsWith('-'));
       let targetCommand = rootCommand;
       for (const part of commandParts) {
+        resolveCommand(targetCommand);
         const sub = targetCommand.commands?.find((c) => c.name === part || c.aliases?.includes(part));
-        if (sub) targetCommand = sub;
-        else break;
+        if (sub) {
+          resolveCommand(sub);
+          targetCommand = sub;
+        } else break;
       }
 
       // Get options for this command
@@ -666,9 +709,12 @@ export function buildReplCompleter(
     // Walk into subcommands for all but the last token
     let targetCommand = rootCommand;
     for (let i = 0; i < commandParts.length - 1; i++) {
+      resolveCommand(targetCommand);
       const sub = targetCommand.commands?.find((c) => c.name === commandParts[i] || c.aliases?.includes(commandParts[i]!));
-      if (sub) targetCommand = sub;
-      else break;
+      if (sub) {
+        resolveCommand(sub);
+        targetCommand = sub;
+      } else break;
     }
 
     const candidates: string[] = [];
@@ -750,25 +796,31 @@ export function findCommandByName(name: string, commands?: AnyPadroneCommand[]):
   if (!commands) return undefined;
 
   const foundByName = commands.find((cmd) => cmd.name === name);
-  if (foundByName) return foundByName;
+  if (foundByName) return resolveCommand(foundByName);
 
   // Check for aliases
   const foundByAlias = commands.find((cmd) => cmd.aliases?.includes(name));
-  if (foundByAlias) return foundByAlias;
+  if (foundByAlias) return resolveCommand(foundByAlias);
 
   for (const cmd of commands) {
-    if (cmd.commands && name.startsWith(`${cmd.name} `)) {
-      const subCommandName = name.slice(cmd.name.length + 1);
-      const subCommand = findCommandByName(subCommandName, cmd.commands);
-      if (subCommand) return subCommand;
+    if (name.startsWith(`${cmd.name} `)) {
+      resolveCommand(cmd);
+      if (cmd.commands) {
+        const subCommandName = name.slice(cmd.name.length + 1);
+        const subCommand = findCommandByName(subCommandName, cmd.commands);
+        if (subCommand) return subCommand;
+      }
     }
     // Check aliases for nested commands
-    if (cmd.commands && cmd.aliases) {
+    if (cmd.aliases) {
       for (const alias of cmd.aliases) {
         if (name.startsWith(`${alias} `)) {
-          const subCommandName = name.slice(alias.length + 1);
-          const subCommand = findCommandByName(subCommandName, cmd.commands);
-          if (subCommand) return subCommand;
+          resolveCommand(cmd);
+          if (cmd.commands) {
+            const subCommandName = name.slice(alias.length + 1);
+            const subCommand = findCommandByName(subCommandName, cmd.commands);
+            if (subCommand) return subCommand;
+          }
         }
       }
     }
@@ -787,6 +839,7 @@ export function collectEndpoints(commands: AnyPadroneCommand[] | undefined, pref
   if (!commands) return [];
   const endpoints: CollectedEndpoint[] = [];
   for (const cmd of commands) {
+    resolveCommand(cmd);
     if (cmd.hidden) continue;
     const path = cmd.name ? (prefix ? `${prefix}.${cmd.name}` : cmd.name) : prefix;
     if (cmd.action || cmd.argsSchema) {
