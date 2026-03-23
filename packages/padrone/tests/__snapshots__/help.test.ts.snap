@@ -934,7 +934,7 @@ exports[`help with full detail mode should generate full help with all nested co
     },
     {
       "name": "man",
-      "description": "Show or install man pages (--setup to install, --remove to uninstall)"
+      "description": "Show or install man pages (--setup to install, --remove to uninstall) (experimental)"
     },
     {
       "name": "[command] --repl",
@@ -942,7 +942,7 @@ exports[`help with full detail mode should generate full help with all nested co
     },
     {
       "name": "mcp [http|stdio]",
-      "description": "Start a Model Context Protocol server to expose commands as AI tools",
+      "description": "Start a Model Context Protocol server to expose commands as AI tools (experimental)",
       "sub": [
         {
           "name": "--port <port>",
