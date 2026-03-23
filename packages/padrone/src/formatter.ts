@@ -107,6 +107,8 @@ export type HelpInfo = {
   arguments?: HelpArgumentInfo[];
   /** Built-in commands and flags (shown only for root command) */
   builtins?: HelpBuiltinInfo[];
+  /** Command-level usage examples (shown in help output) */
+  examples?: string[];
   /** Full help info for nested commands (used in 'full' detail mode) */
   nestedCommands?: HelpInfo[];
 };
@@ -562,6 +564,15 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBui
       // Description section (if present)
       if (info.description) {
         lines.push(styler.description(info.description));
+        lines.push('');
+      }
+
+      // Examples section (if present)
+      if (info.examples && info.examples.length > 0) {
+        lines.push(styler.label('Examples:'));
+        for (const ex of info.examples) {
+          lines.push(indent(1) + styler.meta('$ ') + styler.exampleValue(ex));
+        }
         lines.push('');
       }
 

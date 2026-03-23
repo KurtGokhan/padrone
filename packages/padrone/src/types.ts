@@ -189,6 +189,8 @@ export type PadroneCommand<
   group?: string;
   needsApproval?: boolean | ((args: TArgs) => Promise<boolean> | boolean);
   autoOutput?: boolean;
+  /** Usage examples shown in help output. Each entry is a command-line invocation string. */
+  examples?: string[];
   /**
    * Auto-start a progress indicator when the command's execute phase begins.
    * - `true` — generic message based on command name.
@@ -298,6 +300,8 @@ export type PadroneCommandConfig = {
    * See `PadroneEvalPreferences.autoOutput` for serialization details.
    */
   autoOutput?: boolean;
+  /** Usage examples shown in help output. Each entry is a command-line invocation string. */
+  examples?: string[];
 };
 
 /**

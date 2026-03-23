@@ -181,6 +181,7 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
     name: commandName,
     title: cmd.title,
     description: cmd.description,
+    examples: cmd.examples,
     aliases: displayAliases,
     deprecated: cmd.deprecated,
     hidden: cmd.hidden,

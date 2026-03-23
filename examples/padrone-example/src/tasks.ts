@@ -92,7 +92,7 @@ export const tasksProgram = createPadrone('tasks')
   )
   .command(['add', 'create'], (c) =>
     c
-      .configure({ title: 'Add a new task' })
+      .configure({ title: 'Add a new task', examples: ['tasks add "New Task" --priority high --tags work,urgent --due 2024-05-01'] })
       .arguments(
         z.object({
           title: z.string().nonempty().describe('Task title'),

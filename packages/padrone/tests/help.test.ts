@@ -203,6 +203,52 @@ describe('help with minimal detail mode', () => {
   });
 });
 
+describe('help with command-level examples', () => {
+  it('should render command examples in text format', () => {
+    const program = createPadrone('example-cli').command('deploy', (c) =>
+      c
+        .configure({
+          title: 'Deploy the application',
+          examples: ['example-cli deploy --env production', 'example-cli deploy --env staging --dry-run'],
+        })
+        .arguments(
+          z.object({
+            env: z.string().describe('Target environment'),
+            dryRun: z.boolean().optional().describe('Dry run mode'),
+          }),
+        )
+        .action(),
+    );
+
+    const help = program.help('deploy', { format: 'text' });
+    expect(help).toMatchSnapshot();
+    expect(help).toContain('Examples:');
+    expect(help).toContain('$ example-cli deploy --env production');
+    expect(help).toContain('$ example-cli deploy --env staging --dry-run');
+  });
+
+  it('should render command examples in json format', () => {
+    const program = createPadrone('example-cli').command('deploy', (c) =>
+      c
+        .configure({
+          examples: ['example-cli deploy --env production'],
+        })
+        .action(),
+    );
+
+    const help = program.help('deploy', { format: 'json' });
+    const parsed = JSON.parse(help) as HelpInfo;
+    expect(parsed.examples).toEqual(['example-cli deploy --env production']);
+  });
+
+  it('should not render examples section when none are provided', () => {
+    const program = createPadrone('example-cli').command('noop', (c) => c.action());
+
+    const help = program.help('noop', { format: 'text' });
+    expect(help).not.toContain('Examples:');
+  });
+});
+
 describe('help with groups', () => {
   it('should group options under labeled sections', () => {
     const program = createPadrone('group-test').command('deploy', (c) =>

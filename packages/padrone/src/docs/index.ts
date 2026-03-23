@@ -220,6 +220,18 @@ function generateMarkdownPage(info: HelpInfo, depth: number, frontmatterFn?: Doc
   lines.push('```');
   lines.push('');
 
+  // Examples
+  if (info.examples?.length) {
+    lines.push('## Examples');
+    lines.push('');
+    lines.push('```');
+    for (const ex of info.examples) {
+      lines.push(`$ ${ex}`);
+    }
+    lines.push('```');
+    lines.push('');
+  }
+
   // Subcommands
   if (info.subcommands?.length) {
     const visibleSubs = info.subcommands.filter((s) => !s.hidden);
@@ -306,6 +318,12 @@ function generateHtmlPage(info: HelpInfo, depth: number): string {
 
   sections.push('  <h2>Usage</h2>');
   sections.push(`  <pre><code>${escapeHtml(usageParts.join(' '))}</code></pre>`);
+
+  // Examples
+  if (info.examples?.length) {
+    sections.push('  <h2>Examples</h2>');
+    sections.push(`  <pre><code>${info.examples.map((ex) => `$ ${escapeHtml(ex)}`).join('\n')}</code></pre>`);
+  }
 
   // Subcommands
   if (info.subcommands?.length) {
@@ -416,6 +434,15 @@ function generateManPage(info: HelpInfo, _depth: number, programName: string): s
   if (info.description) {
     lines.push('.SH DESCRIPTION');
     lines.push(escapeMan(info.description));
+  }
+
+  // EXAMPLES
+  if (info.examples?.length) {
+    lines.push('.SH EXAMPLES');
+    for (const ex of info.examples) {
+      lines.push('.PP');
+      lines.push(`.nf\n$ ${escapeMan(ex)}\n.fi`);
+    }
   }
 
   // COMMANDS

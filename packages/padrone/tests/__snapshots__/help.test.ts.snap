@@ -1400,3 +1400,18 @@ Global: help [command], version, [command] --repl
 Run "group-test [command] --help" for more information. Use "--all" for all global commands.
 "
 `;
+
+exports[`help with command-level examples should render command examples in text format 1`] = `
+"Usage: example-cli deploy [options]
+
+Deploy the application
+
+Examples:
+  $ example-cli deploy --env production
+  $ example-cli deploy --env staging --dry-run
+
+Options:
+  --env      <string>  Target environment
+  --dry-run            Dry run mode
+"
+`;
