@@ -231,7 +231,7 @@ Loads arguments from config files.
 .configFile(['app.config.json', 'app.config.yaml'], configSchema)
 ```
 
-### `.wrap(config)`
+### `.wrap(config)` *(experimental)*
 
 Wraps an external CLI tool.
 
@@ -398,7 +398,7 @@ import { generateText } from 'ai';
 const tool = program.tool();
 ```
 
-### `.mcp(prefs?)`
+### `.mcp(prefs?)` *(experimental)*
 
 Starts a Model Context Protocol server (2025-11-25 spec). Exposes all non-hidden commands as MCP tools.
 
@@ -414,7 +414,7 @@ Options: `transport` (`'http'` | `'stdio'`), `port`, `host`, `basePath`, `name`,
 
 Also available as a built-in CLI command: `myapp mcp [http|stdio] --port 3000`
 
-### `.serve(prefs?)`
+### `.serve(prefs?)` *(experimental)*
 
 Starts a REST HTTP server. Each command becomes an endpoint (`users list` → `/users/list`). Commands with `mutation: true` accept POST only; others accept GET and POST.
 

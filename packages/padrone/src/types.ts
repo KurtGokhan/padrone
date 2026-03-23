@@ -566,6 +566,8 @@ export type PadroneBuilderMethods<
    * Wraps an external CLI tool with optional schema transformation.
    * The config can include a schema that transforms command arguments to external CLI arguments.
    *
+   * @experimental This API is experimental and may change in future releases.
+   *
    * @example
    * ```ts
    * // No transformation - pass arguments as-is
@@ -958,6 +960,8 @@ export type PadroneProgram<
    * Communicates over stdio using JSON-RPC with Content-Length framing.
    * Returns a Promise that resolves when the connection closes.
    *
+   * @experimental This API is experimental and may change in future releases.
+   *
    * @example
    * ```ts
    * await program.mcp();
@@ -969,6 +973,8 @@ export type PadroneProgram<
    * Starts a REST HTTP server that exposes commands as endpoints.
    * Each command becomes a route: `users list` → `GET/POST /users/list`.
    * Commands with `mutation: true` only accept POST.
+   *
+   * @experimental This API is experimental and may change in future releases.
    *
    * @example
    * ```ts

@@ -55,10 +55,10 @@ createPadrone('myapp')
 Expose your CLI to AI assistants via Model Context Protocol or Vercel AI SDK:
 
 ```typescript
-// MCP server for Claude, Cursor, Windsurf, etc.
+// MCP server for Claude, Cursor, Windsurf, etc. [experimental]
 await program.mcp();  // or: myapp mcp
 
-// REST server with OpenAPI docs
+// REST server with OpenAPI docs [experimental]
 await program.serve();  // or: myapp serve
 
 // Vercel AI SDK tool
@@ -132,8 +132,8 @@ const app = createPadrone('app')
 - **Programmatic mode**: Call commands with typed arguments via `run()`
 - **API mode**: Generate a typed function interface via `api()`
 - **REPL mode**: Interactive session with `repl()`
-- **MCP mode**: Expose commands as AI tools via `mcp()`
-- **Serve mode**: REST API with OpenAPI docs via `serve()`
+- **MCP mode**: Expose commands as AI tools via `mcp()` *(experimental)*
+- **Serve mode**: REST API with OpenAPI docs via `serve()` *(experimental)*
 
 ## Requirements
 

@@ -399,7 +399,7 @@ function generateHtmlPage(info: HelpInfo, depth: number): string {
 }
 
 // ============================================================================
-// Man Page Generator
+// Man Page Generator (experimental)
 // ============================================================================
 
 function escapeMan(text: string): string {

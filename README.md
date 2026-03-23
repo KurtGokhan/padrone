@@ -74,10 +74,10 @@ for await (const result of program.repl()) { /* ... */ }
 // AI tool for Vercel AI SDK
 const tool = program.tool();
 
-// MCP server for AI assistants (Claude, Cursor, etc.)
+// MCP server for AI assistants (Claude, Cursor, etc.) [experimental]
 await program.mcp();  // or: myapp mcp
 
-// REST server with OpenAPI docs
+// REST server with OpenAPI docs [experimental]
 await program.serve();  // or: myapp serve
 
 // Shell completions
@@ -102,7 +102,7 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 
 **Composition** — mount programs as subcommands with `.mount()`, override commands with merge semantics.
 
-**Wrapping** — wrap external CLI tools with `.wrap({ command: 'git', args: ['commit'] })`.
+**Wrapping** *(experimental)* — wrap external CLI tools with `.wrap({ command: 'git', args: ['commit'] })`.
 
 ## API
 
@@ -117,7 +117,7 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 | `.configure(config)` | Set title, description, version, etc. |
 | `.env(schema)` | Map env vars to args |
 | `.configFile(file, schema?)` | Load args from config files |
-| `.wrap(config)` | Wrap an external CLI tool |
+| `.wrap(config)` | Wrap an external CLI tool *(experimental)* |
 | `.progress(config?)` | Auto-managed spinner |
 | `.use(plugin)` | Register middleware plugin |
 | `.runtime(runtime)` | Custom I/O (for non-terminal use) |
@@ -136,8 +136,8 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 | `.repl(options?)` | Interactive REPL session |
 | `.help(command?, prefs?)` | Generate help (text, ansi, markdown, html, json) |
 | `.tool()` | Vercel AI SDK tool definition |
-| `.mcp(prefs?)` | Start MCP server (HTTP or stdio) |
-| `.serve(prefs?)` | Start REST server with OpenAPI docs |
+| `.mcp(prefs?)` | Start MCP server (HTTP or stdio) *(experimental)* |
+| `.serve(prefs?)` | Start REST server with OpenAPI docs *(experimental)* |
 | `.completion(shell?)` | Shell completion script |
 | `.find(command)` | Look up command by path |
 | `.stringify(command?, args?)` | Convert back to CLI string |

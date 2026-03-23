@@ -66,7 +66,7 @@ program.cli();
 | `.use(plugin)` | Register a middleware plugin |
 | `.env(schema)` | Parse environment variables into args |
 | `.configFile(file, schema?)` | Load args from config files |
-| `.wrap(config)` | Wrap an external CLI tool |
+| `.wrap(config)` | Wrap an external CLI tool *(experimental)* |
 | `.progress(config?)` | Configure auto-managed progress indicator |
 | `.runtime(runtime)` | Custom I/O adapter (output, error, env, prompt, progress) |
 | `.updateCheck(config?)` | Enable background update notifications |
@@ -86,8 +86,8 @@ program.cli();
 | `.find(command)` | Look up a command by path |
 | `.api()` | Type-safe programmatic API |
 | `.tool()` | Vercel AI SDK tool definition |
-| `.mcp(prefs?)` | Start MCP server (HTTP or stdio) |
-| `.serve(prefs?)` | Start REST server with OpenAPI docs |
+| `.mcp(prefs?)` | Start MCP server (HTTP or stdio) *(experimental)* |
+| `.serve(prefs?)` | Start REST server with OpenAPI docs *(experimental)* |
 | `.stringify(command?, args?)` | Convert back to CLI string |
 
 ## Arguments Meta

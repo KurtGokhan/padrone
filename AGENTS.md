@@ -47,12 +47,12 @@ The core library lives in `packages/padrone/`:
 - `src/args.ts` — Schema metadata extraction (`extractSchemaMetadata`), option preprocessing (flags/aliases), positional config parsing, coercion.
 - `src/type-utils.ts` — Advanced type utilities (`MaybePromise`, `PickCommandByName`, `IsGeneric`, `OrAsync`, etc.).
 - `src/type-helpers.ts` — User-facing inference helpers (`InferArgsInput`, `InferArgsOutput`, `InferCommand`).
-- `src/mcp.ts` — Model Context Protocol server (2025-11-25 spec). Streamable HTTP and stdio transports.
-- `src/serve.ts` — REST HTTP server. Exposes commands as endpoints with OpenAPI docs (Scalar).
+- `src/mcp.ts` — *(experimental)* Model Context Protocol server (2025-11-25 spec). Streamable HTTP and stdio transports.
+- `src/serve.ts` — *(experimental)* REST HTTP server. Exposes commands as endpoints with OpenAPI docs (Scalar).
 - `src/help.ts` / `src/formatter.ts` — Help generation in multiple formats (text, ansi, markdown, html, json).
 - `src/interactive.ts` — Auto-prompting for missing fields using enquirer.
 - `src/completion.ts` — Shell completion script generation (bash, zsh, fish).
-- `src/wrap.ts` — Wrapping external CLI tools.
+- `src/wrap.ts` — *(experimental)* Wrapping external CLI tools.
 - `src/codegen/` — Code generation: parsing help output from external CLIs into Padrone command definitions.
 - `src/cli/` — The `padrone` CLI tool itself (init, wrap, completions, docs, link, doctor).
 - `src/test.ts` — Test utilities exported as `padrone/test`.
@@ -84,7 +84,7 @@ When asked to commit with a changeset, create a concise changeset suitable for a
 
 **Execution paths**: `eval()`/`cli()` runs all 6 plugin phases; `parse()` runs parse + validate; `run()` runs execute only (no validation).
 
-**Mutation commands**: `.configure({ mutation: true })` marks a command as performing side effects. Affects serve (POST-only), MCP (`annotations.destructiveHint`), and tool() (`needsApproval` default).
+**Mutation commands**: `.configure({ mutation: true })` marks a command as performing side effects. Affects serve (POST-only, experimental), MCP (`annotations.destructiveHint`, experimental), and tool() (`needsApproval` default).
 
 ## Coding Conventions
 

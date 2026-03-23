@@ -5,11 +5,13 @@ description: Expose your CLI as an AI tool with MCP or Vercel AI SDK
 
 Padrone provides three ways to expose your CLI to AI assistants and external services:
 
-1. **[Model Context Protocol (MCP)](#model-context-protocol-mcp)** — Standard protocol supported by Claude, Cursor, Windsurf, and other AI tools. Works over HTTP or stdio.
-2. **[REST Server](#rest-server)** — HTTP endpoints with OpenAPI docs. Each command becomes a route.
+1. **[Model Context Protocol (MCP)](#model-context-protocol-mcp)** *(experimental)* — Standard protocol supported by Claude, Cursor, Windsurf, and other AI tools. Works over HTTP or stdio.
+2. **[REST Server](#rest-server)** *(experimental)* — HTTP endpoints with OpenAPI docs. Each command becomes a route.
 3. **[Vercel AI SDK](#vercel-ai-sdk)** — Programmatic integration for building AI-powered applications.
 
-## Model Context Protocol (MCP)
+## Model Context Protocol (MCP) *(experimental)*
+
+> **Experimental**: This API is experimental and may change in future releases.
 
 The [Model Context Protocol](https://modelcontextprotocol.io/) is an open standard that lets AI assistants discover and use your CLI commands as tools. Padrone implements the [2025-11-25 MCP spec](https://modelcontextprotocol.io/specification/2025-11-25) with Streamable HTTP and stdio transports.
 
@@ -96,7 +98,9 @@ Use `.describe()` on your Zod fields and `.configure({ description })` on comman
 
 ---
 
-## REST Server
+## REST Server *(experimental)*
+
+> **Experimental**: This API is experimental and may change in future releases.
 
 Padrone can expose your CLI as a REST API with automatic OpenAPI documentation. Each command becomes an HTTP endpoint.
 

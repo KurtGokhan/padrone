@@ -327,7 +327,7 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
     if (!findCommandByName('man', rootCmd.commands)) {
       builtins.push({
         name: 'man',
-        description: 'Show or install man pages (--setup to install, --remove to uninstall)',
+        description: 'Show or install man pages (--setup to install, --remove to uninstall) (experimental)',
       });
     }
 
@@ -339,7 +339,7 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
     if (!findCommandByName('mcp', rootCmd.commands)) {
       builtins.push({
         name: 'mcp [http|stdio]',
-        description: 'Start a Model Context Protocol server to expose commands as AI tools',
+        description: 'Start a Model Context Protocol server to expose commands as AI tools (experimental)',
         sub: [
           { name: '--port <port>', description: 'HTTP port (default: 3000)' },
           { name: '--host <host>', description: 'HTTP host (default: 127.0.0.1)' },

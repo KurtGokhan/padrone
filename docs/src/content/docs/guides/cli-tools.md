@@ -146,11 +146,13 @@ padrone docs src/cli.ts --dry-run
 |--------|-------------|
 | `entry` (positional) | Entry file exporting a Padrone program |
 | `--output` | Output directory (default: `./docs/cli`) |
-| `--format` | Output format: `markdown`, `html`, `man`, `json` |
+| `--format` | Output format: `markdown`, `html`, `man` *(experimental)*, `json` |
 | `--include-hidden` | Include hidden commands and options |
 | `--dry-run` | Print what would be generated without writing |
 
-## padrone wrap
+## padrone wrap *(experimental)*
+
+> **Experimental**: This command is experimental and may change in future releases.
 
 Generate a type-safe Padrone wrapper for an existing CLI tool by parsing its help output:
 

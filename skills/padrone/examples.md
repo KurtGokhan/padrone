@@ -306,7 +306,7 @@ const program = createPadrone('app')
 // Running 'deploy': global-logger (outermost) -> deploy-guard (innermost) -> handler
 ```
 
-## Wrapping External Tools
+## Wrapping External Tools *(experimental)*
 
 ```ts
 .command('commit', (c) =>
@@ -432,7 +432,7 @@ for await (const result of program.repl({
 
 ## AI Integration
 
-### Model Context Protocol (MCP)
+### Model Context Protocol (MCP) *(experimental)*
 
 ```ts
 // Start MCP server from CLI

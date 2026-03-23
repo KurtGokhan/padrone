@@ -1,7 +1,9 @@
 ---
-title: Wrapping External CLI Tools
+title: Wrapping External CLI Tools (Experimental)
 description: Learn how to wrap external CLI tools with Padrone for type-safe command execution
 ---
+
+> **Experimental**: This API is experimental and may change in future releases.
 
 ## Overview
 

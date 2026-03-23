@@ -198,7 +198,9 @@ Config values are applied after CLI args, stdin, and env vars. The config file s
 
 ---
 
-### .wrap(config)
+### .wrap(config) *(experimental)*
+
+> **Experimental**: This API is experimental and may change in future releases.
 
 Wrap an external CLI tool with optional schema transformation in the config object.
 
@@ -653,7 +655,9 @@ program.help('', { format: 'markdown' });
 
 ---
 
-### .mcp(prefs?)
+### .mcp(prefs?) *(experimental)*
+
+> **Experimental**: This API is experimental and may change in future releases.
 
 Start a Model Context Protocol server, exposing all commands as MCP tools.
 
@@ -691,7 +695,9 @@ Also available as a built-in CLI command: `myapp mcp [http|stdio] --port 3000 --
 
 ---
 
-### .serve(prefs?)
+### .serve(prefs?) *(experimental)*
+
+> **Experimental**: This API is experimental and may change in future releases.
 
 Start a REST HTTP server that exposes commands as endpoints. Each command becomes a route (`users list` → `/users/list`). Commands with `mutation: true` only accept POST; others accept both GET and POST.
 
