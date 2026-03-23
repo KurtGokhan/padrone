@@ -1,5 +1,84 @@
 # padrone
 
+## 1.5.0
+
+### Minor Changes
+
+- [`ef5e829`](https://github.com/KurtGokhan/padrone/commit/ef5e82931c06bbce70b6cdf3e34c179a48d04c66) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add `asyncStream` for streaming stdin as `AsyncIterable`. New `padrone/zod` entrypoint exports `zodAsyncStream` and `jsonCodec` for typed streams with per-item validation. Extract shared `JSON_SCHEMA_OPTS` constant across all `jsonSchema.input()` calls.
+
+- [`bbb05d9`](https://github.com/KurtGokhan/padrone/commit/bbb05d9dcf4b360d7f5ae85bdd4fa6e45b68b64d) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add `examples` configuration to options and commands for command-line usage examples.
+
+- [`7ff2738`](https://github.com/KurtGokhan/padrone/commit/7ff2738c146c419f4f03315ec8182af5be31d1b0) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Collapse global commands in help output to a single summary line by default. Add `--all` flag to show full global commands section. Bare `--detail` flag now defaults to `full`. Rename "Built-in" section to "Global".
+
+- [`369ebba`](https://github.com/KurtGokhan/padrone/commit/369ebbab4dc14c1d8acfd2af01a9322f5d964e23) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add `group` configuration to options and commands for organized help output.
+
+  Options can be grouped via `fields: { myField: { group: 'Group Name' } }` in argument metadata. Commands can be grouped via `configure({ group: 'Group Name' })`. Grouped items are rendered under labeled `${group}:` sections in help output, while ungrouped items remain under the default `Options:` / `Commands:` headers.
+
+- [`3d7b282`](https://github.com/KurtGokhan/padrone/commit/3d7b28202890925e05357c9796218349b4a8410e) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add per-field validation during interactive prompts.
+
+  When a user provides an invalid value for an interactive field, the prompt now immediately validates it against the schema and re-prompts with a warning message instead of deferring all errors until after all prompts complete. This applies to both required and optional interactive fields.
+
+- [`1843f1f`](https://github.com/KurtGokhan/padrone/commit/1843f1f3a00714d11570c245361ab73c4049aa91) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Lazily initialize commands defined with callbacks. Builder functions passed to `.command()` are now deferred until the command is routed to, avoiding upfront construction of unused commands. Features that need the full command tree (help, MCP, serve, docs, completion, REPL) resolve all commands eagerly. Added `getCommand()` and `isPadroneProgram()` helpers to replace direct `commandSymbol` usage.
+
+- [`45ba002`](https://github.com/KurtGokhan/padrone/commit/45ba002db474e34808b64b15ebce59b289f9115b) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add built-in Model Context Protocol (MCP) server. Expose CLI commands as AI tools via `mcp` command or `.mcp()` method. Supports Streamable HTTP and stdio transports per the 2025-11-25 MCP spec.
+
+- [`ab53491`](https://github.com/KurtGokhan/padrone/commit/ab534915e3bcb5cd1c3f563f4fde740d1b91fa50) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - **BREAKING:** `eval()`, `cli()`, and `run()` no longer throw errors. Instead, they return a discriminated union with an `error` field:
+
+  - Success: `{ command, args, argsResult, result, drain() }`
+  - Error: `{ error, command?, args?, argsResult?, drain() }`
+
+  Added `drain()` method to all command results. It flattens the result into a single `Promise<{ value } | { error }>` that never throws — resolving Promises, collecting iterables into arrays, and catching errors:
+
+  ```ts
+  const { value, error } = await program.cli().drain();
+  ```
+
+  New exported types: `PadroneDrainResult<T>`, `Drained<T>`.
+
+- [`dffc5cd`](https://github.com/KurtGokhan/padrone/commit/dffc5cd36250f94cc82edae850aa34ae9916d43a) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add progress indicator system for commands with auto-managed spinners and manual control.
+
+  **Auto-managed progress** via `.progress()` builder method:
+
+  - `true` or `string` for simple messages, or a full config object with per-state messages
+  - Starts before validation, auto-succeeds/fails after execution
+  - Validation-phase message transitions to execution-phase message
+  - `spinner` option: preset name (`dots`, `line`, `arc`, `bounce`), custom `{ frames, interval }`, or `false` to disable animation
+  - `success`/`error` fields accept static strings, `null` to suppress, callbacks `(result) => string | null`, or `{ message, indicator }` objects for per-call icon customization
+
+  **Manual progress** via `ctx.progress` in action handlers:
+
+  - Works even without `.progress()` config — lazily creates a real indicator on first use
+  - Auto-stopped when execution finishes (no leaked spinners)
+  - No-op when the runtime has no progress factory
+
+  **Built-in terminal spinner** (`createTerminalSpinner`):
+
+  - ANSI-based spinner with pause/resume for clean output interleaving
+  - Customizable success/error indicator icons via `PadroneProgressOptions`
+  - Empty string indicators hide the icon prefix entirely
+  - Graceful fallback in non-TTY/CI environments
+
+  **New types**: `PadroneProgressIndicator`, `PadroneProgressConfig`, `PadroneProgressMessage`, `PadroneProgressOptions`, `PadroneSpinnerConfig`, `PadroneSpinnerPreset`
+
+- [`6851b48`](https://github.com/KurtGokhan/padrone/commit/6851b4878ab0fc8d48f40e93c2f8924236a40165) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add REST server (`program.serve()`) and `mutation` command config.
+
+  - New `serve()` program method: exposes commands as HTTP endpoints with automatic OpenAPI docs (Scalar).
+  - New `serve` built-in CLI command: `myapp serve --port 3000`.
+  - Built-in endpoints: `/_health`, `/_help`, `/_schema`, `/_docs` (Scalar), `/_openapi`.
+  - New `mutation` option in `.configure()`: mutation commands are POST-only in serve, set `destructiveHint` in MCP, and default `needsApproval` to true in `tool()`.
+  - MCP: rename `endpoint` to `basePath` for consistency with serve.
+  - Shared utilities extracted from MCP (`collectEndpoints`, `buildInputSchema`, `serializeArgsToFlags`).
+
+### Patch Changes
+
+- [`7e8f14d`](https://github.com/KurtGokhan/padrone/commit/7e8f14ddb628620f94a7c9f2e88f9417577f2b04) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Expand boolean auto-coercion to accept `yes`/`no`/`on`/`off` (case-insensitive).
+
+- [`a1c7072`](https://github.com/KurtGokhan/padrone/commit/a1c70724829f8cd4fb1632098f352498c87cbf2e) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Improve help output formatting: options now display flags first, then names, type, and description in aligned columns. Metadata (deprecated, default, choices, examples, env, config) is shown on separate indented lines.
+
+- [`befc82e`](https://github.com/KurtGokhan/padrone/commit/befc82e39b4a1663c3ace74305dd48f9aded1a09) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add `.catch()` and `.finally()` methods to thenable sync results from `eval()`, `parse()`, and `cli()`
+
+- [`81f3bbc`](https://github.com/KurtGokhan/padrone/commit/81f3bbce54940953ff32d76c620eabd6cec7322f) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Use `node:child_process` in wrap handler instead of `Bun.spawn` for Node.js compatibility.
+
 ## 1.4.0
 
 ### Minor Changes
