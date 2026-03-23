@@ -80,7 +80,7 @@ export const tasksProgram = createPadrone('tasks')
           positional: ['title'],
           interactive: ['title'],
           optionalInteractive: ['priority', 'tags', 'due'],
-          stdin: { field: 'title', as: 'text' },
+          stdin: 'title',
         },
       )
       .action((args) => {

@@ -46,21 +46,9 @@ describe('stdin', () => {
     });
   });
 
-  describe('explicit text mode', () => {
-    const program = createPadrone('test').command('process', (c) =>
-      c.arguments(z.object({ content: z.string() }), { stdin: { field: 'content', as: 'text' } }).action((args) => args.content),
-    );
-
-    it('should read stdin as text with explicit config', async () => {
-      const result = await testCli(program).stdin('explicit text').run('process');
-
-      expect(result.result).toBe('explicit text');
-    });
-  });
-
-  describe('lines mode', () => {
+  describe('lines mode (inferred from array schema)', () => {
     const program = createPadrone('test').command('count', (c) =>
-      c.arguments(z.object({ lines: z.string().array() }), { stdin: { field: 'lines', as: 'lines' } }).action((args) => args.lines.length),
+      c.arguments(z.object({ lines: z.string().array() }), { stdin: 'lines' }).action((args) => args.lines.length),
     );
 
     it('should read stdin as lines into an array field', async () => {
@@ -75,6 +63,26 @@ describe('stdin', () => {
 
       expect(result.result).toBe(1);
       expect(result.args).toEqual({ lines: ['single line'] });
+    });
+  });
+
+  describe('lines mode with optional array field', () => {
+    const program = createPadrone('test').command('count', (c) =>
+      c.arguments(z.object({ lines: z.string().array().optional() }), { stdin: 'lines' }).action((args) => args.lines?.length ?? 0),
+    );
+
+    it('should read stdin as lines when field is optional array', async () => {
+      const result = await testCli(program).stdin('a\nb\nc\n').run('count');
+
+      expect(result.result).toBe(3);
+      expect(result.args).toEqual({ lines: ['a', 'b', 'c'] });
+    });
+
+    it('should work without stdin when field is optional', async () => {
+      const result = await testCli(program).run('count');
+
+      expect(result.result).toBe(0);
+      expect(result.issues).toBeUndefined();
     });
   });
 

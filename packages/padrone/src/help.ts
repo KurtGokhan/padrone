@@ -187,7 +187,7 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
       hasSubcommands: !!(cmd.commands && cmd.commands.length > 0),
       hasPositionals,
       hasArguments: false, // updated below after extracting arguments
-      stdinField: cmd.meta?.stdin ? parseStdinConfig(cmd.meta.stdin).field : undefined,
+      stdinField: cmd.meta?.stdin ? parseStdinConfig(cmd.meta.stdin) : undefined,
     },
   };
 

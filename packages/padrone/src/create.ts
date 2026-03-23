@@ -1,6 +1,14 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Schema } from 'ai';
-import { coerceArgs, detectUnknownArgs, extractSchemaMetadata, parsePositionalConfig, parseStdinConfig, preprocessArgs } from './args.ts';
+import {
+  coerceArgs,
+  detectUnknownArgs,
+  extractSchemaMetadata,
+  isArrayField,
+  parsePositionalConfig,
+  parseStdinConfig,
+  preprocessArgs,
+} from './args.ts';
 import { type ColorConfig, type ColorTheme, colorThemes } from './colorizer.ts';
 import {
   commandSymbol,
@@ -363,7 +371,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           const stdinConfig = command.meta?.stdin;
           if (!stdinConfig) return {};
 
-          const { field, as } = parseStdinConfig(stdinConfig);
+          const field = parseStdinConfig(stdinConfig);
 
           // Skip if the field was already provided via CLI flags
           if (field in validateCtx.rawArgs && validateCtx.rawArgs[field] !== undefined) return {};
@@ -372,7 +380,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           const stdin = resolveStdin(runtime as any);
           if (!stdin) return {};
 
-          if (as === 'lines') {
+          if (isArrayField(command.argsSchema, field)) {
             return (async () => {
               const lines: string[] = [];
               for await (const line of stdin.lines()) {
@@ -1065,7 +1073,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             const stdinConfig = command.meta?.stdin;
             if (!stdinConfig) return {};
 
-            const { field, as } = parseStdinConfig(stdinConfig);
+            const field = parseStdinConfig(stdinConfig);
 
             // Skip if the field was already provided via CLI flags (highest precedence)
             if (field in validateCtx.rawArgs && validateCtx.rawArgs[field] !== undefined) return {};
@@ -1075,7 +1083,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             const stdin = resolveStdin(runtime as any);
             if (!stdin) return {};
 
-            if (as === 'lines') {
+            if (isArrayField(command.argsSchema, field)) {
               return (async () => {
                 const lines: string[] = [];
                 for await (const line of stdin.lines()) {

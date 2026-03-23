@@ -65,19 +65,11 @@ type PositionalArgs<TObj> =
  */
 /**
  * Configuration for reading from stdin and mapping it to an argument field.
+ * Simply specify the field name — the read mode is inferred from the schema:
+ * - `string` field → reads all stdin as text
+ * - `string[]` field → reads stdin line-by-line
  */
-export type StdinConfig<TObj = Record<string, any>> =
-  | (keyof TObj & string)
-  | {
-      /** The argument field to populate with stdin data. */
-      field: keyof TObj & string;
-      /**
-       * How to consume stdin:
-       * - `'text'` (default): read all stdin as a single string.
-       * - `'lines'`: read stdin as an array of lines (string[]).
-       */
-      as?: 'text' | 'lines';
-    };
+export type StdinConfig<TObj = Record<string, any>> = keyof TObj & string;
 
 export interface PadroneArgsSchemaMeta<TObj = Record<string, any>> {
   /**
@@ -110,21 +102,19 @@ export interface PadroneArgsSchemaMeta<TObj = Record<string, any>> {
    * Read from stdin and inject the data into the specified argument field.
    * Only reads when stdin is piped (not a TTY) and the field wasn't already provided via CLI flags.
    *
-   * - `string`: shorthand for `{ field: name, as: 'text' }` — read all stdin as a string.
-   * - `{ field, as }`: explicit form. `as: 'text'` reads all stdin as a string,
-   *   `as: 'lines'` reads stdin as an array of line strings.
+   * The read mode is inferred from the schema type of the target field:
+   * - `string` field → reads all stdin as a single string
+   * - `string[]` field → reads stdin line-by-line into an array
    *
    * Precedence: CLI flags > stdin > env vars > config file > schema defaults.
    *
    * @example
    * ```ts
-   * // Shorthand: read all stdin as text into 'data' field
+   * // Read all stdin as text into 'data' field
    * .arguments(z.object({ data: z.string() }), { stdin: 'data' })
    *
-   * // Explicit: read stdin lines into 'lines' field
-   * .arguments(z.object({ lines: z.string().array() }), {
-   *   stdin: { field: 'lines', as: 'lines' },
-   * })
+   * // Read stdin lines into 'lines' field (inferred from array schema)
+   * .arguments(z.object({ lines: z.string().array() }), { stdin: 'lines' })
    * ```
    */
   stdin?: StdinConfig<TObj>;
@@ -172,11 +162,25 @@ export function camelToKebab(str: string): string | null {
 }
 
 /**
- * Normalizes stdin config into its explicit form.
+ * Returns the stdin field name from the config.
  */
-export function parseStdinConfig(stdin: StdinConfig): { field: string; as: 'text' | 'lines' } {
-  if (typeof stdin === 'string') return { field: stdin, as: 'text' };
-  return { field: stdin.field as string, as: stdin.as ?? 'text' };
+export function parseStdinConfig(stdin: StdinConfig): string {
+  return stdin;
+}
+
+/**
+ * Checks if a field in the schema is an array type (e.g. `z.string().array()`).
+ */
+export function isArrayField(schema: StandardJSONSchemaV1 | undefined, field: string): boolean {
+  if (!schema) return false;
+  try {
+    const jsonSchema = schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' }) as Record<string, any>;
+    if (jsonSchema.type === 'object' && jsonSchema.properties) {
+      const prop = jsonSchema.properties[field];
+      return prop?.type === 'array';
+    }
+  } catch {}
+  return false;
 }
 
 /**

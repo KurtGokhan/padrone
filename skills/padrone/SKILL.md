@@ -97,7 +97,7 @@ The second parameter to `.arguments()` configures positional args, interactive p
   positional: ['source', '...files'],     // '...' prefix = variadic
   interactive: true,                       // or ['fieldName'] for specific fields
   autoAlias: true,                         // auto kebab-case aliases for camelCase (default: true)
-  stdin: 'data',                           // or { field: 'data', as: 'lines' }
+  stdin: 'data',                           // infers text/lines from schema type
   fields: {
     output: { flags: 'o', description: 'Output path', examples: ['./dist'] },
     verbose: { flags: 'v', hidden: true },
