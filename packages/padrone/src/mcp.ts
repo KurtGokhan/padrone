@@ -1,4 +1,5 @@
 import { JSON_SCHEMA_OPTS } from './args.ts';
+import { generateHelp } from './help.ts';
 import type { AnyPadroneCommand, AnyPadroneProgram } from './types.ts';
 
 export type PadroneMcpPreferences = {
@@ -44,7 +45,8 @@ function collectTools(commands: AnyPadroneCommand[] | undefined, prefix: string)
   const tools: { name: string; command: AnyPadroneCommand }[] = [];
   for (const cmd of commands) {
     if (cmd.hidden) continue;
-    const path = prefix ? `${prefix}.${cmd.name}` : cmd.name;
+    // Default commands (name '') inherit the parent path
+    const path = cmd.name ? (prefix ? `${prefix}.${cmd.name}` : cmd.name) : prefix;
     if (cmd.action || cmd.argsSchema) {
       tools.push({ name: path, command: cmd });
     }
@@ -104,6 +106,18 @@ export function createMcpHandler(
 
   const toolMap = new Map(rootTools.map((t) => [toToolName(t.name), t]));
 
+  const helpToolName = 'help';
+  const helpToolDef = {
+    name: helpToolName,
+    title: 'Help',
+    description: `Show help for the "${serverName}" program or a specific command`,
+    inputSchema: {
+      type: 'object' as const,
+      properties: { command: { type: 'string', description: 'Command name to get help for (omit for program help)' } },
+      additionalProperties: false,
+    },
+  };
+
   return async function handleRequest(req: JsonRpcRequest): Promise<JsonRpcResponse | undefined> {
     const { id, method, params } = req;
 
@@ -127,13 +141,25 @@ export function createMcpHandler(
         return { jsonrpc: '2.0', id: id ?? null, result: {} };
 
       case 'tools/list': {
-        const tools = rootTools.map((t) => buildToolDefinition(t.name, t.command));
+        const tools = [...rootTools.map((t) => buildToolDefinition(t.name, t.command)), helpToolDef];
         return { jsonrpc: '2.0', id: id ?? null, result: { tools } };
       }
 
       case 'tools/call': {
         const toolName = params?.name as string;
         const args = (params?.arguments ?? {}) as Record<string, unknown>;
+
+        // Built-in help tool
+        if (toolName === helpToolName) {
+          const cmdName = args.command as string | undefined;
+          const targetCmd = cmdName ? rootTools.find((t) => t.name === cmdName || toToolName(t.name) === cmdName)?.command : undefined;
+          const helpText = generateHelp(existingCommand, targetCmd ?? existingCommand, { format: 'text', detail: 'full' });
+          return {
+            jsonrpc: '2.0',
+            id: id ?? null,
+            result: { content: [{ type: 'text', text: helpText }], isError: false },
+          };
+        }
 
         const tool = toolMap.get(toolName);
         if (!tool) {

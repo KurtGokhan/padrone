@@ -97,6 +97,8 @@ describe('mcp', () => {
       // Nested commands use dot separator per MCP tool naming rules
       expect(toolNames).toContain('nested.sub');
       expect(toolNames).not.toContain('hidden');
+      // Built-in help tool
+      expect(toolNames).toContain('help');
     });
 
     it('should include title, description and input schemas', async () => {
@@ -231,6 +233,55 @@ describe('mcp', () => {
       const result = res?.result as any;
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toBe('Done.');
+    });
+  });
+
+  describe('help tool', () => {
+    it('should return program help when no command is specified', async () => {
+      const handler = createHandler();
+      const res = await handler({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: { name: 'help', arguments: {} },
+      });
+
+      const result = res?.result as any;
+      expect(result.isError).toBe(false);
+      expect(result.content[0].text).toContain('test');
+      expect(result.content[0].text).toContain('greet');
+    });
+
+    it('should return command help when command is specified', async () => {
+      const handler = createHandler();
+      const res = await handler({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: { name: 'help', arguments: { command: 'greet' } },
+      });
+
+      const result = res?.result as any;
+      expect(result.isError).toBe(false);
+      expect(result.content[0].text).toContain('Greet someone');
+    });
+  });
+
+  describe('default commands', () => {
+    it('should not produce trailing dots for default subcommands', async () => {
+      const prog = createPadrone('app').command('parent', (c) =>
+        c.command('', (s) => s.action(() => 'default')).command('child', (s) => s.action(() => 'child')),
+      );
+      const handler = createMcpHandler(getCommand(prog), prog.eval.bind(prog) as any);
+      const res = await handler({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+
+      const tools = (res?.result as any).tools;
+      const toolNames = tools.map((t: any) => t.name);
+
+      // Default command should use parent name, not 'parent.'
+      expect(toolNames).toContain('parent');
+      expect(toolNames).toContain('parent.child');
+      expect(toolNames).not.toContain('parent.');
     });
   });
 
