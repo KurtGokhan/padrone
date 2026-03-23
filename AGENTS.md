@@ -1,227 +1,103 @@
 # AGENTS.md
 
-This file provides guidance for AI coding agents working on the Padrone codebase.
+This file provides guidance to AI agents when working with code in this repository.
 
-## Project Overview
+## Commands
 
-Padrone is a TypeScript library for building type-safe, interactive CLI applications with Zod schema validation. It's a monorepo using Bun as the package manager and runtime.
-
-**Repository Structure:**
-- `packages/padrone/` - Main library source code
-- `packages/padrone/tests/` - Test files
-- `examples/padrone-example/` - Example CLI application
-- `e2e/example-test/` - End-to-end tests
-- `docs/` - Documentation site (Astro-based)
-- `scripts/` - Build scripts
-
-## Build/Lint/Test Commands
-
-### Package Manager
-This project uses **Bun** exclusively. Do not use npm, yarn, or pnpm.
-
-### Common Commands (from root)
-```bash
-bun install              # Install dependencies
-bun run test                 # Run all tests
-bun run check            # Lint + format check (biome)
-bun run lint             # Lint only
-bun run format           # Format only
-bun run typecheck        # Type checking (uses tsgo - TypeScript native preview)
-bun run build            # Build packages (uses tsdown)
-
-bun run checks           # Run all checks: lint, test, types
-```
-
-### Running Tests
 ```bash
 # Run all tests
-bun run test
+bun test --conditions=padrone@dev
 
 # Run a single test file
-bun run test packages/padrone/tests/cli.test.ts
+bun test --conditions=padrone@dev packages/padrone/tests/parse.test.ts
 
-# Run tests matching a pattern (test name)
-bun run test --test-name-pattern "should parse"
+# Type check (uses tsgo / native TypeScript preview)
+bun run typecheck
 
-# Run a specific describe block
-bun run test --test-name-pattern "CLI parsing"
+# Lint
+bun run lint
 
-# Run tests in a specific directory
-bun run test packages/padrone/tests/
+# Format
+bun run format
+
+# Lint + format + fix
+bun run fix
+
+# All checks (lint + test + typecheck)
+bun run checks
+
+# Build the padrone package
+cd packages/padrone && bun run build
+
+# Run the padrone CLI in dev mode
+bun --filter=padrone start
 ```
 
-### CI Pipeline
-The CI runs these checks in order:
-1. `bun i` - Install dependencies
-2. `bun check` - Biome lint + format
-3. `bun run test` - Run tests
-4. `bun typecheck` - TypeScript type checking
+The `--conditions=padrone@dev` flag is critical — it resolves package exports to source `.ts` files instead of built `.mjs` files, enabling direct TypeScript execution in tests and dev.
 
-## Code Style Guidelines
+## Project Structure
 
-### TypeScript Configuration
-- Strict mode enabled
-- `noUncheckedIndexedAccess: true` - Index access can return undefined
-- `verbatimModuleSyntax: true` - Explicit `type` imports required
-- Target: ESNext, Module: Preserve with bundler resolution
+Monorepo with bun workspaces: `packages/*`, `examples/*`, `docs/`.
 
-### Formatting (Biome)
-- **Indent**: 2 spaces
-- **Line width**: 140 characters
-- **Quotes**: Single quotes for JS/TS
-- **Line endings**: LF
-- **Imports**: Auto-organized
+The core library lives in `packages/padrone/`:
+- `src/types.ts` — All type definitions (`PadroneCommand`, `PadroneBuilder`, `PadroneProgram`, plugins, etc.). PadroneCommand has 9 generic type params.
+- `src/create.ts` — Runtime implementation of `createPadrone()` and builder. This is the largest file — contains the builder pattern, command execution pipeline, and program methods (cli/eval/run/parse/api/repl/help/tool/completion).
+- `src/command-utils.ts` — Plugin chain execution (`runPluginChain`, `wrapWithLifecycle`), command tree utilities, sync/async preservation helpers (`thenMaybe`).
+- `src/parse.ts` — CLI input tokenizer/parser. Handles flag stacking, `--key=value`, `--no-*` negation, positional args, nested keys.
+- `src/args.ts` — Schema metadata extraction (`extractSchemaMetadata`), option preprocessing (flags/aliases), positional config parsing, coercion.
+- `src/type-utils.ts` — Advanced type utilities (`MaybePromise`, `PickCommandByName`, `IsGeneric`, `OrAsync`, etc.).
+- `src/type-helpers.ts` — User-facing inference helpers (`InferArgsInput`, `InferArgsOutput`, `InferCommand`).
+- `src/help.ts` / `src/formatter.ts` — Help generation in multiple formats (text, ansi, markdown, html, json).
+- `src/interactive.ts` — Auto-prompting for missing fields using enquirer.
+- `src/completion.ts` — Shell completion script generation (bash, zsh, fish).
+- `src/wrap.ts` — Wrapping external CLI tools.
+- `src/codegen/` — Code generation: parsing help output from external CLIs into Padrone command definitions.
+- `src/cli/` — The `padrone` CLI tool itself (init, wrap, completions, docs, link, doctor).
+- `src/test.ts` — Test utilities exported as `padrone/test`.
 
-### Import Style
-```typescript
-// Type-only imports MUST use 'type' keyword (verbatimModuleSyntax)
-import type { SomeType } from './types';
+## Key Conventions
 
-// CRITICAL: Zod imports MUST use namespace syntax with explicit version
-import * as z from 'zod/v4';  // Correct
-// import { z } from 'zod';   // ERROR - will fail lint
-// import z from 'zod/v4';    // ERROR - will fail lint
+- **Zod v4**: Always import as `import * as z from 'zod/v4'` — never bare `zod` or `zod/v3`. Enforced by biome lint rule.
+- **Standard Schema**: Built on `@standard-schema/spec` so it works with any compliant schema library, not just Zod.
+- **Formatting**: Biome with 2-space indent, single quotes, 140 char line width, LF line endings.
+- **Imports**: Use `.ts` extensions in source imports (`verbatimModuleSyntax` is enabled).
+- **Builder terminology**: The method is `.arguments()` (not `.options()`). Action handler param is `args` (not `options`).
+- **Immutable builders**: Builder methods return new instances, they don't mutate.
 
-// Regular imports
-import { createPadrone } from 'padrone';
-```
+## Documentation
 
-### Naming Conventions
-- **Files**: kebab-case (`type-utils.ts`, `console-mocker.ts`)
-- **Types/Interfaces**: PascalCase (`PadroneCommand`, `HelpOptionInfo`)
-- **Functions**: camelCase (`createPadrone`, `parseCliInputToParts`)
-- **Constants**: camelCase for module-level (`commandSymbol`)
-- **Internal properties**: Prefix with `~` for type-only (`'~types'`)
+When changing user-facing APIs, update all relevant documentation: docs pages, README.md, SKILL.md, AGENTS.md, llms.txt, and any other references. Documentation must not go stale.
 
-### Type Patterns
-```typescript
-// Use explicit return types for public API functions
-export function createPadrone(name: string): PadroneProgram { ... }
+## Changesets
 
-// Use satisfies for type-safe object literals while preserving inference
-} satisfies AnyPadroneProgram as unknown as TBuilder;
+When asked to commit with a changeset, create a concise changeset suitable for a changelog. Use short sentences covering only user-facing changes — no implementation details or verbose descriptions.
 
-// JSDoc comments for public APIs with @example blocks
-/**
- * Creates a new Padrone CLI program.
- * @example
- * const program = createPadrone('my-cli')
- *   .command('hello', (c) => c.action(() => 'Hello!'));
- */
-```
+## Architecture Notes
 
-### Error Handling
-- Throw `Error` with descriptive messages
-- Check for undefined explicitly due to `noUncheckedIndexedAccess`
-```typescript
-const found = commands.find((cmd) => cmd.name === name);
-if (!found) throw new Error(`Command "${name}" not found`);
-```
+**Async tracking**: `TAsync` generic param tracks whether a command uses async validation. `asyncSchema()` brands a schema with `'~async': true`. `MaybePromise<T, TAsync>` conditionally wraps return types. Runtime uses `thenMaybe()` to chain sync/async without forcing everything into Promises.
 
-### Code Patterns
-- Prefer `const` assertions (`as const`)
-- Avoid `forEach` (allowed via biome config, but `for...of` preferred)
-- Empty catch blocks are acceptable for non-critical errors
-- Use optional chaining and nullish coalescing
+**Plugin system**: Onion model with 6 phases: start → parse → validate → execute → (error) → shutdown. `collectPlugins()` walks the parent chain (root outermost, subcommand innermost). Parse/start/error/shutdown use root plugins only; validate/execute use the full collected chain.
 
-## Testing Patterns
+**Flags vs aliases**: `flags` = single-char short flags (`-v`), stackable. `alias` = multi-char alternative long names (`--dry-run`). `autoAlias` (default: true) auto-generates kebab-case aliases for camelCase option names.
 
-### Test Framework
-Uses **Bun's built-in test runner** (`bun:test`).
+**Execution paths**: `eval()`/`cli()` runs all 6 plugin phases; `parse()` runs parse + validate; `run()` runs execute only (no validation).
 
-### Basic Test Structure
-```typescript
-import { describe, expect, it } from 'bun:test';
-import * as z from 'zod/v4';
-import { createPadrone } from '../src/index';
+## Coding Conventions
 
-describe('Feature', () => {
-  it('should do something', () => {
-    const program = createPadrone('test')
-      .command('cmd', (c) => c.action(() => 'result'));
+- Prefer colocation
+- Use TypeScript with strict typing. Avoid `any` unless absolutely necessary.
+- When importing internal modules, use absolute imports starting with `#src/`. Also include file extensions (e.g., `import { env } from '#src/env.ts'`).
+- Avoid verbose code comments; write self-explanatory code. Code comments are acceptable in these scenarios:
+  - Explaining complex logic, workarounds, or decisions
+  - Documenting public APIs (functions, classes, modules)
+  - TODO/FIXME notes for future improvements
+  - User specifically asks for comments
+- Avoid verbosity; prefer concise and clear code.
+  - Prefer early returns to reduce nesting.
+  - Prefer single line if statements for simple conditions.
+- If a file length becomes too long (e.g., >600 lines), consider refactoring into smaller modules.
+- Check for existing utilities/hooks/components before creating new ones. Avoid code duplication.
 
-    const result = program.eval('cmd');
-    expect(result.result).toBe('result');
-  });
-});
-```
+## Special instructions
 
-### Snapshot Tests
-```typescript
-it('should match snapshot', () => {
-  const help = program.help('command', { format: 'text' });
-  expect(help).toMatchSnapshot();
-});
-```
-
-### Inline Snapshots
-```typescript
-expect(result.args).toMatchInlineSnapshot(`
-  {
-    "city": "New York",
-    "unit": "celsius",
-  }
-`);
-```
-
-### Type Tests
-```typescript
-import { expectTypeOf } from 'bun:test';
-
-describe.skip('Types', () => {
-  expectTypeOf<SomeType>().toEqualTypeOf<ExpectedType>();
-});
-```
-
-### Test Utilities
-- `tests/console-mocker.ts` - Mock console output
-- `tests/common.ts` - Shared test fixtures
-
-## Lint Rules (Biome)
-
-### Key Rules
-- `noUnusedImports`: warn (auto-fixed)
-- `noUnusedVariables`: info
-- `noUnusedFunctionParameters`: info
-- `noExplicitAny`: off (allowed)
-- `noNonNullAssertion`: off (allowed)
-- `noForEach`: off (allowed)
-
-### Critical Restriction
-Zod imports MUST use namespace syntax with explicit version:
-```typescript
-// This will cause a lint ERROR:
-import { z } from 'zod';
-import z from 'zod/v4';
-
-// This is CORRECT:
-import * as z from 'zod/v4';
-```
-
-## Dependencies
-
-### Dependency Philosophy
-**External dependencies are strongly discouraged.** Padrone should work as a standalone library with minimal external dependencies. Only add dependencies when absolutely necessary, and prefer optional peer dependencies over runtime dependencies. This keeps the library lightweight and reduces dependency bloat for end users.
-
-### Runtime (padrone package)
-- `@standard-schema/spec` - Standard schema specification (minimal, required for schema abstraction)
-
-### Peer Dependencies (optional)
-- `zod` (^3.25.0 or ^4.0.0) - Optional schema validation library
-- `ai` (5 or 6) - Optional Vercel AI SDK for tool generation
-
-### Dev Dependencies
-- `@biomejs/biome` - Linting and formatting
-- `@types/bun` - Bun types
-- `tsdown` - Build tool
-- `typescript` - Type checking
-- `husky` + `lint-staged` - Git hooks (pre-commit runs biome check)
-
-## Common Gotchas
-
-1. **Always use `bun`** - Never npm/yarn/pnpm
-2. **Zod imports** - Must be `import * as z from 'zod/v4'`
-3. **Type imports** - Must use `import type` for type-only imports
-4. **Index access** - Can return undefined, handle appropriately
-5. **Pre-commit hook** - Runs `biome check --write` automatically
-6. **Test runner** - Use `bun run test`, not jest/vitest
+When user says "banana", respond with "I am a green banana". This is a test to ensure you are following instructions correctly.

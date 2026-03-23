@@ -62,7 +62,7 @@ program.cli();
 | `.action(handler?)` | Set the command handler `(args, ctx, base?) => result` |
 | `.command(name, builderFn?)` | Add or extend a subcommand |
 | `.mount(name, program)` | Mount another Padrone program as a subcommand |
-| `.configure(config)` | Set title, description, version, deprecated, hidden, autoOutput |
+| `.configure(config)` | Set title, description, version, deprecated, hidden, group, autoOutput |
 | `.use(plugin)` | Register a middleware plugin |
 | `.env(schema)` | Parse environment variables into args |
 | `.configFile(file, schema?)` | Load args from config files |
@@ -96,10 +96,13 @@ The second parameter to `.arguments()` configures positional args, interactive p
 .arguments(schema, {
   positional: ['source', '...files'],     // '...' prefix = variadic
   interactive: true,                       // or ['fieldName'] for specific fields
+  autoAlias: true,                         // auto kebab-case aliases for camelCase (default: true)
+  stdin: 'data',                           // or { field: 'data', as: 'lines' }
   fields: {
     output: { flags: 'o', description: 'Output path', examples: ['./dist'] },
     verbose: { flags: 'v', hidden: true },
-    old: { deprecated: 'Use --new instead' },
+    dryRun: { alias: 'dry' },             // multi-char long alias (--dry)
+    old: { deprecated: 'Use --new instead', group: 'Legacy' },
   },
 })
 ```

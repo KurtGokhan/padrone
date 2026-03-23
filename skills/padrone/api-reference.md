@@ -125,12 +125,16 @@ type ArgsMeta = {
   positional?: string[];              // field names; '...name' for variadic
   interactive?: boolean | string[];   // prompt for missing required fields
   optionalInteractive?: boolean | string[]; // prompt for optional fields too
+  autoAlias?: boolean;                // auto kebab-case aliases for camelCase (default: true)
+  stdin?: string | { field: string; as?: 'text' | 'lines' };
   fields?: Record<string, {
-    alias?: string | string[];        // short flags (-n, -v)
+    flags?: string | string[];        // single-char short flags (-n, -v)
+    alias?: string | string[];        // multi-char long aliases (--dry-run)
     description?: string;
     deprecated?: boolean | string;
     hidden?: boolean;
     examples?: unknown[];
+    group?: string;
   }>;
 };
 ```
@@ -144,7 +148,7 @@ Defines the command handler. Called with no args to create a passthrough command
 ```
 
 - `args`: Validated output from the schema
-- `ctx`: `{ runtime, command, program }`
+- `ctx`: `{ runtime, command, program, progress }`
 - `base`: Previous handler when overriding an existing command
 
 ### `.command(name, builderFn?)`
@@ -528,6 +532,7 @@ type PadroneActionContext = {
   runtime: ResolvedPadroneRuntime;
   command: AnyPadroneCommand;
   program: AnyPadroneProgram;
+  progress: PadroneProgressIndicator;
 };
 
 type PadroneCommandResult<T> = {

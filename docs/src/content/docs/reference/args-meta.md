@@ -14,10 +14,9 @@ z.object({
   output: z.string()
     .describe('Output file path')
     .meta({
-      alias: 'o',
+      flags: 'o',
+      alias: 'out',
       examples: ['output.json', './dist/bundle.js'],
-      env: 'OUTPUT_PATH',
-      configKey: 'build.output',
     }),
 })
 ```
@@ -26,12 +25,16 @@ z.object({
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `alias` | `string` | Short alias (e.g., `'p'` for `-p`) |
-| `examples` | `string[]` | Example values shown in help |
+| `flags` | `string \| string[]` | Single-character short flags (e.g., `'p'` for `-p`). Stackable: `-abc` = `-a -b -c` |
+| `alias` | `string \| string[]` | Multi-character long aliases (e.g., `'dry-run'` for `--dry-run`) |
+| `examples` | `unknown[]` | Example values shown in help |
 | `deprecated` | `string \| boolean` | Mark as deprecated with optional message |
 | `hidden` | `boolean` | Hide from help output |
-| `env` | `string \| string[]` | Environment variable name(s) |
-| `configKey` | `string` | Dot-notation path in config file |
+| `group` | `string` | Group name for organizing under a labeled section in help output |
+
+:::note
+Single-character short flags use `flags`, not `alias`. The `alias` field is for multi-character long alternatives like `--dry-run` for `--dryRun`.
+:::
 
 ---
 
@@ -43,8 +46,9 @@ The second argument to `.arguments()` configures positional arguments and per-ar
 .arguments(schema, {
   positional: ['source', '...files', 'dest'],
   fields: {
-    verbose: { env: 'VERBOSE' },
-    config: { configKey: 'settings.config' },
+    verbose: { flags: 'v' },
+    dryRun: { alias: 'dry' },
+    format: { deprecated: 'Use --output instead' },
   },
 })
 ```
@@ -83,19 +87,48 @@ Per-argument configuration that supplements or overrides `.meta()`:
 ```typescript
 {
   fields: {
-    apiKey: {
-      env: 'API_KEY',           // Environment variable
-      configKey: 'auth.apiKey', // Config file path
+    verbose: { flags: 'v' },
+    dryRun: { alias: 'dry' },
+    format: {
+      deprecated: 'Use --output instead',
+      hidden: true,
     },
   },
 }
 ```
 
-This is equivalent to using `.meta()` on the schema property but allows configuration to be kept separate from the schema definition.
+This is equivalent to using `.meta()` on the schema property but allows configuration to be kept separate from the schema definition. Fields accept the same properties as Zod `.meta()`: `flags`, `alias`, `description`, `examples`, `deprecated`, `hidden`, `group`.
+
+### autoAlias
+
+Automatically generate kebab-case aliases for camelCase argument names. Enabled by default.
+
+```typescript
+// Default (autoAlias: true): --dry-run automatically maps to dryRun
+.arguments(z.object({ dryRun: z.boolean() }))
+
+// Disable auto-aliases
+.arguments(z.object({ dryRun: z.boolean() }), { autoAlias: false })
+```
+
+### stdin
+
+Read from stdin and inject the data into a specified argument field. Only reads when stdin is piped (not a TTY) and the field wasn't already provided via CLI flags.
+
+```typescript
+// Shorthand: read all stdin as text into 'data' field
+.arguments(z.object({ data: z.string() }), { stdin: 'data' })
+
+// Read stdin as lines into an array field
+.arguments(
+  z.object({ lines: z.array(z.string()) }),
+  { stdin: { field: 'lines', as: 'lines' } }
+)
+```
 
 ### interactive
 
-Declare which fields should be interactively prompted when their values are missing after CLI/env/config resolution. Only takes effect in `cli()` when the runtime has `interactive: true`.
+Declare which fields should be interactively prompted when their values are missing after CLI/env/config resolution. Only takes effect in `cli()` and `eval()` when the runtime has `interactive: true`.
 
 ```typescript
 // Prompt all missing required fields
@@ -160,96 +193,91 @@ See the [Interactive Prompting guide](/padrone/guides/interactive-prompting/) fo
 
 ## Environment Variables
 
-Bind arguments to environment variables:
+Bind arguments to environment variables using the `.env()` builder method:
 
 ```typescript
-// Single env var
-z.string().meta({ env: 'API_KEY' })
-
-// Multiple env vars (first found wins)
-z.string().meta({ env: ['API_KEY', 'APP_API_KEY'] })
-
-// Via arguments config
-.arguments(schema, {
-  fields: {
-    apiKey: { env: 'API_KEY' },
-  },
-})
+const program = createPadrone('app')
+  .command('serve', (c) =>
+    c
+      .arguments(
+        z.object({
+          port: z.number().default(3000),
+          apiKey: z.string(),
+        }),
+      )
+      .env(
+        z.object({
+          APP_PORT: z.coerce.number().optional(),
+          API_KEY: z.string().optional(),
+        }).transform((env) => ({
+          port: env.APP_PORT,
+          apiKey: env.API_KEY,
+        }))
+      )
+      .action((args) => {
+        console.log(`Server on port ${args.port}`);
+      }),
+  );
 ```
+
+The env schema validates `process.env` and transforms env var names into argument names. Only provided env values are used — undefined values are skipped.
 
 **Resolution priority:**
 1. CLI argument (highest)
-2. Environment variable
-3. Config file
-4. Interactive prompt (if runtime supports it)
-5. Default value (lowest)
-
-**Type coercion:**
-- Strings: Used as-is
-- Numbers: Parsed with `Number()`
-- Booleans: `'true'`, `'1'`, `'yes'` → `true`; others → `false`
-- Arrays: Comma-separated values
+2. Stdin
+3. Environment variable
+4. Config file
+5. Interactive prompt (if runtime supports it)
+6. Default value (lowest)
 
 ---
 
 ## Config Files
 
-Load arguments from configuration files:
+Load arguments from configuration files using the `.configFile()` builder method:
 
 ```typescript
 const program = createPadrone('app')
-  .configure({
-    configFiles: [
-      'app.config.json',
-      'app.config.yaml',
-      '.apprc',
-    ],
-  })
-  .arguments(
-    z.object({
-      port: z.number().default(3000),
-    }),
-    {
-      fields: {
-        port: { configKey: 'server.port' },
-      },
-    }
+  .command('serve', (c) =>
+    c
+      .arguments(
+        z.object({
+          port: z.number().default(3000),
+          host: z.string().default('localhost'),
+        }),
+      )
+      .configFile(
+        'app.config.json',
+        z.object({
+          port: z.number().optional(),
+          host: z.string().optional(),
+        })
+      )
+      .action((args) => {
+        console.log(`Server on ${args.host}:${args.port}`);
+      }),
   );
 ```
 
-### Config File Format
-
-Padrone supports JSON, JSONC, and YAML config files. The `configKey` uses dot notation:
-
-```json
-{
-  "server": {
-    "port": 8080,
-    "host": "0.0.0.0"
-  }
-}
-```
+Multiple config file paths can be provided as an array — the first existing file is used:
 
 ```typescript
-{ configKey: 'server.port' }  // → 8080
-{ configKey: 'server.host' }  // → '0.0.0.0'
+.configFile(['app.config.json', '.apprc'])
 ```
 
-### Config File Search
-
-Files are searched in order specified. The first existing file is used.
+If no schema is provided, the config file values are matched against the command's argument schema directly.
 
 ---
 
-## Aliases
+## Flags
 
-Short argument aliases allow single-character shortcuts:
+Short argument flags allow single-character shortcuts:
 
 ```typescript
 z.object({
-  verbose: z.boolean().optional().meta({ alias: 'v' }),
-  port: z.number().default(3000).meta({ alias: 'p' }),
-  output: z.string().optional().meta({ alias: 'o' }),
+  verbose: z.boolean().optional().meta({ flags: 'v' }),
+  port: z.number().default(3000).meta({ flags: 'p' }),
+  output: z.string().optional().meta({ flags: 'o' }),
 })
 ```
 
@@ -265,6 +293,29 @@ app --verbose --port 8080 --output output.json
 app -vp 8080
 # -v (boolean) + -p 8080
 ```
+
+---
+
+## Aliases
+
+Multi-character long aliases provide alternative names for arguments:
+
+```typescript
+z.object({
+  dryRun: z.boolean().optional().meta({ alias: 'dry' }),
+})
+```
+
+```bash
+app --dry
+# Equivalent to:
+app --dry-run  # (auto-alias from camelCase)
+app --dryRun   # (original name)
+```
+
+:::note
+By default, camelCase argument names automatically get kebab-case aliases (e.g., `dryRun` → `--dry-run`). This can be disabled with `autoAlias: false` in the arguments meta.
+:::
 
 ---
 
@@ -327,3 +378,20 @@ z.object({
 ```
 
 Examples appear in the generated help text to guide users.
+
+---
+
+## Groups
+
+Organize arguments into labeled sections in help output:
+
+```typescript
+z.object({
+  port: z.number().default(3000).meta({ group: 'Server' }),
+  host: z.string().default('localhost').meta({ group: 'Server' }),
+  verbose: z.boolean().optional().meta({ group: 'Debug' }),
+  logLevel: z.enum(['info', 'debug', 'warn']).optional().meta({ group: 'Debug' }),
+})
+```
+
+Arguments with the same group name are displayed together under a labeled section in help output.

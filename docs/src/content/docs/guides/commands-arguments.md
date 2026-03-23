@@ -3,7 +3,7 @@ title: Commands & Arguments
 description: Learn how to define commands and arguments in Padrone
 ---
 
-This guide covers how to work with commands, argments, positional arguments, and nested command hierarchies in Padrone.
+This guide covers how to work with commands, arguments, positional arguments, and nested command hierarchies in Padrone.
 
 ## Defining Arguments
 
@@ -38,18 +38,18 @@ Padrone supports these Zod types:
 | `z.enum(['a', 'b'])` | `--level high` |
 | `z.array(z.string())` | `--tags foo --tags bar` or `--tags=[foo,bar]` |
 
-### Argument Aliases
+### Argument Flags
 
-Add short aliases using `.meta()`:
+Add short flags using `.meta()`:
 
 ```typescript
 z.object({
-  port: z.number().default(3000).meta({ alias: 'p' }),
-  verbose: z.boolean().optional().meta({ alias: 'v' }),
+  port: z.number().default(3000).meta({ flags: 'p' }),
+  verbose: z.boolean().optional().meta({ flags: 'v' }),
 })
 ```
 
-Users can now use `-p 8080` instead of `--port 8080`.
+Users can now use `-p 8080` instead of `--port 8080`. Short flags are single-character and stackable: `-vp 8080` = `-v -p 8080`.
 
 ### Argument Metadata
 
@@ -57,14 +57,16 @@ The `.meta()` method supports several properties:
 
 ```typescript
 z.string().meta({
-  alias: 'o',              // Short alias
+  flags: 'o',              // Short flag (-o)
+  alias: 'out',            // Long alias (--out)
   examples: ['file.txt'],  // Example values for help text
   deprecated: 'Use --out', // Deprecation warning
   hidden: true,            // Hide from help output
-  env: 'OUTPUT_FILE',      // Bind to environment variable
-  configKey: 'output.file' // Bind to config file key
+  group: 'Output',         // Group in help output
 })
 ```
+
+> **Note:** Single-character short flags use `flags`, not `alias`. The `alias` field is for multi-character long alternatives. By default, camelCase names automatically get kebab-case aliases (e.g., `dryRun` → `--dry-run`).
 
 ## Positional Arguments
 
@@ -139,8 +141,8 @@ Configure commands with `.configure()`:
 .command('serve', (c) =>
   c
     .configure({
+      title: 'Dev Server',
       description: 'Start the development server',
-      examples: ['serve --port 8080', 'serve -p 3000'],
     })
     .arguments(schema)
     .action(handler)
@@ -177,59 +179,67 @@ db migrate status
 
 ## Environment Variables
 
-Bind arguments to environment variables:
-
-```typescript
-.arguments(
-  z.object({
-    apiKey: z.string().describe('API key'),
-    debug: z.boolean().optional(),
-  }),
-  {
-    fields: {
-      apiKey: { env: 'API_KEY' },
-      debug: { env: ['DEBUG', 'APP_DEBUG'] }, // Multiple env vars
-    }
-  }
-)
-```
-
-Priority order: CLI argument > Environment variable > Interactive prompt > Default value
-
-## Config Files
-
-Load arguments from configuration files:
+Bind arguments to environment variables using the `.env()` builder method:
 
 ```typescript
 const program = createPadrone('app')
-  .configure({
-    configFiles: ['app.config.json', '.apprc', 'app.config.yaml'],
-  })
-  .arguments(
-    z.object({
-      port: z.number().default(3000),
-      host: z.string().default('localhost'),
-    }),
-    {
-      fields: {
-        port: { configKey: 'server.port' },
-        host: { configKey: 'server.host' },
-      }
-    }
+  .command('serve', (c) =>
+    c
+      .arguments(
+        z.object({
+          port: z.number().default(3000),
+          apiKey: z.string().describe('API key'),
+        }),
+      )
+      .env(
+        z.object({
+          APP_PORT: z.coerce.number().optional(),
+          API_KEY: z.string().optional(),
+        }).transform((env) => ({
+          port: env.APP_PORT,
+          apiKey: env.API_KEY,
+        }))
+      )
+      .action((args) => {
+        console.log(`Server on port ${args.port}`);
+      }),
   );
 ```
 
-With `app.config.json`:
-```json
-{
-  "server": {
-    "port": 8080,
-    "host": "0.0.0.0"
-  }
-}
+The env schema validates `process.env` and transforms env var names into argument names.
+
+Priority order: CLI argument > Stdin > Environment variable > Config file > Interactive prompt > Default value
+
+## Config Files
+
+Load arguments from configuration files using the `.configFile()` builder method:
+
+```typescript
+const program = createPadrone('app')
+  .command('serve', (c) =>
+    c
+      .arguments(
+        z.object({
+          port: z.number().default(3000),
+          host: z.string().default('localhost'),
+        }),
+      )
+      .configFile(
+        ['app.config.json', '.apprc'],
+        z.object({
+          port: z.number().optional(),
+          host: z.string().optional(),
+        })
+      )
+      .action((args) => {
+        console.log(`Server on ${args.host}:${args.port}`);
+      }),
+  );
 ```
 
-Priority order: CLI argument > Environment variable > Config file > Interactive prompt > Default value
+Multiple config file paths can be provided as an array — the first existing file is used. If no schema is provided, config values are matched against the argument schema directly.
+
+Priority order: CLI argument > Stdin > Environment variable > Config file > Interactive prompt > Default value
 
 ## Interactive Prompting
 
@@ -264,7 +274,7 @@ Running `app init` without arguments will:
 
 Values provided via CLI, env vars, or config files skip the prompt. Running `app init myproject --template react` only prompts for nothing — all required interactive fields are already provided.
 
-Interactive prompting only occurs in `cli()`, not in `parse()` or `run()`. See the [Interactive Prompting guide](../interactive-prompting/) for full details.
+Interactive prompting only occurs in `cli()` and `eval()`, not in `parse()` or `run()`. See the [Interactive Prompting guide](../interactive-prompting/) for full details.
 
 ## Help Generation
 

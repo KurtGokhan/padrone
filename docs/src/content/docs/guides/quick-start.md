@@ -112,18 +112,18 @@ bun cli.ts add "Buy groceries" --priority high
 bun cli.ts list --all
 ```
 
-## Use Argument Aliases
+## Use Short Flags
 
-Add short aliases for frequently used arguments:
+Add short flags for frequently used arguments:
 
 ```typescript
 z.object({
-  verbose: z.boolean().optional().describe('Verbose output').meta({ alias: 'v' }),
-  output: z.string().optional().describe('Output file').meta({ alias: 'o' }),
+  verbose: z.boolean().optional().describe('Verbose output').meta({ flags: 'v' }),
+  output: z.string().optional().describe('Output file').meta({ flags: 'o' }),
 })
 ```
 
-Now users can use `-v` instead of `--verbose` and `-o` instead of `--output`.
+Now users can use `-v` instead of `--verbose` and `-o` instead of `--output`. Short flags are single-character and stackable: `-vo out.json` = `-v -o out.json`.
 
 ## Programmatic Usage
 

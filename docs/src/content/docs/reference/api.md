@@ -31,8 +31,6 @@ program.configure({
   title: 'My Application',
   description: 'A helpful CLI tool',
   version: '1.0.0',
-  configFiles: ['app.config.json', '.apprc'],
-  examples: ['myapp serve --port 8080'],
 });
 ```
 
@@ -42,8 +40,10 @@ program.configure({
 | `title` | `string` | Display title for help output |
 | `description` | `string` | Program/command description |
 | `version` | `string` | Version string |
-| `configFiles` | `string[]` | Config file paths to load |
-| `examples` | `string[]` | Usage examples for help |
+| `deprecated` | `boolean \| string` | Mark as deprecated with optional message |
+| `hidden` | `boolean` | Hide from help output |
+| `group` | `string` | Group name for organizing in help output |
+| `autoOutput` | `boolean` | Automatically write return value to output |
 
 ---
 
@@ -92,7 +92,7 @@ program.arguments(
   {
     positional: ['port'],
     fields: {
-      host: { env: 'HOST', configKey: 'server.host' },
+      host: { flags: 'h' },
     },
   }
 );
@@ -102,9 +102,11 @@ program.arguments(
 - `schema`: Zod object schema defining the arguments
 - `meta` (optional): Additional configuration
   - `positional`: Array of argument names to treat as positional arguments
-  - `fields`: Per-argument metadata (env, configKey, alias, description, etc.)
+  - `fields`: Per-argument metadata (`flags`, `alias`, `description`, `examples`, `deprecated`, `hidden`, `group`)
   - `interactive`: `true | string[]` — fields to prompt when missing (see [Interactive Prompting](/padrone/guides/interactive-prompting/))
   - `optionalInteractive`: `true | string[]` — optional fields offered after required prompts
+  - `autoAlias`: `boolean` — auto-generate kebab-case aliases for camelCase names (default: `true`)
+  - `stdin`: `string | { field, as }` — read from stdin into an argument field
 
 When `interactive` or `optionalInteractive` is set, the command becomes async — `parse()` and `cli()` return Promises.
 
@@ -134,6 +136,62 @@ program.action((args, ctx) => {
 | `command` | `PadroneCommand` | The command being executed |
 | `program` | `PadroneProgram` | The root program instance |
 | `progress` | `PadroneProgressIndicator` | Auto-managed progress indicator, or lazy indicator for manual use. See [Progress Indicators](/padrone/guides/progress-indicators/) |
+
+**Returns:** The program builder (chainable)
+
+---
+
+### .env(schema)
+
+Define a schema for parsing environment variables into arguments. The schema validates `process.env` and transforms env var names into argument field names.
+
+```typescript
+program.env(
+  z.object({
+    APP_PORT: z.coerce.number().optional(),
+    API_KEY: z.string().optional(),
+  }).transform((env) => ({
+    port: env.APP_PORT,
+    apiKey: env.API_KEY,
+  }))
+);
+```
+
+**Parameters:**
+- `schema`: A Zod schema (or function returning one) that validates env vars and transforms them to argument names
+
+Env values are applied after CLI args and stdin, but before config file values. The env schema is inherited by subcommands if not overridden.
+
+**Returns:** The program builder (chainable)
+
+---
+
+### .configFile(file, schema?)
+
+Configure config file path(s) and optional schema for loading arguments from config files.
+
+```typescript
+// Simple: config file with matching argument names
+program.configFile('app.config.json');
+
+// With schema: transform config keys to argument names
+program.configFile(
+  'app.config.json',
+  z.object({
+    port: z.number().optional(),
+    apiKey: z.string().optional(),
+  })
+);
+
+// Multiple file paths (first found wins)
+program.configFile(['app.config.json', '.apprc']);
+```
+
+**Parameters:**
+- `file`: Config file path string, array of paths, or `undefined` to clear
+- `schema` (optional): A Zod schema (or function) to validate/transform config values
+
+Config values are applied after CLI args, stdin, and env vars. The config file setting is inherited by subcommands if not overridden.
 
 **Returns:** The program builder (chainable)
 
@@ -378,6 +436,52 @@ Available on both programs and subcommand builders. Program-level plugins apply 
 
 ---
 
+### .updateCheck(config?)
+
+Enable background version checking against a package registry. When enabled, the program checks for a newer version in the background and displays a notification after command output.
+
+```typescript
+program.updateCheck({
+  registry: 'npm',       // or custom URL
+  interval: '1d',        // check at most once per day
+  cache: '~/.myapp-update',
+});
+```
+
+**Configuration:**
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `packageName` | `string` | auto-detected | Package name to check |
+| `registry` | `string` | `'npm'` | Registry URL or `'npm'` shorthand |
+| `interval` | `string` | `'1d'` | Check interval (e.g., `'1d'`, `'12h'`, `'30m'`, `'1w'`) |
+| `cache` | `string` | auto | Path to cache file for last check timestamp |
+| `disableEnvVar` | `string` | auto | Env var name that disables update checking |
+
+Non-blocking, respects CI environments, and caches check timestamps.
+
+**Returns:** The program builder (chainable)
+
+---
+
+### .async()
+
+Explicitly mark a command as using async validation. When async, `parse()` and `cli()` return Promises.
+
+```typescript
+program.command('create', (c) =>
+  c
+    .arguments(z.object({ name: z.string() }).check(async (ctx) => { /* ... */ }))
+    .async()
+    .action((args) => args.name)
+);
+```
+
+This is an alternative to `asyncSchema()` when you can't brand the schema itself.
+
+**Returns:** The program builder (chainable)
+
+---
+
 ### .command(name, builder)
 
 Add a subcommand. Re-registering a command with the same name merges the definitions — see [Program Composition](/padrone/guides/composition/) for details.
@@ -388,15 +492,20 @@ program.command('serve', (c) =>
     .arguments(schema)
     .action(handler)
 );
+
+// With aliases
+program.command(['serve', 's'], (c) =>
+  c.arguments(schema).action(handler)
+);
 ```
 
 **Parameters:**
-- `name` (string): Command name
+- `name`: Command name string, or `[name, ...aliases]` array for aliases
 - `builder`: Function receiving a command builder, returns configured command
 
 ---
 
-### .cli(input?)
+### .cli(prefs?)
 
 Execute the program as a CLI. This is the main process entry point that reads from `process.argv` and throws on validation errors.
 
@@ -404,8 +513,8 @@ Execute the program as a CLI. This is the main process entry point that reads fr
 // Parse process.argv
 program.cli();
 
-// Parse an array
-program.cli(['serve', '--port', '8080']);
+// With preferences
+program.cli({ interactive: true, autoOutput: true });
 
 // Start a REPL session from CLI
 // myapp --repl
@@ -413,9 +522,13 @@ program.cli(['serve', '--port', '8080']);
 ```
 
 **Parameters:**
-- `input` (optional): String array to parse. Defaults to `process.argv.slice(2)`
+- `prefs` (optional): `PadroneCliPreferences`
+  - `interactive`: Override interactive prompting (`true` = force, `false` = suppress, `undefined` = inherit from runtime)
+  - `autoOutput`: Automatically write return value to output
+  - `runtime`: Override runtime configuration
+  - `repl`: Override REPL preferences (used when `--repl` flag is passed)
 
-**Returns:** The action handler's return value, or undefined. Returns a `Promise` when the matched command has async schemas or interactive fields.
+**Returns:** `PadroneCommandResult` with `command`, `args`, `argsResult`, and `result`. Returns a `Promise` when the matched command is async.
 
 **Note:** Interactive prompting only triggers in `cli()` and `eval()`, not in `parse()` or `run()`. When a command has interactive meta and the runtime has `interactive: true`, missing field values are prompted before validation. The `--repl` flag starts a REPL session (optionally scoped to a command).
 
@@ -471,15 +584,15 @@ Parse input without executing the action.
 ```typescript
 const result = program.parse('serve --port 8080');
 
-console.log(result.command);  // 'serve'
-console.log(result.args);     // { port: 8080, host: 'localhost' }
-console.log(result.rest);     // Any unparsed arguments
+console.log(result.command);     // PadroneCommand for 'serve'
+console.log(result.args);        // { port: 8080, host: 'localhost' }
+console.log(result.argsResult);  // Standard Schema validation result
 ```
 
 **Parameters:**
 - `input` (optional): String or string array to parse
 
-**Returns:** Parse result object with `command`, `args`, and `rest` properties
+**Returns:** `PadroneParseResult` with `command`, `args`, and `argsResult` properties. Returns a `Promise` when the matched command is async.
 
 ---
 
@@ -533,7 +646,7 @@ program.help('', { format: 'markdown' });
 
 **Parameters:**
 - `command` (optional): Command to get help for
-- `preferences` (optional): `{ format: 'text' | 'ansi' | 'markdown' | 'html' | 'json' }`
+- `preferences` (optional): `{ format: 'text' | 'ansi' | 'console' | 'markdown' | 'html' | 'json', detail: 'minimal' | 'standard' | 'full', theme: ColorTheme | ColorConfig }`
 
 **Returns:** Help text string (or object for JSON format)
 

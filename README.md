@@ -2,10 +2,8 @@
   <img src="media/padrone.svg" alt="Padrone Logo" width="200" height="200" />
 </p>
 
-<!-- <h1 align="center">Padrone</h1> -->
-
 <p align="center">
-  <strong>Create type-safe, interactive CLI apps with Zod schemas</strong>
+  <strong>Type-safe CLI framework powered by Zod schemas</strong>
 </p>
 
 <p align="center">
@@ -16,33 +14,17 @@
 
 ---
 
-## ✨ Features
+Define your CLI with Zod schemas. Get type safety, validation, help generation, interactive prompts, shell completions, AI tool integration, and more — all from a single source of truth.
 
-- 🔒 **Type-safe** - Full TypeScript support with Zod schema validation
-- 🎯 **Fluent API** - Chain commands and arguments with a clean builder pattern
-- 🤖 **AI-Ready** - First-class support for Vercel AI SDK tool integration
-- 📚 **Auto Help** - Automatic help generation from your schema definitions
-- 🧩 **Nested Commands** - Support for deeply nested subcommands
-- 🔄 **Standard Schema** - Built on [Standard Schema](https://github.com/standard-schema/standard-schema) for maximum compatibility
-- 🚀 **Zero Config** - Works out of the box with sensible defaults
+Built on [Standard Schema](https://github.com/standard-schema/standard-schema), so it also works with Valibot, ArkType, and others.
 
-## 📦 Installation
+## Install
 
 ```bash
-# Using npm
 npm install padrone zod
-
-# Using bun
-bun add padrone zod
-
-# Using pnpm
-pnpm add padrone zod
-
-# Using yarn
-yarn add padrone zod
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ```typescript
 import { createPadrone } from 'padrone';
@@ -54,320 +36,142 @@ const program = createPadrone('myapp')
       .arguments(
         z.object({
           names: z.array(z.string()).describe('Names to greet'),
-          prefix: z
-            .string()
-            .optional()
-            .describe('Prefix to use in greeting')
-            .meta({ alias: 'p' }),
+          prefix: z.string().optional().describe('Prefix').meta({ flags: 'p' }),
         }),
         { positional: ['...names'] },
       )
       .action((args) => {
-        const prefix = args?.prefix ? `${args.prefix} ` : '';
-        args.names.forEach((name) => {
-          console.log(`Hello, ${prefix}${name}!`);
-        });
+        for (const name of args.names) {
+          console.log(`Hello, ${args.prefix ?? ''} ${name}!`);
+        }
       }),
   );
 
-// Run from CLI arguments
 program.cli();
 ```
 
-### Running your CLI
-
 ```bash
-# Run with arguments
-myapp greet John Jane --prefix Mr.
-
-# Or with alias
 myapp greet John Jane -p Mr.
+# Hello, Mr. John!
+# Hello, Mr. Jane!
 ```
 
-Output:
-```
-Hello, Mr. John!
-Hello, Mr. Jane!
-```
-
-## 📖 Usage Examples
-
-### Programmatic Execution
+## What It Does
 
 ```typescript
-// Run a command directly with typed arguments
-program.run('greet', { names: ['John', 'Jane'], prefix: 'Dr.' });
+// Multiple ways to run commands
+program.cli();                                              // from process.argv
+program.eval('greet John --prefix Mr.');                    // from a string
+program.run('greet', { names: ['John'], prefix: 'Mr.' });  // typed args
+program.api().greet({ names: ['John'], prefix: 'Mr.' });   // as a function
 
-// Parse CLI input without executing
-const parsed = program.parse('greet John --prefix Mr.');
-console.log(parsed.args); // { names: ['John'], prefix: 'Mr.' }
+// Parse without executing
+const { args } = program.parse('greet John --prefix Mr.');
+
+// Interactive REPL
+for await (const result of program.repl()) { /* ... */ }
+
+// AI tool for Vercel AI SDK
+const tool = program.tool();
+
+// Shell completions
+const script = program.completion('zsh');
+
+// Help in multiple formats
+program.help('greet');                        // text
+program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 ```
 
-### API Mode
+## Features at a Glance
 
-Generate a typed API from your CLI program:
+**Arguments** — positional args, variadic args, short flags (`-v`), long aliases (`--dry-run`), auto kebab-case aliases, negatable booleans (`--no-verbose`).
 
-```typescript
-const api = program.api();
+**Env & Config** — load from environment variables with `.env()` and config files with `.configFile()`. Precedence: CLI > stdin > env > config > defaults.
 
-// Call commands as functions with full type safety
-api.greet({ names: ['Alice', 'Bob'], prefix: 'Dr.' });
-```
+**Interactive prompts** — auto-prompt for missing fields. Booleans become confirm, enums become select, arrays become multi-select.
 
-### Nested Commands
+**Progress indicators** — auto-managed spinners with dynamic messages. `.progress({ progress: 'Deploying...', success: (r) => \`v${r.version}\` })`.
 
-```typescript
-const program = createPadrone('weather')
-  .command('forecast', (c) =>
-    c
-      .arguments(
-        z.object({
-          city: z.string().describe('City name'),
-          days: z.number().optional().default(3).describe('Number of days'),
-        }),
-        { positional: ['city'] },
-      )
-      .action((args) => {
-        console.log(`Forecast for ${args.city}: ${args.days} days`);
-      })
-      .command('extended', (c) =>
-        c
-          .arguments(
-            z.object({
-              city: z.string().describe('City name'),
-            }),
-            { positional: ['city'] },
-          )
-          .action((args) => {
-            console.log(`Extended forecast for ${args.city}`);
-          }),
-      ),
-  );
+**Plugins** — middleware hooks for 6 phases (start, parse, validate, execute, error, shutdown). Onion model with `next()`.
 
-// Run nested command
-program.eval('forecast extended London');
-```
+**Composition** — mount programs as subcommands with `.mount()`, override commands with merge semantics.
 
-### Option Aliases and Metadata
+**Wrapping** — wrap external CLI tools with `.wrap({ command: 'git', args: ['commit'] })`.
 
-```typescript
-const program = createPadrone('app')
-  .command('serve', (c) =>
-    c
-      .arguments(
-        z.object({
-          port: z
-            .number()
-            .default(3000)
-            .describe('Port to listen on')
-            .meta({ alias: 'p', examples: ['3000', '8080'] }),
-          host: z
-            .string()
-            .default('localhost')
-            .describe('Host to bind to')
-            .meta({ alias: 'h' }),
-          verbose: z
-            .boolean()
-            .optional()
-            .describe('Enable verbose logging')
-            .meta({ alias: 'v', deprecated: 'Use --debug instead' }),
-        }),
-      )
-      .action((args) => {
-        console.log(`Server running at ${args.host}:${args.port}`);
-      }),
-  );
-```
+## API
 
-### Environment Variables and Config Files
+### Builder (define commands)
 
-Padrone supports loading arguments from environment variables and config files using dedicated schema methods:
-
-```typescript
-const program = createPadrone('app')
-  .command('serve', (c) =>
-    c
-      .arguments(
-        z.object({
-          port: z.number().default(3000).describe('Port to listen on'),
-          apiKey: z.string().describe('API key for authentication'),
-        }),
-      )
-      // Map environment variables to arguments
-      .env(
-        z
-          .object({
-            APP_PORT: z.coerce.number().optional(),
-            API_KEY: z.string().optional(),
-          })
-          .transform((env) => ({
-            port: env.APP_PORT,
-            apiKey: env.API_KEY,
-          })),
-      )
-      // Load config from JSON file with matching schema
-      .configFile(
-        'app.config.json',
-        z.object({
-          port: z.number().optional(),
-          apiKey: z.string().optional(),
-        }),
-      )
-      .action((args) => {
-        console.log(`Server running on port ${args.port}`);
-      }),
-  );
-```
-
-**Precedence order** (highest to lowest): CLI args > environment variables > config file
-
-### Async Validation
-
-If your schema uses async refinements (e.g. `z.check(async ...)`), mark the command as async so that `parse()` and `cli()` return Promises:
-
-```typescript
-import { asyncSchema, createPadrone } from 'padrone';
-
-const program = createPadrone('app')
-  .command('create', (c) =>
-    c
-      // Option 1: brand the schema with asyncSchema()
-      .arguments(asyncSchema(z.object({ name: z.string() }).check(async (ctx) => { /* ... */ })))
-      // Option 2: call .async() on the builder
-      .async()
-      .action((args) => args.name),
-  );
-
-// parse() and cli() now return Promises
-const result = await program.parse('create --name test');
-```
-
-## 🤖 AI SDK Integration
-
-Padrone provides first-class support for the [Vercel AI SDK](https://ai-sdk.dev/), making it easy to expose your CLI as an AI tool:
-
-```typescript
-import { streamText } from 'ai';
-import { createPadrone } from 'padrone';
-import * as z from 'zod/v4';
-
-const weatherCli = createPadrone('weather')
-  .command('current', (c) =>
-    c
-      .arguments(
-        z.object({
-          city: z.string().describe('City name'),
-        }),
-        { positional: ['city'] },
-      )
-      .action((args) => {
-        return { city: args.city, temperature: 72, condition: 'Sunny' };
-      }),
-  );
-
-// Convert your CLI to an AI tool
-const result = await streamText({
-  model: yourModel,
-  prompt: "What's the weather in London?",
-  tools: {
-    weather: weatherCli.tool(),
-  },
-});
-```
-
-## 📋 Auto-Generated Help
-
-Padrone automatically generates help text from your Zod schemas:
-
-```typescript
-console.log(program.help());
-```
-
-Example output:
-```
-Usage: myapp greet [names...] [arguments]
-
-Positionals:
-  names...    Names to greet
-
-Arguments:
-  -p, --prefix <string>   Prefix to use in greeting
-  -h, --help              Show help
-```
-
-## 🔧 API Reference
-
-### `createPadrone(name)`
-
-Creates a new CLI program with the given name.
-
-### Program Methods
-
-| Method | Description |
+| Method | What it does |
 |--------|-------------|
-| `.configure(config)` | Configure program properties (title, description, version) |
-| `.command(name, builder)` | Add a command to the program |
-| `.arguments(schema, meta?)` | Define arguments schema with optional positional args |
-| `.async()` | Mark command as async (for schemas with async validation) |
-| `.env(schema)` | Define schema for parsing environment variables into arguments |
-| `.configFile(file, schema?)` | Configure config file path(s) and schema |
-| `.action(handler)` | Set the command handler function |
-| `.cli(input?)` | Run as CLI (parses `process.argv` or input string) |
-| `.run(command, args?)` | Run a command programmatically |
-| `.parse(input?)` | Parse input without executing |
-| `.stringify(command?, args?)` | Convert command and arguments back to CLI string |
-| `.api()` | Generate a typed API object |
-| `.help(command?)` | Generate help text |
-| `.tool()` | Generate a Vercel AI SDK tool |
-| `.find(command)` | Find a command by name |
+| `.arguments(schema, meta?)` | Define args with Zod schema, positional config, field metadata |
+| `.action(handler)` | Set handler `(args, ctx, base?) => result` |
+| `.command(name, builder)` | Add subcommand (name or `[name, ...aliases]`) |
+| `.mount(name, program)` | Mount another program as subcommand tree |
+| `.configure(config)` | Set title, description, version, etc. |
+| `.env(schema)` | Map env vars to args |
+| `.configFile(file, schema?)` | Load args from config files |
+| `.wrap(config)` | Wrap an external CLI tool |
+| `.progress(config?)` | Auto-managed spinner |
+| `.use(plugin)` | Register middleware plugin |
+| `.runtime(runtime)` | Custom I/O (for non-terminal use) |
+| `.updateCheck(config?)` | Background version check |
+| `.async()` | Mark as async validation |
 
-### Arguments Meta
+### Program (run commands)
 
-Use the second argument of `.arguments()` to configure positional arguments and per-argument metadata:
+| Method | What it does |
+|--------|-------------|
+| `.cli(prefs?)` | Entry point — parses `process.argv`, throws on errors |
+| `.eval(input, prefs?)` | Parse + validate + execute string, returns errors softly |
+| `.run(command, args)` | Run by name with typed args (no validation) |
+| `.parse(input?)` | Parse without executing |
+| `.api()` | Generate typed function API |
+| `.repl(options?)` | Interactive REPL session |
+| `.help(command?, prefs?)` | Generate help (text, ansi, markdown, html, json) |
+| `.tool()` | Vercel AI SDK tool definition |
+| `.completion(shell?)` | Shell completion script |
+| `.find(command)` | Look up command by path |
+| `.stringify(command?, args?)` | Convert back to CLI string |
+
+### Zod `.meta()` fields
+
+| Field | Example | Purpose |
+|-------|---------|---------|
+| `flags` | `'v'` | Single-char short flag (`-v`) |
+| `alias` | `'dry-run'` | Multi-char long alias (`--dry-run`) |
+| `examples` | `['8080']` | Example values in help |
+| `deprecated` | `'Use --debug'` | Deprecation warning |
+| `hidden` | `true` | Hide from help |
+| `group` | `'Advanced'` | Group in help output |
+
+### Arguments meta (second param of `.arguments()`)
 
 ```typescript
 .arguments(schema, {
-  positional: ['source', '...files', 'dest'],  // '...files' is variadic
-  fields: {
-    verbose: { alias: 'v' },
-    format: { deprecated: 'Use --output instead' },
-  },
+  positional: ['source', '...files', 'dest'],
+  interactive: ['name', 'template'],
+  optionalInteractive: ['typescript'],
+  fields: { verbose: { flags: 'v' } },
+  stdin: 'data',
+  autoAlias: true,  // default
 })
 ```
 
-### Zod Metadata
+## Agent Skill
 
-Use `.meta()` on Zod schemas to provide additional CLI metadata:
-
-```typescript
-z.string().meta({
-  alias: 'p',            // Short alias (-p)
-  examples: ['value'],   // Example values for help text
-  deprecated: 'message', // Mark as deprecated
-  hidden: true,          // Hide from help output
-})
-```
-
-## 🤖 AI Coding Agent Skill
-
-Install the [Padrone skill](https://agentskills.io) to give your AI coding agent (Claude Code, etc.) knowledge of the Padrone API:
+Give your AI coding agent knowledge of the Padrone API:
 
 ```bash
 npx skills add KurtGokhan/padrone
 ```
 
-## 🛠️ Requirements
+## Requirements
 
 - Node.js 18+ or Bun
 - TypeScript 5.0+ (recommended)
-- Zod 3.25+ or 4.x
+- Zod (or any Standard Schema-compatible library)
 
-## 📄 License
+## License
 
-[MIT](LICENSE) © [Gokhan Kurt](https://gkurt.com)
-
----
-
-<p align="center">
-  Made with ❤️ by <a href="https://gkurt.com">Gokhan Kurt</a>
-</p>
+[MIT](LICENSE)
