@@ -18,6 +18,8 @@ export type HelpPreferences = {
   format?: HelpFormat | 'auto';
   detail?: HelpDetail;
   theme?: ColorTheme | ColorConfig;
+  /** Show all global commands and flags in full detail */
+  all?: boolean;
 };
 
 /**
@@ -157,7 +159,7 @@ function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaM
  * @param cmd - The command to build help info for
  * @param detail - The level of detail ('minimal', 'standard', or 'full')
  */
-export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] = 'standard'): HelpInfo {
+export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['detail'] = 'standard', all?: boolean): HelpInfo {
   const rootCmd = getRootCommand(cmd);
   // A command is a "default" command if its name is '' or it has '' as an alias
   const isDefaultCommand = cmd.parent && (!cmd.name || cmd.aliases?.includes(''));
@@ -291,36 +293,37 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
     }
   }
 
-  // Add built-in commands/flags for root command only
-  if (!cmd.parent) {
+  // Add global commands/flags (root command by default, all commands when --all is passed)
+  if (!cmd.parent || all) {
     const builtins: HelpInfo['builtins'] = [];
 
-    if (!findCommandByName('help', cmd.commands)) {
+    if (!findCommandByName('help', rootCmd.commands)) {
       builtins.push({
         name: 'help [command], -h, --help',
         description: 'Show help for a command',
         sub: [
+          { name: '--all', description: 'Show all global commands and flags' },
           { name: '--detail <level>', description: 'Detail level (minimal, standard, full)' },
           { name: '--format <format>', description: 'Output format (text, ansi, json, markdown, html)' },
         ],
       });
     }
 
-    if (!findCommandByName('version', cmd.commands)) {
+    if (!findCommandByName('version', rootCmd.commands)) {
       builtins.push({
         name: 'version, -v, --version',
         description: 'Show version information',
       });
     }
 
-    if (!findCommandByName('completion', cmd.commands)) {
+    if (!findCommandByName('completion', rootCmd.commands)) {
       builtins.push({
         name: 'completion [shell]',
         description: 'Generate shell completions (bash, zsh, fish, powershell)',
       });
     }
 
-    if (!findCommandByName('man', cmd.commands)) {
+    if (!findCommandByName('man', rootCmd.commands)) {
       builtins.push({
         name: 'man',
         description: 'Show or install man pages (--setup to install, --remove to uninstall)',
@@ -350,7 +353,7 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
 // ============================================================================
 
 export function generateHelp(rootCommand: AnyPadroneCommand, commandObj: AnyPadroneCommand = rootCommand, prefs?: HelpPreferences): string {
-  const helpInfo = getHelpInfo(commandObj, prefs?.detail);
-  const formatter = createFormatter(prefs?.format ?? 'auto', prefs?.detail, prefs?.theme);
+  const helpInfo = getHelpInfo(commandObj, prefs?.detail, prefs?.all);
+  const formatter = createFormatter(prefs?.format ?? 'auto', prefs?.detail, prefs?.theme, prefs?.all);
   return formatter.format(helpInfo);
 }

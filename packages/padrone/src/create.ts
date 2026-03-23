@@ -529,7 +529,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   const checkBuiltinCommands = (
     input: string | undefined,
   ):
-    | { type: 'help'; command?: AnyPadroneCommand; detail?: DetailLevel; format?: FormatLevel }
+    | { type: 'help'; command?: AnyPadroneCommand; detail?: DetailLevel; format?: FormatLevel; all?: boolean }
     | { type: 'version' }
     | { type: 'completion'; shell?: ShellType; setup?: boolean }
     | { type: 'man'; setup?: boolean; remove?: boolean }
@@ -547,18 +547,21 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     // Check for --help, -h flags (these take precedence over commands)
     const hasHelpFlag = args.some((p) => (p.type === 'named' && keyIs(p.key, 'help')) || (p.type === 'alias' && keyIs(p.key, 'h')));
 
-    // Extract detail level from --detail=<level> or -d <level>
+    // Extract detail level from --detail[=<level>] or -d [<level>]
+    // Bare --detail (no value) defaults to 'full'
     const getDetailLevel = (): DetailLevel | undefined => {
       for (const arg of args) {
-        if (arg.type === 'named' && keyIs(arg.key, 'detail') && typeof arg.value === 'string') {
-          if (arg.value === 'minimal' || arg.value === 'standard' || arg.value === 'full') {
+        if (arg.type === 'named' && keyIs(arg.key, 'detail')) {
+          if (typeof arg.value === 'string' && (arg.value === 'minimal' || arg.value === 'standard' || arg.value === 'full')) {
             return arg.value;
           }
+          return 'full';
         }
-        if (arg.type === 'alias' && keyIs(arg.key, 'd') && typeof arg.value === 'string') {
-          if (arg.value === 'minimal' || arg.value === 'standard' || arg.value === 'full') {
+        if (arg.type === 'alias' && keyIs(arg.key, 'd')) {
+          if (typeof arg.value === 'string' && (arg.value === 'minimal' || arg.value === 'standard' || arg.value === 'full')) {
             return arg.value;
           }
+          return 'full';
         }
       }
       return undefined;
@@ -584,6 +587,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     };
     const format = getFormat();
 
+    // Check for --all flag (show all built-in help)
+    const hasAllFlag = args.some((p) => p.type === 'named' && keyIs(p.key, 'all'));
+
     // Check for --version, -v, -V flags
     const hasVersionFlag = args.some(
       (p) => (p.type === 'named' && keyIs(p.key, 'version')) || (p.type === 'alias' && (keyIs(p.key, 'v') || keyIs(p.key, 'V'))),
@@ -604,7 +610,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       // help <command> - get help for specific command
       const commandName = normalizedTerms.slice(1).join(' ');
       const targetCommand = commandName ? findCommandByName(commandName, existingCommand.commands) : undefined;
-      return { type: 'help', command: targetCommand, detail, format };
+      return { type: 'help', command: targetCommand, detail, format, all: hasAllFlag || undefined };
     }
     if (!userHelpCommand && normalizedTerms.length > 0 && normalizedTerms[normalizedTerms.length - 1] === 'help') {
       // <command> help - get help for specific command (trailing form)
@@ -621,7 +627,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           break;
         }
       }
-      return { type: 'help', command: targetCommand, detail, format };
+      return { type: 'help', command: targetCommand, detail, format, all: hasAllFlag || undefined };
     }
 
     // Check for 'version' command (only if user hasn't defined one)
@@ -652,7 +658,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       const commandTerms = normalizedTerms.filter((t) => t !== 'help');
       const commandName = commandTerms.join(' ');
       const targetCommand = commandName ? findCommandByName(commandName, existingCommand.commands) : undefined;
-      return { type: 'help', command: targetCommand, detail, format };
+      return { type: 'help', command: targetCommand, detail, format, all: hasAllFlag || undefined };
     }
 
     // Handle version flag (only for root command, i.e., no subcommand terms)
@@ -749,6 +755,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           detail: builtin.detail,
           format: builtin.format ?? runtime.format,
           theme: runtime.theme,
+          all: builtin.all,
         });
         runtime.output(helpText);
         return withDrain({

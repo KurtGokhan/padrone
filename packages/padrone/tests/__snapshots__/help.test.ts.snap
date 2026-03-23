@@ -16,17 +16,8 @@ Commands:
   hidden-test        
   examples-test      
 
-Run "padrone-test [command] --help" for more information on a command.
-
-Built-in:
-  help [command], -h, --help   Show help for a command
-    --detail <level>           Detail level (minimal, standard, full)
-    --format <format>          Output format (text, ansi, json, markdown, html)
-  version, -v, --version       Show version information
-  completion [shell]           Generate shell completions (bash, zsh, fish, powershell)
-  man                          Show or install man pages (--setup to install, --remove to uninstall)
-  [command] --repl             Start interactive REPL scoped to a command
-  --color [theme], --no-color  Set color theme (default, ocean, warm, monochrome) or disable colors
+Global: help [command], version, [command] --repl
+Run "padrone-test [command] --help" for more information. Use "--all" for all global commands.
 "
 `;
 
@@ -46,17 +37,8 @@ Commands:
   hidden-test        
   examples-test      
 
-Run "padrone-test [command] --help" for more information on a command.
-
-Built-in:
-  help [command], -h, --help   Show help for a command
-    --detail <level>           Detail level (minimal, standard, full)
-    --format <format>          Output format (text, ansi, json, markdown, html)
-  version, -v, --version       Show version information
-  completion [shell]           Generate shell completions (bash, zsh, fish, powershell)
-  man                          Show or install man pages (--setup to install, --remove to uninstall)
-  [command] --repl             Start interactive REPL scoped to a command
-  --color [theme], --no-color  Set color theme (default, ocean, warm, monochrome) or disable colors
+Global: help [command], version, [command] --repl
+Run "padrone-test [command] --help" for more information. Use "--all" for all global commands.
 "
 `;
 
@@ -294,17 +276,8 @@ Commands:
   hidden-test        
   examples-test      
 
-Run "padrone-test [command] --help" for more information on a command.
-
-Built-in:
-  help [command], -h, --help   Show help for a command
-    --detail <level>           Detail level (minimal, standard, full)
-    --format <format>          Output format (text, ansi, json, markdown, html)
-  version, -v, --version       Show version information
-  completion [shell]           Generate shell completions (bash, zsh, fish, powershell)
-  man                          Show or install man pages (--setup to install, --remove to uninstall)
-  [command] --repl             Start interactive REPL scoped to a command
-  --color [theme], --no-color  Set color theme (default, ocean, warm, monochrome) or disable colors
+Global: help [command], version, [command] --repl
+Run "padrone-test [command] --help" for more information. Use "--all" for all global commands.
 
 Subcommand Details:
 
@@ -938,6 +911,10 @@ exports[`help with full detail mode should generate full help with all nested co
       "description": "Show help for a command",
       "sub": [
         {
+          "name": "--all",
+          "description": "Show all global commands and flags"
+        },
+        {
           "name": "--detail <level>",
           "description": "Detail level (minimal, standard, full)"
         },
@@ -1002,27 +979,9 @@ exports[`help with full detail mode should generate full help with all nested co
 
 
 
-*Run "padrone-test [command] --help" for more information on a command.*
+### Global: *help [command], version, [command] --repl*
 
-
-
-### Built-in:
-
-  **help [command], -h, --help**   Show help for a command
-
-    \`--detail <level>\`           Detail level (minimal, standard, full)
-
-    \`--format <format>\`          Output format (text, ansi, json, markdown, html)
-
-  **version, -v, --version**       Show version information
-
-  **completion [shell]**           Generate shell completions (bash, zsh, fish, powershell)
-
-  **man**                          Show or install man pages (--setup to install, --remove to uninstall)
-
-  **[command] --repl**             Start interactive REPL scoped to a command
-
-  **--color [theme], --no-color**  Set color theme (default, ocean, warm, monochrome) or disable colors
+*Run "padrone-test [command] --help" for more information. Use "--all" for all global commands.*
 
 
 
@@ -1423,16 +1382,7 @@ Quality:
   lint    Run linter
   test    Run tests
 
-Run "group-test [command] --help" for more information on a command.
-
-Built-in:
-  help [command], -h, --help   Show help for a command
-    --detail <level>           Detail level (minimal, standard, full)
-    --format <format>          Output format (text, ansi, json, markdown, html)
-  version, -v, --version       Show version information
-  completion [shell]           Generate shell completions (bash, zsh, fish, powershell)
-  man                          Show or install man pages (--setup to install, --remove to uninstall)
-  [command] --repl             Start interactive REPL scoped to a command
-  --color [theme], --no-color  Set color theme (default, ocean, warm, monochrome) or disable colors
+Global: help [command], version, [command] --repl
+Run "group-test [command] --help" for more information. Use "--all" for all global commands.
 "
 `;

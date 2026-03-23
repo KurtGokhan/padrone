@@ -266,7 +266,7 @@ function createHtmlLayout(): LayoutConfig {
 /**
  * Creates a formatter that uses the given styler and layout configuration.
  */
-function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter {
+function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBuiltins?: boolean): Formatter {
   const { newline, indent, join, wrapDocument, usageLabel } = layout;
 
   function formatUsageSection(info: HelpInfo): string[] {
@@ -347,8 +347,11 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
       renderSubcommands(items!);
     }
 
-    lines.push('');
-    lines.push(styler.meta(`Run "${info.name} [command] --help" for more information on a command.`));
+    // Skip hint when builtins are present — the builtins section shows a combined hint
+    if (!info.builtins?.length) {
+      lines.push('');
+      lines.push(styler.meta(`Run "${info.name} [command] --help" for more information on a command.`));
+    }
 
     return lines;
   }
@@ -483,7 +486,18 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig): Formatter
     const lines: string[] = [];
     const builtins = info.builtins!;
 
-    lines.push(styler.label('Built-in:'));
+    if (!showAllBuiltins) {
+      // Collapsed summary: show selected builtins on a single line with a combined hint
+      const highlights = ['help [command]', 'version', '[command] --repl'];
+      lines.push(`${styler.label('Global:')} ${styler.meta(highlights.join(', '))}`);
+      const hint = info.usage.hasSubcommands
+        ? `Run "${info.name} [command] --help" for more information. Use "--all" for all global commands.`
+        : `Use "${info.name} help --all" for more information on global commands.`;
+      lines.push(styler.meta(hint));
+      return lines;
+    }
+
+    lines.push(styler.label('Global:'));
 
     // Compute max effective name length for alignment across main and sub entries
     const allLengths: number[] = [];
@@ -642,13 +656,18 @@ function createMinimalFormatter(): Formatter {
   };
 }
 
-export function createFormatter(format: HelpFormat | 'auto', detail: HelpDetail = 'standard', theme?: ColorTheme | ColorConfig): Formatter {
+export function createFormatter(
+  format: HelpFormat | 'auto',
+  detail: HelpDetail = 'standard',
+  theme?: ColorTheme | ColorConfig,
+  all?: boolean,
+): Formatter {
   if (detail === 'minimal') return createMinimalFormatter();
   if (format === 'json') return createJsonFormatter();
   if (format === 'ansi' || (format === 'auto' && shouldUseAnsi()))
-    return createGenericFormatter(createAnsiStyler(theme), createTextLayout());
-  if (format === 'console') return createGenericFormatter(createConsoleStyler(theme), createTextLayout());
-  if (format === 'markdown') return createGenericFormatter(createMarkdownStyler(), createMarkdownLayout());
-  if (format === 'html') return createGenericFormatter(createHtmlStyler(), createHtmlLayout());
-  return createGenericFormatter(createTextStyler(), createTextLayout());
+    return createGenericFormatter(createAnsiStyler(theme), createTextLayout(), all);
+  if (format === 'console') return createGenericFormatter(createConsoleStyler(theme), createTextLayout(), all);
+  if (format === 'markdown') return createGenericFormatter(createMarkdownStyler(), createMarkdownLayout(), all);
+  if (format === 'html') return createGenericFormatter(createHtmlStyler(), createHtmlLayout(), all);
+  return createGenericFormatter(createTextStyler(), createTextLayout(), all);
 }
