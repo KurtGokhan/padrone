@@ -48,6 +48,7 @@ The core library lives in `packages/padrone/`:
 - `src/type-utils.ts` — Advanced type utilities (`MaybePromise`, `PickCommandByName`, `IsGeneric`, `OrAsync`, etc.).
 - `src/type-helpers.ts` — User-facing inference helpers (`InferArgsInput`, `InferArgsOutput`, `InferCommand`).
 - `src/mcp.ts` — Model Context Protocol server (2025-11-25 spec). Streamable HTTP and stdio transports.
+- `src/serve.ts` — REST HTTP server. Exposes commands as endpoints with OpenAPI docs (Scalar).
 - `src/help.ts` / `src/formatter.ts` — Help generation in multiple formats (text, ansi, markdown, html, json).
 - `src/interactive.ts` — Auto-prompting for missing fields using enquirer.
 - `src/completion.ts` — Shell completion script generation (bash, zsh, fish).
@@ -82,6 +83,8 @@ When asked to commit with a changeset, create a concise changeset suitable for a
 **Flags vs aliases**: `flags` = single-char short flags (`-v`), stackable. `alias` = multi-char alternative long names (`--dry-run`). `autoAlias` (default: true) auto-generates kebab-case aliases for camelCase option names.
 
 **Execution paths**: `eval()`/`cli()` runs all 6 plugin phases; `parse()` runs parse + validate; `run()` runs execute only (no validation).
+
+**Mutation commands**: `.configure({ mutation: true })` marks a command as performing side effects. Affects serve (POST-only), MCP (`annotations.destructiveHint`), and tool() (`needsApproval` default).
 
 ## Coding Conventions
 

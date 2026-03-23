@@ -1,4 +1,4 @@
-import { JSON_SCHEMA_OPTS } from './args.ts';
+import { buildInputSchema, collectEndpoints, serializeArgsToFlags } from './command-utils.ts';
 import { generateHelp } from './help.ts';
 import type { AnyPadroneCommand, AnyPadroneProgram } from './types.ts';
 
@@ -17,8 +17,8 @@ export type PadroneMcpPreferences = {
   port?: number;
   /** HTTP host. Defaults to `'127.0.0.1'`. Only used with `transport: 'http'`. */
   host?: string;
-  /** Endpoint path. Defaults to `'/mcp'`. Only used with `transport: 'http'`. */
-  endpoint?: string;
+  /** Base path for the MCP endpoint. Defaults to `'/mcp'`. Only used with `transport: 'http'`. */
+  basePath?: string;
   /** CORS allowed origin. Defaults to `'*'`. Set to a specific origin or `false` to disable CORS headers. Only used with HTTP transports. */
   cors?: string | false;
 };
@@ -39,25 +39,7 @@ type JsonRpcResponse = {
   error?: { code: number; message: string; data?: unknown };
 };
 
-/** Collect all commands (those with an action or schema) recursively. */
-function collectTools(commands: AnyPadroneCommand[] | undefined, prefix: string): { name: string; command: AnyPadroneCommand }[] {
-  if (!commands) return [];
-  const tools: { name: string; command: AnyPadroneCommand }[] = [];
-  for (const cmd of commands) {
-    if (cmd.hidden) continue;
-    // Default commands (name '') inherit the parent path
-    const path = cmd.name ? (prefix ? `${prefix}.${cmd.name}` : cmd.name) : prefix;
-    if (cmd.action || cmd.argsSchema) {
-      tools.push({ name: path, command: cmd });
-    }
-    if (cmd.commands?.length) {
-      tools.push(...collectTools(cmd.commands, path));
-    }
-  }
-  return tools;
-}
-
-/** Convert a command path to a valid MCP tool name. Spec allows: [A-Za-z0-9_\-\.] */
+/** Convert an endpoint dot-path to a valid MCP tool name. Spec allows: [A-Za-z0-9_\-\.] */
 function toToolName(path: string): string {
   return path.replace(/\s+/g, '.');
 }
@@ -67,16 +49,13 @@ function toCommandPath(toolName: string): string {
   return toolName.replace(/\./g, ' ');
 }
 
-/** Build the JSON Schema input for a command's arguments. */
-function buildInputSchema(cmd: AnyPadroneCommand): Record<string, unknown> {
-  if (!cmd.argsSchema) {
-    return { type: 'object', additionalProperties: false };
-  }
-  try {
-    return cmd.argsSchema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, unknown>;
-  } catch {
-    return { type: 'object', additionalProperties: false };
-  }
+/** Build MCP tool annotations from a command's metadata. */
+function buildAnnotations(cmd: AnyPadroneCommand) {
+  if (cmd.mutation == null) return undefined;
+  return {
+    destructiveHint: cmd.mutation || undefined,
+    readOnlyHint: cmd.mutation === false || undefined,
+  };
 }
 
 /** Build an MCP tool definition from a command. */
@@ -86,6 +65,7 @@ function buildToolDefinition(name: string, cmd: AnyPadroneCommand) {
     title: cmd.title ?? undefined,
     description: cmd.description || cmd.title || `Run the "${name}" command`,
     inputSchema: buildInputSchema(cmd),
+    annotations: buildAnnotations(cmd),
   };
 }
 
@@ -98,11 +78,10 @@ export function createMcpHandler(
   const serverName = prefs?.name ?? existingCommand.name;
   const serverVersion = prefs?.version ?? existingCommand.version ?? '0.0.0';
 
-  const rootTools: { name: string; command: AnyPadroneCommand }[] = [];
+  const rootTools = collectEndpoints(existingCommand.commands, '');
   if (existingCommand.action || existingCommand.argsSchema) {
-    rootTools.push({ name: '', command: existingCommand });
+    rootTools.unshift({ name: '', command: existingCommand });
   }
-  rootTools.push(...collectTools(existingCommand.commands, ''));
 
   const toolMap = new Map(rootTools.map((t) => [toToolName(t.name), t]));
 
@@ -172,19 +151,7 @@ export function createMcpHandler(
 
         // Build command string: convert tool name back to command path + serialize args as flags
         const commandPath = toCommandPath(tool.name);
-        const argParts: string[] = [];
-        for (const [key, value] of Object.entries(args)) {
-          if (value === undefined) continue;
-          if (typeof value === 'boolean') {
-            argParts.push(value ? `--${key}` : `--no-${key}`);
-          } else if (Array.isArray(value)) {
-            for (const v of value) argParts.push(`--${key}=${String(v)}`);
-          } else {
-            const strVal = String(value);
-            argParts.push(strVal.includes(' ') ? `--${key}="${strVal}"` : `--${key}=${strVal}`);
-          }
-        }
-
+        const argParts = serializeArgsToFlags(args);
         const input = [commandPath, ...argParts].filter(Boolean).join(' ') || undefined;
 
         try {
@@ -276,7 +243,7 @@ async function startHttpTransport(
 
   const port = prefs.port ?? 3000;
   const host = prefs.host ?? '127.0.0.1';
-  const endpoint = prefs.endpoint ?? '/mcp';
+  const endpoint = prefs.basePath ?? '/mcp';
 
   // Session management
   let sessionId: string | undefined;

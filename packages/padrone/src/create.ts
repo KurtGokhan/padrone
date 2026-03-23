@@ -534,7 +534,8 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     | { type: 'completion'; shell?: ShellType; setup?: boolean }
     | { type: 'man'; setup?: boolean; remove?: boolean }
     | { type: 'repl'; scope?: string }
-    | { type: 'mcp'; transport?: 'http' | 'stdio'; port?: number; host?: string }
+    | { type: 'mcp'; transport?: 'http' | 'stdio'; port?: number; host?: string; basePath?: string }
+    | { type: 'serve'; port?: number; host?: string; basePath?: string }
     | null => {
     if (!input) return null;
 
@@ -676,7 +677,21 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       const port = typeof portArg?.value === 'string' ? parseInt(portArg.value, 10) : undefined;
       const hostArg = args.find((p) => p.type === 'named' && keyIs(p.key, 'host'));
       const host = typeof hostArg?.value === 'string' ? hostArg.value : undefined;
-      return { type: 'mcp', transport, port: port && !Number.isNaN(port) ? port : undefined, host };
+      const basePathArg = args.find((p) => p.type === 'named' && keyIs(p.key, 'base-path'));
+      const mcpBasePath = typeof basePathArg?.value === 'string' ? basePathArg.value : undefined;
+      return { type: 'mcp', transport, port: port && !Number.isNaN(port) ? port : undefined, host, basePath: mcpBasePath };
+    }
+
+    // Check for 'serve' command (only if user hasn't defined one)
+    const userServeCommand = findCommandByName('serve', existingCommand.commands);
+    if (!userServeCommand && normalizedTerms[0] === 'serve') {
+      const portArg = args.find((p) => p.type === 'named' && keyIs(p.key, 'port'));
+      const port = typeof portArg?.value === 'string' ? parseInt(portArg.value, 10) : undefined;
+      const hostArg = args.find((p) => p.type === 'named' && keyIs(p.key, 'host'));
+      const host = typeof hostArg?.value === 'string' ? hostArg.value : undefined;
+      const basePathArg = args.find((p) => p.type === 'named' && keyIs(p.key, 'base-path'));
+      const basePath = typeof basePathArg?.value === 'string' ? basePathArg.value : undefined;
+      return { type: 'serve', port: port && !Number.isNaN(port) ? port : undefined, host, basePath };
     }
 
     // Check for --repl flag
@@ -1459,6 +1474,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           transport: builtin.transport ?? basePrefs.transport,
           port: builtin.port ?? basePrefs.port,
           host: builtin.host ?? basePrefs.host,
+          basePath: builtin.basePath ?? basePrefs.basePath,
         };
         const startMcp = async () => {
           const { startMcpServer } = await import('./mcp.ts');
@@ -1466,6 +1482,22 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           return withDrain({ command: existingCommand, args: undefined, result: undefined }) as any;
         };
         return withPromiseDrain(startMcp()) as any;
+      }
+
+      if (cliOptions?.serve !== false && builtin?.type === 'serve') {
+        const basePrefs = typeof cliOptions?.serve === 'object' ? cliOptions.serve : {};
+        const servePrefs = {
+          ...basePrefs,
+          port: builtin.port ?? basePrefs.port,
+          host: builtin.host ?? basePrefs.host,
+          basePath: builtin.basePath ?? basePrefs.basePath,
+        };
+        const startServe = async () => {
+          const { startServeServer } = await import('./serve.ts');
+          await startServeServer(builder as any, existingCommand, evalCommand, servePrefs);
+          return withDrain({ command: existingCommand, args: undefined, result: undefined }) as any;
+        };
+        return withPromiseDrain(startServe()) as any;
       }
 
       // Start background update check (non-blocking)
@@ -1572,7 +1604,8 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       needsApproval: async (input) => {
         const parsed = await parse(input.command);
         if (typeof parsed.command.needsApproval === 'function') return parsed.command.needsApproval(parsed.args);
-        return !!parsed.command.needsApproval;
+        if (parsed.command.needsApproval != null) return !!parsed.command.needsApproval;
+        return !!parsed.command.mutation;
       },
       execute: async (input) => {
         const output: string[] = [];
@@ -1751,6 +1784,11 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     async mcp(prefs) {
       const { startMcpServer } = await import('./mcp.ts');
       return startMcpServer(builder as any, existingCommand, evalCommand, prefs);
+    },
+
+    async serve(prefs) {
+      const { startServeServer } = await import('./serve.ts');
+      return startServeServer(builder as any, existingCommand, evalCommand, prefs);
     },
 
     '~types': {} as any,

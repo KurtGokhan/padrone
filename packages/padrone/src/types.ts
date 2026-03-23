@@ -4,6 +4,7 @@ import type { PadroneArgsSchemaMeta } from './args.ts';
 import type { HelpPreferences } from './help.ts';
 import type { PadroneMcpPreferences } from './mcp.ts';
 import type { PadroneProgressIndicator, PadroneRuntime, PadroneSpinnerConfig, ResolvedPadroneRuntime } from './runtime.ts';
+import type { PadroneServePreferences } from './serve.ts';
 import type {
   Drained,
   FindDirectChild,
@@ -187,6 +188,8 @@ export type PadroneCommand<
   hidden?: boolean;
   /** Group name for organizing this command under a labeled section in help output. */
   group?: string;
+  /** Whether this command performs a mutation (create, update, delete). Affects HTTP method in serve (POST-only) and MCP tool annotations (destructiveHint). */
+  mutation?: boolean;
   needsApproval?: boolean | ((args: TArgs) => Promise<boolean> | boolean);
   autoOutput?: boolean;
   /** Usage examples shown in help output. Each entry is a command-line invocation string. */
@@ -302,6 +305,13 @@ export type PadroneCommandConfig = {
   autoOutput?: boolean;
   /** Usage examples shown in help output. Each entry is a command-line invocation string. */
   examples?: string[];
+  /**
+   * Whether this command performs a mutation (create, update, delete).
+   * - In `serve()`: mutation commands accept POST only; non-mutation commands accept GET and POST.
+   * - In `mcp()`: sets `annotations.destructiveHint` on the tool definition.
+   * - In `tool()`: defaults `needsApproval` to `true` when not explicitly set.
+   */
+  mutation?: boolean;
 };
 
 /**
@@ -954,6 +964,18 @@ export type PadroneProgram<
    * ```
    */
   mcp: (prefs?: PadroneMcpPreferences) => Promise<void>;
+
+  /**
+   * Starts a REST HTTP server that exposes commands as endpoints.
+   * Each command becomes a route: `users list` → `GET/POST /users/list`.
+   * Commands with `mutation: true` only accept POST.
+   *
+   * @example
+   * ```ts
+   * await program.serve({ port: 3000 });
+   * ```
+   */
+  serve: (prefs?: PadroneServePreferences) => Promise<void>;
 };
 
 export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any, [...AnyPadroneCommand[]]>;
@@ -1050,8 +1072,10 @@ export type PadroneEvalPreferences = {
 export type PadroneCliPreferences<TScope extends string = string> = PadroneEvalPreferences & {
   /** REPL preferences used when `--repl` flag is passed. Set to `false` to disable the `--repl` flag. */
   repl?: PadroneReplPreferences<TScope> | false;
-  /** MCP server preferences used when `--mcp` flag is passed. Set to `false` to disable the `--mcp` flag. */
+  /** MCP server preferences used when `mcp` command is used. Set to `false` to disable. */
   mcp?: PadroneMcpPreferences | false;
+  /** REST server preferences used when `serve` command is used. Set to `false` to disable. */
+  serve?: PadroneServePreferences | false;
 };
 
 /**

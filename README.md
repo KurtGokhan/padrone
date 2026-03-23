@@ -77,6 +77,9 @@ const tool = program.tool();
 // MCP server for AI assistants (Claude, Cursor, etc.)
 await program.mcp();  // or: myapp mcp
 
+// REST server with OpenAPI docs
+await program.serve();  // or: myapp serve
+
 // Shell completions
 const script = program.completion('zsh');
 
@@ -134,6 +137,7 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 | `.help(command?, prefs?)` | Generate help (text, ansi, markdown, html, json) |
 | `.tool()` | Vercel AI SDK tool definition |
 | `.mcp(prefs?)` | Start MCP server (HTTP or stdio) |
+| `.serve(prefs?)` | Start REST server with OpenAPI docs |
 | `.completion(shell?)` | Shell completion script |
 | `.find(command)` | Look up command by path |
 | `.stringify(command?, args?)` | Convert back to CLI string |

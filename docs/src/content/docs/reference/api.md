@@ -44,6 +44,7 @@ program.configure({
 | `hidden` | `boolean` | Hide from help output |
 | `group` | `string` | Group name for organizing in help output |
 | `autoOutput` | `boolean` | Automatically write return value to output |
+| `mutation` | `boolean` | Mark as mutation (POST-only in serve, destructiveHint in MCP, defaults needsApproval in tool) |
 
 ---
 
@@ -677,7 +678,7 @@ await program.mcp({
 | `transport` | `'http' \| 'stdio'` | `'http'` | Transport mode |
 | `port` | `number` | `3000` | HTTP port |
 | `host` | `string` | `'127.0.0.1'` | HTTP host |
-| `endpoint` | `string` | `'/mcp'` | HTTP endpoint path |
+| `basePath` | `string` | `'/mcp'` | HTTP endpoint path |
 | `name` | `string` | program name | Server name reported to clients |
 | `version` | `string` | program version | Server version reported to clients |
 | `cors` | `string \| false` | `'*'` | CORS allowed origin, or `false` to disable |
@@ -687,6 +688,61 @@ await program.mcp({
 The HTTP transport implements the [2025-11-25 Streamable HTTP spec](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#streamable-http) with session management, SSE support (via `Accept: text/event-stream`), and CORS headers.
 
 Also available as a built-in CLI command: `myapp mcp [http|stdio] --port 3000 --host 0.0.0.0`
+
+---
+
+### .serve(prefs?)
+
+Start a REST HTTP server that exposes commands as endpoints. Each command becomes a route (`users list` → `/users/list`). Commands with `mutation: true` only accept POST; others accept both GET and POST.
+
+```typescript
+// Start with defaults (port 3000)
+await program.serve();
+
+// With options
+await program.serve({
+  port: 8080,
+  host: '0.0.0.0',
+  basePath: '/api/',
+  cors: 'https://example.com',
+});
+```
+
+**Parameters:**
+- `prefs` (optional): `PadroneServePreferences`
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `port` | `number` | `3000` | HTTP port |
+| `host` | `string` | `'127.0.0.1'` | HTTP host |
+| `basePath` | `string` | `'/'` | Base path prefix for all routes |
+| `cors` | `string \| false` | `'*'` | CORS allowed origin, or `false` to disable |
+| `builtins.health` | `boolean` | `true` | Enable `GET /_health` endpoint |
+| `builtins.help` | `boolean` | `true` | Enable `GET /_help` and `GET /_help/:command` |
+| `builtins.schema` | `boolean` | `true` | Enable `GET /_schema` and `GET /_schema/:command` |
+| `builtins.docs` | `boolean` | `true` | Enable `GET /_docs` (Scalar OpenAPI viewer) and `GET /_openapi` |
+| `onRequest` | `(req: Request) => Response \| void \| Promise<...>` | — | Hook to run before each request (auth, rate-limiting) |
+| `onError` | `(error: unknown, req: Request) => Response` | — | Custom error response handler |
+
+**Returns:** `Promise<void>` (resolves when the server shuts down)
+
+**Request handling:**
+- **GET requests**: Query parameters are converted to CLI flags → `eval()`
+- **POST requests**: JSON body is serialized to CLI flags → `eval()`
+- **Mutation commands**: Only accept POST (returns 405 for GET)
+
+**Built-in endpoints:**
+| Endpoint | Description |
+|----------|-------------|
+| `GET /_health` | Returns `{ status: "ok" }` |
+| `GET /_help` | Program help (JSON or markdown based on Accept header) |
+| `GET /_help/:path` | Command-specific help |
+| `GET /_schema` | JSON Schema map of all commands |
+| `GET /_schema/:path` | JSON Schema for a single command |
+| `GET /_docs` | Scalar OpenAPI docs viewer |
+| `GET /_openapi` | Raw OpenAPI 3.1.0 JSON spec |
+
+Also available as a built-in CLI command: `myapp serve --port 3000 --host 0.0.0.0 --base-path /api/`
 
 ---
 
@@ -1028,6 +1084,7 @@ import type {
   PadroneReplPreferences,
   PadroneEvalPreferences,
   PadroneMcpPreferences,
+  PadroneServePreferences,
 
   // Progress types
   PadroneProgressIndicator,

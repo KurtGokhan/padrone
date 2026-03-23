@@ -62,7 +62,7 @@ program.cli();
 | `.action(handler?)` | Set the command handler `(args, ctx, base?) => result` |
 | `.command(name, builderFn?)` | Add or extend a subcommand |
 | `.mount(name, program)` | Mount another Padrone program as a subcommand |
-| `.configure(config)` | Set title, description, version, deprecated, hidden, group, autoOutput |
+| `.configure(config)` | Set title, description, version, deprecated, hidden, group, autoOutput, mutation |
 | `.use(plugin)` | Register a middleware plugin |
 | `.env(schema)` | Parse environment variables into args |
 | `.configFile(file, schema?)` | Load args from config files |
@@ -87,6 +87,7 @@ program.cli();
 | `.api()` | Type-safe programmatic API |
 | `.tool()` | Vercel AI SDK tool definition |
 | `.mcp(prefs?)` | Start MCP server (HTTP or stdio) |
+| `.serve(prefs?)` | Start REST server with OpenAPI docs |
 | `.stringify(command?, args?)` | Convert back to CLI string |
 
 ## Arguments Meta

@@ -46,6 +46,7 @@ export const configKeys = [
   'version',
   'deprecated',
   'hidden',
+  'mutation',
   'needsApproval',
   'autoOutput',
   'updateCheck',
@@ -773,4 +774,56 @@ export function findCommandByName(name: string, commands?: AnyPadroneCommand[]):
     }
   }
   return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Shared utilities for MCP and serve
+// ---------------------------------------------------------------------------
+
+export type CollectedEndpoint = { name: string; command: AnyPadroneCommand };
+
+/** Collect all actionable commands recursively. Hidden commands are excluded. */
+export function collectEndpoints(commands: AnyPadroneCommand[] | undefined, prefix: string): CollectedEndpoint[] {
+  if (!commands) return [];
+  const endpoints: CollectedEndpoint[] = [];
+  for (const cmd of commands) {
+    if (cmd.hidden) continue;
+    const path = cmd.name ? (prefix ? `${prefix}.${cmd.name}` : cmd.name) : prefix;
+    if (cmd.action || cmd.argsSchema) {
+      endpoints.push({ name: path, command: cmd });
+    }
+    if (cmd.commands?.length) {
+      endpoints.push(...collectEndpoints(cmd.commands, path));
+    }
+  }
+  return endpoints;
+}
+
+/** Build the JSON Schema for a command's arguments. */
+export function buildInputSchema(cmd: AnyPadroneCommand): Record<string, unknown> {
+  if (!cmd.argsSchema) {
+    return { type: 'object', additionalProperties: false };
+  }
+  try {
+    return cmd.argsSchema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, unknown>;
+  } catch {
+    return { type: 'object', additionalProperties: false };
+  }
+}
+
+/** Serialize a record of args into CLI flag strings. */
+export function serializeArgsToFlags(args: Record<string, unknown>): string[] {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(args)) {
+    if (value === undefined) continue;
+    if (typeof value === 'boolean') {
+      parts.push(value ? `--${key}` : `--no-${key}`);
+    } else if (Array.isArray(value)) {
+      for (const v of value) parts.push(`--${key}=${String(v)}`);
+    } else {
+      const strVal = String(value);
+      parts.push(strVal.includes(' ') ? `--${key}="${strVal}"` : `--${key}=${strVal}`);
+    }
+  }
+  return parts;
 }

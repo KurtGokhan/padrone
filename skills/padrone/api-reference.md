@@ -410,9 +410,23 @@ await program.mcp({ port: 3000, host: '127.0.0.1' });
 await program.mcp({ transport: 'stdio' });
 ```
 
-Options: `transport` (`'http'` | `'stdio'`), `port`, `host`, `endpoint`, `name`, `version`, `cors` (`string | false`).
+Options: `transport` (`'http'` | `'stdio'`), `port`, `host`, `basePath`, `name`, `version`, `cors` (`string | false`).
 
 Also available as a built-in CLI command: `myapp mcp [http|stdio] --port 3000`
+
+### `.serve(prefs?)`
+
+Starts a REST HTTP server. Each command becomes an endpoint (`users list` → `/users/list`). Commands with `mutation: true` accept POST only; others accept GET and POST.
+
+```ts
+await program.serve({ port: 3000, basePath: '/api/' });
+```
+
+Options: `port`, `host`, `basePath`, `cors` (`string | false`), `builtins` (`{ health, help, schema, docs }`), `onRequest`, `onError`.
+
+Built-in endpoints: `/_health`, `/_help`, `/_schema`, `/_docs` (Scalar OpenAPI viewer), `/_openapi`.
+
+Also available as a built-in CLI command: `myapp serve --port 3000`
 
 ### `.stringify(command?, args?)`
 

@@ -3,10 +3,11 @@ title: AI Integration
 description: Expose your CLI as an AI tool with MCP or Vercel AI SDK
 ---
 
-Padrone provides two ways to expose your CLI to AI assistants:
+Padrone provides three ways to expose your CLI to AI assistants and external services:
 
 1. **[Model Context Protocol (MCP)](#model-context-protocol-mcp)** — Standard protocol supported by Claude, Cursor, Windsurf, and other AI tools. Works over HTTP or stdio.
-2. **[Vercel AI SDK](#vercel-ai-sdk)** — Programmatic integration for building AI-powered applications.
+2. **[REST Server](#rest-server)** — HTTP endpoints with OpenAPI docs. Each command becomes a route.
+3. **[Vercel AI SDK](#vercel-ai-sdk)** — Programmatic integration for building AI-powered applications.
 
 ## Model Context Protocol (MCP)
 
@@ -66,7 +67,7 @@ The `.mcp()` method and `mcp` command accept these options:
 | `transport` | `'http' \| 'stdio'` | `'http'` | Transport mode |
 | `port` | `number` | `3000` | HTTP port |
 | `host` | `string` | `'127.0.0.1'` | HTTP host |
-| `endpoint` | `string` | `'/mcp'` | HTTP endpoint path |
+| `basePath` | `string` | `'/mcp'` | HTTP endpoint path |
 | `name` | `string` | program name | Server name |
 | `version` | `string` | program version | Server version |
 | `cors` | `string \| false` | `'*'` | CORS allowed origin, or `false` to disable |
@@ -92,6 +93,123 @@ Commands are exposed as MCP tools using dot-separated names: `nested.sub` for a 
 ### Tips for AI Readability
 
 Use `.describe()` on your Zod fields and `.configure({ description })` on commands — these become the tool descriptions that AI models read to understand your CLI.
+
+---
+
+## REST Server
+
+Padrone can expose your CLI as a REST API with automatic OpenAPI documentation. Each command becomes an HTTP endpoint.
+
+### Quick Start
+
+Every Padrone program has a built-in `serve` command:
+
+```bash
+# Start a REST server (default port 3000)
+myapp serve
+
+# Custom port and host
+myapp serve --port 8080 --host 0.0.0.0
+
+# Custom base path
+myapp serve --base-path /api/
+```
+
+### How It Works
+
+When you run `myapp serve`, Padrone:
+
+1. Collects all non-hidden commands that have an action or schema
+2. Maps each to a URL path (e.g., `users list` → `/users/list`)
+3. For each request, converts query params (GET) or JSON body (POST) to CLI flags and calls `eval()`
+4. Returns structured JSON responses
+
+### Mutation Commands
+
+Commands configured with `mutation: true` only accept POST requests. This is useful for commands that create, update, or delete data:
+
+```typescript
+const program = createPadrone('api')
+  .command('users', (c) =>
+    c
+      .command('list', (c) =>
+        c.action(() => db.users.findMany())
+      )
+      .command('create', (c) =>
+        c
+          .configure({ mutation: true })
+          .arguments(z.object({ name: z.string(), email: z.string() }))
+          .action((args) => db.users.create(args))
+      )
+  );
+
+await program.serve({ port: 3000 });
+// GET  /users/list                          → 200 OK
+// POST /users/create { "name": "Alice" }    → 200 OK
+// GET  /users/create?name=Alice             → 405 Method Not Allowed
+```
+
+The `mutation` flag also affects MCP (sets `annotations.destructiveHint`) and Vercel AI SDK (defaults `needsApproval` to `true`).
+
+### Programmatic Usage
+
+```typescript
+await program.serve({
+  port: 3000,
+  host: '127.0.0.1',
+  basePath: '/api/',
+  cors: 'https://example.com',
+});
+```
+
+### Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `port` | `number` | `3000` | HTTP port |
+| `host` | `string` | `'127.0.0.1'` | HTTP host |
+| `basePath` | `string` | `'/'` | Base path prefix for all routes |
+| `cors` | `string \| false` | `'*'` | CORS allowed origin, or `false` to disable |
+| `builtins` | `object` | all `true` | Toggle built-in endpoints (health, help, schema, docs) |
+| `onRequest` | `function` | — | Hook to run before each request (auth, rate-limiting) |
+| `onError` | `function` | — | Custom error response handler |
+
+### Built-in Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /_health` | Returns `{ status: "ok" }` |
+| `GET /_help` | Program help (JSON or markdown based on Accept header) |
+| `GET /_help/:path` | Command-specific help |
+| `GET /_schema` | JSON Schema map of all commands |
+| `GET /_schema/:path` | JSON Schema for a single command |
+| `GET /_docs` | Interactive API documentation (powered by Scalar) |
+| `GET /_openapi` | Raw OpenAPI 3.1.0 JSON spec |
+
+### Response Format
+
+**Success (200):**
+```json
+{ "ok": true, "result": <action return value> }
+```
+
+**Validation error (400):**
+```json
+{ "ok": false, "error": "validation", "issues": [{ "path": ["name"], "message": "Required" }] }
+```
+
+**Not found (404):**
+```json
+{ "ok": false, "error": "not_found", "message": "Command not found: users update" }
+```
+
+### Disabling Serve
+
+To disable the built-in `serve` command in `cli()`:
+
+```typescript
+program.cli({ serve: false });
+```
 
 ---
 

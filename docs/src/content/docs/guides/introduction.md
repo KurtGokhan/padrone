@@ -58,6 +58,9 @@ Expose your CLI to AI assistants via Model Context Protocol or Vercel AI SDK:
 // MCP server for Claude, Cursor, Windsurf, etc.
 await program.mcp();  // or: myapp mcp
 
+// REST server with OpenAPI docs
+await program.serve();  // or: myapp serve
+
 // Vercel AI SDK tool
 const tool = program.tool();
 ```
@@ -130,6 +133,7 @@ const app = createPadrone('app')
 - **API mode**: Generate a typed function interface via `api()`
 - **REPL mode**: Interactive session with `repl()`
 - **MCP mode**: Expose commands as AI tools via `mcp()`
+- **Serve mode**: REST API with OpenAPI docs via `serve()`
 
 ## Requirements
 
