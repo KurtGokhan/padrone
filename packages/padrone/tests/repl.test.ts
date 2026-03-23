@@ -33,6 +33,17 @@ function createTestProgram(readLine: ReturnType<typeof mockReadLine>) {
 describe('REPL', () => {
   createConsoleMocker();
 
+  it('should support drain() to collect all results', async () => {
+    const readLine = mockReadLine(['greet World', 'add --a=2 --b=3', null]);
+    const program = createTestProgram(readLine);
+
+    const { value, error } = await program.repl({ greeting: false, hint: false }).drain();
+    expect(error).toBeUndefined();
+    expect(value).toHaveLength(2);
+    expect(value![0]!.result).toBe('Hello, World!');
+    expect(value![1]!.result).toBe(5);
+  });
+
   it('should execute commands and yield results', async () => {
     const readLine = mockReadLine(['greet World', 'add --a=2 --b=3', null]);
     const program = createTestProgram(readLine);
@@ -944,7 +955,8 @@ describe('REPL', () => {
         );
 
       const result = await program.cli({ repl: { greeting: false, hint: false } });
-      expect(result.result).toBeUndefined();
+      expect(result.result).toHaveLength(1);
+      expect((result.result as any)[0].result).toBe('Hello, World!');
     });
 
     it('should start scoped REPL when --repl is used with a command', async () => {
@@ -954,7 +966,8 @@ describe('REPL', () => {
         .command('db', (c) => c.command('seed', (s) => s.action(() => 'seeded')));
 
       const result = await program.cli({ repl: { greeting: false, hint: false } });
-      expect(result.result).toBeUndefined();
+      expect(result.result).toHaveLength(1);
+      expect((result.result as any)[0].result).toBe('seeded');
     });
 
     it('should disable --repl flag when repl: false in cli preferences', async () => {

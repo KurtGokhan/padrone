@@ -1379,7 +1379,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   };
 
   // Forward declaration — assigned by the repl method in the return object, used by cli() for --repl.
-  let replFn: (options?: PadroneReplPreferences) => AsyncIterable<any>;
+  const replFn = (options?: PadroneReplPreferences) => {
+    return createReplIterator({ existingCommand, evalCommand, replActiveRef }, options);
+  };
   const replActiveRef = { value: false };
 
   const cli: AnyPadroneProgram['cli'] = (cliOptions) => {
@@ -1396,11 +1398,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             scope: builtin.scope,
             autoOutput: (typeof cliOptions?.repl === 'object' ? cliOptions.repl.autoOutput : undefined) ?? cliOptions?.autoOutput,
           };
+          const repl = replFn(replPrefs);
           const drainRepl = async () => {
-            for await (const _ of replFn(replPrefs)) {
-              // Results are handled by command actions
-            }
-            return withDrain({ command: existingCommand, args: undefined, result: undefined }) as any;
+            const { value } = await repl.drain();
+            return withDrain({ command: existingCommand, args: undefined, result: value }) as any;
           };
           return withPromiseDrain(drainRepl()) as any;
         }
@@ -1653,9 +1654,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     cli,
     tool,
 
-    repl: (replFn = (options?: PadroneReplPreferences) => {
-      return createReplIterator({ existingCommand, evalCommand, replActiveRef }, options);
-    }),
+    repl: replFn,
 
     api() {
       function buildApi(command: AnyPadroneCommand) {

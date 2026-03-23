@@ -16,9 +16,7 @@ const packageJsonTemplate = template(`{
   "private": true,
   "type": "module",
   "module": "src/index.ts",
-  "bin": {
-    "{{name}}": "src/index.ts"
-  },
+  "bin": "src/index.ts",
   "scripts": {
     "start": "bun src/index.ts",
     "dev": "bun --watch src/index.ts",
@@ -131,5 +129,6 @@ export async function runInit(args: InitArgs, ctx: PadroneActionContext) {
     output(`  cd ${dir}`);
   }
   output('  bun install');
+  output('  bun update');
   output('  bun run dev');
 }

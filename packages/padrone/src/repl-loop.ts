@@ -13,7 +13,7 @@ export type ReplDeps = {
 /**
  * Creates a REPL async iterable for running commands interactively.
  */
-export function createReplIterator(deps: ReplDeps, options?: PadroneReplPreferences): AsyncIterable<any> {
+export function createReplIterator(deps: ReplDeps, options?: PadroneReplPreferences): AsyncIterable<any> & { drain: () => Promise<any> } {
   const { existingCommand, evalCommand, replActiveRef } = deps;
 
   if (replActiveRef.value) {
@@ -316,5 +316,15 @@ export function createReplIterator(deps: ReplDeps, options?: PadroneReplPreferen
     }
   }
 
-  return replIterator() as any;
+  const iterable = replIterator();
+  (iterable as any).drain = async () => {
+    try {
+      const results: any[] = [];
+      for await (const result of iterable) results.push(result);
+      return { value: results };
+    } catch (err) {
+      return { error: err };
+    }
+  };
+  return iterable as any;
 }

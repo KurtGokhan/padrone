@@ -49,9 +49,9 @@
     },
     "packages/padrone": {
       "name": "padrone",
-      "version": "1.1.0",
+      "version": "1.4.0",
       "bin": {
-        "padrone": "./src/cli.ts",
+        "padrone": "./src/cli/index.ts",
       },
       "dependencies": {
         "@standard-schema/spec": "^1.1.0",
