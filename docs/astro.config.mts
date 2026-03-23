@@ -50,9 +50,14 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     resolve: {
-      external: ['padrone'],
+      external: ['padrone', 'padrone/zod'],
       conditions: ['padrone@dev'],
       externalConditions: ['padrone@dev'],
+    },
+    build: {
+      rollupOptions: {
+        external: [/^node:/],
+      },
     },
     ssr: {
       resolve: {
