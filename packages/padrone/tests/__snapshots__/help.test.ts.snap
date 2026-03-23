@@ -56,7 +56,7 @@ Options:
 `;
 
 exports[`help should generate help for a command with enabled colors 1`] = `
-"Usage: \x1B[36m\x1B[1mpadrone-test show\x1B[0m \x1B[90m<id>\x1B[0m \x1B[90m[options]\x1B[0m
+"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test show\x1B[0m \x1B[90m<id>\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mArguments:\x1B[0m
   \x1B[32mid\x1B[0m  \x1B[2mTask ID\x1B[0m
@@ -118,7 +118,7 @@ Options:
 `;
 
 exports[`help should generate help for a command with deprecated arguments and colors 1`] = `
-"Usage: \x1B[36m\x1B[1mpadrone-test deprecated-test\x1B[0m \x1B[90m[options]\x1B[0m
+"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test deprecated-test\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
   \x1B[9m\x1B[90m--old-arg\x1B[0m                  \x1B[33m[string]\x1B[0m  \x1B[9m\x1B[90mThis arg is deprecated\x1B[0m
@@ -139,7 +139,7 @@ Options:
 `;
 
 exports[`help should generate help for a command with hidden arguments and colors 1`] = `
-"Usage: \x1B[36m\x1B[1mpadrone-test hidden-test\x1B[0m \x1B[90m[options]\x1B[0m
+"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test hidden-test\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
   \x1B[32m--visible-arg\x1B[0m      \x1B[33m[string]\x1B[0m  \x1B[2mThis arg is visible in help\x1B[0m
@@ -164,7 +164,7 @@ Options:
 `;
 
 exports[`help should generate help for a command with examples and colors 1`] = `
-"Usage: \x1B[36m\x1B[1mpadrone-test examples-test\x1B[0m \x1B[90m[options]\x1B[0m
+"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test examples-test\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
   \x1B[32m--output\x1B[0m   \x1B[33m[string]\x1B[0m  \x1B[2mSpecify the output file path\x1B[0m
@@ -180,7 +180,7 @@ exports[`help should generate help for a command with examples and colors 1`] = 
 `;
 
 exports[`help should generate help in console format 1`] = `
-"Usage: \x1B[36m\x1B[1mpadrone-test show\x1B[0m \x1B[90m<id>\x1B[0m \x1B[90m[options]\x1B[0m
+"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test show\x1B[0m \x1B[90m<id>\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mArguments:\x1B[0m
   \x1B[32mid\x1B[0m  \x1B[2mTask ID\x1B[0m
@@ -193,7 +193,7 @@ exports[`help should generate help in console format 1`] = `
 `;
 
 exports[`help should generate help in markdown format 1`] = `
-"Usage: **padrone-test show** *<id>* *[options]*
+"**Usage:** **padrone-test show** *<id>* *[options]*
 
 
 
@@ -963,7 +963,7 @@ exports[`help with full detail mode should generate full help with all nested co
 `;
 
 exports[`help with full detail mode should generate full help with all nested commands in markdown format 1`] = `
-"Usage: **padrone-test** *[command]*
+"**Usage:** **padrone-test** *[command]*
 
 
 
@@ -993,7 +993,7 @@ exports[`help with full detail mode should generate full help with all nested co
 
 
 
-### Global: *help [command], version, [command] --repl*
+**Global:** *help [command], version, [command] --repl*
 
 *Run "padrone-test [command] --help" for more information. Use "--all" for all global commands.*
 
@@ -1005,7 +1005,7 @@ exports[`help with full detail mode should generate full help with all nested co
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test list** *[command]* *[options]*
+**Usage:** **padrone-test list** *[command]* *[options]*
 
 
 
@@ -1045,7 +1045,7 @@ Usage: **padrone-test list** *[command]* *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test list extended** *[command]* *[options]*
+**Usage:** **padrone-test list extended** *[command]* *[options]*
 
 
 
@@ -1079,7 +1079,7 @@ Usage: **padrone-test list extended** *[command]* *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test list extended extended** *[options]*
+**Usage:** **padrone-test list extended extended** *[options]*
 
 
 
@@ -1093,7 +1093,7 @@ Usage: **padrone-test list extended extended** *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test show** *<id>* *[options]*
+**Usage:** **padrone-test show** *<id>* *[options]*
 
 
 
@@ -1115,7 +1115,7 @@ Usage: **padrone-test show** *<id>* *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test filter** *[options]*
+**Usage:** **padrone-test filter** *[options]*
 
 
 
@@ -1135,7 +1135,7 @@ Usage: **padrone-test filter** *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test batch** *<...ids>*
+**Usage:** **padrone-test batch** *<...ids>*
 
 
 
@@ -1147,7 +1147,7 @@ Usage: **padrone-test batch** *<...ids>*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test search** *<query>* *[options]*
+**Usage:** **padrone-test search** *<query>* *[options]*
 
 
 
@@ -1167,13 +1167,13 @@ Usage: **padrone-test search** *<query>* *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test noop**
+**Usage:** **padrone-test noop**
 
 
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test tags** *[options]*
+**Usage:** **padrone-test tags** *[options]*
 
 
 
@@ -1185,7 +1185,7 @@ Usage: **padrone-test tags** *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test deprecated-test** *[options]*
+**Usage:** **padrone-test deprecated-test** *[options]*
 
 
 
@@ -1205,7 +1205,7 @@ Usage: **padrone-test deprecated-test** *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test hidden-test** *[options]*
+**Usage:** **padrone-test hidden-test** *[options]*
 
 
 
@@ -1219,7 +1219,7 @@ Usage: **padrone-test hidden-test** *[options]*
 
 *────────────────────────────────────────────────────────────*
 
-Usage: **padrone-test examples-test** *[options]*
+**Usage:** **padrone-test examples-test** *[options]*
 
 
 
@@ -1319,7 +1319,7 @@ Options:
 `;
 
 exports[`help with full detail mode should work with ansi format in full detail mode 1`] = `
-"Usage: \x1B[36m\x1B[1mpadrone-test list\x1B[0m \x1B[90m[command]\x1B[0m \x1B[90m[options]\x1B[0m
+"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test list\x1B[0m \x1B[90m[command]\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mCommands:\x1B[0m
   \x1B[90m[default]\x1B[0m              
@@ -1339,7 +1339,7 @@ exports[`help with full detail mode should work with ansi format in full detail 
 \x1B[1mSubcommand Details:\x1B[0m
 
 \x1B[90m────────────────────────────────────────────────────────────\x1B[0m
-Usage: \x1B[36m\x1B[1mpadrone-test list extended\x1B[0m \x1B[90m[command]\x1B[0m \x1B[90m[options]\x1B[0m
+\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test list extended\x1B[0m \x1B[90m[command]\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mCommands:\x1B[0m
   \x1B[90m[default]\x1B[0m  
@@ -1356,11 +1356,26 @@ Usage: \x1B[36m\x1B[1mpadrone-test list extended\x1B[0m \x1B[90m[command]\x1B[0m
 \x1B[1mSubcommand Details:\x1B[0m
 
 \x1B[90m────────────────────────────────────────────────────────────\x1B[0m
-Usage: \x1B[36m\x1B[1mpadrone-test list extended extended\x1B[0m \x1B[90m[options]\x1B[0m
+\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test list extended extended\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
   \x1B[32m--status\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mFilter by status\x1B[0m
       \x1B[90m(choices: pending, in_progress, completed)\x1B[0m
+"
+`;
+
+exports[`help with command-level examples should render command examples in text format 1`] = `
+"Usage: example-cli deploy [options]
+
+Deploy the application
+
+Examples:
+  $ example-cli deploy --env production
+  $ example-cli deploy --env staging --dry-run
+
+Options:
+  --env      <string>  Target environment
+  --dry-run            Dry run mode
 "
 `;
 
@@ -1398,20 +1413,5 @@ Quality:
 
 Global: help [command], version, [command] --repl
 Run "group-test [command] --help" for more information. Use "--all" for all global commands.
-"
-`;
-
-exports[`help with command-level examples should render command examples in text format 1`] = `
-"Usage: example-cli deploy [options]
-
-Deploy the application
-
-Examples:
-  $ example-cli deploy --env production
-  $ example-cli deploy --env staging --dry-run
-
-Options:
-  --env      <string>  Target environment
-  --dry-run            Dry run mode
 "
 `;

@@ -139,6 +139,7 @@ type Styler = {
   type: (text: string) => string;
   description: (text: string) => string;
   label: (text: string) => string;
+  section: (text: string) => string;
   meta: (text: string) => string;
   example: (text: string) => string;
   exampleValue: (text: string) => string;
@@ -153,7 +154,6 @@ type LayoutConfig = {
   indent: (level: number) => string;
   join: (parts: string[]) => string;
   wrapDocument?: (content: string) => string;
-  usageLabel: string;
 };
 
 // ============================================================================
@@ -167,6 +167,7 @@ function createTextStyler(): Styler {
     type: (text) => text,
     description: (text) => text,
     label: (text) => text,
+    section: (text) => text,
     meta: (text) => text,
     example: (text) => text,
     exampleValue: (text) => text,
@@ -182,6 +183,7 @@ function createAnsiStyler(theme?: ColorTheme | ColorConfig): Styler {
     type: colorizer.type,
     description: colorizer.description,
     label: colorizer.label,
+    section: colorizer.label,
     meta: colorizer.meta,
     example: colorizer.example,
     exampleValue: colorizer.exampleValue,
@@ -199,7 +201,8 @@ function createMarkdownStyler(): Styler {
     arg: (text) => `\`${text}\``,
     type: (text) => `\`${text}\``,
     description: (text) => text,
-    label: (text) => `### ${text}`,
+    label: (text) => `**${text}**`,
+    section: (text) => `### ${text}`,
     meta: (text) => `*${text}*`,
     example: (text) => `**${text}**`,
     exampleValue: (text) => `\`${text}\``,
@@ -217,7 +220,8 @@ function createHtmlStyler(): Styler {
     arg: (text) => `<code style="color: #4caf50;">${escapeHtml(text)}</code>`,
     type: (text) => `<code style="color: #ff9800;">${escapeHtml(text)}</code>`,
     description: (text) => `<span style="color: #666;">${escapeHtml(text)}</span>`,
-    label: (text) => `<h3>${escapeHtml(text)}</h3>`,
+    label: (text) => `<strong>${escapeHtml(text)}</strong>`,
+    section: (text) => `<h3>${escapeHtml(text)}</h3>`,
     meta: (text) => `<span style="color: #999;">${escapeHtml(text)}</span>`,
     example: (text) => `<strong style="text-decoration: underline;">${escapeHtml(text)}</strong>`,
     exampleValue: (text) => `<em>${escapeHtml(text)}</em>`,
@@ -234,7 +238,6 @@ function createTextLayout(): LayoutConfig {
     newline: '\n',
     indent: (level) => '  '.repeat(level),
     join: (parts) => parts.filter(Boolean).join(' '),
-    usageLabel: 'Usage:',
   };
 }
 
@@ -247,7 +250,6 @@ function createMarkdownLayout(): LayoutConfig {
       return '    ';
     },
     join: (parts) => parts.filter(Boolean).join(' '),
-    usageLabel: 'Usage:',
   };
 }
 
@@ -257,7 +259,6 @@ function createHtmlLayout(): LayoutConfig {
     indent: (level) => '&nbsp;&nbsp;'.repeat(level),
     join: (parts) => parts.filter(Boolean).join(' '),
     wrapDocument: (content) => `<div style="font-family: monospace; line-height: 1.6;">${content}</div>`,
-    usageLabel: '<strong>Usage:</strong>',
   };
 }
 
@@ -269,7 +270,7 @@ function createHtmlLayout(): LayoutConfig {
  * Creates a formatter that uses the given styler and layout configuration.
  */
 function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBuiltins?: boolean): Formatter {
-  const { newline, indent, join, wrapDocument, usageLabel } = layout;
+  const { newline, indent, join, wrapDocument } = layout;
 
   function formatUsageSection(info: HelpInfo): string[] {
     const usageParts: string[] = [styler.command(info.usage.command), info.usage.hasSubcommands ? styler.meta('[command]') : ''];
@@ -281,7 +282,7 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBui
       }
     }
     if (info.usage.hasArguments) usageParts.push(styler.meta('[options]'));
-    return [`${usageLabel} ${join(usageParts)}`];
+    return [`${styler.label('Usage:')} ${join(usageParts)}`];
   }
 
   function formatSubcommandsSection(info: HelpInfo): string[] {
@@ -345,7 +346,7 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBui
 
     for (const [key, items] of Object.entries(grouped)) {
       if (lines.length > 0) lines.push('');
-      lines.push(styler.label(key ? `${key}:` : 'Commands:'));
+      lines.push(styler.section(key ? `${key}:` : 'Commands:'));
       renderSubcommands(items!);
     }
 
@@ -362,7 +363,7 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBui
     const lines: string[] = [];
     const args = info.positionals!;
 
-    lines.push(styler.label('Arguments:'));
+    lines.push(styler.section('Arguments:'));
 
     const maxNameLength = Math.min(32, Math.max(...args.map((a) => a.name.length)));
 
@@ -477,7 +478,7 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBui
 
     for (const [key, items] of Object.entries(grouped)) {
       if (lines.length > 0) lines.push('');
-      lines.push(styler.label(key ? `${key}:` : 'Options:'));
+      lines.push(styler.section(key ? `${key}:` : 'Options:'));
       renderArgColumns(items!);
     }
 
@@ -499,7 +500,7 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBui
       return lines;
     }
 
-    lines.push(styler.label('Global:'));
+    lines.push(styler.section('Global:'));
 
     // Compute max effective name length for alignment across main and sub entries
     const allLengths: number[] = [];
@@ -569,7 +570,7 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBui
 
       // Examples section (if present)
       if (info.examples && info.examples.length > 0) {
-        lines.push(styler.label('Examples:'));
+        lines.push(styler.section('Examples:'));
         for (const ex of info.examples) {
           lines.push(indent(1) + styler.meta('$ ') + styler.exampleValue(ex));
         }
@@ -605,7 +606,7 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBui
 
       // Nested commands section (full detail mode)
       if (info.nestedCommands?.length) {
-        lines.push(styler.label('Subcommand Details:'));
+        lines.push(styler.section('Subcommand Details:'));
         lines.push('');
         for (const nestedCmd of info.nestedCommands) {
           lines.push(styler.meta('─'.repeat(60)));
