@@ -113,16 +113,16 @@ Automatically generate kebab-case aliases for camelCase argument names. Enabled 
 
 ### stdin
 
-Read from stdin and inject the data into a specified argument field. Only reads when stdin is piped (not a TTY) and the field wasn't already provided via CLI flags.
+Read from stdin and inject the data into a specified argument field. Only reads when stdin is piped (not a TTY) and the field wasn't already provided via CLI flags. The read mode is inferred from the schema: `string` fields read all stdin as text, `string[]` fields read line-by-line.
 
 ```typescript
-// Shorthand: read all stdin as text into 'data' field
+// Read all stdin as text into 'data' field
 .arguments(z.object({ data: z.string() }), { stdin: 'data' })
 
-// Read stdin as lines into an array field
+// Read stdin line-by-line into an array field (inferred from array schema)
 .arguments(
   z.object({ lines: z.array(z.string()) }),
-  { stdin: { field: 'lines', as: 'lines' } }
+  { stdin: 'lines' }
 )
 ```
 

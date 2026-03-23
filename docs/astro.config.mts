@@ -33,6 +33,9 @@ export default defineConfig({
             { label: 'Plugins', slug: 'guides/plugins' },
             { label: 'Program Composition', slug: 'guides/composition' },
             { label: 'AI Integration', slug: 'guides/ai-integration' },
+            { label: 'Error Handling', slug: 'guides/error-handling' },
+            { label: 'Testing', slug: 'guides/testing' },
+            { label: 'CLI Tools', slug: 'guides/cli-tools' },
           ],
         },
         {

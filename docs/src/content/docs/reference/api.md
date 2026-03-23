@@ -766,6 +766,138 @@ const script = program.completion('bash');
 
 ---
 
+## Color Themes
+
+Padrone supports color themes for ANSI help output. Themes control the colors used for different semantic roles in help text.
+
+### Built-in Themes
+
+Pass a theme name to `.help()` or configure it on the program:
+
+```typescript
+// Use a built-in theme
+program.help('', { theme: 'ocean' });
+```
+
+| Theme | Description |
+|-------|-------------|
+| `'default'` | Cyan commands, green args, yellow types |
+| `'ocean'` | Blue commands, cyan args, green types |
+| `'warm'` | Yellow commands, red args, magenta types |
+| `'monochrome'` | Bold/underline/dim only, no colors |
+
+### Custom Color Config
+
+Pass a `ColorConfig` object to customize individual roles:
+
+```typescript
+import type { ColorConfig } from 'padrone';
+
+const myTheme: ColorConfig = {
+  command: ['blue', 'bold'],
+  arg: ['green'],
+  type: ['yellow'],
+  description: ['dim'],
+  label: ['bold'],
+  meta: ['gray'],
+  example: ['underline'],
+  exampleValue: ['italic'],
+  deprecated: ['strikethrough', 'gray'],
+};
+
+program.help('', { theme: myTheme });
+```
+
+### Color Roles
+
+| Role | Description |
+|------|-------------|
+| `command` | Command names |
+| `arg` | Argument/option names |
+| `type` | Type annotations (string, number, etc.) |
+| `description` | Description text |
+| `label` | Section labels (Arguments, Commands, etc.) |
+| `meta` | Metadata (defaults, choices, etc.) |
+| `example` | Example labels |
+| `exampleValue` | Example values |
+| `deprecated` | Deprecated items |
+
+### Available ANSI Styles
+
+Each role accepts an array of styles: `'bold'`, `'dim'`, `'italic'`, `'underline'`, `'strikethrough'`, `'red'`, `'green'`, `'yellow'`, `'blue'`, `'magenta'`, `'cyan'`, `'white'`, `'gray'`.
+
+### Disabling Colors
+
+Use the `--color` global flag or `NO_COLOR` environment variable:
+
+```bash
+# Disable colors
+myapp --help --color=false
+
+# Or via environment
+NO_COLOR=1 myapp --help
+```
+
+---
+
+## Stdin Configuration
+
+Configure stdin reading in the `.arguments()` meta to pipe data into argument fields.
+
+### Basic Usage
+
+```typescript
+// Read all stdin as text into 'data' field
+.arguments(
+  z.object({ data: z.string() }),
+  { stdin: 'data' }
+)
+```
+
+```bash
+echo "hello" | myapp
+# args.data = "hello"
+```
+
+### Reading Lines
+
+When the target field is an array type, stdin is automatically read line-by-line:
+
+```typescript
+// Read stdin line-by-line into an array (inferred from schema)
+.arguments(
+  z.object({ lines: z.array(z.string()) }),
+  { stdin: 'lines' }
+)
+```
+
+```bash
+cat urls.txt | myapp
+# args.lines = ["https://...", "https://...", ...]
+```
+
+### Stdin Behavior
+
+- Only reads when stdin is piped (not a TTY) and the target field wasn't provided via CLI flags
+- Read mode is inferred from the schema: `string` fields read all stdin as text, `string[]` fields read line-by-line
+- Resolution priority: CLI args > stdin > env vars > config files > defaults
+
+### Runtime Stdin API
+
+The runtime exposes stdin through the `PadroneRuntime.stdin` interface:
+
+```typescript
+type StdinConfig = {
+  isTTY: boolean;
+  text(): Promise<string>;
+  lines(): AsyncIterable<string>;
+};
+```
+
+This is automatically handled when using `stdin` in arguments meta. For custom runtimes (testing, web), override `runtime.stdin` to provide mock data.
+
+---
+
 ## Type Exports
 
 Padrone exports these TypeScript types:
