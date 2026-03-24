@@ -2,7 +2,7 @@ export type { AnsiStyle, ColorConfig, ColorTheme } from './colorizer.ts';
 export { colorThemes } from './colorizer.ts';
 export { asyncSchema, buildReplCompleter, createPadrone } from './create.ts';
 export type { PadroneErrorOptions } from './errors.ts';
-export { ActionError, ConfigError, PadroneError, RoutingError, ValidationError } from './errors.ts';
+export { ActionError, ConfigError, PadroneError, RoutingError, SignalError, ValidationError } from './errors.ts';
 export type { HelpInfo } from './formatter.ts';
 export type { PadroneMcpPreferences } from './mcp.ts';
 export type {
@@ -11,6 +11,7 @@ export type {
   PadroneProgressIndicator,
   PadroneProgressOptions,
   PadroneRuntime,
+  PadroneSignal,
   PadroneSpinnerConfig,
   PadroneSpinnerPreset,
 } from './runtime.ts';

@@ -91,6 +91,7 @@ When asked to commit with a changeset, create a concise changeset suitable for a
 - Prefer colocation
 - Use TypeScript with strict typing. Avoid `any` unless absolutely necessary.
 - When importing internal modules, use absolute imports starting with `#src/`. Also include file extensions (e.g., `import { env } from '#src/env.ts'`).
+- Always use top-level `import type` for type imports. Never use inline `import('./module.ts').Type` syntax in type annotations.
 - Avoid verbose code comments; write self-explanatory code. Code comments are acceptable in these scenarios:
   - Explaining complex logic, workarounds, or decisions
   - Documenting public APIs (functions, classes, modules)

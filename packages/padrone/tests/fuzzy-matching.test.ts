@@ -117,9 +117,9 @@ describe('fuzzy matching', () => {
       expect((result.error as Error).message).toMatch(/Did you mean "changelog"/);
     });
 
-    it('should not prefix match when input is 3 chars or fewer', () => {
+    it('should not prefix match when input is 2 chars or fewer', () => {
       const p = createPadrone('app').command('changelog', (c) => c.action(() => 'changelog'));
-      const result = p.eval('cha');
+      const result = p.eval('ch');
       expect(result.error).toBeInstanceOf(Error);
       expect((result.error as Error).message).not.toMatch(/Did you mean/);
     });

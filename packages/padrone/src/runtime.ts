@@ -2,6 +2,9 @@ import type { ColorConfig, ColorTheme } from './colorizer.ts';
 import type { HelpFormat } from './formatter.ts';
 import { findConfigFile, loadConfigFile } from './utils.ts';
 
+/** Process signals that Padrone can handle for graceful shutdown. */
+export type PadroneSignal = 'SIGINT' | 'SIGTERM' | 'SIGHUP';
+
 /**
  * A progress indicator instance (spinner, progress bar, etc).
  * Created by the runtime's `progress` factory and used to show loading state during command execution.
@@ -141,6 +144,15 @@ export type PadroneRuntime = {
    * with command history (up/down arrows) and tab completion.
    */
   readLine?: (prompt: string) => Promise<string | typeof REPL_SIGINT | null>;
+
+  /**
+   * Register a callback for process signals. Returns an unsubscribe function.
+   * The default runtime wires this to `process.on('SIGINT' | 'SIGTERM' | 'SIGHUP')`.
+   * Non-Node runtimes (web UIs, tests) can map their own cancellation semantics.
+   *
+   * When not provided, signal handling is disabled for this runtime.
+   */
+  onSignal?: (callback: (signal: PadroneSignal) => void) => () => void;
 };
 
 /**
@@ -148,9 +160,9 @@ export type PadroneRuntime = {
  * The `prompt`, `interactive`, and `readLine` fields remain optional since not all runtimes provide them.
  */
 export type ResolvedPadroneRuntime = Required<
-  Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress' | 'theme'>
+  Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress' | 'theme' | 'onSignal'>
 > &
-  Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress' | 'theme'>;
+  Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress' | 'theme' | 'onSignal'>;
 
 /**
  * Default terminal prompt implementation powered by Enquirer.
@@ -436,6 +448,26 @@ function createTerminalSpinner(message: string, options?: PadroneProgressOptions
   };
 }
 
+/**
+ * Default signal listener that wires to `process.on(signal)`.
+ * Returns an unsubscribe function that removes all listeners.
+ */
+function defaultOnSignal(callback: (signal: PadroneSignal) => void): () => void {
+  if (typeof process === 'undefined') return () => {};
+  const signals: PadroneSignal[] = ['SIGINT', 'SIGTERM', 'SIGHUP'];
+  const handlers = new Map<PadroneSignal, () => void>();
+  for (const sig of signals) {
+    const handler = () => callback(sig);
+    handlers.set(sig, handler);
+    process.on(sig, handler);
+  }
+  return () => {
+    for (const [sig, handler] of handlers) {
+      process.removeListener(sig, handler);
+    }
+  };
+}
+
 export function createDefaultRuntime(): ResolvedPadroneRuntime {
   return {
     output: (...args) => console.log(...args),
@@ -448,6 +480,7 @@ export function createDefaultRuntime(): ResolvedPadroneRuntime {
     prompt: defaultTerminalPrompt,
     interactive: detectInteractiveMode(),
     progress: createTerminalSpinner,
+    onSignal: defaultOnSignal,
   };
 }
 
@@ -493,5 +526,6 @@ export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime
     progress: partial.progress ?? defaults.progress,
     stdin: partial.stdin,
     theme: partial.theme,
+    onSignal: partial.onSignal ?? defaults.onSignal,
   };
 }

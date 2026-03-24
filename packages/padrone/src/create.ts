@@ -41,12 +41,12 @@ import {
   wrapWithLifecycle,
 } from './command-utils.ts';
 import type { ShellType } from './completion.ts';
-import { ConfigError, RoutingError, ValidationError } from './errors.ts';
+import { ConfigError, RoutingError, signalExitCode, ValidationError } from './errors.ts';
 import { generateHelp } from './help.ts';
 import { promptInteractiveFields } from './interactive.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
 import { createReplIterator } from './repl-loop.ts';
-import { type PadroneProgressIndicator, resolveStdin, resolveStdinAlways } from './runtime.ts';
+import { type PadroneProgressIndicator, type PadroneSignal, resolveStdin, resolveStdinAlways } from './runtime.ts';
 import { createStdinStream } from './stream.ts';
 import type {
   AnyPadroneCommand,
@@ -88,7 +88,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       : inputCommand;
 
   /** Creates the action context passed to command handlers. References `builder` which is defined later but only called at runtime. */
-  const createActionContext = (cmd: AnyPadroneCommand): PadroneActionContext => {
+  const createActionContext = (cmd: AnyPadroneCommand): Omit<PadroneActionContext, 'signal'> => {
     return {
       runtime: getCommandRuntime(cmd),
       command: cmd,
@@ -369,11 +369,14 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     return validateCommandArgs(command, preprocessedArgs);
   };
 
+  // A never-aborted signal for contexts that don't need signal handling (parse, run).
+  const inertSignal = new AbortController().signal;
+
   const parse: AnyPadroneProgram['parse'] = (input) => {
     const state: Record<string, unknown> = {};
 
     // Parse phase (with plugins)
-    const parseCtx: PluginParseContext = { input: input as string | undefined, command: existingCommand, state };
+    const parseCtx: PluginParseContext = { input: input as string | undefined, command: existingCommand, state, signal: inertSignal };
     const coreParse = (): PluginParseResult => {
       const { command, rawArgs, args } = parseCommand(parseCtx.input);
       return { command, rawArgs, positionalArgs: args };
@@ -393,6 +396,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         rawArgs: parsed.rawArgs,
         positionalArgs: parsed.positionalArgs,
         state,
+        signal: inertSignal,
       };
 
       const coreValidate = (): PluginValidateResult | Promise<PluginValidateResult> => {
@@ -808,10 +812,50 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       };
     }
 
+    // ── Signal handling ─────────────────────────────────────────────────
+    const abortController = new AbortController();
+    let receivedSignal: PadroneSignal | undefined;
+    let lastSigintTime = 0;
+    const DOUBLE_SIGINT_MS = 2000;
+
+    const unsubscribeSignal = runtime.onSignal?.((sig) => {
+      if (abortController.signal.aborted) {
+        // Already aborted. For SIGINT, check if this is a deliberate second press (force quit)
+        // vs duplicate delivery of the same keypress (ignore).
+        // Duplicate delivery arrives in the same event loop tick (~0ms apart).
+        if (sig === 'SIGINT') {
+          const elapsed = Date.now() - lastSigintTime;
+          if (elapsed > 0 && elapsed < DOUBLE_SIGINT_MS) {
+            if (typeof process !== 'undefined') process.exit(signalExitCode(sig));
+          }
+          lastSigintTime = Date.now();
+        }
+        return;
+      }
+      if (sig === 'SIGINT') lastSigintTime = Date.now();
+      receivedSignal = sig;
+      abortController.abort(sig);
+    });
+
+    /** Attach signal info to a result object if a signal was received. */
+    const attachSignalInfo = <T extends Record<string, unknown>>(result: T): T => {
+      if (receivedSignal) {
+        (result as any).signal = receivedSignal;
+        (result as any).exitCode = signalExitCode(receivedSignal);
+      }
+      return result;
+    };
+
+    /** Clean up signal listener. Called when execution completes. */
+    const cleanupSignal = () => unsubscribeSignal?.();
+
     // Check for built-in help/version/completion commands and flags (bypass plugins)
     const builtin = checkBuiltinCommands(resolvedInput);
 
     if (builtin) {
+      // Builtins bypass the pipeline — no signal handling needed.
+      cleanupSignal();
+
       if (builtin.type === 'help') {
         resolveAllCommands(existingCommand);
         const helpText = generateHelp(existingCommand, builtin.command ?? existingCommand, {
@@ -910,7 +954,8 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     const runPipeline = () => {
       // ── Phase 1: Parse ──────────────────────────────────────────────────
-      const parseCtx: PluginParseContext = { input: resolvedInput, command: existingCommand, state };
+      const signal = abortController.signal;
+      const parseCtx: PluginParseContext = { input: resolvedInput, command: existingCommand, state, signal };
 
       const coreParse = (): PluginParseResult => {
         const { command, rawArgs, args, unmatchedTerms } = parseCommand(parseCtx.input);
@@ -1050,6 +1095,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           rawArgs: parsed.rawArgs,
           positionalArgs: parsed.positionalArgs,
           state,
+          signal,
         };
 
         const coreValidate = (): PluginValidateResult | Promise<PluginValidateResult> => {
@@ -1374,6 +1420,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             command,
             args: v.args,
             state,
+            signal,
           };
 
           const coreExecute = (): PluginExecuteResult => {
@@ -1382,6 +1429,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
               ...createActionContext(command),
               runtime,
               progress: (state._progress as PadroneProgressIndicator) ?? createLazyIndicator(runtime, state),
+              signal,
             };
             const result = handler(executeCtx.args as any, ctx);
             return { result };
@@ -1455,23 +1503,68 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       return thenMaybe(parsedOrPromise, continueAfterParse) as any;
     };
 
-    return wrapWithLifecycle(rootPlugins, existingCommand, state, resolvedInput, runPipeline, (result) =>
-      withDrain({
-        command: existingCommand,
-        args: undefined,
-        argsResult: undefined,
-        result,
-      }),
-    ) as any;
+    const tagErrorWithSignal = (err: unknown) => {
+      if (receivedSignal && err instanceof Error) {
+        (err as any)._padroneSignal = receivedSignal;
+        (err as any)._padroneExitCode = signalExitCode(receivedSignal);
+      }
+    };
+
+    const finalizeResult = (r: unknown) => {
+      cleanupSignal();
+      return attachSignalInfo(r as Record<string, unknown>);
+    };
+
+    let lifecycleResult: any;
+    try {
+      lifecycleResult = wrapWithLifecycle(
+        rootPlugins,
+        existingCommand,
+        state,
+        resolvedInput,
+        runPipeline,
+        (result) =>
+          withDrain({
+            command: existingCommand,
+            args: undefined,
+            argsResult: undefined,
+            result,
+          }),
+        abortController.signal,
+      );
+    } catch (err) {
+      cleanupSignal();
+      tagErrorWithSignal(err);
+      throw err;
+    }
+
+    if (lifecycleResult instanceof Promise) {
+      return lifecycleResult.then(finalizeResult, (err: unknown) => {
+        cleanupSignal();
+        tagErrorWithSignal(err);
+        throw err;
+      }) as any;
+    }
+    return finalizeResult(lifecycleResult) as any;
+  };
+
+  /** Wraps an error into a result, preserving any signal info from the pipeline. */
+  const errorResultWithSignal = (err: unknown) => {
+    const result = errorResult(err);
+    if (err && typeof err === 'object' && '_padroneSignal' in err) {
+      (result as any).signal = (err as any)._padroneSignal;
+      (result as any).exitCode = (err as any)._padroneExitCode;
+    }
+    return result;
   };
 
   const evalCommand: AnyPadroneProgram['eval'] = (input, evalOptions) => {
     try {
       const result = execCommand(input as string, evalOptions, 'soft');
-      if (result instanceof Promise) return withPromiseDrain(result.catch((err: unknown) => errorResult(err))) as any;
+      if (result instanceof Promise) return withPromiseDrain(result.catch((err: unknown) => errorResultWithSignal(err))) as any;
       return makeThenable(result);
     } catch (err) {
-      return makeThenable(errorResult(err)) as any;
+      return makeThenable(errorResultWithSignal(err)) as any;
     }
   };
 
@@ -1589,17 +1682,17 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
                 showUpdateNotification?.();
                 return r;
               })
-              .catch((err: unknown) => errorResult(err)),
+              .catch((err: unknown) => errorResultWithSignal(err)),
           ) as any;
         }
         // For sync results, schedule notification for next tick (non-blocking)
         updateCheckPromise.then((show) => show?.());
       }
 
-      if (result instanceof Promise) return withPromiseDrain(result.catch((err: unknown) => errorResult(err))) as any;
+      if (result instanceof Promise) return withPromiseDrain(result.catch((err: unknown) => errorResultWithSignal(err))) as any;
       return makeThenable(result);
     } catch (err) {
-      return makeThenable(errorResult(err)) as any;
+      return makeThenable(errorResultWithSignal(err)) as any;
     }
   };
 
@@ -1611,10 +1704,11 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       if (!commandObj.action) throw new RoutingError(`Command "${commandObj.path}" has no action`, { command: commandObj.path });
 
       const state: Record<string, unknown> = {};
-      const executeCtx: PluginExecuteContext = { command: commandObj, args, state };
+      const executeCtx: PluginExecuteContext = { command: commandObj, args, state, signal: inertSignal };
 
       const coreExecute = (): PluginExecuteResult => {
-        const result = commandObj.action!(executeCtx.args as any, createActionContext(commandObj));
+        const ctx = createActionContext(commandObj);
+        const result = commandObj.action!(executeCtx.args as any, { ...ctx, signal: inertSignal });
         return { result };
       };
 

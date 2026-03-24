@@ -7,6 +7,8 @@
  * and to present formatted, actionable error messages.
  */
 
+import type { PadroneSignal } from './runtime.ts';
+
 export type PadroneErrorOptions = {
   /** Process exit code. Defaults to 1. */
   exitCode?: number;
@@ -128,4 +130,24 @@ export class ActionError extends PadroneError {
     super(message, { phase: 'execute', ...options });
     this.name = 'ActionError';
   }
+}
+
+/**
+ * Thrown when command execution is interrupted by a process signal (SIGINT, SIGTERM, SIGHUP).
+ * Carries the signal name and the conventional exit code (128 + signal number).
+ */
+export class SignalError extends PadroneError {
+  readonly signal: PadroneSignal;
+
+  constructor(signal: PadroneSignal) {
+    super(`Process interrupted by ${signal}`, { exitCode: signalExitCode(signal) });
+    this.name = 'SignalError';
+    this.signal = signal;
+  }
+}
+
+/** Maps a signal name to its conventional exit code (128 + signal number). */
+export function signalExitCode(signal: PadroneSignal): number {
+  const codes: Record<string, number> = { SIGINT: 130, SIGTERM: 143, SIGHUP: 129 };
+  return codes[signal] ?? 1;
 }

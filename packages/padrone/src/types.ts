@@ -3,7 +3,7 @@ import type { Tool } from 'ai';
 import type { PadroneArgsSchemaMeta } from './args.ts';
 import type { HelpPreferences } from './help.ts';
 import type { PadroneMcpPreferences } from './mcp.ts';
-import type { PadroneProgressIndicator, PadroneRuntime, PadroneSpinnerConfig, ResolvedPadroneRuntime } from './runtime.ts';
+import type { PadroneProgressIndicator, PadroneRuntime, PadroneSignal, PadroneSpinnerConfig, ResolvedPadroneRuntime } from './runtime.ts';
 import type { PadroneServePreferences } from './serve.ts';
 import type {
   Drained,
@@ -44,6 +44,13 @@ export type PadroneActionContext = {
    * Use `.update()` to change the in-progress message mid-execution.
    */
   progress: PadroneProgressIndicator;
+  /**
+   * Cancellation signal that fires when the process receives SIGINT, SIGTERM, or SIGHUP.
+   * Use with `fetch()`, child processes, or any API that accepts `AbortSignal`.
+   * Check `signal.aborted` to test if cancellation was requested.
+   * The `signal.reason` is a `PadroneSignal` string ('SIGINT', 'SIGTERM', or 'SIGHUP').
+   */
+  signal: AbortSignal;
 };
 
 /**
@@ -1101,6 +1108,10 @@ export type PadroneCommandResult<TCommand extends AnyPadroneCommand = AnyPadrone
   | (PadroneParseResult<TCommand> & {
       result: GetResults<TCommand>;
       error?: never;
+      /** The signal that caused cancellation, if any. */
+      signal?: PadroneSignal;
+      /** Suggested exit code (e.g. 130 for SIGINT). Present when a signal caused termination. */
+      exitCode?: number;
       /** Flattens the result: awaits Promises, collects iterables, catches errors. Never throws. */
       drain: () => Promise<PadroneDrainResult<GetResults<TCommand>>>;
     })
@@ -1110,6 +1121,10 @@ export type PadroneCommandResult<TCommand extends AnyPadroneCommand = AnyPadrone
       argsResult?: StandardSchemaV1.Result<GetArguments<'out', TCommand>>;
       error: unknown;
       result?: never;
+      /** The signal that caused cancellation, if any. */
+      signal?: PadroneSignal;
+      /** Suggested exit code (e.g. 130 for SIGINT). Present when a signal caused termination. */
+      exitCode?: number;
       /** Returns `{ error }` since there is no result to drain. */
       drain: () => Promise<PadroneDrainResult<GetResults<TCommand>>>;
     };
@@ -1153,6 +1168,8 @@ export type PluginBaseContext = {
   command: AnyPadroneCommand;
   /** Mutable state bag shared across phases for this execution. Plugins can store cross-phase data here. */
   state: Record<string, unknown>;
+  /** Cancellation signal that fires when the process receives a termination signal. */
+  signal: AbortSignal;
 };
 
 /** Context for the parse phase. */
