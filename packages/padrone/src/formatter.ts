@@ -1,6 +1,30 @@
 import { camelToKebab } from './args.ts';
 import { type ColorConfig, type ColorTheme, createColorizer } from './colorizer.ts';
 
+const DEFAULT_TERMINAL_WIDTH = 80;
+
+function getTerminalWidth(): number {
+  if (typeof process !== 'undefined' && process.stdout?.columns) return process.stdout.columns;
+  return DEFAULT_TERMINAL_WIDTH;
+}
+
+function wrapText(text: string, maxWidth: number): string[] {
+  if (maxWidth <= 0 || text.length <= maxWidth) return [text];
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    if (current && current.length + 1 + word.length > maxWidth) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = current ? `${current} ${word}` : word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines.length > 0 ? lines : [text];
+}
+
 export type HelpFormat = 'text' | 'ansi' | 'console' | 'markdown' | 'html' | 'json';
 export type HelpDetail = 'minimal' | 'standard' | 'full';
 
@@ -269,7 +293,7 @@ function createHtmlLayout(): LayoutConfig {
 /**
  * Creates a formatter that uses the given styler and layout configuration.
  */
-function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBuiltins?: boolean): Formatter {
+function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBuiltins?: boolean, terminalWidth?: number): Formatter {
   const { newline, indent, join, wrapDocument } = layout;
 
   function formatUsageSection(info: HelpInfo): string[] {
@@ -366,15 +390,53 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBui
     lines.push(styler.section('Arguments:'));
 
     const maxNameLength = Math.min(32, Math.max(...args.map((a) => a.name.length)));
+    const descCol = 2 + maxNameLength + 2;
+    const posAvailWidth = terminalWidth ? terminalWidth - descCol : undefined;
+    const descColPad = ' '.repeat(descCol);
 
     for (const arg of args) {
       const padding = ' '.repeat(Math.max(2, maxNameLength - arg.name.length + 2));
-      const descParts: string[] = [];
-      if (arg.description) descParts.push(styler.description(arg.description));
-      if (info.usage.stdinField === arg.name) descParts.push(styler.meta('(stdin)'));
-      if (arg.enum) descParts.push(styler.meta(`(choices: ${arg.enum.join(', ')})`));
-      if (arg.default !== undefined) descParts.push(styler.meta(`(default: ${String(arg.default)})`));
-      lines.push(indent(1) + styler.arg(arg.name) + padding + join(descParts));
+      const prefix = indent(1) + styler.arg(arg.name) + padding;
+
+      const descPlain = arg.description ?? '';
+      const styledDesc = descPlain ? styler.description(descPlain) : '';
+
+      const metaParts: string[] = [];
+      const styledMetaParts: string[] = [];
+      if (info.usage.stdinField === arg.name) {
+        metaParts.push('(stdin)');
+        styledMetaParts.push(styler.meta('(stdin)'));
+      }
+      if (arg.enum) {
+        const text = `(choices: ${arg.enum.join(', ')})`;
+        metaParts.push(text);
+        styledMetaParts.push(styler.meta(text));
+      }
+      if (arg.default !== undefined) {
+        const text = `(default: ${String(arg.default)})`;
+        metaParts.push(text);
+        styledMetaParts.push(styler.meta(text));
+      }
+
+      const metaStyled = join(styledMetaParts);
+
+      if (posAvailWidth && posAvailWidth > 0) {
+        const metaPlain = metaParts.join(' ');
+        const fullPlain = [descPlain, metaPlain].filter(Boolean).join(' ');
+        if (fullPlain.length <= posAvailWidth) {
+          lines.push(prefix + [styledDesc, metaStyled].filter(Boolean).join(' '));
+        } else if (!descPlain || descPlain.length <= posAvailWidth) {
+          lines.push(prefix + styledDesc);
+          if (metaStyled) lines.push(descColPad + metaStyled);
+        } else {
+          const wrapped = wrapText(descPlain, posAvailWidth);
+          lines.push(prefix + styler.description(wrapped[0]!));
+          for (const wline of wrapped.slice(1)) lines.push(descColPad + styler.description(wline));
+          if (metaStyled) lines.push(descColPad + metaStyled);
+        }
+      } else {
+        lines.push(prefix + join([styledDesc, metaStyled]));
+      }
     }
 
     return lines;
@@ -413,6 +475,9 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBui
     const maxNamesWidth = Math.min(32, Math.max(0, ...argColumns.map((c) => c.namesPlain.length)));
     const maxTypeWidth = Math.min(16, Math.max(0, ...argColumns.map((c) => c.typePlain.length)));
     const hasAnyFlags = maxFlagsWidth > 0;
+    const descCol = 2 + (hasAnyFlags ? maxFlagsWidth + 2 : 0) + maxNamesWidth + 2 + (maxTypeWidth > 0 ? maxTypeWidth + 2 : 0);
+    const argAvailWidth = terminalWidth ? terminalWidth - descCol : undefined;
+    const descColPad = ' '.repeat(descCol);
 
     // Split into ordered groups: ungrouped first as "Options:", then each group in first-seen order
     const grouped = Object.groupBy(argColumns, (c) => c.arg.group ?? '');
@@ -441,28 +506,65 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBui
           parts.push(styledType + typePadding);
         }
 
-        // Line 1: description
-        const descParts: string[] = [];
-        if (arg.description) descParts.push(isDeprecated ? styler.deprecated(arg.description) : styler.description(arg.description));
-        lines.push(indent(1) + parts.join('') + join(descParts));
+        const prefix = indent(1) + parts.join('');
+        const contPad = argAvailWidth ? descColPad : indent(3);
 
-        // Line 2: deprecated (no reason), default, choices
-        const line2Parts: string[] = [];
-        if (isDeprecated && typeof arg.deprecated !== 'string') line2Parts.push(styler.meta('(deprecated)'));
-        if (hasDefault(arg.default)) line2Parts.push(styler.meta(`(default: ${String(arg.default)})`));
-        if (arg.enum) line2Parts.push(styler.meta(`(choices: ${arg.enum.join(', ')})`));
-        if (line2Parts.length > 0) lines.push(indent(3) + join(line2Parts));
+        // Build inline meta (deprecated no-reason, default, choices)
+        const inlineMeta: string[] = [];
+        const styledInlineMeta: string[] = [];
+        if (isDeprecated && typeof arg.deprecated !== 'string') {
+          inlineMeta.push('(deprecated)');
+          styledInlineMeta.push(styler.meta('(deprecated)'));
+        }
+        if (hasDefault(arg.default)) {
+          const text = `(default: ${String(arg.default)})`;
+          inlineMeta.push(text);
+          styledInlineMeta.push(styler.meta(text));
+        }
+        if (arg.enum) {
+          const text = `(choices: ${arg.enum.join(', ')})`;
+          inlineMeta.push(text);
+          styledInlineMeta.push(styler.meta(text));
+        }
 
-        // Line 3: deprecated (with reason), examples
+        const descPlain = arg.description ?? '';
+        const styledDesc = descPlain ? (isDeprecated ? styler.deprecated(descPlain) : styler.description(descPlain)) : '';
+        const metaStyled = join(styledInlineMeta);
+
+        if (argAvailWidth && argAvailWidth > 0) {
+          // Terminal-width-aware: try to fit description + meta on one line
+          const metaPlain = inlineMeta.join(' ');
+          const fullPlain = [descPlain, metaPlain].filter(Boolean).join(' ');
+          if (fullPlain.length <= argAvailWidth) {
+            lines.push(prefix + [styledDesc, metaStyled].filter(Boolean).join(' '));
+          } else if (!descPlain || descPlain.length <= argAvailWidth) {
+            lines.push(prefix + styledDesc);
+            if (metaStyled) lines.push(descColPad + metaStyled);
+          } else {
+            const wrapped = wrapText(descPlain, argAvailWidth);
+            const styleFn = isDeprecated ? styler.deprecated : styler.description;
+            lines.push(prefix + styleFn(wrapped[0]!));
+            for (const wline of wrapped.slice(1)) lines.push(descColPad + styleFn(wline));
+            if (metaStyled) lines.push(descColPad + metaStyled);
+          }
+        } else {
+          // No terminal width (markdown/html): description on line 1, meta on line 2
+          const descParts: string[] = [];
+          if (styledDesc) descParts.push(styledDesc);
+          lines.push(prefix + join(descParts));
+          if (styledInlineMeta.length > 0) lines.push(indent(3) + metaStyled);
+        }
+
+        // Deprecated (with reason), examples — always on separate line
         const line3Parts: string[] = [];
         if (isDeprecated && typeof arg.deprecated === 'string') line3Parts.push(styler.meta(`(deprecated: ${arg.deprecated})`));
         if (arg.examples && arg.examples.length > 0) {
           const exampleValues = arg.examples.map((example) => (typeof example === 'string' ? example : JSON.stringify(example))).join(', ');
           line3Parts.push(styler.example('Example:'), styler.exampleValue(exampleValues));
         }
-        if (line3Parts.length > 0) lines.push(indent(3) + join(line3Parts));
+        if (line3Parts.length > 0) lines.push(contPad + join(line3Parts));
 
-        // Line 4: stdin, env, config
+        // stdin, env, config — always on separate line
         const line4Parts: string[] = [];
         if (info.usage.stdinField === arg.name) line4Parts.push(styler.meta('(stdin)'));
         if (arg.env) {
@@ -472,7 +574,7 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBui
         if (arg.configKey) {
           line4Parts.push(styler.example('Config:'), styler.exampleValue(arg.configKey));
         }
-        if (line4Parts.length > 0) lines.push(indent(3) + join(line4Parts));
+        if (line4Parts.length > 0) lines.push(contPad + join(line4Parts));
       }
     };
 
@@ -673,13 +775,15 @@ export function createFormatter(
   detail: HelpDetail = 'standard',
   theme?: ColorTheme | ColorConfig,
   all?: boolean,
+  width?: number,
 ): Formatter {
   if (detail === 'minimal') return createMinimalFormatter();
   if (format === 'json') return createJsonFormatter();
+  const tw = format === 'markdown' || format === 'html' ? undefined : (width ?? getTerminalWidth());
   if (format === 'ansi' || (format === 'auto' && shouldUseAnsi()))
-    return createGenericFormatter(createAnsiStyler(theme), createTextLayout(), all);
-  if (format === 'console') return createGenericFormatter(createConsoleStyler(theme), createTextLayout(), all);
+    return createGenericFormatter(createAnsiStyler(theme), createTextLayout(), all, tw);
+  if (format === 'console') return createGenericFormatter(createConsoleStyler(theme), createTextLayout(), all, tw);
   if (format === 'markdown') return createGenericFormatter(createMarkdownStyler(), createMarkdownLayout(), all);
   if (format === 'html') return createGenericFormatter(createHtmlStyler(), createHtmlLayout(), all);
-  return createGenericFormatter(createTextStyler(), createTextLayout(), all);
+  return createGenericFormatter(createTextStyler(), createTextLayout(), all, tw);
 }
