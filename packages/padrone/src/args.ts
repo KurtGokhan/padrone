@@ -452,8 +452,8 @@ export function detectUnknownArgs(
   schema: StandardJSONSchemaV1,
   flags: Record<string, string>,
   aliases: Record<string, string>,
-  suggestFn: (input: string, candidates: string[]) => string,
-): { key: string; suggestion: string }[] {
+  suggestFn: (input: string, candidates: string[]) => string[],
+): { key: string; suggestions: string[] }[] {
   let properties: Record<string, any>;
   let isLoose = false;
   try {
@@ -476,12 +476,12 @@ export function detectUnknownArgs(
     ...Object.values(aliases),
   ]);
   const propertyNames = Object.keys(properties);
-  const unknowns: { key: string; suggestion: string }[] = [];
+  const unknowns: { key: string; suggestions: string[] }[] = [];
 
   for (const key of Object.keys(data)) {
     if (!knownKeys.has(key) && !frameworkReservedKeys.has(key)) {
-      const suggestion = suggestFn(key, propertyNames);
-      unknowns.push({ key, suggestion });
+      const suggestions = suggestFn(key, propertyNames);
+      unknowns.push({ key, suggestions });
     }
   }
 

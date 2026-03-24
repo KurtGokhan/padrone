@@ -79,7 +79,7 @@ describe('fuzzy matching', () => {
 
       p.cli();
       // cli() no longer throws, but error handler should still be called
-      expect(errors.some((e) => e.includes('Did you mean "verbose"'))).toBe(true);
+      expect(errors.some((e) => e.includes('Did you mean "--verbose"'))).toBe(true);
     });
 
     it('should suggest similar option for typo in validation error (soft mode)', () => {
@@ -89,6 +89,73 @@ describe('fuzzy matching', () => {
 
       const result = p.eval('run --vrebose');
       expect(result.argsResult?.issues).toBeDefined();
+    });
+
+    it('should include -- prefix in option suggestions', () => {
+      const p = createPadrone('app').command('run', (c) => c.arguments(z.object({ verbose: z.boolean().optional() })).action(() => 'ran'));
+
+      const result = p.eval('run --vrebose');
+      expect(result.argsResult?.issues?.[0]?.message).toContain('Did you mean "--verbose"');
+    });
+  });
+
+  describe('prefix/substring matching', () => {
+    const program = createPadrone('app')
+      .command('deploy', (c) => c.action(() => 'deployed'))
+      .command('destroy', (c) => c.action(() => 'destroyed'))
+      .command('changelog', (c) => c.action(() => 'changelog'));
+
+    it('should suggest prefix match for commands when input > 3 chars', () => {
+      const result = program.eval('depl');
+      expect(result.error).toBeInstanceOf(Error);
+      expect((result.error as Error).message).toMatch(/Did you mean "deploy"/);
+    });
+
+    it('should suggest substring match for commands when input > 3 chars', () => {
+      const result = program.eval('change');
+      expect(result.error).toBeInstanceOf(Error);
+      expect((result.error as Error).message).toMatch(/Did you mean "changelog"/);
+    });
+
+    it('should not prefix match when input is 3 chars or fewer', () => {
+      const p = createPadrone('app').command('changelog', (c) => c.action(() => 'changelog'));
+      const result = p.eval('cha');
+      expect(result.error).toBeInstanceOf(Error);
+      expect((result.error as Error).message).not.toMatch(/Did you mean/);
+    });
+
+    it('should suggest prefix match for options when input > 3 chars', () => {
+      const p = createPadrone('app').command('run', (c) =>
+        c.arguments(z.object({ verbose: z.boolean().optional(), version: z.string().optional() })).action(() => 'ran'),
+      );
+
+      const result = p.eval('run --verb');
+      expect(result.argsResult?.issues?.[0]?.message).toContain('Did you mean "--verbose"');
+    });
+  });
+
+  describe('multiple suggestions', () => {
+    it('should suggest multiple similar commands', () => {
+      const program = createPadrone('app')
+        .command('deploy', (c) => c.action(() => 'deployed'))
+        .command('delete', (c) => c.action(() => 'deleted'));
+
+      const result = program.eval('delet');
+      expect(result.error).toBeInstanceOf(Error);
+      const msg = (result.error as Error).message;
+      // Should suggest "delete" (edit distance 1) — "deploy" is too far
+      expect(msg).toMatch(/Did you mean "delete"/);
+    });
+
+    it('should suggest multiple similar options with -- prefix', () => {
+      const p = createPadrone('app').command('run', (c) =>
+        c
+          .arguments(z.object({ verbose: z.boolean().optional(), version: z.string().optional(), verify: z.boolean().optional() }))
+          .action(() => 'ran'),
+      );
+
+      const result = p.eval('run --verbo');
+      expect(result.argsResult?.issues?.[0]?.message).toContain('--verbose');
     });
   });
 });

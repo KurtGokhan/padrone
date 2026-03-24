@@ -763,33 +763,36 @@ function levenshtein(a: string, b: string): number {
 }
 
 /**
- * Finds the closest match from a list of candidates using Levenshtein distance.
- * Returns the suggestion string (e.g. 'Did you mean "deploy"?') or empty string if no good match.
- * Threshold: distance must be at most 40% of the longer string's length (min 1, max 3).
+ * Finds close matches from a list of candidates using Levenshtein distance
+ * and prefix/substring matching (for inputs longer than 3 characters).
+ * Returns up to 3 matching candidate names (raw, unformatted).
  */
-export function suggestSimilar(input: string, candidates: string[]): string {
-  if (candidates.length === 0) return '';
+export function suggestSimilar(input: string, candidates: string[]): string[] {
+  if (candidates.length === 0) return [];
 
   const lower = input.toLowerCase();
-  let bestDist = Infinity;
-  let bestMatch = '';
+  const matches: { candidate: string; score: number }[] = [];
 
   for (const candidate of candidates) {
-    const dist = levenshtein(lower, candidate.toLowerCase());
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestMatch = candidate;
+    const candidateLower = candidate.toLowerCase();
+    if (candidateLower === lower) continue;
+
+    const dist = levenshtein(lower, candidateLower);
+    const maxLen = Math.max(input.length, candidate.length);
+    const threshold = Math.min(3, Math.max(1, Math.ceil(maxLen * 0.4)));
+
+    if (dist > 0 && dist <= threshold) {
+      matches.push({ candidate, score: dist });
+    } else if (lower.length >= 3) {
+      // Prefix or substring match for longer inputs
+      if (candidateLower.startsWith(lower) || candidateLower.includes(lower)) {
+        matches.push({ candidate, score: threshold + 1 });
+      }
     }
   }
 
-  const maxLen = Math.max(input.length, bestMatch.length);
-  const threshold = Math.min(3, Math.max(1, Math.ceil(maxLen * 0.4)));
-
-  if (bestDist > 0 && bestDist <= threshold) {
-    return `Did you mean "${bestMatch}"?`;
-  }
-
-  return '';
+  matches.sort((a, b) => a.score - b.score);
+  return matches.slice(0, 3).map((m) => m.candidate);
 }
 
 export function findCommandByName(name: string, commands?: AnyPadroneCommand[]): AnyPadroneCommand | undefined {

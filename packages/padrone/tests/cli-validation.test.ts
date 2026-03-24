@@ -206,7 +206,7 @@ describe('CLI validation improvements', () => {
       const issue = result.argsResult?.issues?.[0];
       expect(issue?.message).toContain('Unknown option');
       expect(issue?.message).toContain('statsu');
-      expect(issue?.message).toContain('Did you mean "status"');
+      expect(issue?.message).toContain('Did you mean "--status"');
     });
 
     it('should suggest similar option for misspelling', () => {
@@ -216,7 +216,7 @@ describe('CLI validation improvements', () => {
 
       const result = program.eval('list --vrebose');
       expect(result.argsResult?.issues).toBeDefined();
-      expect(result.argsResult?.issues?.[0]?.message).toContain('Did you mean "verbose"');
+      expect(result.argsResult?.issues?.[0]?.message).toContain('Did you mean "--verbose"');
     });
 
     it('should report unknown option without suggestion when too different', () => {
@@ -241,7 +241,7 @@ describe('CLI validation improvements', () => {
 
       const result = program.cli();
       expect(result.error).toBeInstanceOf(ValidationError);
-      expect(errors.some((e) => e.includes('Did you mean "verbose"'))).toBe(true);
+      expect(errors.some((e) => e.includes('Did you mean "--verbose"'))).toBe(true);
     });
   });
 

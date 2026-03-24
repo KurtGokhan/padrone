@@ -291,6 +291,20 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     return preprocessedArgs;
   };
 
+  const formatOptionSuggestions = (names: string[]): string => {
+    if (names.length === 0) return '';
+    const quoted = names.map((n) => `"--${n}"`);
+    if (quoted.length === 1) return `Did you mean ${quoted[0]}?`;
+    return `Did you mean ${quoted.slice(0, -1).join(', ')} or ${quoted.at(-1)}?`;
+  };
+
+  const formatCommandSuggestions = (names: string[]): string => {
+    if (names.length === 0) return '';
+    const quoted = names.map((n) => `"${n}"`);
+    if (quoted.length === 1) return `Did you mean ${quoted[0]}?`;
+    return `Did you mean ${quoted.slice(0, -1).join(', ')} or ${quoted.at(-1)}?`;
+  };
+
   /**
    * Detects unknown options in args that aren't defined in the schema.
    * Returns unknown key info with suggestions, or empty array if schema is loose.
@@ -298,7 +312,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   const checkUnknownArgs = (
     command: AnyPadroneCommand,
     preprocessedArgs: Record<string, unknown>,
-  ): { key: string; suggestion: string }[] => {
+  ): { key: string; suggestions: string[] }[] => {
     if (!command.argsSchema) return [];
 
     const argsMeta = command.meta?.fields;
@@ -316,10 +330,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     // Check for unknown args before schema validation (strict by default)
     const unknownArgs = checkUnknownArgs(command, preprocessedArgs);
     if (unknownArgs.length > 0) {
-      const issues: StandardSchemaV1.Issue[] = unknownArgs.map(({ key, suggestion }) => ({
-        path: [key],
-        message: suggestion ? `Unknown option: "${key}". ${suggestion}` : `Unknown option: "${key}"`,
-      }));
+      const issues: StandardSchemaV1.Issue[] = unknownArgs.map(({ key, suggestions }) => {
+        const hint = formatOptionSuggestions(suggestions);
+        return { path: [key], message: hint ? `Unknown option: "${key}". ${hint}` : `Unknown option: "${key}"` };
+      });
       return { args: undefined, argsResult: { issues } as any };
     }
 
@@ -935,12 +949,13 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
               }
             }
 
-            const suggestion = suggestSimilar(unmatchedTerms[0]!, candidateNames);
-            const suggestions = suggestion ? [suggestion] : [];
+            const similarNames = suggestSimilar(unmatchedTerms[0]!, candidateNames);
+            const suggestionText = formatCommandSuggestions(similarNames);
+            const suggestions = suggestionText ? [suggestionText] : [];
             const baseMsg = isRootCommand
               ? `Unknown command: ${unmatchedTerms[0]}`
               : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}`;
-            const errorMsg = suggestions.length ? `${baseMsg}\n\n  ${suggestions[0]}` : baseMsg;
+            const errorMsg = suggestionText ? `${baseMsg}\n\n  ${suggestionText}` : baseMsg;
 
             if (errorMode === 'hard') {
               runtime.error(errorMsg);
@@ -1193,10 +1208,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
             if (willPrompt) {
               const unknowns = checkUnknownArgs(command, preprocessedArgs);
               if (unknowns.length > 0) {
-                const issues: StandardSchemaV1.Issue[] = unknowns.map(({ key, suggestion }) => ({
-                  path: [key],
-                  message: suggestion ? `Unknown option: "${key}". ${suggestion}` : `Unknown option: "${key}"`,
-                }));
+                const issues: StandardSchemaV1.Issue[] = unknowns.map(({ key, suggestions }) => {
+                  const hint = formatOptionSuggestions(suggestions);
+                  return { path: [key], message: hint ? `Unknown option: "${key}". ${hint}` : `Unknown option: "${key}"` };
+                });
                 return { args: undefined, argsResult: { issues } as any };
               }
 
@@ -1284,6 +1299,18 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
               return knownOptions;
             };
 
+            const collectSuggestions = (issues: readonly StandardSchemaV1.Issue[]): string[] =>
+              issues.flatMap((i: any) => {
+                const keys: string[] | undefined = i.keys ?? i.message?.match(/[Uu]nrecognized key(?:s)?[^"]*"([^"]+)"/)?.slice(1);
+                if (!keys?.length) return [];
+                return keys.flatMap((k: string) => {
+                  const similar = suggestSimilar(k, getKnownOptions());
+                  return similar.length ? [formatOptionSuggestions(similar)] : [];
+                });
+              });
+
+            const allSuggestions = collectSuggestions(v.argsResult.issues);
+
             const issueMessages = v.argsResult.issues
               .map((i: StandardSchemaV1.Issue) => {
                 const base = `  - ${i.path?.join('.') || 'root'}: ${i.message}`;
@@ -1292,7 +1319,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
                 const unrecognizedKeys: string[] | undefined =
                   issueAny.keys ?? i.message?.match(/[Uu]nrecognized key(?:s)?[^"]*"([^"]+)"/)?.slice(1);
                 if (unrecognizedKeys?.length) {
-                  const hints = unrecognizedKeys.map((k: string) => suggestSimilar(k, getKnownOptions())).filter(Boolean);
+                  const hints = unrecognizedKeys.flatMap((k: string) => {
+                    const similar = suggestSimilar(k, getKnownOptions());
+                    return similar.length ? [formatOptionSuggestions(similar)] : [];
+                  });
                   if (hints.length) return `${base}\n    ${hints.join('\n    ')}`;
                 }
                 return base;
@@ -1305,20 +1335,26 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
               runtime.error(`Validation error:\n${issueMessages}`);
               runtime.error(helpText);
               throw new ValidationError(`Validation error:\n${issueMessages}`, v.argsResult.issues as any, {
-                suggestions: v.argsResult.issues.flatMap((i: any) => {
-                  const keys: string[] | undefined = i.keys ?? i.message?.match(/[Uu]nrecognized key(?:s)?[^"]*"([^"]+)"/)?.slice(1);
-                  if (!keys?.length) return [];
-                  return keys.map((k: string) => suggestSimilar(k, getKnownOptions())).filter(Boolean);
-                }),
+                suggestions: allSuggestions,
                 command: command.path || command.name,
               });
             }
 
-            // Soft mode: return result with issues, skip the action
+            // Soft mode: enrich issues with suggestions and return
+            const enrichedIssues = v.argsResult.issues.map((i: any) => {
+              const keys: string[] | undefined = i.keys ?? i.message?.match(/[Uu]nrecognized key(?:s)?[^"]*"([^"]+)"/)?.slice(1);
+              if (!keys?.length) return i;
+              const hints = keys.flatMap((k: string) => {
+                const similar = suggestSimilar(k, getKnownOptions());
+                return similar.length ? [formatOptionSuggestions(similar)] : [];
+              });
+              if (!hints.length) return i;
+              return { ...i, message: `${i.message} ${hints.join(' ')}` };
+            });
             return withDrain({
               command: command as any,
               args: undefined,
-              argsResult: v.argsResult,
+              argsResult: { ...v.argsResult, issues: enrichedIssues },
               result: undefined,
             });
           }
