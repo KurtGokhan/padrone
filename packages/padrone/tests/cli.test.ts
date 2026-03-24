@@ -749,6 +749,24 @@ describe('CLI', () => {
       expect(result.args?.tag).toEqual(['one', 'two', 'three']);
     });
 
+    it('should collect repeated non-array args into an array for union schemas', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .arguments(
+            z.object({
+              id: z.union([z.string(), z.array(z.string())]).optional(),
+            }),
+          )
+          .action((args) => args),
+      );
+
+      const single = program.parse('test --id foo');
+      expect(single.args?.id).toBe('foo');
+
+      const multiple = program.parse('test --id foo --id bar --id baz');
+      expect(multiple.args?.id).toEqual(['foo', 'bar', 'baz']);
+    });
+
     it('should display variadic args in help text', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c

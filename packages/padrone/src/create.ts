@@ -217,7 +217,19 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
           setNestedValue(rawArgs, key, Array.isArray(value) ? value : [value]);
         }
       } else {
-        setNestedValue(rawArgs, key, value);
+        const existing = getNestedValue(rawArgs, key);
+        if (existing !== undefined) {
+          // Repeated non-array option: collect into array for the validator
+          if (Array.isArray(existing)) {
+            if (Array.isArray(value)) existing.push(...value);
+            else existing.push(value);
+          } else {
+            if (Array.isArray(value)) setNestedValue(rawArgs, key, [existing, ...value]);
+            else setNestedValue(rawArgs, key, [existing, value]);
+          }
+        } else {
+          setNestedValue(rawArgs, key, value);
+        }
       }
     }
 
