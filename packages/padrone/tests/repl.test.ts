@@ -476,10 +476,9 @@ describe('REPL', () => {
         // consume
       }
 
-      const expectedWidth = process.stdout?.columns || 80;
       const firstLine = output.at(0) as string;
-      expect(firstLine.length).toBe(expectedWidth);
-      expect(firstLine).toBe('─'.repeat(expectedWidth));
+      expect(firstLine.length).toBe(120);
+      expect(firstLine).toBe('─'.repeat(120));
       expect(output.at(1)).toBe('Hello, World!');
       // Also after
       expect(output.at(-1)).toBe(firstLine);
@@ -520,10 +519,9 @@ describe('REPL', () => {
       }
 
       // Separator before, nothing after
-      const expectedWidth = process.stdout?.columns || 80;
       const firstLine = output.at(0) as string;
-      expect(firstLine.length).toBe(expectedWidth);
-      expect(firstLine).toBe('─'.repeat(expectedWidth));
+      expect(firstLine.length).toBe(120);
+      expect(firstLine).toBe('─'.repeat(120));
       expect(output.at(-1)).toBe('Hello, World!');
     });
 

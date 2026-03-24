@@ -49,8 +49,7 @@ Arguments:
   id  Task ID
 
 Options:
-  --priority  [string]  Priority level
-                        (default: medium) (choices: low, medium, high)
+  --priority  [string]  Priority level (default: medium) (choices: low, medium, high)
   --verbose             Show detailed information
 "
 `;
@@ -62,8 +61,7 @@ exports[`help should generate help for a command with enabled colors 1`] = `
   \x1B[32mid\x1B[0m  \x1B[2mTask ID\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
-  \x1B[32m--priority\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mPriority level\x1B[0m
-                        \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m
+  \x1B[32m--priority\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mPriority level\x1B[0m \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m
   \x1B[32m--verbose\x1B[0m             \x1B[2mShow detailed information\x1B[0m
 "
 `;
@@ -78,10 +76,8 @@ Commands:
 Run "list extended [command] --help" for more information on a command.
 
 Options:
-  --status    [string]  Filter by status
-                        (choices: pending, in_progress, completed)
-  --priority  [string]  Filter by priority
-                        (default: medium) (choices: low, medium, high)
+  --status    [string]  Filter by status (choices: pending, in_progress, completed)
+  --priority  [string]  Filter by priority (default: medium) (choices: low, medium, high)
 "
 `;
 
@@ -100,8 +96,7 @@ Arguments:
   query  Search query
 
 Options:
-  -s, --status  [string[]]  Filter by status
-                            (choices: pending, in_progress, completed)
+  -s, --status  [string[]]  Filter by status (choices: pending, in_progress, completed)
 "
 `;
 
@@ -182,8 +177,7 @@ exports[`help should generate help in console format 1`] = `
   \x1B[32mid\x1B[0m  \x1B[2mTask ID\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
-  \x1B[32m--priority\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mPriority level\x1B[0m
-                        \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m
+  \x1B[32m--priority\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mPriority level\x1B[0m \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m
   \x1B[32m--verbose\x1B[0m             \x1B[2mShow detailed information\x1B[0m
 "
 `;
@@ -288,11 +282,9 @@ Commands:
 Run "list [command] --help" for more information on a command.
 
 Options:
-  --status    [string]  Filter by status
-                        (choices: pending, in_progress, completed)
+  --status    [string]  Filter by status (choices: pending, in_progress, completed)
   --limit     [number]  Maximum number of tasks (default: 10)
-  --priority  [string]  Filter by priority
-                        (default: medium) (choices: low, medium, high)
+  --priority  [string]  Filter by priority (default: medium) (choices: low, medium, high)
 
 Subcommand Details:
 
@@ -306,10 +298,8 @@ Commands:
 Run "list extended [command] --help" for more information on a command.
 
 Options:
-  --status    [string]  Filter by status
-                        (choices: pending, in_progress, completed)
-  --priority  [string]  Filter by priority
-                        (default: medium) (choices: low, medium, high)
+  --status    [string]  Filter by status (choices: pending, in_progress, completed)
+  --priority  [string]  Filter by priority (default: medium) (choices: low, medium, high)
 
 Subcommand Details:
 
@@ -317,8 +307,7 @@ Subcommand Details:
 Usage: padrone-test list extended extended [options]
 
 Options:
-  --status  [string]  Filter by status
-                      (choices: pending, in_progress, completed)
+  --status  [string]  Filter by status (choices: pending, in_progress, completed)
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test show <id> [options]
@@ -327,16 +316,14 @@ Arguments:
   id  Task ID
 
 Options:
-  --priority  [string]  Priority level
-                        (default: medium) (choices: low, medium, high)
+  --priority  [string]  Priority level (default: medium) (choices: low, medium, high)
   --verbose             Show detailed information
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test filter [options]
 
 Options:
-  --status     [string]  Filter by status
-                         (choices: pending, in_progress, completed)
+  --status     [string]  Filter by status (choices: pending, in_progress, completed)
   --priority   [string]  Filter by priority (choices: low, medium, high)
   --ascending            Sort in ascending order
 
@@ -353,8 +340,7 @@ Arguments:
   query  Search query
 
 Options:
-  -s, --status  [string[]]  Filter by status
-                            (choices: pending, in_progress, completed)
+  -s, --status  [string[]]  Filter by status (choices: pending, in_progress, completed)
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test noop
@@ -1249,11 +1235,9 @@ Commands:
 Run "list [command] --help" for more information on a command.
 
 Options:
-  --status    [string]  Filter by status
-                        (choices: pending, in_progress, completed)
+  --status    [string]  Filter by status (choices: pending, in_progress, completed)
   --limit     [number]  Maximum number of tasks (default: 10)
-  --priority  [string]  Filter by priority
-                        (default: medium) (choices: low, medium, high)
+  --priority  [string]  Filter by priority (default: medium) (choices: low, medium, high)
 
 Subcommand Details:
 
@@ -1267,10 +1251,8 @@ Commands:
 Run "list extended [command] --help" for more information on a command.
 
 Options:
-  --status    [string]  Filter by status
-                        (choices: pending, in_progress, completed)
-  --priority  [string]  Filter by priority
-                        (default: medium) (choices: low, medium, high)
+  --status    [string]  Filter by status (choices: pending, in_progress, completed)
+  --priority  [string]  Filter by priority (default: medium) (choices: low, medium, high)
 
 Subcommand Details:
 
@@ -1278,8 +1260,7 @@ Subcommand Details:
 Usage: padrone-test list extended extended [options]
 
 Options:
-  --status  [string]  Filter by status
-                      (choices: pending, in_progress, completed)
+  --status  [string]  Filter by status (choices: pending, in_progress, completed)
 "
 `;
 
@@ -1293,10 +1274,8 @@ Commands:
 Run "list extended [command] --help" for more information on a command.
 
 Options:
-  --status    [string]  Filter by status
-                        (choices: pending, in_progress, completed)
-  --priority  [string]  Filter by priority
-                        (default: medium) (choices: low, medium, high)
+  --status    [string]  Filter by status (choices: pending, in_progress, completed)
+  --priority  [string]  Filter by priority (default: medium) (choices: low, medium, high)
 
 Subcommand Details:
 
@@ -1304,8 +1283,7 @@ Subcommand Details:
 Usage: padrone-test list extended extended [options]
 
 Options:
-  --status  [string]  Filter by status
-                      (choices: pending, in_progress, completed)
+  --status  [string]  Filter by status (choices: pending, in_progress, completed)
 "
 `;
 
@@ -1320,11 +1298,9 @@ exports[`help with full detail mode should work with ansi format in full detail 
 \x1B[90mRun "list [command] --help" for more information on a command.\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
-  \x1B[32m--status\x1B[0m    \x1B[33m[string]\x1B[0m  \x1B[2mFilter by status\x1B[0m
-                        \x1B[90m(choices: pending, in_progress, completed)\x1B[0m
+  \x1B[32m--status\x1B[0m    \x1B[33m[string]\x1B[0m  \x1B[2mFilter by status\x1B[0m \x1B[90m(choices: pending, in_progress, completed)\x1B[0m
   \x1B[32m--limit\x1B[0m     \x1B[33m[number]\x1B[0m  \x1B[2mMaximum number of tasks\x1B[0m \x1B[90m(default: 10)\x1B[0m
-  \x1B[32m--priority\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mFilter by priority\x1B[0m
-                        \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m
+  \x1B[32m--priority\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mFilter by priority\x1B[0m \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m
 
 \x1B[1mSubcommand Details:\x1B[0m
 
@@ -1338,10 +1314,8 @@ exports[`help with full detail mode should work with ansi format in full detail 
 \x1B[90mRun "list extended [command] --help" for more information on a command.\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
-  \x1B[32m--status\x1B[0m    \x1B[33m[string]\x1B[0m  \x1B[2mFilter by status\x1B[0m
-                        \x1B[90m(choices: pending, in_progress, completed)\x1B[0m
-  \x1B[32m--priority\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mFilter by priority\x1B[0m
-                        \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m
+  \x1B[32m--status\x1B[0m    \x1B[33m[string]\x1B[0m  \x1B[2mFilter by status\x1B[0m \x1B[90m(choices: pending, in_progress, completed)\x1B[0m
+  \x1B[32m--priority\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mFilter by priority\x1B[0m \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m
 
 \x1B[1mSubcommand Details:\x1B[0m
 
@@ -1349,8 +1323,7 @@ exports[`help with full detail mode should work with ansi format in full detail 
 \x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test list extended extended\x1B[0m \x1B[90m[options]\x1B[0m
 
 \x1B[1mOptions:\x1B[0m
-  \x1B[32m--status\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mFilter by status\x1B[0m
-                      \x1B[90m(choices: pending, in_progress, completed)\x1B[0m
+  \x1B[32m--status\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mFilter by status\x1B[0m \x1B[90m(choices: pending, in_progress, completed)\x1B[0m
 "
 `;
 

@@ -6,3 +6,4 @@ linker = "isolated"
 
 [test]
 onlyFailures = true
+preload = ["./packages/padrone/tests/preload.ts"]
