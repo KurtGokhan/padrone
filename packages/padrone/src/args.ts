@@ -440,7 +440,7 @@ export function coerceArgs(data: Record<string, unknown>, schema: StandardJSONSc
 }
 
 /** Keys consumed by the CLI framework that are not user-defined args. */
-const frameworkReservedKeys = new Set(['config', 'c']);
+export const frameworkReservedKeys = new Set(['config', 'c']);
 
 /**
  * Detect unknown keys in the args that don't match any schema property.

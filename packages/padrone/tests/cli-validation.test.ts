@@ -123,6 +123,23 @@ describe('CLI validation improvements', () => {
   // Issue #2: Strict schema by default
   // ====================================================================
   describe('strict by default', () => {
+    it('should reject unknown options when no arguments are defined', () => {
+      const program = createPadrone('app').command('run', (c) => c.action(() => 'done'));
+
+      const result = program.eval('run --foo bar');
+      expect(result.argsResult?.issues).toBeDefined();
+      expect(result.argsResult?.issues?.[0]?.message).toContain('Unknown option: "foo"');
+      expect(result.args).toBeUndefined();
+    });
+
+    it('should return empty args when no arguments are defined and no options passed', () => {
+      const program = createPadrone('app').command('run', (c) => c.action(() => 'done'));
+
+      const result = program.eval('run');
+      expect(result.argsResult?.issues).toBeUndefined();
+      expect(result.args as unknown).toEqual({});
+    });
+
     it('should reject unknown options by default', () => {
       const program = createPadrone('app').command('list', (c) =>
         c.arguments(z.object({ status: z.string().optional(), limit: z.number().optional() })).action((args) => args),

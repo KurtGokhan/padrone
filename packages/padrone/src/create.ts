@@ -4,6 +4,7 @@ import {
   coerceArgs,
   detectUnknownArgs,
   extractSchemaMetadata,
+  frameworkReservedKeys,
   isArrayField,
   isAsyncStreamField,
   JSON_SCHEMA_OPTS,
@@ -313,7 +314,14 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     command: AnyPadroneCommand,
     preprocessedArgs: Record<string, unknown>,
   ): { key: string; suggestions: string[] }[] => {
-    if (!command.argsSchema) return [];
+    if (!command.argsSchema) {
+      // No schema means no options are expected — treat all non-framework keys as unknown
+      const unknowns: { key: string; suggestions: string[] }[] = [];
+      for (const key of Object.keys(preprocessedArgs)) {
+        if (!frameworkReservedKeys.has(key)) unknowns.push({ key, suggestions: [] });
+      }
+      return unknowns;
+    }
 
     const argsMeta = command.meta?.fields;
     const { flags, aliases } = extractSchemaMetadata(command.argsSchema, argsMeta, command.meta?.autoAlias);
@@ -337,13 +345,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       return { args: undefined, argsResult: { issues } as any };
     }
 
-    const argsParsed = command.argsSchema ? command.argsSchema['~standard'].validate(preprocessedArgs) : { value: preprocessedArgs };
-
-    // Return undefined for args when there's no schema and no meaningful args
-    const hasArgs = command.argsSchema || Object.keys(preprocessedArgs).length > 0;
+    const argsParsed = command.argsSchema ? command.argsSchema['~standard'].validate(preprocessedArgs) : { value: {} };
 
     const buildResult = (parsed: StandardSchemaV1.Result<unknown>) => ({
-      args: parsed.issues ? undefined : hasArgs ? (parsed.value as any) : undefined,
+      args: parsed.issues ? undefined : (parsed.value as any),
       argsResult: parsed as any,
     });
 

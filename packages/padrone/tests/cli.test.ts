@@ -113,7 +113,7 @@ describe('CLI', () => {
       const result = program.parse('');
 
       expect(result.command.path).toBe('');
-      expect(result.args).toBeUndefined();
+      expect(result.args).toEqual({});
     });
   });
 
