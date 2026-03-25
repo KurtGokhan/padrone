@@ -59,6 +59,15 @@ export type InferEnvInput<T extends AnyPadroneCommand> = T['envSchema'] extends 
 export type InferEnvOutput<T extends AnyPadroneCommand> = T['envSchema'] extends PadroneSchema<any, infer O> ? O : never;
 
 /**
+ * Extracts the context type from a command.
+ * @example
+ * ```ts
+ * type Ctx = InferContext<typeof myCommand>;
+ * ```
+ */
+export type InferContext<T extends AnyPadroneCommand> = T['~types']['context'];
+
+/**
  * Gets a command type by its path from a program or command tree.
  * Supports both full paths (e.g., "config set") and alias paths.
  * @example

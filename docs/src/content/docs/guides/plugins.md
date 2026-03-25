@@ -68,6 +68,7 @@ const startup: PadronePlugin = {
 | `command` | `PadroneCommand` | The root command |
 | `input` | `string \| undefined` | Raw CLI input string |
 | `state` | `Record<string, unknown>` | Shared mutable state bag |
+| `context` | `unknown` | User-provided context from `cli()`/`eval()` |
 
 **Result:** The full pipeline result (passed through from parse → validate → execute).
 
@@ -93,6 +94,7 @@ const parseLogger: PadronePlugin = {
 | `command` | `PadroneCommand` | The root command |
 | `input` | `string \| undefined` | Raw CLI input string |
 | `state` | `Record<string, unknown>` | Shared mutable state bag |
+| `context` | `unknown` | User-provided context from `cli()`/`eval()` |
 
 **Result:**
 | Property | Type | Description |
@@ -123,6 +125,7 @@ const defaults: PadronePlugin = {
 | `rawArgs` | `Record<string, unknown>` | Mutable raw arguments — modify before `next()` |
 | `positionalArgs` | `string[]` | Positional argument values |
 | `state` | `Record<string, unknown>` | Shared mutable state bag |
+| `context` | `unknown` | User-provided context |
 
 **Result:**
 | Property | Type | Description |
@@ -153,6 +156,7 @@ const timer: PadronePlugin = {
 | `command` | `PadroneCommand` | Resolved command |
 | `args` | `unknown` | Mutable validated arguments — modify before `next()` |
 | `state` | `Record<string, unknown>` | Shared mutable state bag |
+| `context` | `unknown` | User-provided context |
 
 **Result:**
 | Property | Type | Description |
@@ -192,6 +196,7 @@ const errorRecovery: PadronePlugin = {
 | `command` | `PadroneCommand` | The root command |
 | `error` | `unknown` | The error that was thrown |
 | `state` | `Record<string, unknown>` | Shared mutable state bag |
+| `context` | `unknown` | User-provided context |
 
 **Result:**
 | Property | Type | Description |
@@ -225,6 +230,7 @@ const cleanup: PadronePlugin = {
 | `error` | `unknown \| undefined` | The error, if the pipeline failed |
 | `result` | `unknown \| undefined` | The pipeline result, if it succeeded |
 | `state` | `Record<string, unknown>` | Shared mutable state bag |
+| `context` | `unknown` | User-provided context |
 
 ## Middleware Order
 

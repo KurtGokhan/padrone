@@ -139,6 +139,24 @@ type ArgsMeta = {
 };
 ```
 
+### `.context(transform?)`
+
+Sets or transforms the typed context for this command. Context flows through the command tree — subcommands inherit the parent's context type.
+
+```ts
+// Type-only — declare context type without runtime transform
+.context<{ db: Database }>()
+
+// With transform — modify inherited context at runtime
+.context((parentCtx) => ({ ...parentCtx, logger: createLogger() }))
+
+// Chainable — multiple calls compose transforms
+.context<{ db: Database }>()
+.context((ctx) => ({ ...ctx, logger: createLogger() }))
+```
+
+When used without arguments, `.context<T>()` only changes the TypeScript type. When called with a transform function, the function is applied at runtime when resolving context from root to the target command.
+
 ### `.action(handler?)`
 
 Defines the command handler. Called with no args to create a passthrough command (useful for commands that only have subcommands).
@@ -148,7 +166,7 @@ Defines the command handler. Called with no args to create a passthrough command
 ```
 
 - `args`: Validated output from the schema
-- `ctx`: `{ runtime, command, program, progress }`
+- `ctx`: `{ runtime, command, program, progress, context }`
 - `base`: Previous handler when overriding an existing command
 
 ### `.command(name, builderFn?)`
@@ -175,7 +193,7 @@ Creates or extends a subcommand.
 )
 ```
 
-### `.mount(name, program)`
+### `.mount(name, program, options?)`
 
 Mounts an existing Padrone program as a subcommand tree.
 
@@ -187,9 +205,16 @@ const admin = createPadrone('admin')
 const app = createPadrone('app')
   .mount('admin', admin)       // app admin users, app admin roles
   .mount(['db', 'd'], dbProgram); // with aliases
+
+// With context transform
+const app2 = createPadrone('app')
+  .context<{ db: Database }>()
+  .mount('admin', admin, {
+    context: (appCtx) => ({ db: appCtx.db }),
+  });
 ```
 
-Re-paths all nested commands. Drops the mounted program's version. Preserves plugins.
+Re-paths all nested commands. Drops the mounted program's version. Preserves plugins. The optional `{ context }` transform converts the parent's context type into what the mounted program expects.
 
 ### `.configure(config)`
 
@@ -298,6 +323,7 @@ CLI entry point. Parses `process.argv`. Throws on validation errors.
 program.cli();
 program.cli({ repl: { prompt: '> ' } });
 program.cli({ autoOutput: false });
+program.cli({ context: { db } });  // provide typed context
 ```
 
 Preferences:
@@ -306,6 +332,7 @@ type PadroneCliPreferences = {
   interactive?: boolean,
   autoOutput?: boolean,      // default: true
   repl?: PadroneReplPreferences | false,
+  context?: TContext,         // required when context type is not `unknown`
 };
 ```
 
@@ -315,16 +342,18 @@ Parse + validate + execute a command string. Returns issues softly (doesn't thro
 
 ```ts
 const result = program.eval('greet --name Alice');
+const result = program.eval('greet --name Alice', { context: { db } });
 if (result.argsResult?.issues) { /* validation failed */ }
 ```
 
-### `.run(name, args)`
+### `.run(name, args, prefs?)`
 
 Execute a command by name with an args object. Always sync. No schema validation.
 
 ```ts
 const result = program.run('greet', { name: 'World' });
 const result = program.run('db migrate', { name: 'v1' });
+const result = program.run('greet', { name: 'World' }, { context: { db } });
 ```
 
 ### `.parse(input?)`
@@ -458,6 +487,7 @@ All handlers can return Promises for async behavior.
 **Shared across all phases:**
 - `command`: The resolved command
 - `state`: Mutable `Record<string, unknown>` shared across phases per execution
+- `context`: The user-provided context (from `cli()`/`eval()`/`run()` prefs)
 
 **Phase-specific fields:**
 
@@ -550,6 +580,7 @@ import type {
   InferEnvInput,    // Extract env schema input type
   InferEnvOutput,   // Extract env schema output type
   InferCommand,     // Get command type by path: InferCommand<typeof program, 'db migrate'>
+  InferContext,     // Extract context type: InferContext<typeof program>
 } from 'padrone';
 ```
 
@@ -558,11 +589,12 @@ import type {
 ## Key Types Quick Reference
 
 ```ts
-type PadroneActionContext = {
+type PadroneActionContext<TContext = unknown> = {
   runtime: ResolvedPadroneRuntime;
   command: AnyPadroneCommand;
   program: AnyPadroneProgram;
   progress: PadroneProgressIndicator;
+  context: TContext;
 };
 
 type PadroneCommandResult<T> = {

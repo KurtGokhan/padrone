@@ -122,7 +122,8 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 | `.arguments(schema, meta?)` | Define args with Zod schema, positional config, field metadata |
 | `.action(handler)` | Set handler `(args, ctx, base?) => result` |
 | `.command(name, builder)` | Add subcommand (name or `[name, ...aliases]`) |
-| `.mount(name, program)` | Mount another program as subcommand tree |
+| `.context(transform?)` | Define typed context or transform inherited context |
+| `.mount(name, program, options?)` | Mount another program as subcommand tree |
 | `.configure(config)` | Set title, description, version, etc. |
 | `.env(schema)` | Map env vars to args |
 | `.configFile(file, schema?)` | Load args from config files |
@@ -137,9 +138,9 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 
 | Method | What it does |
 |--------|-------------|
-| `.cli(prefs?)` | Entry point — parses `process.argv`, throws on errors |
-| `.eval(input, prefs?)` | Parse + validate + execute string, returns errors softly |
-| `.run(command, args)` | Run by name with typed args (no validation) |
+| `.cli(prefs?)` | Entry point — parses `process.argv`, throws on errors. Pass `context` in prefs. |
+| `.eval(input, prefs?)` | Parse + validate + execute string, returns errors softly. Pass `context` in prefs. |
+| `.run(command, args, prefs?)` | Run by name with typed args (no validation). Pass `context` in prefs. |
 | `.parse(input?)` | Parse without executing |
 | `.api()` | Generate typed function API |
 | `.repl(options?)` | Interactive REPL session |

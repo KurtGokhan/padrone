@@ -40,7 +40,7 @@ The `--conditions=padrone@dev` flag is critical — it resolves package exports 
 Monorepo with bun workspaces: `packages/*`, `examples/*`, `docs/`.
 
 The core library lives in `packages/padrone/`:
-- `src/types.ts` — All type definitions (`PadroneCommand`, `PadroneBuilder`, `PadroneProgram`, plugins, etc.). PadroneCommand has 9 generic type params.
+- `src/types.ts` — All type definitions (`PadroneCommand`, `PadroneBuilder`, `PadroneProgram`, plugins, etc.). PadroneCommand has 10 generic type params.
 - `src/create.ts` — `createPadrone()` factory and builder object. Wires together the modules below. Immutable builder methods (configure, arguments, action, command, mount, use, etc.).
 - `src/exec.ts` — Core execution pipeline: signal handling → builtin dispatch → parse → validate → execute phases. Contains `execCommand()`, `collectPlugins()`, `handleBuiltinAction()`, and progress cleanup.
 - `src/validate.ts` — CLI input parsing (`parseCommand`), argument preprocessing (`buildCommandArgs`), schema validation (`validateCommandArgs`), unknown arg detection, stdin reading, env validation.
@@ -51,7 +51,7 @@ The core library lives in `packages/padrone/`:
 - `src/parse.ts` — CLI input tokenizer/parser. Handles flag stacking, `--key=value`, `--no-*` negation, positional args, nested keys.
 - `src/args.ts` — Schema metadata extraction (`extractSchemaMetadata`), option preprocessing (flags/aliases), positional config parsing, coercion.
 - `src/type-utils.ts` — Advanced type utilities (`MaybePromise`, `PickCommandByName`, `IsGeneric`, `OrAsync`, etc.).
-- `src/type-helpers.ts` — User-facing inference helpers (`InferArgsInput`, `InferArgsOutput`, `InferCommand`).
+- `src/type-helpers.ts` — User-facing inference helpers (`InferArgsInput`, `InferArgsOutput`, `InferCommand`, `InferContext`).
 - `src/mcp.ts` — *(experimental)* Model Context Protocol server (2025-11-25 spec). Streamable HTTP and stdio transports.
 - `src/serve.ts` — *(experimental)* REST HTTP server. Exposes commands as endpoints with OpenAPI docs (Scalar).
 - `src/help.ts` / `src/formatter.ts` — Help generation in multiple formats (text, ansi, markdown, html, json).
@@ -88,6 +88,8 @@ When asked to commit with a changeset, create a concise changeset suitable for a
 **Flags vs aliases**: `flags` = single-char short flags (`-v`), stackable. `alias` = multi-char alternative long names (`--dry-run`). `autoAlias` (default: true) auto-generates kebab-case aliases for camelCase option names.
 
 **Execution paths**: `eval()`/`cli()` runs all 6 plugin phases; `parse()` runs parse + validate; `run()` runs execute only (no validation).
+
+**Context**: User-defined, strongly-typed object that flows through the command tree. Defined via `.context<T>()` (type-only) or `.context(transform)` (with runtime callback). Subcommands inherit the parent context type but can transform it. `mount()` accepts an optional `{ context }` option for context transforms. Context is provided at invocation via `cli()`, `eval()`, `run()`. Resolved by walking the command parent chain and applying transforms from root to target. Available in action handlers via `ctx.context` and in all plugin phase contexts.
 
 **Mutation commands**: `.configure({ mutation: true })` marks a command as performing side effects. Affects serve (POST-only, experimental), MCP (`annotations.destructiveHint`, experimental), and tool() (`needsApproval` default).
 

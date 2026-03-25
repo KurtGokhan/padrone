@@ -152,6 +152,7 @@ export function wrapWithLifecycle<T>(
   pipeline: () => T | Promise<T>,
   wrapErrorResult?: (result: unknown) => T,
   signal?: AbortSignal,
+  context?: unknown,
 ): T | Promise<T> {
   const hasStart = plugins.some((p) => p.start);
   const hasError = plugins.some((p) => p.error);
@@ -209,7 +210,7 @@ export function wrapWithLifecycle<T>(
   const runShutdown = (error?: unknown, result?: unknown) => {
     cleanupProgress(error);
     if (!hasShutdown) return;
-    const ctx: PluginShutdownContext = { command, state, error, result, signal: effectiveSignal };
+    const ctx: PluginShutdownContext = { command, state, error, result, signal: effectiveSignal, context };
     return runPluginChain('shutdown', plugins, ctx, () => {});
   };
 
@@ -222,7 +223,7 @@ export function wrapWithLifecycle<T>(
         });
       throw error;
     }
-    const ctx: PluginErrorContext = { command, state, error, signal: effectiveSignal };
+    const ctx: PluginErrorContext = { command, state, error, signal: effectiveSignal, context };
     const errorResult = runPluginChain('error', plugins, ctx, (): PluginErrorResult => ({ error }));
     return thenMaybe(errorResult, (er) => {
       if (er.error !== undefined) {
@@ -244,7 +245,7 @@ export function wrapWithLifecycle<T>(
   };
 
   // Run start phase wrapping the pipeline
-  const startCtx: PluginStartContext = { command, state, input, signal: effectiveSignal };
+  const startCtx: PluginStartContext = { command, state, input, signal: effectiveSignal, context };
   let result: T | Promise<T>;
   try {
     result = (hasStart ? runPluginChain('start', plugins, startCtx, pipeline) : pipeline()) as T | Promise<T>;

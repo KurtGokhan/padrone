@@ -61,7 +61,8 @@ program.cli();
 | `.arguments(schema, meta?)` | Define options/args with a Standard Schema |
 | `.action(handler?)` | Set the command handler `(args, ctx, base?) => result` |
 | `.command(name, builderFn?)` | Add or extend a subcommand |
-| `.mount(name, program)` | Mount another Padrone program as a subcommand |
+| `.context(transform?)` | Define typed context or transform inherited context |
+| `.mount(name, program, options?)` | Mount another Padrone program as a subcommand (with optional `{ context }`) |
 | `.configure(config)` | Set title, description, version, deprecated, hidden, group, autoOutput, mutation |
 | `.use(plugin)` | Register a middleware plugin |
 | `.env(schema)` | Parse environment variables into args |
@@ -76,9 +77,9 @@ program.cli();
 
 | Method | Purpose |
 |---|---|
-| `.cli(prefs?)` | Entry point from `process.argv` — throws on validation errors |
-| `.eval(input, prefs?)` | Parse + validate + execute a string — returns issues softly |
-| `.run(name, args)` | Execute by name with args object (sync, no validation) |
+| `.cli(prefs?)` | Entry point from `process.argv` — throws on validation errors. Pass `context` in prefs. |
+| `.eval(input, prefs?)` | Parse + validate + execute a string — returns issues softly. Pass `context` in prefs. |
+| `.run(name, args, prefs?)` | Execute by name with args object (sync, no validation). Pass `context` in prefs. |
 | `.parse(input?)` | Parse without executing |
 | `.repl(options?)` | Start interactive REPL session |
 | `.help(command?, prefs?)` | Generate help text |
@@ -119,6 +120,8 @@ Six phases in onion/middleware pattern with `next()`:
 4. **execute** — handler execution (parent chain)
 5. **error** — error handling (return `{ error: undefined, result }` to suppress)
 6. **shutdown** — cleanup, always runs
+
+All phase contexts include `context: unknown` (the user-provided context from `cli()`/`eval()`/`run()`).
 
 ```ts
 const plugin: PadronePlugin = {

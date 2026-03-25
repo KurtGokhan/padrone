@@ -14,7 +14,7 @@ type DefaultArgs = UnknownRecord | void;
  * Context object passed as the second argument to command action handlers.
  * Contains the resolved runtime, the executing command, and the program instance.
  */
-export type PadroneActionContext = {
+export type PadroneActionContext<TContext = unknown> = {
   /** The resolved runtime for this command (I/O, env, config, etc.). */
   runtime: ResolvedPadroneRuntime;
   /** The command being executed. */
@@ -33,6 +33,8 @@ export type PadroneActionContext = {
    * The `signal.reason` is a `PadroneSignal` string ('SIGINT', 'SIGTERM', or 'SIGHUP').
    */
   signal: AbortSignal;
+  /** User-defined context object. Set via `.context()` on the builder and provided at `cli()`/`eval()` time. */
+  context: TContext;
 };
 
 /**
@@ -105,6 +107,7 @@ export type PadroneCommand<
   TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = PadroneSchema<void>,
   TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = PadroneSchema<void>,
   TAsync extends boolean = false,
+  TContext = unknown,
 > = {
   name: TName;
   path: FullCommandName<TName, TParentName>;
@@ -137,13 +140,16 @@ export type PadroneCommand<
   configSchema?: TConfig;
   envSchema?: TEnv;
   meta?: GetArgsMeta<TArgs>;
-  action?: (args: StandardSchemaV1.InferOutput<TArgs>, ctx: PadroneActionContext) => TRes;
+  action?: (args: StandardSchemaV1.InferOutput<TArgs>, ctx: PadroneActionContext<TContext>) => TRes;
   /** List of possible config file names to search for. */
   configFiles?: string[];
   /** Runtime flag indicating this command uses async validation. Set by `.async()` or `asyncSchema()`. */
   isAsync?: boolean;
   /** Runtime configuration for I/O abstraction. */
   runtime?: PadroneRuntime;
+
+  /** Transform function that maps parent context to this command's context. Set by `.context(transform)`. */
+  contextTransform?: (ctx: unknown) => unknown;
 
   /** Plugins registered on this command. Collected from the parent chain at execution time. */
   plugins?: PadronePlugin<any, any>[];
@@ -168,10 +174,11 @@ export type PadroneCommand<
     configSchema: TConfig;
     envSchema: TEnv;
     async: TAsync;
+    context: TContext;
   };
 };
 
-export type AnyPadroneCommand = PadroneCommand<string, any, any, any, [...AnyPadroneCommand[]], string[], any, any, any>;
+export type AnyPadroneCommand = PadroneCommand<string, any, any, any, [...AnyPadroneCommand[]], string[], any, any, any, any>;
 
 /**
  * Base type for extracting command information from builder or program.

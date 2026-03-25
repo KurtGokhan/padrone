@@ -21,8 +21,9 @@ const program = createPadrone('app')
       verbose: z.boolean().optional().describe('Enable verbose logging'),
     })
   )
-  .action((args) => {
+  .action((args, ctx) => {
     // args: { port: number; host: string; verbose?: boolean }
+    // ctx: { runtime, command, program, progress, context }
   });
 ```
 

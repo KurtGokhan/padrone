@@ -243,11 +243,29 @@ export function execCommand(
     if (builtinResult != null) return builtinResult;
   }
 
+  const initialContext = evalOptions?.context;
+
+  /** Resolve context by walking the command chain and applying transforms. */
+  const resolveContext = (command: AnyPadroneCommand): unknown => {
+    const chain: AnyPadroneCommand[] = [];
+    let current: AnyPadroneCommand | undefined = command;
+    while (current) {
+      chain.unshift(current);
+      current = current.parent;
+    }
+    let resolved = initialContext;
+    for (const cmd of chain) {
+      if (cmd.contextTransform) resolved = cmd.contextTransform(resolved);
+    }
+    return resolved;
+  };
+
   const createActionContext = (cmd: AnyPadroneCommand): Omit<PadroneActionContext, 'signal'> => ({
     runtime: getCommandRuntime(cmd),
     command: cmd,
     program: ctx.builder as any,
     progress: noopIndicator,
+    context: resolveContext(cmd),
   });
 
   // Shared plugin state for this execution
@@ -257,7 +275,7 @@ export function execCommand(
   const runPipeline = () => {
     // ── Phase 1: Parse ──────────────────────────────────────────────────
     const signal = abortController.signal;
-    const parseCtx: PluginParseContext = { input: resolvedInput, command: rootCommand, state, signal };
+    const parseCtx: PluginParseContext = { input: resolvedInput, command: rootCommand, state, signal, context: initialContext };
 
     const coreParse = (): PluginParseResult => {
       const { command, rawArgs, args, unmatchedTerms } = parseCommandFn(parseCtx.input);
@@ -376,6 +394,7 @@ export function execCommand(
         positionalArgs: parsed.positionalArgs,
         state,
         signal,
+        context: resolveContext(command),
       };
 
       const coreValidate = (): PluginValidateResult | Promise<PluginValidateResult> => {
@@ -562,7 +581,7 @@ export function execCommand(
           activeIndicator.update(state._progressMsg as string);
         }
 
-        const executeCtx: PluginExecuteContext = { command, args: v.args, state, signal };
+        const executeCtx: PluginExecuteContext = { command, args: v.args, state, signal, context: resolveContext(command) };
 
         const coreExecute = (): PluginExecuteResult => {
           const handler = command.action ?? noop;
@@ -624,6 +643,7 @@ export function execCommand(
       runPipeline,
       (result) => withDrain({ command: rootCommand, args: undefined, argsResult: undefined, result }),
       abortController.signal,
+      initialContext,
     );
   } catch (err) {
     cleanupSignal();

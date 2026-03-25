@@ -33,11 +33,12 @@ export function createProgramMethods(ctx: ProgramContext) {
   // A never-aborted signal for contexts that don't need signal handling (parse, run).
   const inertSignal = new AbortController().signal;
 
-  const createActionContext = (cmd: AnyPadroneCommand): Omit<PadroneActionContext, 'signal'> => ({
+  const createActionContext = (cmd: AnyPadroneCommand, context?: unknown): Omit<PadroneActionContext, 'signal'> => ({
     runtime: getCommandRuntime(cmd),
     command: cmd,
     program: builder as any,
     progress: noopIndicator,
+    context,
   });
 
   const stringify: AnyPadroneProgram['stringify'] = (command = '' as any, args) => {
@@ -102,17 +103,32 @@ export function createProgramMethods(ctx: ProgramContext) {
     return parts.join(' ');
   };
 
-  const run: AnyPadroneProgram['run'] = (command, args) => {
+  const resolveContext = (command: AnyPadroneCommand, initialContext: unknown): unknown => {
+    const chain: AnyPadroneCommand[] = [];
+    let current: AnyPadroneCommand | undefined = command;
+    while (current) {
+      chain.unshift(current);
+      current = current.parent;
+    }
+    let resolved = initialContext;
+    for (const cmd of chain) {
+      if (cmd.contextTransform) resolved = cmd.contextTransform(resolved);
+    }
+    return resolved;
+  };
+
+  const run: AnyPadroneProgram['run'] = (command, args, prefs?: { context?: unknown }) => {
     try {
       const commandObj = typeof command === 'string' ? findCommandByName(command, rootCommand.commands) : (command as AnyPadroneCommand);
       if (!commandObj) throw new RoutingError(`Command "${command ?? ''}" not found`);
       if (!commandObj.action) throw new RoutingError(`Command "${commandObj.path}" has no action`, { command: commandObj.path });
 
+      const resolvedCtx = resolveContext(commandObj, prefs?.context);
       const state: Record<string, unknown> = {};
-      const executeCtx: PluginExecuteContext = { command: commandObj, args, state, signal: inertSignal };
+      const executeCtx: PluginExecuteContext = { command: commandObj, args, state, signal: inertSignal, context: resolvedCtx };
 
       const coreExecute = (): PluginExecuteResult => {
-        const actionCtx = createActionContext(commandObj);
+        const actionCtx = createActionContext(commandObj, resolvedCtx);
         const result = commandObj.action!(executeCtx.args as any, { ...actionCtx, signal: inertSignal });
         return { result };
       };
@@ -285,7 +301,7 @@ export function createProgramMethods(ctx: ProgramContext) {
   const parse: AnyPadroneProgram['parse'] = (input) => {
     const state: Record<string, unknown> = {};
 
-    const parseCtx = { input: input as string | undefined, command: rootCommand, state, signal: inertSignal };
+    const parseCtx = { input: input as string | undefined, command: rootCommand, state, signal: inertSignal, context: undefined };
     const coreParse = () => {
       const { command, rawArgs, args } = ctx.parseCommandFn(parseCtx.input);
       return { command, rawArgs, positionalArgs: args };
@@ -303,6 +319,7 @@ export function createProgramMethods(ctx: ProgramContext) {
         positionalArgs: parsed.positionalArgs,
         state,
         signal: inertSignal,
+        context: undefined,
       };
 
       const coreValidate = () => coreValidateForParse(command, validateCtx.rawArgs, validateCtx.positionalArgs, rootCommand);

@@ -86,6 +86,12 @@ export type PadroneEvalPreferences = {
    * Useful for capturing output, injecting test doubles, or running in non-terminal contexts (e.g. AI tool calls).
    */
   runtime?: PadroneRuntime;
+
+  /**
+   * User-defined context object passed to command action handlers via `ctx.context`.
+   * The context flows through the command tree and can be transformed by subcommands via `.context(transform)`.
+   */
+  context?: unknown;
 };
 
 /**

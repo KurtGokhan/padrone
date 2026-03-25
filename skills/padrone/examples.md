@@ -191,6 +191,13 @@ const app = createPadrone('myapp')
 // myapp auth login --username=alice --password=secret
 // myapp admin users
 // myapp adm roles  (alias)
+
+// With context transform
+const appWithCtx = createPadrone('myapp')
+  .context<{ db: Database }>()
+  .mount('auth', auth, {
+    context: (appCtx) => ({ db: appCtx.db }),
+  });
 ```
 
 ## Plugins
@@ -304,6 +311,41 @@ const program = createPadrone('app')
   });
 
 // Running 'deploy': global-logger (outermost) -> deploy-guard (innermost) -> handler
+```
+
+## Context
+
+Pass a user-defined, strongly-typed context through the command tree:
+
+```ts
+type AppContext = { db: Database; logger: Logger };
+
+const program = createPadrone('myapp')
+  .context<AppContext>()
+  .command('users', (c) =>
+    c
+      .command('list', (sub) =>
+        sub.action((args, { context }) => {
+          // context is typed as AppContext
+          return context.db.query('SELECT * FROM users');
+        }),
+      )
+      // Transform context for a subcommand
+      .command('admin', (sub) =>
+        sub
+          .context((ctx) => ({ ...ctx, isAdmin: true }))
+          .action((args, { context }) => {
+            // context is { db, logger, isAdmin: boolean }
+          }),
+      ),
+  );
+
+// Provide context at invocation
+const db = createDatabase();
+const logger = createLogger();
+program.cli({ context: { db, logger } });
+program.eval('users list', { context: { db, logger } });
+program.run('users list', {}, { context: { db, logger } });
 ```
 
 ## Wrapping External Tools *(experimental)*

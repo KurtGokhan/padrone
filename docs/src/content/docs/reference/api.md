@@ -113,6 +113,29 @@ When `interactive` or `optionalInteractive` is set, the command becomes async �
 
 ---
 
+### .context(transform?)
+
+Set or transform the typed context for this command. Context is a user-defined object that flows through the command tree. Subcommands inherit the parent's context type but can transform it.
+
+```typescript
+// Type-only — declare context type without runtime transform
+program.context<{ db: Database }>();
+
+// With transform — modify inherited context at runtime
+program.context((parentCtx) => ({ ...parentCtx, logger: createLogger() }));
+
+// Chainable — multiple calls compose transforms
+program
+  .context<{ db: Database }>()
+  .context((ctx) => ({ ...ctx, logger: createLogger() }));
+```
+
+When called without arguments, `.context<T>()` only changes the TypeScript type. When called with a transform function, the function is applied at runtime to the inherited context as it resolves from root to the target command.
+
+**Returns:** The program builder (chainable)
+
+---
+
 ### .action(handler)
 
 Set the handler function for the command.
@@ -120,6 +143,7 @@ Set the handler function for the command.
 ```typescript
 program.action((args, ctx) => {
   console.log('Arguments:', args);
+  console.log('Context:', ctx.context);
   return { success: true };
 });
 ```
@@ -127,7 +151,7 @@ program.action((args, ctx) => {
 **Parameters:**
 - `handler`: Function receiving `(args, ctx, base)`
   - `args`: Parsed and validated arguments object
-  - `ctx`: Action context object containing `runtime`, `command`, `program`, and `progress` (see below)
+  - `ctx`: Action context object containing `runtime`, `command`, `program`, `progress`, and `context` (see below)
   - `base`: Previous handler function (useful when [overriding commands](/padrone/guides/composition/#command-override))
 
 **Action Context (`ctx`):**
@@ -137,6 +161,7 @@ program.action((args, ctx) => {
 | `command` | `PadroneCommand` | The command being executed |
 | `program` | `PadroneProgram` | The root program instance |
 | `progress` | `PadroneProgressIndicator` | Auto-managed progress indicator, or lazy indicator for manual use. See [Progress Indicators](/padrone/guides/progress-indicators/) |
+| `context` | `TContext` | User-defined context, resolved through the command parent chain |
 
 **Returns:** The program builder (chainable)
 
@@ -519,6 +544,9 @@ program.cli();
 // With preferences
 program.cli({ interactive: true, autoOutput: true });
 
+// With context
+program.cli({ context: { db, logger } });
+
 // Start a REPL session from CLI
 // myapp --repl
 // myapp --repl db
@@ -530,6 +558,7 @@ program.cli({ interactive: true, autoOutput: true });
   - `autoOutput`: Automatically write return value to output
   - `runtime`: Override runtime configuration
   - `repl`: Override REPL preferences (used when `--repl` flag is passed)
+  - `context`: User-defined context object. Required when the program has a non-`unknown` context type.
 
 **Returns:** `PadroneCommandResult` with `command`, `args`, `argsResult`, and `result`. Returns a `Promise` when the matched command is async.
 
@@ -543,6 +572,7 @@ Parse, validate, and execute a command string with soft error handling. Returns 
 
 ```typescript
 const result = await program.eval('serve --port 8080');
+const result = await program.eval('serve --port 8080', { context: { db } });
 
 if (result.argsResult?.issues) {
   console.error('Validation errors:', result.argsResult.issues);
@@ -553,7 +583,7 @@ if (result.argsResult?.issues) {
 
 **Parameters:**
 - `input`: Command string to parse and execute
-- `preferences` (optional): `{ interactive?: boolean }` — override interactive prompting (`true` = force, `false` = suppress, `undefined` = inherit from runtime)
+- `preferences` (optional): `{ interactive?: boolean, context?: TContext }` — override interactive prompting and provide context
 
 **Returns:** `PadroneCommandResult` with `command`, `args`, `argsResult`, and `result`. Returns a `Promise` when the matched command is async.
 
@@ -561,7 +591,7 @@ if (result.argsResult?.issues) {
 
 ---
 
-### .run(command, args)
+### .run(command, args, prefs?)
 
 Run a command programmatically with typed arguments.
 
@@ -570,11 +600,15 @@ const result = program.run('serve', {
   port: 8080,
   host: 'localhost',
 });
+
+// With context
+const result = program.run('serve', { port: 8080 }, { context: { db } });
 ```
 
 **Parameters:**
 - `command`: Command path (e.g., `'serve'` or `'db migrate up'`)
 - `args`: Arguments object matching the command's schema
+- `prefs` (optional): `{ context?: TContext }` — provide context
 
 **Returns:** The action handler's return value
 
@@ -771,7 +805,7 @@ await streamText({
 
 ---
 
-### .mount(name, program)
+### .mount(name, program, options?)
 
 Mount an existing Padrone program as a subcommand. All nested commands are recursively re-pathed. See the [Program Composition guide](/padrone/guides/composition/) for full details.
 
@@ -788,11 +822,19 @@ const app = createPadrone('app')
 // With aliases
 const app2 = createPadrone('app')
   .mount(['users', 'u'], users);
+
+// With context transform
+const app3 = createPadrone('app')
+  .context<{ db: Database }>()
+  .mount('users', users, {
+    context: (appCtx) => ({ db: appCtx.db }),
+  });
 ```
 
 **Parameters:**
 - `name`: Command name string, or `[name, ...aliases]` array for aliases
 - `program`: A Padrone program to mount
+- `options` (optional): `{ context?: (parentCtx) => mountedCtx }` — transform the parent's context into what the mounted program expects
 
 **Returns:** New builder with the mounted program
 
@@ -1111,5 +1153,6 @@ import type {
   InferArgsInput,
   InferArgsOutput,
   InferCommand,
+  InferContext,
 } from 'padrone';
 ```

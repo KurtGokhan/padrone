@@ -65,6 +65,12 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     async() {
       return createPadroneBuilder({ ...existingCommand, isAsync: true }) as any;
     },
+    context(transform?: (ctx: unknown) => unknown) {
+      if (!transform) return createPadroneBuilder({ ...existingCommand }) as any;
+      const existing = existingCommand.contextTransform;
+      const composed = existing ? (ctx: unknown) => transform(existing(ctx)) : transform;
+      return createPadroneBuilder({ ...existingCommand, contextTransform: composed }) as any;
+    },
     arguments(schema, meta) {
       const resolvedArgs = typeof schema === 'function' ? schema(existingCommand.argsSchema as any) : schema;
       const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedArgs) || hasInteractiveConfig(meta);
@@ -142,7 +148,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       return createPadroneBuilder({ ...existingCommand, commands: updatedCommands }) as any;
     },
 
-    mount(nameOrNames, program) {
+    mount(nameOrNames: string | readonly string[], program: unknown, options?: { context?: (ctx: unknown) => unknown }) {
       const name = Array.isArray(nameOrNames) ? nameOrNames[0] : nameOrNames;
       const aliases = Array.isArray(nameOrNames) && nameOrNames.length > 1 ? (nameOrNames.slice(1) as string[]) : undefined;
 
@@ -151,6 +157,11 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
       const remounted = repathCommandTree(programCommand, name, existingCommand.path || '', existingCommand);
       remounted.aliases = aliases;
+
+      if (options?.context) {
+        const existing = remounted.contextTransform;
+        remounted.contextTransform = existing ? (ctx: unknown) => existing(options.context!(ctx)) : options.context;
+      }
 
       const existingSubcommand = existingCommand.commands?.find((c) => c.name === name) as AnyPadroneCommand | undefined;
       const mergedCommandObj = existingSubcommand ? mergeCommands(existingSubcommand, remounted) : remounted;

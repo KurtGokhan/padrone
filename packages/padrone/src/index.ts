@@ -50,5 +50,5 @@ export type {
 } from './types/index.ts';
 export type { AsyncStreamMeta } from './util/stream.ts';
 export { asyncStream } from './util/stream.ts';
-export type { InferArgsInput, InferArgsOutput, InferCommand } from './util/type-helpers.ts';
+export type { InferArgsInput, InferArgsOutput, InferCommand, InferContext } from './util/type-helpers.ts';
 export type { Drained } from './util/type-utils.ts';

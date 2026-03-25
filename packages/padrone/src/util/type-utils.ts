@@ -260,7 +260,8 @@ type RepathCommand<TCommand extends AnyPadroneCommand, TNewParentName extends st
   TCommand['~types']['aliases'],
   TCommand['~types']['configSchema'],
   TCommand['~types']['envSchema'],
-  TCommand['~types']['async']
+  TCommand['~types']['async'],
+  TCommand['~types']['context']
 >;
 
 export type PickCommandByPossibleCommands<

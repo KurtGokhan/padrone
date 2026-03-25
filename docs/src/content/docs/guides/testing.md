@@ -202,6 +202,21 @@ await testCli(program).args('serve --port 8080').run();
 await testCli(program).run('serve --port 8080');
 ```
 
+## Testing with Context
+
+Provide context via the `run()` preferences:
+
+```typescript
+test('uses context', async () => {
+  const db = createMockDb();
+  const result = await testCli(program).run('users list', {
+    context: { db },
+  });
+
+  expect(result.result).toEqual(['alice', 'bob']);
+});
+```
+
 ## Combining Builders
 
 Chain multiple builders for complex scenarios:

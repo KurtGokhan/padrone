@@ -56,12 +56,37 @@ const app = createPadrone('app')
 // app adm users list
 ```
 
+### Mount with Context Transform
+
+When your parent program uses a typed context, you can transform it for the mounted program:
+
+```typescript
+type AppContext = { db: Database; logger: Logger };
+
+const users = createPadrone('users')
+  .context<{ db: Database }>()
+  .command('list', (c) =>
+    c.action((args, { context }) => context.db.query('SELECT * FROM users'))
+  );
+
+const app = createPadrone('app')
+  .context<AppContext>()
+  .mount('users', users, {
+    context: (appCtx) => ({ db: appCtx.db }),
+  });
+
+app.cli({ context: { db: createDb(), logger: createLogger() } });
+```
+
+The `context` option is a function that receives the parent's context and returns the context expected by the mounted program.
+
 ### What Gets Mounted
 
 - All nested commands and their subcommands
 - Arguments, schemas, and action handlers
 - Plugins registered on the mounted program or its commands
 - Aliases on nested commands
+- Context transforms (composed with mount-level transform if provided)
 
 The mounted program's root-level `version` is dropped to avoid conflicts with the parent.
 

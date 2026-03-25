@@ -13,6 +13,8 @@ export type PluginBaseContext = {
   state: Record<string, unknown>;
   /** Cancellation signal that fires when the process receives a termination signal. */
   signal: AbortSignal;
+  /** User-defined context object, resolved through the command's parent chain. */
+  context: unknown;
 };
 
 /** Context for the parse phase. */
