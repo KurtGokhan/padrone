@@ -56,7 +56,6 @@ The core library lives in `packages/padrone/`:
 - `src/serve.ts` — *(experimental)* REST HTTP server. Exposes commands as endpoints with OpenAPI docs (Scalar).
 - `src/help.ts` / `src/formatter.ts` — Help generation in multiple formats (text, ansi, markdown, html, json).
 - `src/interactive.ts` — Auto-prompting for missing fields using enquirer.
-- `src/completion.ts` — Shell completion script generation (bash, zsh, fish).
 - `src/wrap.ts` — *(experimental)* Wrapping external CLI tools.
 - `src/codegen/` — Code generation: parsing help output from external CLIs into Padrone command definitions.
 - `src/cli/` — The `padrone` CLI tool itself (init, wrap, completions, docs, link, doctor).
