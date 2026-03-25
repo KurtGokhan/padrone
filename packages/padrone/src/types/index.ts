@@ -4,6 +4,7 @@ export type {
   AnyPadroneProgram,
   PadroneBuilder,
   PadroneBuilderMethods,
+  PadroneExtension,
   PadroneProgram,
 } from './builder.ts';
 export type {
@@ -17,19 +18,19 @@ export type {
   PadroneProgressPrefs,
 } from './command.ts';
 export type {
-  PadronePlugin,
-  PluginBaseContext,
-  PluginErrorContext,
-  PluginErrorResult,
-  PluginExecuteContext,
-  PluginExecuteResult,
-  PluginParseContext,
-  PluginParseResult,
-  PluginShutdownContext,
-  PluginStartContext,
-  PluginValidateContext,
-  PluginValidateResult,
-} from './plugin.ts';
+  InterceptorBaseContext,
+  InterceptorErrorContext,
+  InterceptorErrorResult,
+  InterceptorExecuteContext,
+  InterceptorExecuteResult,
+  InterceptorParseContext,
+  InterceptorParseResult,
+  InterceptorShutdownContext,
+  InterceptorStartContext,
+  InterceptorValidateContext,
+  InterceptorValidateResult,
+  PadroneInterceptor,
+} from './interceptor.ts';
 export type {
   PadroneCliPreferences,
   PadroneEvalPreferences,

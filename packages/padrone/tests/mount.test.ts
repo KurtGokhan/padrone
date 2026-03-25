@@ -149,16 +149,16 @@ describe('mount', () => {
     });
   });
 
-  describe('mounting with plugins', () => {
+  describe('mounting with interceptors', () => {
     const calls: string[] = [];
 
     const pluggedProgram = createPadrone('plugged')
-      .use({
-        name: 'test-plugin',
+      .intercept({
+        name: 'test-interceptor',
         execute: (_ctx, next) => {
-          calls.push('plugin-before');
+          calls.push('interceptor-before');
           const result = next();
-          calls.push('plugin-after');
+          calls.push('interceptor-after');
           return result;
         },
       })
@@ -169,12 +169,12 @@ describe('mount', () => {
         }),
       );
 
-    it('should preserve plugins from the mounted program', () => {
+    it('should preserve interceptors from the mounted program', () => {
       calls.length = 0;
       const app = createPadrone('app').mount('plugged', pluggedProgram);
       const result = app.eval('plugged cmd');
       expect(result.result).toBe('done');
-      expect(calls).toEqual(['plugin-before', 'handler', 'plugin-after']);
+      expect(calls).toEqual(['interceptor-before', 'handler', 'interceptor-after']);
     });
   });
 

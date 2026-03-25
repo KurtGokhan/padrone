@@ -107,7 +107,9 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 
 **Progress indicators** — auto-managed spinners with dynamic messages. `.progress({ progress: 'Deploying...', success: (r) => \`v${r.version}\` })`.
 
-**Plugins** — middleware hooks for 6 phases (start, parse, validate, execute, error, shutdown). Onion model with `next()`.
+**Interceptors** — middleware hooks for 6 phases (start, parse, validate, execute, error, shutdown). Onion model with `next()`.
+
+**Extensions** — build-time composition with `.extend()` for reusable bundles of configuration, commands, and interceptors. Use `padroneBuiltins()` for opt-in built-in features.
 
 **Composition** — mount programs as subcommands with `.mount()`, override commands with merge semantics.
 
@@ -129,7 +131,8 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 | `.configFile(file, schema?)` | Load args from config files |
 | `.wrap(config)` | Wrap an external CLI tool *(experimental)* |
 | `.progress(config?)` | Auto-managed spinner |
-| `.use(plugin)` | Register middleware plugin |
+| `.intercept(interceptor)` | Register middleware interceptor |
+| `.extend(extension)` | Apply a build-time extension (bundle of config, commands, interceptors) |
 | `.runtime(runtime)` | Custom I/O (for non-terminal use) |
 | `.updateCheck(config?)` | Background version check |
 | `.async()` | Mark as async validation |

@@ -101,12 +101,12 @@ Auto-managed spinners for long-running commands with dynamic messages:
 })
 ```
 
-### Plugin System
+### Interceptor System
 
-Intercept and extend command execution with middleware-style plugins:
+Intercept and extend command execution with middleware-style interceptors:
 
 ```typescript
-program.use({
+program.intercept({
   name: 'logger',
   execute: (ctx, next) => {
     console.log(`Running: ${ctx.command.name}`);
@@ -114,6 +114,10 @@ program.use({
   },
 });
 ```
+
+### Extension System
+
+Compose reusable bundles of configuration, commands, and interceptors with `.extend()` and `PadroneExtension`. Use `padroneBuiltins()` for opt-in built-in features.
 
 ### Program Composition
 

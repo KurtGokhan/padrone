@@ -194,7 +194,7 @@ Now running `todo add` with no arguments will prompt for the task description (t
 - Set up [Interactive Prompting](../interactive-prompting/) for your CLI
 - Start an interactive [REPL session](../repl/)
 - Add [Progress Indicators](../progress-indicators/) to long-running commands
-- Add [Plugins](../plugins/) to extend command behavior
+- Add [Interceptors & Extensions](../plugins/) to extend command behavior
 - [Compose programs](../composition/) together with mount and override
 - Integrate with [AI tools](../ai-integration/) (MCP *(experimental)*, REST server *(experimental)*, and Vercel AI SDK)
 - Handle errors with [Error Handling](../error-handling/)

@@ -209,13 +209,13 @@ describe('progress', () => {
     });
   });
 
-  describe('with plugins', () => {
-    it('should succeed progress when plugins wrap execution', () => {
+  describe('with interceptors', () => {
+    it('should succeed progress when interceptors wrap execution', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app')
         .runtime({ progress: factory })
-        .use({
-          name: 'test-plugin',
+        .intercept({
+          name: 'test-interceptor',
           execute: (_ctx, next) => next(),
         })
         .command('cmd', (c) => c.progress('Working...').action(() => 'done'));
@@ -225,21 +225,21 @@ describe('progress', () => {
       expect(indicators[0]!.indicator.calls).toEqual(['succeed:']);
     });
 
-    it('should fail progress when plugin throws', () => {
+    it('should fail progress when interceptor throws', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app')
         .runtime({ progress: factory })
-        .use({
-          name: 'failing-plugin',
+        .intercept({
+          name: 'failing-interceptor',
           execute: () => {
-            throw new Error('plugin error');
+            throw new Error('interceptor error');
           },
         })
         .command('cmd', (c) => c.progress('Working...').action(() => 'done'));
 
       const result = program.eval('cmd');
       expect(result.error).toBeDefined();
-      expect(indicators[0]!.indicator.calls).toEqual(['fail:plugin error']);
+      expect(indicators[0]!.indicator.calls).toEqual(['fail:interceptor error']);
     });
   });
 

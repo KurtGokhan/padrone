@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
-import type { PadronePlugin, PadroneSignal } from 'padrone';
-import { createPadrone, SignalError } from 'padrone';
+import type { PadroneInterceptor, PadroneSignal } from 'padrone';
+import { createPadrone, padroneBuiltins, SignalError } from 'padrone';
 import { createConsoleMocker } from './console-mocker.ts';
 
 describe('signal handling', () => {
@@ -104,12 +104,12 @@ describe('signal handling', () => {
     });
   });
 
-  describe('AbortSignal in plugin contexts', () => {
-    it('should provide signal to all plugin phases', async () => {
+  describe('AbortSignal in interceptor contexts', () => {
+    it('should provide signal to all interceptor phases', async () => {
       const { runtime, sendSignal: _sendSignal } = createSignalRuntime();
       const signals: Record<string, AbortSignal> = {};
 
-      const plugin: PadronePlugin = {
+      const interceptor: PadroneInterceptor = {
         name: 'signal-checker',
         start: (ctx, next) => {
           signals.start = ctx.signal;
@@ -135,7 +135,7 @@ describe('signal handling', () => {
 
       const program = createPadrone('test')
         .runtime(runtime)
-        .use(plugin)
+        .intercept(interceptor)
         .command('cmd', (c) => c.action(() => 'ok'));
 
       await program.eval('cmd');
@@ -183,6 +183,7 @@ describe('signal handling', () => {
 
       const program = createPadrone('test')
         .runtime(runtime)
+        .extend(padroneBuiltins())
         .configure({ version: '1.0.0' })
         .command('cmd', (c) => c.action(() => 'ok'));
 
@@ -194,15 +195,15 @@ describe('signal handling', () => {
     });
   });
 
-  describe('shutdown plugin integration', () => {
-    it('should run shutdown plugins when action throws after signal', async () => {
+  describe('shutdown interceptor integration', () => {
+    it('should run shutdown interceptors when action throws after signal', async () => {
       const { runtime, sendSignal } = createSignalRuntime();
       let shutdownRan = false;
       let shutdownError: unknown;
 
       const program = createPadrone('test')
         .runtime(runtime)
-        .use({
+        .intercept({
           name: 'shutdown-tracker',
           shutdown: (ctx, next) => {
             shutdownRan = true;

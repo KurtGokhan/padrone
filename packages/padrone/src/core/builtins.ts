@@ -227,6 +227,104 @@ export function extractColorFlag(input: string | undefined): { theme?: ColorThem
   return undefined;
 }
 
+export type BuiltinFlag =
+  | { type: 'help'; command?: AnyPadroneCommand; detail?: DetailLevel; format?: FormatLevel; all?: boolean }
+  | { type: 'version' };
+
+/**
+ * Check for flag-based builtin triggers: --help/-h, --version/-v/-V, and `<cmd> help` reverse syntax.
+ * Command-based builtins (help, version, completion, man) are handled as real commands via padroneBuiltins().
+ */
+export function checkBuiltinFlags(input: string | undefined, rootCommand: AnyPadroneCommand): BuiltinFlag | null {
+  if (!input) return null;
+
+  const parts = parseCliInputToParts(input);
+  const terms = parts.filter((p) => p.type === 'term').map((p) => p.value);
+  const args = parts.filter((p) => p.type === 'named' || p.type === 'alias');
+
+  const keyIs = (key: string[], name: string) => key.length === 1 && key[0] === name;
+
+  const hasHelpFlag = args.some((p) => (p.type === 'named' && keyIs(p.key, 'help')) || (p.type === 'alias' && keyIs(p.key, 'h')));
+  const hasVersionFlag = args.some(
+    (p) => (p.type === 'named' && keyIs(p.key, 'version')) || (p.type === 'alias' && (keyIs(p.key, 'v') || keyIs(p.key, 'V'))),
+  );
+
+  const normalizedTerms = [...terms];
+  if (normalizedTerms[0] === rootCommand.name) normalizedTerms.shift();
+
+  // `<cmd> help` reverse syntax (e.g. `greet help` → help for `greet`)
+  if (normalizedTerms.length > 0 && normalizedTerms[normalizedTerms.length - 1] === 'help') {
+    const commandTerms = normalizedTerms.slice(0, -1);
+    // Only trigger if there are actual command terms before "help" (otherwise it's just "help" which is the command)
+    if (commandTerms.length > 0) {
+      let targetCommand: AnyPadroneCommand | undefined;
+      let current = rootCommand;
+      for (const term of commandTerms) {
+        const found = findCommandByName(term, current.commands);
+        if (found) {
+          targetCommand = found;
+          current = found;
+        } else {
+          break;
+        }
+      }
+      const detail = getDetailLevel(args);
+      const format = getFormatLevel(args);
+      const hasAllFlag = args.some((p) => p.type === 'named' && keyIs(p.key, 'all'));
+      return { type: 'help', command: targetCommand, detail, format, all: hasAllFlag || undefined };
+    }
+  }
+
+  // --help / -h flag
+  if (hasHelpFlag) {
+    const commandTerms = normalizedTerms.filter((t) => t !== 'help');
+    const commandName = commandTerms.join(' ');
+    const targetCommand = commandName ? findCommandByName(commandName, rootCommand.commands) : undefined;
+    const detail = getDetailLevel(args);
+    const format = getFormatLevel(args);
+    const hasAllFlag = args.some((p) => p.type === 'named' && keyIs(p.key, 'all'));
+    return { type: 'help', command: targetCommand, detail, format, all: hasAllFlag || undefined };
+  }
+
+  // --version / -v / -V flag (only for root command, i.e., no subcommand terms)
+  if (hasVersionFlag && normalizedTerms.length === 0) {
+    return { type: 'version' };
+  }
+
+  return null;
+}
+
+type ParsedArg = { type: string; key: string[]; value?: string | string[] };
+
+function getDetailLevel(args: ParsedArg[]): DetailLevel | undefined {
+  const keyIs = (key: string[], name: string) => key.length === 1 && key[0] === name;
+  for (const arg of args) {
+    if (arg.type === 'named' && keyIs(arg.key, 'detail')) {
+      if (typeof arg.value === 'string' && (arg.value === 'minimal' || arg.value === 'standard' || arg.value === 'full')) return arg.value;
+      return 'full';
+    }
+    if (arg.type === 'alias' && keyIs(arg.key, 'd')) {
+      if (typeof arg.value === 'string' && (arg.value === 'minimal' || arg.value === 'standard' || arg.value === 'full')) return arg.value;
+      return 'full';
+    }
+  }
+  return undefined;
+}
+
+function getFormatLevel(args: ParsedArg[]): FormatLevel | undefined {
+  const validFormats: FormatLevel[] = ['text', 'ansi', 'console', 'markdown', 'html', 'json', 'auto'];
+  const keyIs = (key: string[], name: string) => key.length === 1 && key[0] === name;
+  for (const arg of args) {
+    if (arg.type === 'named' && keyIs(arg.key, 'format') && typeof arg.value === 'string') {
+      if (validFormats.includes(arg.value as FormatLevel)) return arg.value as FormatLevel;
+    }
+    if (arg.type === 'alias' && keyIs(arg.key, 'f') && typeof arg.value === 'string') {
+      if (validFormats.includes(arg.value as FormatLevel)) return arg.value as FormatLevel;
+    }
+  }
+  return undefined;
+}
+
 /**
  * Resolves an inherited field by walking up the parent chain.
  * Returns the value from the nearest ancestor that defines it, or undefined.

@@ -4,18 +4,17 @@ import { generateHelp } from '../output/help.ts';
 import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
+  InterceptorExecuteContext,
+  InterceptorExecuteResult,
+  InterceptorParseContext,
+  InterceptorParseResult,
+  InterceptorValidateContext,
+  InterceptorValidateResult,
   PadroneActionContext,
   PadroneEvalPreferences,
-  PadronePlugin,
-  PluginExecuteContext,
-  PluginExecuteResult,
-  PluginParseContext,
-  PluginParseResult,
-  PluginValidateContext,
-  PluginValidateResult,
+  PadroneInterceptor,
 } from '../types/index.ts';
-import { getVersion } from '../util/utils.ts';
-import { type BuiltinAction, checkBuiltinCommands, extractColorFlag, extractConfigPath, resolveInherited } from './builtins.ts';
+import { extractColorFlag, extractConfigPath, resolveInherited } from './builtins.ts';
 import { getCommandRuntime, resolveAllCommands, suggestSimilar } from './commands.ts';
 import { ConfigError, RoutingError, signalExitCode, ValidationError } from './errors.ts';
 import {
@@ -23,11 +22,11 @@ import {
   createProgress,
   noopIndicator,
   resolveProgressMessage,
-  runPluginChain,
+  runInterceptorChain,
   wrapWithLifecycle,
-} from './plugins.ts';
+} from './interceptors.ts';
 import { errorResult, hasInteractiveConfig, noop, outputValue, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
-import type { PadroneProgressIndicator, PadroneSignal, ResolvedPadroneRuntime } from './runtime.ts';
+import type { PadroneProgressIndicator, PadroneSignal } from './runtime.ts';
 import { collectSuggestionsFromIssues, enrichIssuesWithSuggestions, formatSuggestions } from './suggestions.ts';
 import {
   buildCommandArgs,
@@ -47,21 +46,21 @@ export type ExecContext = {
     args: string[];
     unmatchedTerms: string[];
   };
-  collectPluginsFn: (cmd: AnyPadroneCommand) => PadronePlugin<any, any>[];
+  collectInterceptorsFn: (cmd: AnyPadroneCommand) => PadroneInterceptor<any, any>[];
 };
 
 /**
- * Collects plugins from the command's parent chain (root → ... → target).
- * Root/program plugins come first (outermost), target command's plugins last (innermost).
+ * Collects interceptors from the command's parent chain (root → ... → target).
+ * Root/program interceptors come first (outermost), target command's interceptors last (innermost).
  */
-export function collectPlugins(cmd: AnyPadroneCommand, rootCommand: AnyPadroneCommand): PadronePlugin<any, any>[] {
-  const chain: PadronePlugin<any, any>[][] = [];
+export function collectInterceptors(cmd: AnyPadroneCommand, rootCommand: AnyPadroneCommand): PadroneInterceptor<any, any>[] {
+  const chain: PadroneInterceptor<any, any>[][] = [];
   let current: AnyPadroneCommand | undefined = cmd;
   while (current) {
     if (!current.parent) {
-      if (rootCommand.plugins?.length) chain.unshift(rootCommand.plugins);
+      if (rootCommand.interceptors?.length) chain.unshift(rootCommand.interceptors);
     } else {
-      if (current.plugins?.length) chain.unshift(current.plugins);
+      if (current.interceptors?.length) chain.unshift(current.interceptors);
     }
     current = current.parent;
   }
@@ -78,73 +77,7 @@ export function errorResultWithSignal(err: unknown) {
   return result;
 }
 
-/**
- * Handles builtin commands (help, version, completion, man).
- * Returns the result if a builtin was handled, or null to continue normal execution.
- */
-export function handleBuiltinAction(builtin: BuiltinAction, rootCommand: AnyPadroneCommand, runtime: ResolvedPadroneRuntime): any {
-  if (builtin.type === 'help') {
-    resolveAllCommands(rootCommand);
-    const helpText = generateHelp(rootCommand, builtin.command ?? rootCommand, {
-      detail: builtin.detail,
-      format: builtin.format ?? runtime.format,
-      theme: runtime.theme,
-      all: builtin.all,
-    });
-    runtime.output(helpText);
-    return withDrain({ command: rootCommand, args: undefined, result: helpText });
-  }
-
-  if (builtin.type === 'version') {
-    const version = getVersion(rootCommand.version);
-    runtime.output(version);
-    return withDrain({ command: rootCommand, args: undefined, result: version });
-  }
-
-  if (builtin.type === 'completion') {
-    resolveAllCommands(rootCommand);
-    return import('../feature/completion.ts').then(({ detectShell, generateCompletionOutput, setupCompletions }) => {
-      if (builtin.setup) {
-        const shell = builtin.shell ?? detectShell();
-        if (!shell) throw new Error('Could not detect shell. Specify one: completion bash --setup');
-        const result = setupCompletions(rootCommand.name, shell);
-        const message = `${result.updated ? 'Updated' : 'Added'} ${rootCommand.name} completions in ${result.file}`;
-        runtime.output(message);
-        return withDrain({ command: rootCommand, args: undefined, result: message });
-      }
-      const completionScript = generateCompletionOutput(rootCommand, builtin.shell);
-      runtime.output(completionScript);
-      return withDrain({ command: rootCommand, args: undefined, result: completionScript });
-    });
-  }
-
-  if (builtin.type === 'man') {
-    resolveAllCommands(rootCommand);
-    return import('../docs/index.ts').then(({ setupManPages, removeManPages, generateDocs }) => {
-      if (builtin.setup) {
-        const result = setupManPages(rootCommand);
-        const message = `${result.updated ? 'Updated' : 'Installed'} ${result.written.length} man page(s) in ${result.dir}`;
-        runtime.output(message);
-        return withDrain({ command: rootCommand, args: undefined, result: message });
-      }
-      if (builtin.remove) {
-        const result = removeManPages(rootCommand);
-        const message =
-          result.removed.length > 0 ? `Removed ${result.removed.length} man page(s) from ${result.dir}` : 'No man pages found to remove.';
-        runtime.output(message);
-        return withDrain({ command: rootCommand, args: undefined, result: message });
-      }
-      const result = generateDocs(rootCommand, { format: 'man' });
-      const manPage = result.pages[0]?.content ?? '';
-      runtime.output(manPage);
-      return withDrain({ command: rootCommand, args: undefined, result: manPage });
-    });
-  }
-
-  return null;
-}
-
-/** Clean up an active progress indicator from the plugin state. */
+/** Clean up an active progress indicator from the interceptor state. */
 function cleanupProgressIndicator(state: Record<string, unknown>, resultOrError: unknown, isError: boolean) {
   const indicator = state._progress as PadroneProgressIndicator | undefined;
   if (!indicator) return;
@@ -177,7 +110,7 @@ export function execCommand(
   evalOptions?: PadroneEvalPreferences,
   errorMode: 'soft' | 'hard' = 'soft',
 ) {
-  const { rootCommand, parseCommandFn, collectPluginsFn } = ctx;
+  const { rootCommand, parseCommandFn, collectInterceptorsFn } = ctx;
   const baseRuntime = getCommandRuntime(rootCommand);
   let runtime = evalOptions?.runtime
     ? Object.assign({}, baseRuntime, Object.fromEntries(Object.entries(evalOptions.runtime).filter(([, v]) => v !== undefined)))
@@ -235,14 +168,6 @@ export function execCommand(
     return attachSignalInfo(r as Record<string, unknown>);
   };
 
-  // Check for built-in help/version/completion commands and flags (bypass plugins)
-  const builtin = checkBuiltinCommands(resolvedInput, rootCommand);
-  if (builtin) {
-    cleanupSignal();
-    const builtinResult = handleBuiltinAction(builtin, rootCommand, runtime);
-    if (builtinResult != null) return builtinResult;
-  }
-
   const initialContext = evalOptions?.context;
 
   /** Resolve context by walking the command chain and applying transforms. */
@@ -268,16 +193,16 @@ export function execCommand(
     context: resolveContext(cmd),
   });
 
-  // Shared plugin state for this execution
+  // Shared interceptor state for this execution
   const state: Record<string, unknown> = {};
-  const rootPlugins = rootCommand.plugins ?? [];
+  const rootInterceptors = rootCommand.interceptors ?? [];
 
   const runPipeline = () => {
     // ── Phase 1: Parse ──────────────────────────────────────────────────
     const signal = abortController.signal;
-    const parseCtx: PluginParseContext = { input: resolvedInput, command: rootCommand, state, signal, context: initialContext };
+    const parseCtx: InterceptorParseContext = { input: resolvedInput, command: rootCommand, state, signal, context: initialContext };
 
-    const coreParse = (): PluginParseResult => {
+    const coreParse = (): InterceptorParseResult => {
       const { command, rawArgs, args, unmatchedTerms } = parseCommandFn(parseCtx.input);
 
       // Default help: command with no action → show its help
@@ -342,12 +267,12 @@ export function execCommand(
       return { command, rawArgs, positionalArgs: args };
     };
 
-    const parsedOrPromise = runPluginChain('parse', rootPlugins, parseCtx, coreParse);
+    const parsedOrPromise = runInterceptorChain('parse', rootInterceptors, parseCtx, coreParse);
 
     // ── Phases 2 & 3 chained after parse ────────────────────────────────
-    const continueAfterParse = (parsed: PluginParseResult) => {
+    const continueAfterParse = (parsed: InterceptorParseResult) => {
       const { command } = parsed;
-      const commandPlugins = collectPluginsFn(command);
+      const commandInterceptors = collectInterceptorsFn(command);
 
       if (parsed.rawArgs['~help']) {
         return { command, args: undefined, result: parsed.rawArgs['~help'] } as any;
@@ -388,7 +313,7 @@ export function execCommand(
       }
 
       // ── Phase 2: Validate ───────────────────────────────────────────
-      const validateCtx: PluginValidateContext = {
+      const validateCtx: InterceptorValidateContext = {
         command,
         rawArgs: parsed.rawArgs,
         positionalArgs: parsed.positionalArgs,
@@ -397,7 +322,7 @@ export function execCommand(
         context: resolveContext(command),
       };
 
-      const coreValidate = (): PluginValidateResult | Promise<PluginValidateResult> => {
+      const coreValidate = (): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
         // Determine interactivity
         let flagInteractive: boolean | undefined;
         if (hasInteractiveConfig(command.meta)) {
@@ -478,7 +403,7 @@ export function execCommand(
           validatedConfigData: Record<string, unknown> | undefined,
           envData: Record<string, unknown> | undefined,
           stdinData: Record<string, unknown> | undefined,
-        ): PluginValidateResult | Promise<PluginValidateResult> => {
+        ): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
           const preprocessedArgs = buildCommandArgs(command, validateCtx.rawArgs, validateCtx.positionalArgs, {
             stdinData,
             envData,
@@ -499,7 +424,7 @@ export function execCommand(
             if (command.argsSchema) {
               const providedKeys = new Set(Object.keys(preprocessedArgs).filter((k) => preprocessedArgs[k] !== undefined));
               const earlyCheck = command.argsSchema['~standard'].validate(preprocessedArgs);
-              const checkForProvidedFieldErrors = (result: StandardSchemaV1.Result<unknown>): PluginValidateResult | undefined => {
+              const checkForProvidedFieldErrors = (result: StandardSchemaV1.Result<unknown>): InterceptorValidateResult | undefined => {
                 if (!result.issues) return undefined;
                 const providedFieldIssues = result.issues.filter((issue) => {
                   const rootKey = issue.path?.[0];
@@ -519,7 +444,9 @@ export function execCommand(
           return continueWithPrompt(preprocessedArgs);
         };
 
-        const continueWithPrompt = (preprocessedArgs: Record<string, unknown>): PluginValidateResult | Promise<PluginValidateResult> => {
+        const continueWithPrompt = (
+          preprocessedArgs: Record<string, unknown>,
+        ): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
           const willPrompt = !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta);
           const afterInteractive = willPrompt
             ? promptInteractiveFields(preprocessedArgs, command, runtime, forceInteractive || undefined)
@@ -527,7 +454,7 @@ export function execCommand(
 
           return thenMaybe(afterInteractive, (filledArgs) => {
             const validated = validateCommandArgs(command, filledArgs);
-            return thenMaybe(validated, (v) => v as PluginValidateResult);
+            return thenMaybe(validated, (v) => v as InterceptorValidateResult);
           });
         };
 
@@ -545,10 +472,10 @@ export function execCommand(
         });
       };
 
-      const validatedOrPromise = runPluginChain('validate', commandPlugins, validateCtx, coreValidate);
+      const validatedOrPromise = runInterceptorChain('validate', commandInterceptors, validateCtx, coreValidate);
 
       // ── Phase 3: Execute (or handle validation errors) ──────────────
-      const continueAfterValidate = (v: PluginValidateResult) => {
+      const continueAfterValidate = (v: InterceptorValidateResult) => {
         if (v.argsResult?.issues) {
           const getKnown = () => getKnownOptionNames(command);
           const allSuggestions = collectSuggestionsFromIssues(v.argsResult.issues, getKnown);
@@ -581,9 +508,9 @@ export function execCommand(
           activeIndicator.update(state._progressMsg as string);
         }
 
-        const executeCtx: PluginExecuteContext = { command, args: v.args, state, signal, context: resolveContext(command) };
+        const executeCtx: InterceptorExecuteContext = { command, args: v.args, state, signal, context: resolveContext(command) };
 
-        const coreExecute = (): PluginExecuteResult => {
+        const coreExecute = (): InterceptorExecuteResult => {
           const handler = command.action ?? noop;
           const actionCtx: PadroneActionContext = {
             ...createActionContext(command),
@@ -595,7 +522,7 @@ export function execCommand(
           return { result };
         };
 
-        const executedOrPromise = runPluginChain('execute', commandPlugins, executeCtx, coreExecute);
+        const executedOrPromise = runInterceptorChain('execute', commandInterceptors, executeCtx, coreExecute);
 
         return thenMaybe(executedOrPromise, (e) => {
           const finalize = (result: unknown) => {
@@ -636,7 +563,7 @@ export function execCommand(
   let lifecycleResult: any;
   try {
     lifecycleResult = wrapWithLifecycle(
-      rootPlugins,
+      rootInterceptors,
       rootCommand,
       state,
       resolvedInput,

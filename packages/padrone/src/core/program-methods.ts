@@ -5,11 +5,11 @@ import { generateHelp } from '../output/help.ts';
 import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
+  InterceptorExecuteContext,
+  InterceptorExecuteResult,
   PadroneActionContext,
   PadroneAPI,
   PadroneReplPreferences,
-  PluginExecuteContext,
-  PluginExecuteResult,
 } from '../types/index.ts';
 import { getVersion } from '../util/utils.ts';
 import { parsePositionalConfig } from './args.ts';
@@ -17,9 +17,9 @@ import { checkBuiltinCommands } from './builtins.ts';
 import { findCommandByName, getCommandRuntime, resolveAllCommands } from './commands.ts';
 import { RoutingError } from './errors.ts';
 import type { ExecContext } from './exec.ts';
-import { collectPlugins, errorResultWithSignal, execCommand } from './exec.ts';
+import { collectInterceptors, errorResultWithSignal, execCommand } from './exec.ts';
+import { noopIndicator, runInterceptorChain } from './interceptors.ts';
 import { parseCliInputToParts } from './parse.ts';
-import { noopIndicator, runPluginChain } from './plugins.ts';
 import { errorResult, makeThenable, thenMaybe, warnIfUnexpectedAsync, withDrain, withPromiseDrain } from './results.ts';
 import { coreValidateForParse } from './validate.ts';
 
@@ -125,18 +125,18 @@ export function createProgramMethods(ctx: ProgramContext) {
 
       const resolvedCtx = resolveContext(commandObj, prefs?.context);
       const state: Record<string, unknown> = {};
-      const executeCtx: PluginExecuteContext = { command: commandObj, args, state, signal: inertSignal, context: resolvedCtx };
+      const executeCtx: InterceptorExecuteContext = { command: commandObj, args, state, signal: inertSignal, context: resolvedCtx };
 
-      const coreExecute = (): PluginExecuteResult => {
+      const coreExecute = (): InterceptorExecuteResult => {
         const actionCtx = createActionContext(commandObj, resolvedCtx);
         const result = commandObj.action!(executeCtx.args as any, { ...actionCtx, signal: inertSignal });
         return { result };
       };
 
-      const commandObjPlugins = collectPlugins(commandObj, rootCommand);
-      const executedOrPromise = runPluginChain('execute', commandObjPlugins, executeCtx, coreExecute);
+      const commandInterceptors = collectInterceptors(commandObj, rootCommand);
+      const executedOrPromise = runInterceptorChain('execute', commandInterceptors, executeCtx, coreExecute);
 
-      const toResult = (e: PluginExecuteResult) => withDrain({ command: commandObj as any, args: args as any, result: e.result });
+      const toResult = (e: InterceptorExecuteResult) => withDrain({ command: commandObj as any, args: args as any, result: e.result });
 
       if (executedOrPromise instanceof Promise) {
         return executedOrPromise.then(toResult).catch((err: unknown) => errorResult(err, { command: commandObj, args })) as any;
@@ -307,12 +307,12 @@ export function createProgramMethods(ctx: ProgramContext) {
       return { command, rawArgs, positionalArgs: args };
     };
 
-    const rootPlugins = rootCommand.plugins ?? [];
-    const parsedOrPromise = runPluginChain('parse', rootPlugins, parseCtx, coreParse);
+    const rootInterceptors = rootCommand.interceptors ?? [];
+    const parsedOrPromise = runInterceptorChain('parse', rootInterceptors, parseCtx, coreParse);
 
     const continueAfterParse = (parsed: any) => {
       const { command } = parsed;
-      const commandPlugins = collectPlugins(command, rootCommand);
+      const commandInterceptors = collectInterceptors(command, rootCommand);
       const validateCtx = {
         command,
         rawArgs: parsed.rawArgs,
@@ -323,7 +323,7 @@ export function createProgramMethods(ctx: ProgramContext) {
       };
 
       const coreValidate = () => coreValidateForParse(command, validateCtx.rawArgs, validateCtx.positionalArgs, rootCommand);
-      const validatedOrPromise = runPluginChain('validate', commandPlugins, validateCtx, coreValidate);
+      const validatedOrPromise = runInterceptorChain('validate', commandInterceptors, validateCtx, coreValidate);
 
       return warnIfUnexpectedAsync(
         thenMaybe(validatedOrPromise, (v: any) => ({ command: command as any, args: v.args, argsResult: v.argsResult })),

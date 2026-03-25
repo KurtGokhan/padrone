@@ -200,14 +200,14 @@ const appWithCtx = createPadrone('myapp')
   });
 ```
 
-## Plugins
+## Interceptors
 
-### Logging Plugin
+### Logging Interceptor
 
 ```ts
-import type { PadronePlugin } from 'padrone';
+import type { PadroneInterceptor } from 'padrone';
 
-const logger: PadronePlugin = {
+const logger: PadroneInterceptor = {
   name: 'logger',
   execute: (ctx, next) => {
     console.log(`[${new Date().toISOString()}] Running: ${ctx.command.path}`);
@@ -217,13 +217,13 @@ const logger: PadronePlugin = {
   },
 };
 
-program.use(logger);
+program.intercept(logger);
 ```
 
-### Auth Plugin (Short-Circuit)
+### Auth Interceptor (Short-Circuit)
 
 ```ts
-const auth: PadronePlugin = {
+const auth: PadroneInterceptor = {
   name: 'auth',
   execute: (ctx, next) => {
     if (!process.env.API_TOKEN) {
@@ -234,10 +234,10 @@ const auth: PadronePlugin = {
 };
 ```
 
-### Error Recovery Plugin
+### Error Recovery Interceptor
 
 ```ts
-const errorRecovery: PadronePlugin = {
+const errorRecovery: PadroneInterceptor = {
   name: 'error-recovery',
   error: (ctx, next) => {
     console.error(`Error in ${ctx.command.path}: ${(ctx.error as Error).message}`);
@@ -249,10 +249,10 @@ const errorRecovery: PadronePlugin = {
 };
 ```
 
-### Shutdown Cleanup Plugin
+### Shutdown Cleanup Interceptor
 
 ```ts
-const cleanup: PadronePlugin = {
+const cleanup: PadroneInterceptor = {
   name: 'cleanup',
   shutdown: (ctx, next) => {
     if (ctx.error) {
@@ -264,10 +264,10 @@ const cleanup: PadronePlugin = {
 };
 ```
 
-### Full Lifecycle Plugin
+### Full Lifecycle Interceptor
 
 ```ts
-const telemetry: PadronePlugin = {
+const telemetry: PadroneInterceptor = {
   name: 'telemetry',
   start: (ctx, next) => {
     ctx.state.startTime = Date.now();
@@ -286,15 +286,15 @@ const telemetry: PadronePlugin = {
 };
 ```
 
-### Subcommand-Scoped Plugin
+### Subcommand-Scoped Interceptor
 
 ```ts
-// Plugins on subcommands only run for that command
+// Interceptors on subcommands only run for that command
 const program = createPadrone('app')
   .command('deploy', (c) =>
     c
       .action((args) => 'deployed')
-      .use({
+      .intercept({
         name: 'deploy-guard',
         execute: (ctx, next) => {
           console.log('Deploy-specific middleware');
@@ -302,7 +302,7 @@ const program = createPadrone('app')
         },
       }),
   )
-  .use({
+  .intercept({
     name: 'global-logger',
     execute: (ctx, next) => {
       console.log(`Global: ${ctx.command.path}`);

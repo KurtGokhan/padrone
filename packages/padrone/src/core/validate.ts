@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type { AnyPadroneCommand, PluginValidateResult } from '../types/index.ts';
+import type { AnyPadroneCommand, InterceptorValidateResult } from '../types/index.ts';
 import { createStdinStream } from '../util/stream.ts';
 import {
   coerceArgs,
@@ -357,7 +357,7 @@ export function coreValidateForParse(
   rawArgs: Record<string, unknown>,
   positionalArgs: string[],
   rootCommand: AnyPadroneCommand,
-): PluginValidateResult | Promise<PluginValidateResult> {
+): InterceptorValidateResult | Promise<InterceptorValidateResult> {
   const envDataOrPromise = validateEnvData(command, rootCommand);
 
   return thenMaybe(envDataOrPromise, (envData) => {
@@ -368,7 +368,7 @@ export function coreValidateForParse(
         stdinData: hasStdinData ? stdinData : undefined,
         envData,
       });
-      return thenMaybe(validated, (v) => v as PluginValidateResult);
+      return thenMaybe(validated, (v) => v as InterceptorValidateResult);
     });
   });
 }

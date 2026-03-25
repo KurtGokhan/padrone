@@ -250,13 +250,13 @@ When auto-progress is active, `runtime.output` and `runtime.error` are automatic
 
 Manual calls to `ctx.progress.pause()` and `ctx.progress.resume()` are available if you need explicit control.
 
-## Integration with Plugins
+## Integration with Interceptors
 
-Progress indicators interact naturally with the plugin system. The indicator starts before validation plugins run and is cleaned up in the lifecycle shutdown. Plugin errors are caught and reflected in the progress indicator:
+Progress indicators interact naturally with the interceptor system. The indicator starts before validation interceptors run and is cleaned up in the lifecycle shutdown. Interceptor errors are caught and reflected in the progress indicator:
 
 ```typescript
 program
-  .use({
+  .intercept({
     name: 'auth',
     execute: (ctx, next) => {
       // If this throws, the progress indicator shows the error

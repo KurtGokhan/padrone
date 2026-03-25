@@ -1,20 +1,27 @@
 ---
-title: Plugins
-description: Intercept and extend command execution with the middleware plugin system
+title: Interceptors & Extensions
+description: Intercept command execution and extend programs with composable middleware
 ---
 
-Padrone's plugin system lets you intercept the command lifecycle using a middleware pattern. Plugins wrap each phase with an onion model, giving you full control to modify inputs, short-circuit execution, add logging, or implement cross-cutting concerns.
+Padrone has two complementary systems for extending behavior:
+
+- **Interceptors**: Runtime phase interception — middleware that wraps the command lifecycle (parse, validate, execute, etc.) with an onion model. Use interceptors for logging, auth, metrics, error handling, and other cross-cutting concerns.
+- **Extensions**: Build-time composition — reusable bundles of commands, configuration, and interceptors that can be applied to any program via `.extend()`. Use extensions to package and share functionality.
+
+## Interceptors
+
+Interceptors let you intercept the command lifecycle using a middleware pattern. They wrap each phase with an onion model, giving you full control to modify inputs, short-circuit execution, add logging, or implement cross-cutting concerns.
 
 The full lifecycle is: **start → parse → validate → execute → shutdown** (with **error** on failure).
 
-## Defining a Plugin
+### Defining an Interceptor
 
-A plugin is an object with a `name` and optional handlers for each phase:
+An interceptor is an object with a `name` and optional handlers for each phase:
 
 ```typescript
-import type { PadronePlugin } from 'padrone';
+import type { PadroneInterceptor } from 'padrone';
 
-const logger: PadronePlugin = {
+const logger: PadroneInterceptor = {
   name: 'logger',
   execute: (context, next) => {
     console.log(`Running: ${context.command.name}`);
@@ -25,33 +32,33 @@ const logger: PadronePlugin = {
 };
 ```
 
-## Registering Plugins
+### Registering Interceptors
 
-Use `.use()` on programs or individual commands:
+Use `.intercept()` on programs or individual commands:
 
 ```typescript
 const program = createPadrone('myapp')
-  .use(logger)  // Applies to all commands
+  .intercept(logger)  // Applies to all commands
   .command('deploy', (c) =>
     c
-      .use(deployGuard)  // Only applies to 'deploy'
+      .intercept(deployGuard)  // Only applies to 'deploy'
       .arguments(schema)
       .action(handler)
   );
 ```
 
-`.use()` is immutable — it returns a new builder with the plugin added.
+`.intercept()` is immutable — it returns a new builder with the interceptor added.
 
-## Execution Phases
+### Execution Phases
 
-Plugins can hook into six phases — three core phases (parse, validate, execute) and three lifecycle phases (start, error, shutdown):
+Interceptors can hook into six phases — three core phases (parse, validate, execute) and three lifecycle phases (start, error, shutdown):
 
-### Start Phase
+#### Start Phase
 
-Runs before everything else, wrapping the entire pipeline. Only root-level plugins run during start — subcommand plugins are not invoked. Available in `eval()` and `cli()` only (not `parse()` or `run()`).
+Runs before everything else, wrapping the entire pipeline. Only root-level interceptors run during start — subcommand interceptors are not invoked. Available in `eval()` and `cli()` only (not `parse()` or `run()`).
 
 ```typescript
-const startup: PadronePlugin = {
+const startup: PadroneInterceptor = {
   name: 'startup',
   start: (context, next) => {
     console.log('Starting up...');
@@ -72,12 +79,12 @@ const startup: PadronePlugin = {
 
 **Result:** The full pipeline result (passed through from parse → validate → execute).
 
-### Parse Phase
+#### Parse Phase
 
-Runs when CLI input is being parsed into a command and raw arguments. Only root-level plugins run during parsing — subcommand plugins are not invoked.
+Runs when CLI input is being parsed into a command and raw arguments. Only root-level interceptors run during parsing — subcommand interceptors are not invoked.
 
 ```typescript
-const parseLogger: PadronePlugin = {
+const parseLogger: PadroneInterceptor = {
   name: 'parse-logger',
   parse: (context, next) => {
     console.log('Input:', context.input);
@@ -103,12 +110,12 @@ const parseLogger: PadronePlugin = {
 | `rawArgs` | `Record<string, unknown>` | Parsed raw arguments |
 | `positionalArgs` | `string[]` | Positional argument values |
 
-### Validate Phase
+#### Validate Phase
 
 Runs after parsing, when raw arguments are being validated against the Zod schema.
 
 ```typescript
-const defaults: PadronePlugin = {
+const defaults: PadroneInterceptor = {
   name: 'inject-defaults',
   validate: (context, next) => {
     // Inject values before validation
@@ -133,12 +140,12 @@ const defaults: PadronePlugin = {
 | `args` | `unknown` | Validated arguments |
 | `argsResult` | `StandardSchemaV1.Result` | Full validation result |
 
-### Execute Phase
+#### Execute Phase
 
 Runs when the command's action handler is being invoked.
 
 ```typescript
-const timer: PadronePlugin = {
+const timer: PadroneInterceptor = {
   name: 'timer',
   execute: (context, next) => {
     const start = performance.now();
@@ -163,12 +170,12 @@ const timer: PadronePlugin = {
 |----------|------|-------------|
 | `result` | `unknown` | Action handler return value |
 
-### Error Phase
+#### Error Phase
 
 Called when the pipeline throws an error. Error handlers can log, transform, or suppress errors. Only runs for `eval()` and `cli()`.
 
 ```typescript
-const errorReporter: PadronePlugin = {
+const errorReporter: PadroneInterceptor = {
   name: 'error-reporter',
   error: (context, next) => {
     // Log and pass through
@@ -177,7 +184,7 @@ const errorReporter: PadronePlugin = {
   },
 };
 
-const errorRecovery: PadronePlugin = {
+const errorRecovery: PadroneInterceptor = {
   name: 'error-recovery',
   error: (context, next) => {
     // Suppress the error and return a fallback result
@@ -206,12 +213,12 @@ const errorRecovery: PadronePlugin = {
 
 Calling `next()` passes to the next error handler. The innermost core returns `{ error }` unchanged, which re-throws after shutdown runs.
 
-### Shutdown Phase
+#### Shutdown Phase
 
 Always runs after the pipeline completes — whether it succeeded or failed. Use for cleanup like closing connections or flushing logs. Only runs for `eval()` and `cli()`.
 
 ```typescript
-const cleanup: PadronePlugin = {
+const cleanup: PadroneInterceptor = {
   name: 'cleanup',
   shutdown: (context, next) => {
     if (context.error) {
@@ -232,40 +239,40 @@ const cleanup: PadronePlugin = {
 | `state` | `Record<string, unknown>` | Shared mutable state bag |
 | `context` | `unknown` | User-provided context |
 
-## Middleware Order
+### Middleware Order
 
-Plugins compose as an onion — the first registered plugin is the outermost wrapper:
+Interceptors compose as an onion — the first registered interceptor is the outermost wrapper:
 
 ```typescript
 program
-  .use(pluginA)  // Outermost — runs first on entry, last on exit
-  .use(pluginB)  // Inner
-  .use(pluginC); // Innermost — runs last on entry, first on exit
+  .intercept(interceptorA)  // Outermost — runs first on entry, last on exit
+  .intercept(interceptorB)  // Inner
+  .intercept(interceptorC); // Innermost — runs last on entry, first on exit
 ```
 
-Program-level plugins always wrap subcommand plugins:
+Program-level interceptors always wrap subcommand interceptors:
 
 ```
-Program plugins (outermost) → Subcommand plugins (inner) → Action handler (core)
+Program interceptors (outermost) → Subcommand interceptors (inner) → Action handler (core)
 ```
 
-### Explicit Ordering
+#### Explicit Ordering
 
 Use the `order` property to control position. Lower values run as outermost wrappers:
 
 ```typescript
-const auth: PadronePlugin = {
+const auth: PadroneInterceptor = {
   name: 'auth',
-  order: -10,  // Runs before other plugins
+  order: -10,  // Runs before other interceptors
   execute: (context, next) => {
     if (!isAuthenticated()) throw new Error('Not authenticated');
     return next();
   },
 };
 
-const metrics: PadronePlugin = {
+const metrics: PadroneInterceptor = {
   name: 'metrics',
-  order: 10,  // Runs after most plugins
+  order: 10,  // Runs after most interceptors
   execute: (context, next) => {
     const result = next();
     reportMetrics(context.command.name);
@@ -274,14 +281,14 @@ const metrics: PadronePlugin = {
 };
 ```
 
-Plugins with the same `order` (default: `0`) preserve their registration order.
+Interceptors with the same `order` (default: `0`) preserve their registration order.
 
-## Shared State
+### Shared State
 
-The `state` object is mutable and shared across all three phases within a single execution. Use it to pass data between phases:
+The `state` object is mutable and shared across all phases within a single execution. Use it to pass data between phases:
 
 ```typescript
-const auditPlugin: PadronePlugin = {
+const auditInterceptor: PadroneInterceptor = {
   name: 'audit',
   parse: (context, next) => {
     context.state.startTime = Date.now();
@@ -296,12 +303,12 @@ const auditPlugin: PadronePlugin = {
 };
 ```
 
-## Short-Circuiting
+### Short-Circuiting
 
 Return early without calling `next()` to skip the rest of the chain:
 
 ```typescript
-const dryRun: PadronePlugin = {
+const dryRun: PadroneInterceptor = {
   name: 'dry-run',
   execute: (context, next) => {
     if (context.state.dryRun) {
@@ -313,13 +320,13 @@ const dryRun: PadronePlugin = {
 };
 ```
 
-## Sync Preservation
+### Sync Preservation
 
-Plugins preserve sync/async behavior. If your plugin and all inner plugins are synchronous, the entire chain stays synchronous. Only return a Promise when you need async operations:
+Interceptors preserve sync/async behavior. If your interceptor and all inner interceptors are synchronous, the entire chain stays synchronous. Only return a Promise when you need async operations:
 
 ```typescript
-// Sync plugin — chain stays sync
-const syncPlugin: PadronePlugin = {
+// Sync interceptor — chain stays sync
+const syncInterceptor: PadroneInterceptor = {
   name: 'sync',
   execute: (context, next) => {
     console.log('before');
@@ -329,8 +336,8 @@ const syncPlugin: PadronePlugin = {
   },
 };
 
-// Async plugin — chain becomes async
-const asyncPlugin: PadronePlugin = {
+// Async interceptor — chain becomes async
+const asyncInterceptor: PadroneInterceptor = {
   name: 'async',
   execute: async (context, next) => {
     await someAsyncWork();
@@ -339,7 +346,7 @@ const asyncPlugin: PadronePlugin = {
 };
 ```
 
-## Which Methods Run Which Phases
+### Which Methods Run Which Phases
 
 | Method | Start | Parse | Validate | Execute | Error | Shutdown |
 |--------|-------|-------|----------|---------|-------|----------|
@@ -347,4 +354,40 @@ const asyncPlugin: PadronePlugin = {
 | `parse()` | No | Yes | Yes | No | No | No |
 | `run()` | No | No | No | Yes | No | No |
 
-Built-in features (help, version, completion, REPL) bypass plugins entirely.
+Built-in features (help, version, completion, REPL) bypass interceptors entirely.
+
+## Extensions
+
+Extensions are build-time compositions that bundle commands, configuration, and interceptors into reusable packages. Apply them with `.extend()`.
+
+### Built-in Commands Extension
+
+Padrone's built-in commands (help, version, completion, REPL, MCP, serve) are available as an extension:
+
+```typescript
+import { createPadrone, padroneBuiltins } from 'padrone';
+
+const program = createPadrone('myapp')
+  .extend(padroneBuiltins())
+  .command('serve', (c) => c.action(() => 'serving'));
+```
+
+### Custom Extensions
+
+An extension is a function that receives a builder and returns a modified builder:
+
+```typescript
+const withLogging = (builder) =>
+  builder.intercept({
+    name: 'logger',
+    execute: (ctx, next) => {
+      console.log(`Running: ${ctx.command.name}`);
+      return next();
+    },
+  });
+
+const program = createPadrone('myapp')
+  .extend(withLogging);
+```
+
+Extensions compose naturally — chain multiple `.extend()` calls to layer functionality.

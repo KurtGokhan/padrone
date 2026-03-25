@@ -88,7 +88,7 @@ function collectDiagnostics(cmd: AnyPadroneCommand, diagnostics: Diagnostic[]) {
   checkCommandsWithoutActions(allCommands, diagnostics);
   checkSchemasWithoutDescriptions(allCommands, diagnostics);
   checkConflictingPositionals(allCommands, diagnostics);
-  checkUnusedPlugins(allCommands, diagnostics);
+  checkUnusedInterceptors(allCommands, diagnostics);
   checkDuplicateOptionFlagsAndAliases(allCommands, diagnostics);
   checkUnreachableCommands(allCommands, diagnostics);
   checkMissingCommandDescriptions(allCommands, diagnostics);
@@ -315,21 +315,21 @@ function checkConflictingPositionals(commands: AnyPadroneCommand[], diagnostics:
 }
 
 /**
- * Check for plugins that don't define any phase handlers.
+ * Check for interceptors that don't define any phase handlers.
  */
-function checkUnusedPlugins(commands: AnyPadroneCommand[], diagnostics: Diagnostic[]) {
+function checkUnusedInterceptors(commands: AnyPadroneCommand[], diagnostics: Diagnostic[]) {
   const phases = ['start', 'parse', 'validate', 'execute', 'error', 'shutdown'] as const;
 
   for (const cmd of commands) {
-    if (!cmd.plugins) continue;
+    if (!cmd.interceptors) continue;
 
-    for (const plugin of cmd.plugins) {
-      const hasHandler = phases.some((phase) => typeof (plugin as any)[phase] === 'function');
+    for (const interceptor of cmd.interceptors) {
+      const hasHandler = phases.some((phase) => typeof (interceptor as any)[phase] === 'function');
       if (!hasHandler) {
         diagnostics.push({
           severity: 'warning',
           command: commandDisplayName(cmd),
-          message: `Plugin "${plugin.name}" has no phase handlers.`,
+          message: `Interceptor "${interceptor.name}" has no phase handlers.`,
         });
       }
     }

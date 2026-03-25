@@ -78,7 +78,8 @@ import type {
   PadroneSchema,
   AsyncPadroneSchema,
   PadroneActionContext,
-  PadronePlugin,
+  PadroneInterceptor,
+  PadroneExtension,
   PadroneCommandResult,
   PadroneParseResult,
   PadroneErrorOptions,
@@ -214,7 +215,7 @@ const app2 = createPadrone('app')
   });
 ```
 
-Re-paths all nested commands. Drops the mounted program's version. Preserves plugins. The optional `{ context }` transform converts the parent's context type into what the mounted program expects.
+Re-paths all nested commands. Drops the mounted program's version. Preserves interceptors. The optional `{ context }` transform converts the parent's context type into what the mounted program expects.
 
 ### `.configure(config)`
 
@@ -229,9 +230,13 @@ Re-paths all nested commands. Drops the mounted program's version. Preserves plu
 })
 ```
 
-### `.use(plugin)`
+### `.intercept(interceptor)`
 
-Registers a plugin. See [Plugin System](#plugin-system).
+Registers an interceptor. See [Interceptor System](#interceptor-system).
+
+### `.extend(extension)`
+
+Applies a build-time extension. A `PadroneExtension` is a reusable bundle of configuration, commands, and interceptors. Use `padroneBuiltins()` for opt-in built-in features.
 
 ### `.env(schema)`
 
@@ -463,12 +468,12 @@ Converts command and arguments back to a CLI string.
 
 ---
 
-## Plugin System
+## Interceptor System
 
-### PadronePlugin Type
+### PadroneInterceptor Type
 
 ```ts
-type PadronePlugin = {
+type PadroneInterceptor = {
   name: string;
   order?: number;  // lower = outermost (default: 0)
   start?: (ctx: PluginStartContext, next: () => T) => T;
@@ -508,9 +513,9 @@ All handlers can return Promises for async behavior.
 | `parse()` | parse, validate |
 | `run()` | execute only |
 
-- Parse, start, error, shutdown use **root plugins only**
+- Parse, start, error, shutdown use **root interceptors only**
 - Validate, execute use **collected parent chain** (root outermost, subcommand innermost)
-- Subcommand plugins registered via `.use()` inside `.command()` apply only to that command
+- Subcommand interceptors registered via `.intercept()` inside `.command()` apply only to that command
 
 ### Ordering
 

@@ -116,14 +116,14 @@ try {
 }
 ```
 
-## Error Handling with Plugins
+## Error Handling with Interceptors
 
-Plugins can intercept errors in the `error` phase to log, transform, or suppress them:
+Interceptors can intercept errors in the `error` phase to log, transform, or suppress them:
 
 ```typescript
-import type { PadronePlugin } from 'padrone';
+import type { PadroneInterceptor } from 'padrone';
 
-const errorReporter: PadronePlugin = {
+const errorReporter: PadroneInterceptor = {
   name: 'error-reporter',
   error: (context, next) => {
     reportToSentry(context.error);
@@ -131,7 +131,7 @@ const errorReporter: PadronePlugin = {
   },
 };
 
-const errorRecovery: PadronePlugin = {
+const errorRecovery: PadroneInterceptor = {
   name: 'error-recovery',
   error: (context, next) => {
     if (context.error instanceof NetworkError) {
@@ -144,7 +144,7 @@ const errorRecovery: PadronePlugin = {
 };
 ```
 
-The error phase only runs during `eval()` and `cli()`. See the [Plugins guide](/padrone/guides/plugins/#error-phase) for full details.
+The error phase only runs during `eval()` and `cli()`. See the [Interceptors & Extensions guide](/padrone/guides/plugins/#error-phase) for full details.
 
 ## Serialization
 

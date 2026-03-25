@@ -7,7 +7,7 @@ Padrone provides two powerful mechanisms for building large CLIs from smaller pi
 
 ## Mounting Programs
 
-Use `.mount()` to compose an existing Padrone program as a subcommand of another program. All nested commands, arguments, handlers, plugins, and schemas are recursively re-pathed under the new name.
+Use `.mount()` to compose an existing Padrone program as a subcommand of another program. All nested commands, arguments, handlers, interceptors, and schemas are recursively re-pathed under the new name.
 
 ```typescript
 import { createPadrone } from 'padrone';
@@ -84,7 +84,7 @@ The `context` option is a function that receives the parent's context and return
 
 - All nested commands and their subcommands
 - Arguments, schemas, and action handlers
-- Plugins registered on the mounted program or its commands
+- Interceptors registered on the mounted program or its commands
 - Aliases on nested commands
 - Context transforms (composed with mount-level transform if provided)
 

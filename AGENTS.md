@@ -40,14 +40,14 @@ The `--conditions=padrone@dev` flag is critical — it resolves package exports 
 Monorepo with bun workspaces: `packages/*`, `examples/*`, `docs/`.
 
 The core library lives in `packages/padrone/`:
-- `src/types.ts` — All type definitions (`PadroneCommand`, `PadroneBuilder`, `PadroneProgram`, plugins, etc.). PadroneCommand has 10 generic type params.
-- `src/create.ts` — `createPadrone()` factory and builder object. Wires together the modules below. Immutable builder methods (configure, arguments, action, command, mount, use, etc.).
-- `src/exec.ts` — Core execution pipeline: signal handling → builtin dispatch → parse → validate → execute phases. Contains `execCommand()`, `collectPlugins()`, `handleBuiltinAction()`, and progress cleanup.
+- `src/types.ts` — All type definitions (`PadroneCommand`, `PadroneBuilder`, `PadroneProgram`, interceptors, extensions, etc.). PadroneCommand has 10 generic type params.
+- `src/create.ts` — `createPadrone()` factory and builder object. Wires together the modules below. Immutable builder methods (configure, arguments, action, command, mount, intercept, extend, etc.).
+- `src/exec.ts` — Core execution pipeline: signal handling → builtin dispatch → parse → validate → execute phases. Contains `execCommand()`, `collectInterceptors()`, `handleBuiltinAction()`, and progress cleanup.
 - `src/validate.ts` — CLI input parsing (`parseCommand`), argument preprocessing (`buildCommandArgs`), schema validation (`validateCommandArgs`), unknown arg detection, stdin reading, env validation.
 - `src/program-methods.ts` — Program API methods: `cli()`, `eval()`, `run()`, `parse()`, `tool()`, `stringify()`, `help()`, `api()`, `repl()`, `mcp()`, `serve()`, `completion()`.
-- `src/builtins.ts` — Built-in command/flag detection (`checkBuiltinCommands`), `--config`/`--color` flag extraction, `resolveInherited()` parent-chain walker.
+- `src/builtins.ts` — Built-in command/flag detection (`checkBuiltinCommands`), `--config`/`--color` flag extraction, `resolveInherited()` parent-chain walker. Note: builtins (help, version, completion, man) are opt-in via `.extend(padroneBuiltins())`.
 - `src/suggestions.ts` — "Did you mean?" formatting (`formatSuggestions`), issue enrichment with fuzzy suggestions.
-- `src/command-utils.ts` — Plugin chain execution (`runPluginChain`, `wrapWithLifecycle`), command tree utilities, sync/async preservation helpers (`thenMaybe`).
+- `src/command-utils.ts` — Interceptor chain execution (`runInterceptorChain`, `wrapWithLifecycle`), command tree utilities, sync/async preservation helpers (`thenMaybe`).
 - `src/parse.ts` — CLI input tokenizer/parser. Handles flag stacking, `--key=value`, `--no-*` negation, positional args, nested keys.
 - `src/args.ts` — Schema metadata extraction (`extractSchemaMetadata`), option preprocessing (flags/aliases), positional config parsing, coercion.
 - `src/type-utils.ts` — Advanced type utilities (`MaybePromise`, `PickCommandByName`, `IsGeneric`, `OrAsync`, etc.).
@@ -83,13 +83,15 @@ When asked to commit with a changeset, create a concise changeset suitable for a
 
 **Async tracking**: `TAsync` generic param tracks whether a command uses async validation. `asyncSchema()` brands a schema with `'~async': true`. `MaybePromise<T, TAsync>` conditionally wraps return types. Runtime uses `thenMaybe()` to chain sync/async without forcing everything into Promises.
 
-**Plugin system**: Onion model with 6 phases: start → parse → validate → execute → (error) → shutdown. `collectPlugins()` in `exec.ts` walks the parent chain (root outermost, subcommand innermost). Parse/start/error/shutdown use root plugins only; validate/execute use the full collected chain.
+**Interceptor system**: Onion model with 6 phases: start → parse → validate → execute → (error) → shutdown. `collectInterceptors()` in `exec.ts` walks the parent chain (root outermost, subcommand innermost). Parse/start/error/shutdown use root interceptors only; validate/execute use the full collected chain.
+
+**Extension system**: Build-time composition via `.extend(extension)`. A `PadroneExtension` is a function that receives the builder and returns a modified builder, enabling reusable command/config bundles. Unlike interceptors (which hook into runtime phases), extensions operate at definition time to compose commands, arguments, and configuration. Built-in commands (help, version, completion, man) are provided by the `padroneBuiltins()` extension and are opt-in: `.extend(padroneBuiltins())`.
 
 **Flags vs aliases**: `flags` = single-char short flags (`-v`), stackable. `alias` = multi-char alternative long names (`--dry-run`). `autoAlias` (default: true) auto-generates kebab-case aliases for camelCase option names.
 
-**Execution paths**: `eval()`/`cli()` runs all 6 plugin phases; `parse()` runs parse + validate; `run()` runs execute only (no validation).
+**Execution paths**: `eval()`/`cli()` runs all 6 interceptor phases; `parse()` runs parse + validate; `run()` runs execute only (no validation).
 
-**Context**: User-defined, strongly-typed object that flows through the command tree. Defined via `.context<T>()` (type-only) or `.context(transform)` (with runtime callback). Subcommands inherit the parent context type but can transform it. `mount()` accepts an optional `{ context }` option for context transforms. Context is provided at invocation via `cli()`, `eval()`, `run()`. Resolved by walking the command parent chain and applying transforms from root to target. Available in action handlers via `ctx.context` and in all plugin phase contexts.
+**Context**: User-defined, strongly-typed object that flows through the command tree. Defined via `.context<T>()` (type-only) or `.context(transform)` (with runtime callback). Subcommands inherit the parent context type but can transform it. `mount()` accepts an optional `{ context }` option for context transforms. Context is provided at invocation via `cli()`, `eval()`, `run()`. Resolved by walking the command parent chain and applying transforms from root to target. Available in action handlers via `ctx.context` and in all interceptor phase contexts.
 
 **Mutation commands**: `.configure({ mutation: true })` marks a command as performing side effects. Affects serve (POST-only, experimental), MCP (`annotations.destructiveHint`, experimental), and tool() (`needsApproval` default).
 

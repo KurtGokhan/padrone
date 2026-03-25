@@ -1,9 +1,9 @@
 import { createWrapHandler } from '../feature/wrap.ts';
-import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand, PadronePlugin, PadroneProgram } from '../types/index.ts';
+import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand, PadroneInterceptor, PadroneProgram } from '../types/index.ts';
 import { commandSymbol, findCommandByName, lazyResolver, mergeCommands, repathCommandTree, resolveCommand } from './commands.ts';
 import { RoutingError } from './errors.ts';
 import type { ExecContext } from './exec.ts';
-import { collectPlugins, errorResultWithSignal, execCommand } from './exec.ts';
+import { collectInterceptors, errorResultWithSignal, execCommand } from './exec.ts';
 import { createProgramMethods } from './program-methods.ts';
 import { hasInteractiveConfig, isAsyncBranded, makeThenable, noop, withPromiseDrain } from './results.ts';
 import { parseCommand } from './validate.ts';
@@ -29,7 +29,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       : inputCommand;
 
   const parseCommandFn = (input: string | undefined) => parseCommand(input, existingCommand, findCommandByName);
-  const collectPluginsFn = (cmd: AnyPadroneCommand) => collectPlugins(cmd, existingCommand);
+  const collectInterceptorsFn = (cmd: AnyPadroneCommand) => collectInterceptors(cmd, existingCommand);
 
   // Execution context shared by exec and program methods.
   // `builder` is assigned after the builder object is created (forward ref resolved at runtime only).
@@ -37,7 +37,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     rootCommand: existingCommand,
     builder: undefined as any,
     parseCommandFn,
-    collectPluginsFn,
+    collectInterceptorsFn,
   };
 
   const evalCommand: AnyPadroneProgram['eval'] = (input, evalOptions) => {
@@ -56,6 +56,9 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   });
 
   const builder = {
+    extend(extension: (builder: any) => any) {
+      return extension(builder);
+    },
     configure(config) {
       return createPadroneBuilder({ ...existingCommand, ...config }) as any;
     },
@@ -176,10 +179,10 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       return createPadroneBuilder({ ...existingCommand, commands: updatedCommands }) as any;
     },
 
-    use(plugin: PadronePlugin<any, any>) {
+    intercept(interceptor: PadroneInterceptor<any, any>) {
       return createPadroneBuilder({
         ...existingCommand,
-        plugins: [...(existingCommand.plugins ?? []), plugin],
+        interceptors: [...(existingCommand.interceptors ?? []), interceptor],
       }) as any;
     },
 

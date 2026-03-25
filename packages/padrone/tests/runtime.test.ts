@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { createPadrone } from 'padrone';
+import { createPadrone, padroneBuiltins } from 'padrone';
 import * as z from 'zod/v4';
 
 describe('runtime', () => {
@@ -7,6 +7,7 @@ describe('runtime', () => {
     it('should use custom output for help', () => {
       const output = mock();
       const program = createPadrone('app')
+        .extend(padroneBuiltins())
         .runtime({ output })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -17,7 +18,7 @@ describe('runtime', () => {
 
     it('should use custom output for version', () => {
       const output = mock();
-      const program = createPadrone('app').runtime({ output }).configure({ version: '1.2.3' });
+      const program = createPadrone('app').extend(padroneBuiltins()).runtime({ output }).configure({ version: '1.2.3' });
 
       program.eval('--version');
       expect(output).toHaveBeenCalledTimes(1);
@@ -27,6 +28,7 @@ describe('runtime', () => {
     it('should use custom output for completion', async () => {
       const output = mock();
       const program = createPadrone('app')
+        .extend(padroneBuiltins())
         .runtime({ output })
         .command('build', (c) => c.action(() => 'built'));
 
@@ -118,6 +120,7 @@ describe('runtime', () => {
       const error = mock();
 
       const program = createPadrone('app')
+        .extend(padroneBuiltins())
         .runtime({ output })
         .runtime({ error })
         .command('greet', (c) => c.arguments(z.object({ name: z.string() })).action((args) => `Hello, ${args.name}!`));
@@ -143,6 +146,7 @@ describe('runtime', () => {
       const output2 = mock();
 
       const program = createPadrone('app')
+        .extend(padroneBuiltins())
         .runtime({ output: output1 })
         .runtime({ output: output2 })
         .command('greet', (c) => c.action(() => 'hello'));

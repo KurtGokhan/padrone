@@ -4,7 +4,7 @@ import type { UpdateCheckConfig } from '../feature/update-check.ts';
 import type { FullCommandName } from '../util/type-utils.ts';
 import type { PadroneArgsSchemaMeta } from './args-meta.ts';
 import type { AnyPadroneProgram } from './builder.ts';
-import type { PadronePlugin } from './plugin.ts';
+import type { PadroneInterceptor } from './interceptor.ts';
 import type { PadroneSchema } from './schema.ts';
 
 type UnknownRecord = Record<string, unknown>;
@@ -151,8 +151,8 @@ export type PadroneCommand<
   /** Transform function that maps parent context to this command's context. Set by `.context(transform)`. */
   contextTransform?: (ctx: unknown) => unknown;
 
-  /** Plugins registered on this command. Collected from the parent chain at execution time. */
-  plugins?: PadronePlugin<any, any>[];
+  /** Interceptors registered on this command. Collected from the parent chain at execution time. */
+  interceptors?: PadroneInterceptor<any, any>[];
 
   /** Update check configuration. Only used on the root program. */
   updateCheck?: UpdateCheckConfig;

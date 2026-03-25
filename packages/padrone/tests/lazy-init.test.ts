@@ -1,6 +1,7 @@
 import { describe, expect, it, mock } from 'bun:test';
 import * as z from 'zod/v4';
 import { createPadrone } from '../src/core/create.ts';
+import { padroneBuiltins } from '../src/extension/builtins.ts';
 import { testCli } from '../src/feature/test.ts';
 
 describe('lazy command initialization', () => {
@@ -40,7 +41,7 @@ describe('lazy command initialization', () => {
 
   it('should not invoke builders for help display', async () => {
     const builder = mock((c: any) => c.action(() => 'result'));
-    const program = createPadrone('test').command('greet', builder);
+    const program = createPadrone('test').extend(padroneBuiltins()).command('greet', builder);
 
     const result = await testCli(program).run('help');
 

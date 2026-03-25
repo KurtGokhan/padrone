@@ -29,7 +29,7 @@ import type {
   PadroneCommandConfig,
   PadroneProgressPrefs,
 } from './command.ts';
-import type { PadronePlugin } from './plugin.ts';
+import type { PadroneInterceptor } from './interceptor.ts';
 import type { PadroneCliPreferences, PadroneEvalPreferences, PadroneReplPreferences } from './preferences.ts';
 import type {
   GetArguments,
@@ -198,12 +198,19 @@ export type PadroneBuilderMethods<
   /** The return type for builder methods - either PadroneBuilder or PadroneProgram */
   TReturn extends 'builder' | 'program',
 > = {
+  extend: <TResult extends CommandTypesBase>(
+    extension: PadroneExtension<
+      BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync, TContext>,
+      TResult
+    >,
+  ) => TResult;
+
   updateCheck: (
     config?: UpdateCheckConfig,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync, TContext>;
 
-  use: (
-    plugin: PadronePlugin<StandardSchemaV1.InferOutput<TArgs>, TRes>,
+  intercept: (
+    interceptor: PadroneInterceptor<StandardSchemaV1.InferOutput<TArgs>, TRes>,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync, TContext>;
 
   configure: (
@@ -672,5 +679,17 @@ export type PadroneProgram<
 };
 
 export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any, [...AnyPadroneCommand[]]>;
+
+/**
+ * A build-time extension that transforms a builder/program.
+ * Extensions can add commands, arguments, interceptors, configure settings, etc.
+ *
+ * Use with `.extend(extension)`:
+ * ```ts
+ * const withAuth = (b) => b.arguments(authSchema).command('login', ...)
+ * program.extend(withAuth)
+ * ```
+ */
+export type PadroneExtension<TIn extends CommandTypesBase = CommandTypesBase, TOut extends CommandTypesBase = TIn> = (builder: TIn) => TOut;
 
 type DefaultArgs = Record<string, unknown> | void;

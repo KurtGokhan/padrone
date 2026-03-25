@@ -79,7 +79,7 @@ export function mergeCommands(existing: AnyPadroneCommand, override: AnyPadroneC
   if (override.configFiles !== existing.configFiles) merged.configFiles = override.configFiles;
   if (override.isAsync !== existing.isAsync) merged.isAsync = override.isAsync || existing.isAsync;
   if (override.runtime !== existing.runtime) merged.runtime = override.runtime;
-  if (override.plugins !== existing.plugins) merged.plugins = override.plugins;
+  if (override.interceptors !== existing.interceptors) merged.interceptors = override.interceptors;
   if (override.aliases !== existing.aliases) merged.aliases = override.aliases;
   if (override.progress !== existing.progress) merged.progress = override.progress;
 

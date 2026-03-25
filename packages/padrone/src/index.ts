@@ -14,6 +14,8 @@ export type {
   PadroneSpinnerPreset,
 } from './core/runtime.ts';
 export { REPL_SIGINT } from './core/runtime.ts';
+export type { PadroneBuiltinsOptions, WithPadroneBuiltins } from './extension/index.ts';
+export { padroneBuiltins } from './extension/index.ts';
 export type { PadroneMcpPreferences } from './feature/mcp.ts';
 export type { UpdateCheckConfig } from './feature/update-check.ts';
 export type { WrapConfig, WrapResult } from './feature/wrap.ts';
@@ -25,28 +27,30 @@ export type {
   AnyPadroneCommand,
   AnyPadroneProgram,
   AsyncPadroneSchema,
+  GetArgsMeta,
+  InterceptorBaseContext,
+  InterceptorErrorContext,
+  InterceptorErrorResult,
+  InterceptorExecuteContext,
+  InterceptorExecuteResult,
+  InterceptorParseContext,
+  InterceptorParseResult,
+  InterceptorShutdownContext,
+  InterceptorStartContext,
+  InterceptorValidateContext,
+  InterceptorValidateResult,
   PadroneActionContext,
   PadroneBuilder,
   PadroneCommand,
   PadroneCommandResult,
   PadroneDrainResult,
+  PadroneExtension,
+  PadroneInterceptor,
   PadroneParseResult,
-  PadronePlugin,
   PadroneProgram,
   PadroneProgressMessage,
   PadroneProgressPrefs as PadroneProgressConfig,
   PadroneSchema,
-  PluginBaseContext,
-  PluginErrorContext,
-  PluginErrorResult,
-  PluginExecuteContext,
-  PluginExecuteResult,
-  PluginParseContext,
-  PluginParseResult,
-  PluginShutdownContext,
-  PluginStartContext,
-  PluginValidateContext,
-  PluginValidateResult,
 } from './types/index.ts';
 export type { AsyncStreamMeta } from './util/stream.ts';
 export { asyncStream } from './util/stream.ts';

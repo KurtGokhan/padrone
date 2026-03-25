@@ -435,14 +435,14 @@ Requires a `progress` factory on the runtime — silently skipped if not availab
 
 ---
 
-### .use(plugin)
+### .intercept(interceptor)
 
-Register a plugin for middleware-style interception of command phases. See the [Plugins guide](/padrone/guides/plugins/) for full details.
+Register an interceptor for middleware-style interception of command phases. See the [Interceptors & Extensions guide](/padrone/guides/plugins/) for full details.
 
 ```typescript
-import type { PadronePlugin } from 'padrone';
+import type { PadroneInterceptor } from 'padrone';
 
-const logger: PadronePlugin = {
+const logger: PadroneInterceptor = {
   name: 'logger',
   execute: (context, next) => {
     console.log(`Running: ${context.command.name}`);
@@ -452,15 +452,15 @@ const logger: PadronePlugin = {
   },
 };
 
-program.use(logger);
+program.intercept(logger);
 ```
 
 **Parameters:**
-- `plugin`: A `PadronePlugin` object with `name`, optional `order`, and phase handlers (`start`, `parse`, `validate`, `execute`, `error`, `shutdown`)
+- `interceptor`: A `PadroneInterceptor` object with `name`, optional `order`, and phase handlers (`start`, `parse`, `validate`, `execute`, `error`, `shutdown`)
 
-**Returns:** New builder with the plugin added (immutable)
+**Returns:** New builder with the interceptor added (immutable)
 
-Available on both programs and subcommand builders. Program-level plugins apply as outermost wrappers; subcommand plugins compose as inner layers.
+Available on both programs and subcommand builders. Program-level interceptors apply as outermost wrappers; subcommand interceptors compose as inner layers.
 
 ---
 
@@ -1111,19 +1111,19 @@ import type {
   AsyncPadroneSchema,
   PadroneCommandConfig,
 
-  // Plugin types
-  PadronePlugin,
-  PluginBaseContext,
-  PluginStartContext,
-  PluginParseContext,
-  PluginParseResult,
-  PluginValidateContext,
-  PluginValidateResult,
-  PluginExecuteContext,
-  PluginExecuteResult,
-  PluginErrorContext,
-  PluginErrorResult,
-  PluginShutdownContext,
+  // Interceptor types
+  PadroneInterceptor,
+  InterceptorBaseContext,
+  InterceptorStartContext,
+  InterceptorParseContext,
+  InterceptorParseResult,
+  InterceptorValidateContext,
+  InterceptorValidateResult,
+  InterceptorExecuteContext,
+  InterceptorExecuteResult,
+  InterceptorErrorContext,
+  InterceptorErrorResult,
+  InterceptorShutdownContext,
 
   // Runtime types
   PadroneRuntime,

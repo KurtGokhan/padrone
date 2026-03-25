@@ -1,6 +1,6 @@
 ---
 name: padrone
-description: Build CLI applications with the Padrone framework. Use when writing code that imports from 'padrone', creating CLI tools, defining commands with Zod schemas, or working with Padrone's builder API, plugins, testing, REPL, or AI tool integration.
+description: Build CLI applications with the Padrone framework. Use when writing code that imports from 'padrone', creating CLI tools, defining commands with Zod schemas, or working with Padrone's builder API, interceptors, extensions, testing, REPL, or AI tool integration.
 user-invocable: true
 license: MIT
 metadata:
@@ -11,7 +11,7 @@ metadata:
 
 # Padrone CLI Framework
 
-Padrone is a type-safe CLI framework for Node.js/Bun. It uses any schema library that implements the [Standard Schema](https://github.com/standard-schema/standard-schema) spec (Zod, Valibot, ArkType, etc.) for argument validation and provides an immutable builder API for defining programs, commands, and plugins.
+Padrone is a type-safe CLI framework for Node.js/Bun. It uses any schema library that implements the [Standard Schema](https://github.com/standard-schema/standard-schema) spec (Zod, Valibot, ArkType, etc.) for argument validation and provides an immutable builder API for defining programs, commands, interceptors, and extensions.
 
 ## Installation
 
@@ -52,7 +52,7 @@ program.cli();
 - **Immutable builder**: Every method returns a new builder/program instance
 - **Standard Schema validation**: Any schema library supporting `standard-schema` (Zod, Valibot, ArkType, etc.) defines positional args, named flags, defaults, coercion, and validation
 - **Two entry points**: `'padrone'` (core) and `'padrone/test'` (testing utilities)
-- **Sync by default**: Returns become async only when async schemas or plugins are used
+- **Sync by default**: Returns become async only when async schemas or interceptors are used
 
 ## Builder API Summary
 
@@ -64,7 +64,8 @@ program.cli();
 | `.context(transform?)` | Define typed context or transform inherited context |
 | `.mount(name, program, options?)` | Mount another Padrone program as a subcommand (with optional `{ context }`) |
 | `.configure(config)` | Set title, description, version, deprecated, hidden, group, autoOutput, mutation |
-| `.use(plugin)` | Register a middleware plugin |
+| `.intercept(interceptor)` | Register a middleware interceptor |
+| `.extend(extension)` | Apply a build-time extension (bundle of config, commands, interceptors) |
 | `.env(schema)` | Parse environment variables into args |
 | `.configFile(file, schema?)` | Load args from config files |
 | `.wrap(config)` | Wrap an external CLI tool *(experimental)* |
@@ -110,7 +111,7 @@ The second parameter to `.arguments()` configures positional args, interactive p
 })
 ```
 
-## Plugin System
+## Interceptor System
 
 Six phases in onion/middleware pattern with `next()`:
 
@@ -124,7 +125,7 @@ Six phases in onion/middleware pattern with `next()`:
 All phase contexts include `context: unknown` (the user-provided context from `cli()`/`eval()`/`run()`).
 
 ```ts
-const plugin: PadronePlugin = {
+const timer: PadroneInterceptor = {
   name: 'timer',
   order: -10,  // lower = outermost
   execute: (ctx, next) => {
@@ -134,8 +135,12 @@ const plugin: PadronePlugin = {
     return result;
   },
 };
-program.use(plugin);
+program.intercept(timer);
 ```
+
+## Extension System
+
+Extensions provide build-time composition via `.extend()` and `PadroneExtension`. An extension is a reusable bundle that can add configuration, commands, and interceptors to a program. Use `padroneBuiltins()` for opt-in built-in features.
 
 ## Testing
 

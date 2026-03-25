@@ -1,56 +1,56 @@
 import type {
   AnyPadroneCommand,
-  PadronePlugin,
-  PluginErrorContext,
-  PluginErrorResult,
-  PluginShutdownContext,
-  PluginStartContext,
+  InterceptorErrorContext,
+  InterceptorErrorResult,
+  InterceptorShutdownContext,
+  InterceptorStartContext,
+  PadroneInterceptor,
 } from '../types/index.ts';
 import { thenMaybe } from './results.ts';
 import type { PadroneProgressIndicator, ResolvedPadroneRuntime } from './runtime.ts';
 
 /**
- * Deduplicates plugins by `id`. When multiple plugins share the same `id`,
- * only the last one in the array is kept. Plugins without an `id` are always kept.
+ * Deduplicates interceptors by `id`. When multiple interceptors share the same `id`,
+ * only the last one in the array is kept. Interceptors without an `id` are always kept.
  */
-function deduplicatePlugins(plugins: PadronePlugin<any, any>[]): PadronePlugin<any, any>[] {
+function deduplicateInterceptors(interceptors: PadroneInterceptor<any, any>[]): PadroneInterceptor<any, any>[] {
   // Fast path: no ids at all
-  if (!plugins.some((p) => p.id)) return plugins;
+  if (!interceptors.some((p) => p.id)) return interceptors;
 
   // Find the last index for each id
   const lastIndex = new Map<string, number>();
-  for (let i = 0; i < plugins.length; i++) {
-    const id = plugins[i]!.id;
+  for (let i = 0; i < interceptors.length; i++) {
+    const id = interceptors[i]!.id;
     if (id) lastIndex.set(id, i);
   }
 
-  return plugins.filter((p, i) => !p.id || lastIndex.get(p.id) === i);
+  return interceptors.filter((p, i) => !p.id || lastIndex.get(p.id) === i);
 }
 
 /**
- * Runs a plugin chain for a given phase using the onion/middleware pattern.
- * Plugins are sorted by `order` (ascending, stable), then composed so that
- * the first plugin in sorted order is the outermost wrapper.
- * If no plugins handle this phase, `core` is called directly.
+ * Runs an interceptor chain for a given phase using the onion/middleware pattern.
+ * Interceptors are sorted by `order` (ascending, stable), then composed so that
+ * the first interceptor in sorted order is the outermost wrapper.
+ * If no interceptors handle this phase, `core` is called directly.
  */
-export function runPluginChain<TCtx, TResult>(
+export function runInterceptorChain<TCtx, TResult>(
   phase: 'start' | 'parse' | 'validate' | 'execute' | 'error' | 'shutdown',
-  plugins: PadronePlugin<any, any>[],
+  interceptors: PadroneInterceptor<any, any>[],
   ctx: TCtx,
   core: () => TResult | Promise<TResult>,
 ): TResult | Promise<TResult> {
-  // Deduplicate by id (last wins), then filter to plugins that have a handler for this phase
-  const deduped = deduplicatePlugins(plugins);
-  const phasePlugins = deduped.filter((p) => p[phase]);
-  if (phasePlugins.length === 0) return core();
+  // Deduplicate by id (last wins), then filter to interceptors that have a handler for this phase
+  const deduped = deduplicateInterceptors(interceptors);
+  const phaseInterceptors = deduped.filter((p) => p[phase]);
+  if (phaseInterceptors.length === 0) return core();
 
   // Stable sort by order (lower = outermost). Equal order preserves registration order.
-  phasePlugins.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  phaseInterceptors.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  // Build chain from inside out: last plugin wraps core, first plugin is outermost
+  // Build chain from inside out: last interceptor wraps core, first interceptor is outermost
   let next = core;
-  for (let i = phasePlugins.length - 1; i >= 0; i--) {
-    const handler = phasePlugins[i]![phase]! as unknown as (
+  for (let i = phaseInterceptors.length - 1; i >= 0; i--) {
+    const handler = phaseInterceptors[i]![phase]! as unknown as (
       ctx: TCtx,
       next: () => TResult | Promise<TResult>,
     ) => TResult | Promise<TResult>;
@@ -140,12 +140,12 @@ export function createLazyIndicator(runtime: ResolvedPadroneRuntime, state: Reco
 
 /**
  * Wraps a pipeline with start → error → shutdown lifecycle hooks.
- * - `start` plugins wrap the pipeline (onion pattern, root plugins only).
- * - On error: `error` plugins run (can transform/suppress the error).
- * - Always: `shutdown` plugins run (success or failure).
+ * - `start` interceptors wrap the pipeline (onion pattern, root interceptors only).
+ * - On error: `error` interceptors run (can transform/suppress the error).
+ * - Always: `shutdown` interceptors run (success or failure).
  */
 export function wrapWithLifecycle<T>(
-  plugins: PadronePlugin<any, any>[],
+  interceptors: PadroneInterceptor<any, any>[],
   command: AnyPadroneCommand,
   state: Record<string, unknown>,
   input: string | undefined,
@@ -154,9 +154,9 @@ export function wrapWithLifecycle<T>(
   signal?: AbortSignal,
   context?: unknown,
 ): T | Promise<T> {
-  const hasStart = plugins.some((p) => p.start);
-  const hasError = plugins.some((p) => p.error);
-  const hasShutdown = plugins.some((p) => p.shutdown);
+  const hasStart = interceptors.some((p) => p.start);
+  const hasError = interceptors.some((p) => p.error);
+  const hasShutdown = interceptors.some((p) => p.shutdown);
 
   const cleanupProgress = (error?: unknown, result?: unknown) => {
     const indicator = state._progress as PadroneProgressIndicator | undefined;
@@ -179,7 +179,7 @@ export function wrapWithLifecycle<T>(
     }
   };
 
-  // Fast path: no lifecycle plugins — still need progress cleanup
+  // Fast path: no lifecycle interceptors — still need progress cleanup
   if (!hasStart && !hasError && !hasShutdown) {
     let result: T | Promise<T>;
     try {
@@ -210,8 +210,8 @@ export function wrapWithLifecycle<T>(
   const runShutdown = (error?: unknown, result?: unknown) => {
     cleanupProgress(error);
     if (!hasShutdown) return;
-    const ctx: PluginShutdownContext = { command, state, error, result, signal: effectiveSignal, context };
-    return runPluginChain('shutdown', plugins, ctx, () => {});
+    const ctx: InterceptorShutdownContext = { command, state, error, result, signal: effectiveSignal, context };
+    return runInterceptorChain('shutdown', interceptors, ctx, () => {});
   };
 
   const runError = (error: unknown): T | Promise<T> => {
@@ -223,8 +223,8 @@ export function wrapWithLifecycle<T>(
         });
       throw error;
     }
-    const ctx: PluginErrorContext = { command, state, error, signal: effectiveSignal, context };
-    const errorResult = runPluginChain('error', plugins, ctx, (): PluginErrorResult => ({ error }));
+    const ctx: InterceptorErrorContext = { command, state, error, signal: effectiveSignal, context };
+    const errorResult = runInterceptorChain('error', interceptors, ctx, (): InterceptorErrorResult => ({ error }));
     return thenMaybe(errorResult, (er) => {
       if (er.error !== undefined) {
         const s = runShutdown(er.error);
@@ -245,10 +245,10 @@ export function wrapWithLifecycle<T>(
   };
 
   // Run start phase wrapping the pipeline
-  const startCtx: PluginStartContext = { command, state, input, signal: effectiveSignal, context };
+  const startCtx: InterceptorStartContext = { command, state, input, signal: effectiveSignal, context };
   let result: T | Promise<T>;
   try {
-    result = (hasStart ? runPluginChain('start', plugins, startCtx, pipeline) : pipeline()) as T | Promise<T>;
+    result = (hasStart ? runInterceptorChain('start', interceptors, startCtx, pipeline) : pipeline()) as T | Promise<T>;
   } catch (e) {
     return runError(e);
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { asyncSchema, createPadrone } from 'padrone';
+import { asyncSchema, createPadrone, padroneBuiltins } from 'padrone';
 import * as z from 'zod/v4';
 import { createTasksProgram } from './common.ts';
 import { createConsoleMocker } from './console-mocker.ts';
@@ -1368,6 +1368,7 @@ describe('CLI', () => {
   describe('help and version commands', () => {
     it('should show help with --help flag', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ description: 'A test CLI application', version: '1.2.3' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1378,6 +1379,7 @@ describe('CLI', () => {
 
     it('should show help with -h flag', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ description: 'A test CLI application', version: '1.2.3' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1387,11 +1389,13 @@ describe('CLI', () => {
     });
 
     it('should show help for specific command with --help flag', () => {
-      const program = createPadrone('test-cli').command('greet', (c) =>
-        c
-          .arguments(z.object({ name: z.string().describe('Name to greet') }), { positional: ['name'] })
-          .action((args) => `Hello, ${args.name}!`),
-      );
+      const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
+        .command('greet', (c) =>
+          c
+            .arguments(z.object({ name: z.string().describe('Name to greet') }), { positional: ['name'] })
+            .action((args) => `Hello, ${args.name}!`),
+        );
 
       const result = program.eval('greet --help');
 
@@ -1399,11 +1403,13 @@ describe('CLI', () => {
     });
 
     it('should show help for nested command with --help flag', () => {
-      const program = createPadrone('test-cli').command('git', (c) =>
-        c.command('commit', (c) =>
-          c.arguments(z.object({ message: z.string().describe('Commit message') })).action((args) => args?.message),
-        ),
-      );
+      const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
+        .command('git', (c) =>
+          c.command('commit', (c) =>
+            c.arguments(z.object({ message: z.string().describe('Commit message') })).action((args) => args?.message),
+          ),
+        );
 
       const result = program.eval('git commit --help');
 
@@ -1413,6 +1419,7 @@ describe('CLI', () => {
 
     it('should show help with help command', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ description: 'A test CLI application', version: '1.2.3' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1422,11 +1429,13 @@ describe('CLI', () => {
     });
 
     it('should show help for specific command with help command', () => {
-      const program = createPadrone('test-cli').command('greet', (c) =>
-        c
-          .arguments(z.object({ name: z.string().describe('Name to greet') }), { positional: ['name'] })
-          .action((args) => `Hello, ${args.name}!`),
-      );
+      const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
+        .command('greet', (c) =>
+          c
+            .arguments(z.object({ name: z.string().describe('Name to greet') }), { positional: ['name'] })
+            .action((args) => `Hello, ${args.name}!`),
+        );
 
       const result = program.eval('help greet');
 
@@ -1434,11 +1443,13 @@ describe('CLI', () => {
     });
 
     it('should show help for nested command with help command', () => {
-      const program = createPadrone('test-cli').command('git', (c) =>
-        c.command('commit', (c) =>
-          c.arguments(z.object({ message: z.string().describe('Commit message') })).action((args) => args?.message),
-        ),
-      );
+      const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
+        .command('git', (c) =>
+          c.command('commit', (c) =>
+            c.arguments(z.object({ message: z.string().describe('Commit message') })).action((args) => args?.message),
+          ),
+        );
 
       const result = program.eval('help git commit');
 
@@ -1448,6 +1459,7 @@ describe('CLI', () => {
 
     it('should show version with --version flag', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ description: 'A test CLI application', version: '1.2.3' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1458,6 +1470,7 @@ describe('CLI', () => {
 
     it('should show version with -v flag', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ version: '2.0.0' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1468,6 +1481,7 @@ describe('CLI', () => {
 
     it('should show version with -V flag', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ version: '3.0.0' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1478,6 +1492,7 @@ describe('CLI', () => {
 
     it('should show version with version command', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ version: '4.0.0' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1487,7 +1502,9 @@ describe('CLI', () => {
     });
 
     it('should auto-detect version from package.json when not explicitly set', () => {
-      const program = createPadrone('test-cli').command('greet', (c) => c.action(() => 'hello'));
+      const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
+        .command('greet', (c) => c.action(() => 'hello'));
 
       const result = program.eval('--version');
 
@@ -1520,6 +1537,7 @@ describe('CLI', () => {
 
     it('should still show help with --help flag even when help command is overridden', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ version: '1.0.0' })
         .command('help', (c) => c.action(() => 'Custom help!'))
         .command('greet', (c) => c.action(() => 'hello'));
@@ -1531,7 +1549,7 @@ describe('CLI', () => {
     });
 
     it('should set description on program', () => {
-      const program = createPadrone('test-cli').configure({ description: 'My awesome CLI tool' });
+      const program = createPadrone('test-cli').extend(padroneBuiltins()).configure({ description: 'My awesome CLI tool' });
 
       const result = program.eval('--help');
 
@@ -1540,6 +1558,7 @@ describe('CLI', () => {
 
     it('should chain description and version', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ description: 'My awesome CLI tool', version: '5.0.0' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1552,6 +1571,7 @@ describe('CLI', () => {
 
     it('should accept --detail flag for help', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1567,6 +1587,7 @@ describe('CLI', () => {
 
     it('should accept -d shorthand for detail flag', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1577,6 +1598,7 @@ describe('CLI', () => {
 
     it('should accept detail flag with help command', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1586,9 +1608,11 @@ describe('CLI', () => {
     });
 
     it('should accept detail flag for subcommand help', () => {
-      const program = createPadrone('test-cli').command('greet', (c) =>
-        c.arguments(z.object({ name: z.string().describe('Name') }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
-      );
+      const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string().describe('Name') }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
+        );
 
       const result = program.eval('greet --help --detail=full');
 
@@ -1597,6 +1621,7 @@ describe('CLI', () => {
 
     it('should accept --format flag for help', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1612,6 +1637,7 @@ describe('CLI', () => {
 
     it('should accept -f shorthand for format flag', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1622,6 +1648,7 @@ describe('CLI', () => {
 
     it('should accept format flag with help command', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 
@@ -1632,6 +1659,7 @@ describe('CLI', () => {
 
     it('should combine format and detail flags', () => {
       const program = createPadrone('test-cli')
+        .extend(padroneBuiltins())
         .configure({ description: 'My CLI' })
         .command('greet', (c) => c.action(() => 'hello'));
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { createPadrone } from 'padrone';
+import { createPadrone, padroneBuiltins } from 'padrone';
 import { formatUpdateMessage, isNewerVersion, parseInterval } from '../src/feature/update-check.ts';
 import { createConsoleMocker } from './console-mocker.ts';
 
@@ -110,6 +110,7 @@ describe('update-check', () => {
       const outputs: string[] = [];
       const errors: string[] = [];
       const program = createPadrone('test')
+        .extend(padroneBuiltins())
         .configure({ version: '1.0.0' })
         .updateCheck({ registry: 'npm', interval: '1d' })
         .runtime({

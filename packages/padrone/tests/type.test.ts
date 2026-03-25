@@ -1,8 +1,8 @@
 // biome-ignore-all lint/correctness/noUnusedVariables: This file is for testing TypeScript types, so unused variables are intentional.
 
 import { describe, expectTypeOf } from 'bun:test';
-import type { PadroneBuilder, PadroneProgram } from 'padrone';
-import { asyncSchema, createPadrone } from 'padrone';
+import type { PadroneBuilder, PadroneProgram, WithPadroneBuiltins } from 'padrone';
+import { asyncSchema, createPadrone, padroneBuiltins } from 'padrone';
 import * as z from 'zod/v4';
 import { createTasksProgram } from './common.ts';
 
@@ -382,4 +382,76 @@ describe.skip('Types - Readonly arrays in configuration', () => {
       })
       .action((args) => args),
   );
+});
+
+/** This test verifies that padroneBuiltins() extension augments command types correctly */
+describe.skip('Types - padroneBuiltins extension', () => {
+  // padroneBuiltins() without options should augment types with all 4 builtins
+  const program = createPadrone('test')
+    .command('greet', (c) => c.action(() => 'hello' as const))
+    .extend(padroneBuiltins());
+
+  // All 4 builtin commands should be available as eval targets
+  type EvalNames = Extract<Parameters<typeof program.eval>[0], string>;
+  expectTypeOf<'help'>().toExtend<EvalNames>();
+  expectTypeOf<'version'>().toExtend<EvalNames>();
+  expectTypeOf<'completion'>().toExtend<EvalNames>();
+  expectTypeOf<'man'>().toExtend<EvalNames>();
+  // User command still available
+  expectTypeOf<'greet'>().toExtend<EvalNames>();
+
+  // eval('help') should return a string result
+  const helpResult = program.eval('help');
+  expectTypeOf(helpResult.result).toEqualTypeOf<string | undefined>();
+
+  // eval('greet') should still return the original type
+  const greetResult = program.eval('greet');
+  expectTypeOf(greetResult.result).toEqualTypeOf<'hello' | undefined>();
+
+  // find('help') should return a command (not undefined-only)
+  const helpCmd = program.find('help');
+  expectTypeOf(helpCmd).not.toBeUndefined();
+
+  // Async builtins: completion and man are async
+  const completionResult = program.eval('completion');
+  expectTypeOf(completionResult).toMatchTypeOf<Promise<any>>();
+
+  const manResult = program.eval('man');
+  expectTypeOf(manResult).toMatchTypeOf<Promise<any>>();
+
+  // padroneBuiltins({ help: false }) should omit help
+  const noHelp = createPadrone('test')
+    .command('greet', (c) => c.action(() => 'hello' as const))
+    .extend(padroneBuiltins({ help: false }));
+
+  type NoHelpNames = Extract<Parameters<typeof noHelp.eval>[0], string>;
+  expectTypeOf<'version'>().toExtend<NoHelpNames>();
+  expectTypeOf<'completion'>().toExtend<NoHelpNames>();
+  expectTypeOf<'man'>().toExtend<NoHelpNames>();
+
+  // padroneBuiltins({ version: false, completion: false, man: false }) — only help
+  const onlyHelp = createPadrone('test')
+    .command('greet', (c) => c.action(() => 'hello' as const))
+    .extend(padroneBuiltins({ version: false, completion: false, man: false }));
+
+  type OnlyHelpNames = Extract<Parameters<typeof onlyHelp.eval>[0], string>;
+  expectTypeOf<'help'>().toExtend<OnlyHelpNames>();
+  expectTypeOf<'greet'>().toExtend<OnlyHelpNames>();
+
+  // WithPadroneBuiltins type helper works on builders too
+  const builder = createPadrone('test').command('greet', (c) => c.action(() => 'hello' as const));
+  type Augmented = WithPadroneBuiltins<typeof builder>;
+  expectTypeOf<'extend'>().toExtend<keyof Augmented>();
+
+  // Override a builtin: .command('help', ...) before .extend() should be replaced
+  const overridden = createPadrone('test')
+    .command('help', (c) => c.action(() => 'custom help' as const))
+    .extend(padroneBuiltins());
+
+  const overriddenHelp = overridden.eval('help');
+  expectTypeOf(overriddenHelp.result).toEqualTypeOf<string | undefined>();
+
+  // Command count: user command + 4 builtins = 5
+  type AllCommands = (typeof program)['~types']['commands'];
+  expectTypeOf<AllCommands['length']>().toEqualTypeOf<5>();
 });

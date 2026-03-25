@@ -71,7 +71,7 @@ padrone doctor src/cli.ts
 | Missing action | warning | Leaf command with no action handler |
 | Missing description | warning | Schema property without a description |
 | Variadic not last | warning | Variadic positional not in the last position |
-| Unused plugins | warning | Plugin with no phase handlers |
+| Unused interceptors | warning | Interceptor with no phase handlers |
 | Unreachable commands | warning | Non-hidden command under a hidden parent |
 | Missing command description | warning | Non-hidden, non-root command without title or description |
 | Empty command groups | warning | Branch command with no reachable leaf descendants |
