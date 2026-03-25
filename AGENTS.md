@@ -41,7 +41,12 @@ Monorepo with bun workspaces: `packages/*`, `examples/*`, `docs/`.
 
 The core library lives in `packages/padrone/`:
 - `src/types.ts` — All type definitions (`PadroneCommand`, `PadroneBuilder`, `PadroneProgram`, plugins, etc.). PadroneCommand has 9 generic type params.
-- `src/create.ts` — Runtime implementation of `createPadrone()` and builder. This is the largest file — contains the builder pattern, command execution pipeline, and program methods (cli/eval/run/parse/api/repl/help/tool/completion).
+- `src/create.ts` — `createPadrone()` factory and builder object. Wires together the modules below. Immutable builder methods (configure, arguments, action, command, mount, use, etc.).
+- `src/exec.ts` — Core execution pipeline: signal handling → builtin dispatch → parse → validate → execute phases. Contains `execCommand()`, `collectPlugins()`, `handleBuiltinAction()`, and progress cleanup.
+- `src/validate.ts` — CLI input parsing (`parseCommand`), argument preprocessing (`buildCommandArgs`), schema validation (`validateCommandArgs`), unknown arg detection, stdin reading, env validation.
+- `src/program-methods.ts` — Program API methods: `cli()`, `eval()`, `run()`, `parse()`, `tool()`, `stringify()`, `help()`, `api()`, `repl()`, `mcp()`, `serve()`, `completion()`.
+- `src/builtins.ts` — Built-in command/flag detection (`checkBuiltinCommands`), `--config`/`--color` flag extraction, `resolveInherited()` parent-chain walker.
+- `src/suggestions.ts` — "Did you mean?" formatting (`formatSuggestions`), issue enrichment with fuzzy suggestions.
 - `src/command-utils.ts` — Plugin chain execution (`runPluginChain`, `wrapWithLifecycle`), command tree utilities, sync/async preservation helpers (`thenMaybe`).
 - `src/parse.ts` — CLI input tokenizer/parser. Handles flag stacking, `--key=value`, `--no-*` negation, positional args, nested keys.
 - `src/args.ts` — Schema metadata extraction (`extractSchemaMetadata`), option preprocessing (flags/aliases), positional config parsing, coercion.
@@ -78,7 +83,7 @@ When asked to commit with a changeset, create a concise changeset suitable for a
 
 **Async tracking**: `TAsync` generic param tracks whether a command uses async validation. `asyncSchema()` brands a schema with `'~async': true`. `MaybePromise<T, TAsync>` conditionally wraps return types. Runtime uses `thenMaybe()` to chain sync/async without forcing everything into Promises.
 
-**Plugin system**: Onion model with 6 phases: start → parse → validate → execute → (error) → shutdown. `collectPlugins()` walks the parent chain (root outermost, subcommand innermost). Parse/start/error/shutdown use root plugins only; validate/execute use the full collected chain.
+**Plugin system**: Onion model with 6 phases: start → parse → validate → execute → (error) → shutdown. `collectPlugins()` in `exec.ts` walks the parent chain (root outermost, subcommand innermost). Parse/start/error/shutdown use root plugins only; validate/execute use the full collected chain.
 
 **Flags vs aliases**: `flags` = single-char short flags (`-v`), stackable. `alias` = multi-char alternative long names (`--dry-run`). `autoAlias` (default: true) auto-generates kebab-case aliases for camelCase option names.
 
