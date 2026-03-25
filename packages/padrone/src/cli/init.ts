@@ -1,14 +1,17 @@
 import { existsSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { createFileEmitter, template } from 'padrone/codegen';
+import * as z from 'zod/v4';
 import type { PadroneActionContext } from '../types/index.ts';
 
-interface InitArgs {
-  name?: string;
-  description?: string;
-  version?: string;
-  dir?: string;
-}
+export const initSchema = z.object({
+  name: z.string().optional().describe('Project name (defaults to directory name)'),
+  description: z.string().optional().describe('Project description'),
+  version: z.string().optional().default('0.1.0').describe('Initial version'),
+  dir: z.string().optional().describe('Target directory (defaults to current directory)'),
+});
+
+type InitArgs = z.infer<typeof initSchema>;
 
 const packageJsonTemplate = template(`{
   "name": "{{name}}",

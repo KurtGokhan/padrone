@@ -1,12 +1,15 @@
 import { basename } from 'node:path';
-import { detectShell, getCompletionInstallInstructions, type ShellType, setupCompletions } from '../feature/completion.ts';
+import * as z from 'zod/v4';
+import { detectShell, getCompletionInstallInstructions, setupCompletions } from '../feature/completion.ts';
 import type { PadroneActionContext } from '../types/index.ts';
 
-interface CompletionsArgs {
-  appPath?: string;
-  for?: ShellType;
-  setup?: boolean;
-}
+export const completionsSchema = z.object({
+  appPath: z.string().optional().describe('Path or name of the CLI program (defaults to padrone)'),
+  for: z.enum(['bash', 'zsh', 'fish', 'powershell']).optional().describe('Target shell (auto-detected if omitted)'),
+  setup: z.boolean().optional().default(false).describe('Write completions to shell config file'),
+});
+
+type CompletionsArgs = z.infer<typeof completionsSchema>;
 
 export function runCompletions(args: CompletionsArgs, _ctx: PadroneActionContext) {
   const programName = args.appPath ? basename(args.appPath).replace(/\.[cm]?[jt]sx?$/, '') : 'padrone';

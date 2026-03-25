@@ -1,12 +1,15 @@
 import { resolve } from 'node:path';
+import * as z from 'zod/v4';
 import { JSON_SCHEMA_OPTS } from '../core/args.ts';
 import { getCommand, isPadroneProgram } from '../core/commands.ts';
 import type { AnyPadroneCommand, PadroneActionContext } from '../types/index.ts';
 import { detectEntry } from './link.ts';
 
-interface DoctorArgs {
-  entry?: string;
-}
+export const doctorSchema = z.object({
+  entry: z.string().optional().describe('Entry file that exports a Padrone program (auto-detected from package.json if omitted)'),
+});
+
+type DoctorArgs = z.infer<typeof doctorSchema>;
 
 type Severity = 'error' | 'warning';
 

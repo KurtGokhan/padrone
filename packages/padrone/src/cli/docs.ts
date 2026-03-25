@@ -1,15 +1,18 @@
 import { resolve } from 'node:path';
+import * as z from 'zod/v4';
 import { isPadroneProgram } from '../core/commands.ts';
-import { type DocsFormat, generateDocs } from '../docs/index.ts';
+import { generateDocs } from '../docs/index.ts';
 import type { PadroneActionContext } from '../types/index.ts';
 
-interface DocsArgs {
-  entry: string;
-  output?: string;
-  format?: DocsFormat;
-  includeHidden?: boolean;
-  dryRun?: boolean;
-}
+export const docsSchema = z.object({
+  entry: z.string().describe('Entry file that exports a Padrone program'),
+  output: z.string().optional().default('./docs/cli').describe('Output directory'),
+  format: z.enum(['markdown', 'html', 'man', 'json']).optional().default('markdown').describe('Output format'),
+  includeHidden: z.boolean().optional().default(false).describe('Include hidden commands and options'),
+  dryRun: z.boolean().optional().default(false).describe('Print what would be generated without writing'),
+});
+
+type DocsArgs = z.infer<typeof docsSchema>;
 
 export async function runDocs(args: DocsArgs, _ctx: PadroneActionContext) {
   const entryPath = resolve(args.entry);

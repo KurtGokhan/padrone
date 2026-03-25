@@ -1,20 +1,23 @@
 import { resolve } from 'node:path';
 import { createCodeBuilder, createFileEmitter, generateCommandTree } from 'padrone/codegen';
+import * as z from 'zod/v4';
 import type { DiscoverySource } from '../codegen/discovery.ts';
 import { discoverCli } from '../codegen/discovery.ts';
 import { template } from '../codegen/template.ts';
 import type { GeneratorContext } from '../codegen/types.ts';
 import type { PadroneActionContext } from '../types/index.ts';
 
-interface WrapArgs {
-  command: string;
-  source?: DiscoverySource;
-  output?: string;
-  depth?: number;
-  dryRun?: boolean;
-  overwrite?: boolean;
-  yes?: boolean;
-}
+export const wrapSchema = z.object({
+  command: z.string().describe('CLI command to wrap (e.g. gh, docker, kubectl)'),
+  source: z.enum(['help', 'fish', 'zsh']).optional().default('help').describe('Parsing source (default: help)'),
+  output: z.string().optional().describe('Output directory (default: ./src/<command>)'),
+  depth: z.number().default(4).optional().describe('Max subcommand depth'),
+  dryRun: z.boolean().optional().default(false).describe('Print what would be generated without writing'),
+  overwrite: z.boolean().optional().default(false).describe('Overwrite existing files'),
+  yes: z.boolean().optional().default(false).describe('Skip confirmation prompt'),
+});
+
+type WrapArgs = z.infer<typeof wrapSchema>;
 
 export async function runWrap(args: WrapArgs, ctx: PadroneActionContext) {
   const { output, error } = ctx.runtime;

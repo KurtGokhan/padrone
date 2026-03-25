@@ -1,19 +1,23 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, resolve } from 'node:path';
+import * as z from 'zod/v4';
 import type { PadroneActionContext } from '../types/index.ts';
 import { detectShell, getRcFile, type ShellType, writeToRcFile } from '../util/shell-utils.ts';
 
-interface LinkArgs {
-  entry?: string;
-  name?: string;
-  list?: boolean;
-  setup?: boolean;
-}
+export const linkSchema = z.object({
+  entry: z.string().optional().describe('Entry file (auto-detected from package.json bin field)'),
+  name: z.string().optional().describe('Command name (auto-detected from package.json)'),
+  list: z.boolean().optional().default(false).describe('List all linked programs'),
+  setup: z.boolean().optional().default(false).describe('Add ~/.padrone/bin to PATH in shell config'),
+});
 
-interface UnlinkArgs {
-  name?: string;
-}
+export const unlinkSchema = z.object({
+  name: z.string().optional().describe('Program name to unlink (auto-detected from current directory)'),
+});
+
+type LinkArgs = z.infer<typeof linkSchema>;
+type UnlinkArgs = z.infer<typeof unlinkSchema>;
 
 interface LinkEntry {
   name: string;
