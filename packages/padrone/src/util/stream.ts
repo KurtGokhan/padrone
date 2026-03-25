@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type { PadroneSchema } from './types.ts';
+import type { PadroneSchema } from '../types/index.ts';
 
 export interface AsyncStreamMeta {
   [x: string]: unknown;

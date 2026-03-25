@@ -1,5 +1,5 @@
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec';
-import { asyncStreamRegistry } from './stream.ts';
+import { asyncStreamRegistry } from '../util/stream.ts';
 
 type Letter =
   | 'a'

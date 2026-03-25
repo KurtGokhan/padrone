@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { getCommand } from '../command-utils.ts';
-import type { HelpArgumentInfo, HelpInfo, HelpPositionalInfo, HelpSubcommandInfo } from '../formatter.ts';
-import { getHelpInfo } from '../help.ts';
-import type { AnyPadroneCommand } from '../types.ts';
+import { getCommand } from '../core/commands.ts';
+import type { HelpArgumentInfo, HelpInfo, HelpPositionalInfo, HelpSubcommandInfo } from '../output/formatter.ts';
+import { getHelpInfo } from '../output/help.ts';
+import type { AnyPadroneCommand } from '../types/index.ts';
 
 // ============================================================================
 // Types

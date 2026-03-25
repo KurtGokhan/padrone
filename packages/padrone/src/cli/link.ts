@@ -1,8 +1,8 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, resolve } from 'node:path';
-import { detectShell, getRcFile, type ShellType, writeToRcFile } from '../shell-utils.ts';
-import type { PadroneActionContext } from '../types.ts';
+import type { PadroneActionContext } from '../types/index.ts';
+import { detectShell, getRcFile, type ShellType, writeToRcFile } from '../util/shell-utils.ts';
 
 interface LinkArgs {
   entry?: string;

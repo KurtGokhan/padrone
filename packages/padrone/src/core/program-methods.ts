@@ -1,26 +1,7 @@
 import type { Schema } from 'ai';
-import { parsePositionalConfig } from './args.ts';
-import { checkBuiltinCommands } from './builtins.ts';
-import {
-  errorResult,
-  findCommandByName,
-  getCommandRuntime,
-  makeThenable,
-  noopIndicator,
-  resolveAllCommands,
-  runPluginChain,
-  thenMaybe,
-  warnIfUnexpectedAsync,
-  withDrain,
-  withPromiseDrain,
-} from './command-utils.ts';
-import type { ShellType } from './completion.ts';
-import { RoutingError } from './errors.ts';
-import type { ExecContext } from './exec.ts';
-import { collectPlugins, errorResultWithSignal, execCommand } from './exec.ts';
-import { generateHelp } from './help.ts';
-import { parseCliInputToParts } from './parse.ts';
-import { createReplIterator } from './repl-loop.ts';
+import type { ShellType } from '../feature/completion.ts';
+import { createReplIterator } from '../feature/repl-loop.ts';
+import { generateHelp } from '../output/help.ts';
 import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
@@ -29,8 +10,17 @@ import type {
   PadroneReplPreferences,
   PluginExecuteContext,
   PluginExecuteResult,
-} from './types.ts';
-import { getVersion } from './utils.ts';
+} from '../types/index.ts';
+import { getVersion } from '../util/utils.ts';
+import { parsePositionalConfig } from './args.ts';
+import { checkBuiltinCommands } from './builtins.ts';
+import { findCommandByName, getCommandRuntime, resolveAllCommands } from './commands.ts';
+import { RoutingError } from './errors.ts';
+import type { ExecContext } from './exec.ts';
+import { collectPlugins, errorResultWithSignal, execCommand } from './exec.ts';
+import { parseCliInputToParts } from './parse.ts';
+import { noopIndicator, runPluginChain } from './plugins.ts';
+import { errorResult, makeThenable, thenMaybe, warnIfUnexpectedAsync, withDrain, withPromiseDrain } from './results.ts';
 import { coreValidateForParse } from './validate.ts';
 
 type ProgramContext = ExecContext & {
@@ -226,7 +216,7 @@ export function createProgramMethods(ctx: ProgramContext) {
           basePath: builtin.basePath ?? basePrefs.basePath,
         };
         const startMcp = async () => {
-          const { startMcpServer } = await import('./mcp.ts');
+          const { startMcpServer } = await import('../feature/mcp.ts');
           await startMcpServer(builder as any, rootCommand, evalCommand, mcpPrefs);
           return withDrain({ command: rootCommand, args: undefined, result: undefined }) as any;
         };
@@ -242,7 +232,7 @@ export function createProgramMethods(ctx: ProgramContext) {
           basePath: builtin.basePath ?? basePrefs.basePath,
         };
         const startServe = async () => {
-          const { startServeServer } = await import('./serve.ts');
+          const { startServeServer } = await import('../feature/serve.ts');
           await startServeServer(builder as any, rootCommand, evalCommand, servePrefs);
           return withDrain({ command: rootCommand, args: undefined, result: undefined }) as any;
         };
@@ -257,7 +247,7 @@ export function createProgramMethods(ctx: ProgramContext) {
           parseCliInputToParts(resolvedInput).some((p) => p.type === 'named' && p.key.length === 1 && p.key[0] === 'no-update-check');
         if (!hasNoUpdateCheckFlag) {
           const currentVersion = getVersion(rootCommand.version);
-          updateCheckPromise = import('./update-check.ts').then(({ createUpdateChecker }) =>
+          updateCheckPromise = import('../feature/update-check.ts').then(({ createUpdateChecker }) =>
             createUpdateChecker(rootCommand.name, currentVersion, rootCommand.updateCheck!, runtime),
           );
         }
@@ -356,19 +346,19 @@ export function createProgramMethods(ctx: ProgramContext) {
 
   const completion: AnyPadroneProgram['completion'] = async (shell) => {
     resolveAllCommands(rootCommand);
-    const { generateCompletionOutput } = await import('./completion.ts');
+    const { generateCompletionOutput } = await import('../feature/completion.ts');
     return generateCompletionOutput(rootCommand, shell as ShellType | undefined);
   };
 
   const mcp: AnyPadroneProgram['mcp'] = async (prefs) => {
     resolveAllCommands(rootCommand);
-    const { startMcpServer } = await import('./mcp.ts');
+    const { startMcpServer } = await import('../feature/mcp.ts');
     return startMcpServer(builder as any, rootCommand, evalCommand, prefs);
   };
 
   const serve: AnyPadroneProgram['serve'] = async (prefs) => {
     resolveAllCommands(rootCommand);
-    const { startServeServer } = await import('./serve.ts');
+    const { startServeServer } = await import('../feature/serve.ts');
     return startServeServer(builder as any, rootCommand, evalCommand, prefs);
   };
 

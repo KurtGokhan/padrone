@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
-import { commandSymbol } from '../src/command-utils.ts';
-import { createMcpHandler } from '../src/mcp.ts';
+import { commandSymbol } from '../src/core/commands.ts';
+import { createMcpHandler } from '../src/feature/mcp.ts';
 import { createConsoleMocker } from './console-mocker.ts';
 
 function getCommand(program: any) {

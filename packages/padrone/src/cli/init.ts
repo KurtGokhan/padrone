@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { createFileEmitter, template } from 'padrone/codegen';
-import type { PadroneActionContext } from '../types.ts';
+import type { PadroneActionContext } from '../types/index.ts';
 
 interface InitArgs {
   name?: string;

@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
-import { isPadroneProgram } from '../command-utils.ts';
+import { isPadroneProgram } from '../core/commands.ts';
 import { type DocsFormat, generateDocs } from '../docs/index.ts';
-import type { PadroneActionContext } from '../types.ts';
+import type { PadroneActionContext } from '../types/index.ts';
 
 interface DocsArgs {
   entry: string;

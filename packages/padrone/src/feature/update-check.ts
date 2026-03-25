@@ -1,4 +1,4 @@
-import type { ResolvedPadroneRuntime } from './runtime.ts';
+import type { ResolvedPadroneRuntime } from '../core/runtime.ts';
 
 /**
  * Configuration for the update check feature.

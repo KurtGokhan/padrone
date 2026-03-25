@@ -1,6 +1,6 @@
-import { buildInputSchema, collectEndpoints, serializeArgsToFlags } from './command-utils.ts';
-import { generateHelp } from './help.ts';
-import type { AnyPadroneCommand, AnyPadroneProgram } from './types.ts';
+import { buildInputSchema, collectEndpoints, serializeArgsToFlags } from '../core/commands.ts';
+import { generateHelp } from '../output/help.ts';
+import type { AnyPadroneCommand, AnyPadroneProgram } from '../types/index.ts';
 
 export type PadroneMcpPreferences = {
   /** Server name. Defaults to the program name. */
@@ -384,7 +384,7 @@ export async function startMcpServer(
     return startStdioTransport(handleRequest);
   }
 
-  const { getCommandRuntime } = await import('./command-utils.ts');
+  const { getCommandRuntime } = await import('../core/commands.ts');
   const runtime = getCommandRuntime(existingCommand);
   return startHttpTransport(handleRequest, prefs ?? {}, (msg) => runtime.error(msg));
 }

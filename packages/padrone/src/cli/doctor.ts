@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
-import { JSON_SCHEMA_OPTS } from '../args.ts';
-import { getCommand, isPadroneProgram } from '../command-utils.ts';
-import type { AnyPadroneCommand, PadroneActionContext } from '../types.ts';
+import { JSON_SCHEMA_OPTS } from '../core/args.ts';
+import { getCommand, isPadroneProgram } from '../core/commands.ts';
+import type { AnyPadroneCommand, PadroneActionContext } from '../types/index.ts';
 import { detectEntry } from './link.ts';
 
 interface DoctorArgs {

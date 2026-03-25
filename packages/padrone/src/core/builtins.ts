@@ -1,8 +1,8 @@
-import { type ColorConfig, type ColorTheme, colorThemes } from './colorizer.ts';
-import { findCommandByName } from './command-utils.ts';
-import type { ShellType } from './completion.ts';
+import type { ShellType } from '../feature/completion.ts';
+import { type ColorConfig, type ColorTheme, colorThemes } from '../output/colorizer.ts';
+import type { AnyPadroneCommand } from '../types/index.ts';
+import { findCommandByName } from './commands.ts';
 import { parseCliInputToParts } from './parse.ts';
-import type { AnyPadroneCommand } from './types.ts';
 
 type DetailLevel = 'minimal' | 'standard' | 'full';
 type FormatLevel = 'text' | 'ansi' | 'console' | 'markdown' | 'html' | 'json' | 'auto';

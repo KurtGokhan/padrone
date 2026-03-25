@@ -1,28 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { type BuiltinAction, checkBuiltinCommands, extractColorFlag, extractConfigPath, resolveInherited } from './builtins.ts';
-import {
-  createLazyIndicator,
-  createProgress,
-  errorResult,
-  getCommandRuntime,
-  hasInteractiveConfig,
-  noop,
-  noopIndicator,
-  outputValue,
-  resolveAllCommands,
-  resolveProgressMessage,
-  runPluginChain,
-  suggestSimilar,
-  thenMaybe,
-  warnIfUnexpectedAsync,
-  withDrain,
-  wrapWithLifecycle,
-} from './command-utils.ts';
-import { ConfigError, RoutingError, signalExitCode, ValidationError } from './errors.ts';
-import { generateHelp } from './help.ts';
-import { promptInteractiveFields } from './interactive.ts';
-import type { PadroneProgressIndicator, PadroneSignal, ResolvedPadroneRuntime } from './runtime.ts';
-import { collectSuggestionsFromIssues, enrichIssuesWithSuggestions, formatSuggestions } from './suggestions.ts';
+import { promptInteractiveFields } from '../feature/interactive.ts';
+import { generateHelp } from '../output/help.ts';
 import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
@@ -35,8 +13,22 @@ import type {
   PluginParseResult,
   PluginValidateContext,
   PluginValidateResult,
-} from './types.ts';
-import { getVersion } from './utils.ts';
+} from '../types/index.ts';
+import { getVersion } from '../util/utils.ts';
+import { type BuiltinAction, checkBuiltinCommands, extractColorFlag, extractConfigPath, resolveInherited } from './builtins.ts';
+import { getCommandRuntime, resolveAllCommands, suggestSimilar } from './commands.ts';
+import { ConfigError, RoutingError, signalExitCode, ValidationError } from './errors.ts';
+import {
+  createLazyIndicator,
+  createProgress,
+  noopIndicator,
+  resolveProgressMessage,
+  runPluginChain,
+  wrapWithLifecycle,
+} from './plugins.ts';
+import { errorResult, hasInteractiveConfig, noop, outputValue, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
+import type { PadroneProgressIndicator, PadroneSignal, ResolvedPadroneRuntime } from './runtime.ts';
+import { collectSuggestionsFromIssues, enrichIssuesWithSuggestions, formatSuggestions } from './suggestions.ts';
 import {
   buildCommandArgs,
   checkUnknownArgs,
@@ -111,7 +103,7 @@ export function handleBuiltinAction(builtin: BuiltinAction, rootCommand: AnyPadr
 
   if (builtin.type === 'completion') {
     resolveAllCommands(rootCommand);
-    return import('./completion.ts').then(({ detectShell, generateCompletionOutput, setupCompletions }) => {
+    return import('../feature/completion.ts').then(({ detectShell, generateCompletionOutput, setupCompletions }) => {
       if (builtin.setup) {
         const shell = builtin.shell ?? detectShell();
         if (!shell) throw new Error('Could not detect shell. Specify one: completion bash --setup');
@@ -128,7 +120,7 @@ export function handleBuiltinAction(builtin: BuiltinAction, rootCommand: AnyPadr
 
   if (builtin.type === 'man') {
     resolveAllCommands(rootCommand);
-    return import('./docs/index.ts').then(({ setupManPages, removeManPages, generateDocs }) => {
+    return import('../docs/index.ts').then(({ setupManPages, removeManPages, generateDocs }) => {
       if (builtin.setup) {
         const result = setupManPages(rootCommand);
         const message = `${result.updated ? 'Updated' : 'Installed'} ${result.written.length} man page(s) in ${result.dir}`;

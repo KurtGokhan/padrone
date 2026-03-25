@@ -4,7 +4,7 @@ import type { DiscoverySource } from '../codegen/discovery.ts';
 import { discoverCli } from '../codegen/discovery.ts';
 import { template } from '../codegen/template.ts';
 import type { GeneratorContext } from '../codegen/types.ts';
-import type { PadroneActionContext } from '../types.ts';
+import type { PadroneActionContext } from '../types/index.ts';
 
 interface WrapArgs {
   command: string;

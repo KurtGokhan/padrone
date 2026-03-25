@@ -1,25 +1,15 @@
-import {
-  commandSymbol,
-  findCommandByName,
-  hasInteractiveConfig,
-  isAsyncBranded,
-  lazyResolver,
-  makeThenable,
-  mergeCommands,
-  noop,
-  repathCommandTree,
-  resolveCommand,
-  withPromiseDrain,
-} from './command-utils.ts';
+import { createWrapHandler } from '../feature/wrap.ts';
+import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand, PadronePlugin, PadroneProgram } from '../types/index.ts';
+import { commandSymbol, findCommandByName, lazyResolver, mergeCommands, repathCommandTree, resolveCommand } from './commands.ts';
 import { RoutingError } from './errors.ts';
 import type { ExecContext } from './exec.ts';
 import { collectPlugins, errorResultWithSignal, execCommand } from './exec.ts';
 import { createProgramMethods } from './program-methods.ts';
-import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand, PadronePlugin, PadroneProgram } from './types.ts';
+import { hasInteractiveConfig, isAsyncBranded, makeThenable, noop, withPromiseDrain } from './results.ts';
 import { parseCommand } from './validate.ts';
-import { createWrapHandler } from './wrap.ts';
 
-export { asyncSchema, buildReplCompleter } from './command-utils.ts';
+export { buildReplCompleter } from './commands.ts';
+export { asyncSchema } from './results.ts';
 
 export function createPadrone<TProgramName extends string>(name: TProgramName): PadroneProgram<TProgramName, '', ''> {
   return createPadroneBuilder({ name, path: '', commands: [] } as any) as unknown as PadroneProgram<TProgramName, '', ''>;

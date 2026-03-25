@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from 'bun:test';
 import * as z from 'zod/v4';
-import { createPadrone } from '../src/create.ts';
-import { testCli } from '../src/test.ts';
+import { createPadrone } from '../src/core/create.ts';
+import { testCli } from '../src/feature/test.ts';
 
 describe('lazy command initialization', () => {
   it('should not invoke builderFn until the command is used', async () => {

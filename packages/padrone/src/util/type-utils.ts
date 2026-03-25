@@ -1,4 +1,4 @@
-import type { AnyPadroneCommand, PadroneCommand } from './types.ts';
+import type { AnyPadroneCommand, PadroneCommand } from '../types/index.ts';
 
 /**
  * Use this type instead of `any` when you intend to fix it later

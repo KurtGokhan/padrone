@@ -1,6 +1,6 @@
-import type { ColorConfig, ColorTheme } from './colorizer.ts';
-import type { HelpFormat } from './formatter.ts';
-import { findConfigFile, loadConfigFile } from './utils.ts';
+import type { ColorConfig, ColorTheme } from '../output/colorizer.ts';
+import type { HelpFormat } from '../output/formatter.ts';
+import { findConfigFile, loadConfigFile } from '../util/utils.ts';
 
 /** Process signals that Padrone can handle for graceful shutdown. */
 export type PadroneSignal = 'SIGINT' | 'SIGTERM' | 'SIGHUP';

@@ -1,4 +1,4 @@
-import type { AnyPadroneCommand } from './types.ts';
+import type { AnyPadroneCommand } from '../types/index.ts';
 
 export function getRootCommand(cmd: AnyPadroneCommand): AnyPadroneCommand {
   let current = cmd;

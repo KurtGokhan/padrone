@@ -1,7 +1,7 @@
-import { buildInputSchema, type CollectedEndpoint, collectEndpoints, serializeArgsToFlags } from './command-utils.ts';
-import { RoutingError, ValidationError } from './errors.ts';
-import { generateHelp } from './help.ts';
-import type { AnyPadroneCommand, AnyPadroneProgram } from './types.ts';
+import { buildInputSchema, type CollectedEndpoint, collectEndpoints, serializeArgsToFlags } from '../core/commands.ts';
+import { RoutingError, ValidationError } from '../core/errors.ts';
+import { generateHelp } from '../output/help.ts';
+import type { AnyPadroneCommand, AnyPadroneProgram } from '../types/index.ts';
 
 export type PadroneServePreferences = {
   /** Port to listen on. Default: 3000 */
@@ -414,7 +414,7 @@ export async function startServeServer(
     res.end(body);
   });
 
-  const { getCommandRuntime } = await import('./command-utils.ts');
+  const { getCommandRuntime } = await import('../core/commands.ts');
   const runtime = getCommandRuntime(existingCommand);
 
   return new Promise<void>((resolve, reject) => {

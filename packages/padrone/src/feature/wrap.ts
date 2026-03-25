@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { ValidationError } from './errors.ts';
-import type { PadroneSchema } from './types.ts';
+import { ValidationError } from '../core/errors.ts';
+import type { PadroneSchema } from '../types/index.ts';
 
 /**
  * Configuration for wrapping an external CLI tool.

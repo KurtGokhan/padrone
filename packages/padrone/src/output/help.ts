@@ -1,7 +1,15 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
-import { extractSchemaMetadata, JSON_SCHEMA_OPTS, type PadroneArgsSchemaMeta, parsePositionalConfig, parseStdinConfig } from './args.ts';
+import {
+  extractSchemaMetadata,
+  JSON_SCHEMA_OPTS,
+  type PadroneArgsSchemaMeta,
+  parsePositionalConfig,
+  parseStdinConfig,
+} from '../core/args.ts';
+import { findCommandByName } from '../core/commands.ts';
+import type { AnyPadroneCommand } from '../types/index.ts';
+import { getRootCommand } from '../util/utils.ts';
 import type { ColorConfig, ColorTheme } from './colorizer.ts';
-import { findCommandByName } from './command-utils.ts';
 import {
   createFormatter,
   type HelpArgumentInfo,
@@ -11,8 +19,6 @@ import {
   type HelpPositionalInfo,
   type HelpSubcommandInfo,
 } from './formatter.ts';
-import type { AnyPadroneCommand } from './types.ts';
-import { getRootCommand } from './utils.ts';
 
 export type HelpPreferences = {
   format?: HelpFormat | 'auto';

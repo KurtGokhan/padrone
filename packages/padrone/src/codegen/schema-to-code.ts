@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { JSON_SCHEMA_OPTS } from '../args.ts';
+import { JSON_SCHEMA_OPTS } from '../core/args.ts';
 import type { FieldMeta } from './types.ts';
 
 interface SchemaToCodeResult {

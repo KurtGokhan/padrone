@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { createPadrone } from 'padrone';
-import { formatUpdateMessage, isNewerVersion, parseInterval } from '../src/update-check.ts';
+import { formatUpdateMessage, isNewerVersion, parseInterval } from '../src/feature/update-check.ts';
 import { createConsoleMocker } from './console-mocker.ts';
 
 describe('update-check', () => {

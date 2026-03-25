@@ -1,4 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { AnyPadroneCommand, PluginValidateResult } from '../types/index.ts';
+import { createStdinStream } from '../util/stream.ts';
 import {
   coerceArgs,
   detectUnknownArgs,
@@ -12,12 +14,11 @@ import {
   preprocessArgs,
 } from './args.ts';
 import { resolveInherited } from './builtins.ts';
-import { getCommandRuntime, suggestSimilar, thenMaybe } from './command-utils.ts';
+import { getCommandRuntime, suggestSimilar } from './commands.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
+import { thenMaybe } from './results.ts';
 import { resolveStdin, resolveStdinAlways } from './runtime.ts';
-import { createStdinStream } from './stream.ts';
 import { formatSuggestions } from './suggestions.ts';
-import type { AnyPadroneCommand, PluginValidateResult } from './types.ts';
 
 /**
  * Parses CLI input to find the command and extract raw arguments without validation.

@@ -1,6 +1,6 @@
 import { basename } from 'node:path';
-import { detectShell, getCompletionInstallInstructions, type ShellType, setupCompletions } from '../completion.ts';
-import type { PadroneActionContext } from '../types.ts';
+import { detectShell, getCompletionInstallInstructions, type ShellType, setupCompletions } from '../feature/completion.ts';
+import type { PadroneActionContext } from '../types/index.ts';
 
 interface CompletionsArgs {
   appPath?: string;

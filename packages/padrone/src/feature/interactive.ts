@@ -1,6 +1,6 @@
-import { JSON_SCHEMA_OPTS } from './args.ts';
-import type { InteractivePromptConfig, ResolvedPadroneRuntime } from './runtime.ts';
-import type { AnyPadroneCommand } from './types.ts';
+import { JSON_SCHEMA_OPTS } from '../core/args.ts';
+import type { InteractivePromptConfig, ResolvedPadroneRuntime } from '../core/runtime.ts';
+import type { AnyPadroneCommand } from '../types/index.ts';
 
 /**
  * Auto-detect the prompt type for a field based on its JSON schema property definition.

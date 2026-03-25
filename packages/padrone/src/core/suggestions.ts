@@ -1,4 +1,4 @@
-import { suggestSimilar } from './command-utils.ts';
+import { suggestSimilar } from './commands.ts';
 
 /**
  * Formats a list of candidate names into a "Did you mean ...?" string.
