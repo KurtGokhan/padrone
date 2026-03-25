@@ -1,6 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { PadroneProgressIndicator, PadroneRuntime, PadroneSpinnerConfig, ResolvedPadroneRuntime } from '../core/runtime.ts';
-import type { UpdateCheckConfig } from '../feature/update-check.ts';
 import type { FullCommandName } from '../util/type-utils.ts';
 import type { PadroneArgsSchemaMeta } from './args-meta.ts';
 import type { AnyPadroneProgram } from './builder.ts';
@@ -153,9 +152,6 @@ export type PadroneCommand<
 
   /** Interceptors registered on this command. Collected from the parent chain at execution time. */
   interceptors?: PadroneInterceptor<any, any>[];
-
-  /** Update check configuration. Only used on the root program. */
-  updateCheck?: UpdateCheckConfig;
 
   parent?: AnyPadroneCommand;
   commands?: TCommands;

@@ -354,21 +354,20 @@ const asyncInterceptor: PadroneInterceptor = {
 | `parse()` | No | Yes | Yes | No | No | No |
 | `run()` | No | No | No | Yes | No | No |
 
-Built-in features (help, version, completion, REPL) bypass interceptors entirely.
+Built-in features (help, version, repl, color, config, interactive) bypass interceptors entirely.
 
 ## Extensions
 
 Extensions are build-time compositions that bundle commands, configuration, and interceptors into reusable packages. Apply them with `.extend()`.
 
-### Built-in Commands Extension
+### Built-in Commands
 
-Padrone's built-in commands (help, version, completion, REPL, MCP, serve) are available as an extension:
+Padrone's built-in features (help, version, repl, color, config, interactive) are included by default via `createPadrone()`. Advanced features (completion, man, mcp, serve) must be added explicitly via `.extend()`. Individual default builtins can be disabled:
 
 ```typescript
-import { createPadrone, padroneBuiltins } from 'padrone';
+import { createPadrone } from 'padrone';
 
-const program = createPadrone('myapp')
-  .extend(padroneBuiltins())
+const program = createPadrone('myapp', { builtins: { repl: false } })
   .command('serve', (c) => c.action(() => 'serving'));
 ```
 

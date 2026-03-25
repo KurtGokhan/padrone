@@ -14,8 +14,8 @@ import type {
   PadroneEvalPreferences,
   PadroneInterceptor,
 } from '../types/index.ts';
-import { extractColorFlag, extractConfigPath, resolveInherited } from './builtins.ts';
-import { getCommandRuntime, resolveAllCommands, suggestSimilar } from './commands.ts';
+import { resolveInherited } from './builtins.ts';
+import { getCommandRuntime, resolveAllCommands, resolveCommand, suggestSimilar } from './commands.ts';
 import { ConfigError, RoutingError, signalExitCode, ValidationError } from './errors.ts';
 import {
   createLazyIndicator,
@@ -109,20 +109,13 @@ export function execCommand(
   ctx: ExecContext,
   evalOptions?: PadroneEvalPreferences,
   errorMode: 'soft' | 'hard' = 'soft',
+  initialState?: Record<string, unknown>,
 ) {
   const { rootCommand, parseCommandFn, collectInterceptorsFn } = ctx;
   const baseRuntime = getCommandRuntime(rootCommand);
-  let runtime = evalOptions?.runtime
+  const runtime = evalOptions?.runtime
     ? Object.assign({}, baseRuntime, Object.fromEntries(Object.entries(evalOptions.runtime).filter(([, v]) => v !== undefined)))
     : baseRuntime;
-
-  const colorFlag = extractColorFlag(resolvedInput);
-  if (colorFlag) {
-    runtime = {
-      ...runtime,
-      ...(colorFlag.disableColor ? { format: 'text' as const, theme: undefined } : { theme: colorFlag.theme }),
-    };
-  }
 
   // ── Signal handling ─────────────────────────────────────────────────
   const abortController = new AbortController();
@@ -194,26 +187,21 @@ export function execCommand(
   });
 
   // Shared interceptor state for this execution
-  const state: Record<string, unknown> = {};
+  const state: Record<string, unknown> = { ...initialState };
+  // Internal keys are non-enumerable so they don't leak into user-facing state spreads
+  Object.defineProperty(state, '_execMode', { value: true, writable: true });
+  Object.defineProperty(state, '_program', { value: ctx.builder, writable: true });
   const rootInterceptors = rootCommand.interceptors ?? [];
 
   const runPipeline = () => {
     // ── Phase 1: Parse ──────────────────────────────────────────────────
     const signal = abortController.signal;
-    const parseCtx: InterceptorParseContext = { input: resolvedInput, command: rootCommand, state, signal, context: initialContext };
+    // Start-phase interceptors may override input via state._input
+    const effectiveInput = (state._input as string | undefined) ?? resolvedInput;
+    const parseCtx: InterceptorParseContext = { input: effectiveInput, command: rootCommand, state, signal, context: initialContext };
 
     const coreParse = (): InterceptorParseResult => {
       const { command, rawArgs, args, unmatchedTerms } = parseCommandFn(parseCtx.input);
-
-      // Default help: command with no action → show its help
-      const hasSubcommands = command.commands && command.commands.length > 0;
-      const hasSchema = command.argsSchema != null;
-      if (!command.action && (hasSubcommands || !hasSchema) && unmatchedTerms.length === 0) {
-        resolveAllCommands(rootCommand);
-        const helpText = generateHelp(rootCommand, command, { format: runtime.format, theme: runtime.theme });
-        runtime.output(helpText);
-        return { command, rawArgs: { '~help': helpText } as Record<string, unknown>, positionalArgs: [] };
-      }
 
       // Reject unmatched terms when the matched command doesn't accept positional args
       if (unmatchedTerms.length > 0) {
@@ -226,6 +214,7 @@ export function execCommand(
           const sourceCmd = isRootCommand ? rootCommand : command;
           if (sourceCmd.commands) {
             for (const cmd of sourceCmd.commands) {
+              resolveCommand(cmd);
               if (!cmd.hidden) {
                 candidateNames.push(cmd.name);
                 if (cmd.aliases) candidateNames.push(...cmd.aliases);
@@ -323,22 +312,8 @@ export function execCommand(
       };
 
       const coreValidate = (): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
-        // Determine interactivity
-        let flagInteractive: boolean | undefined;
-        if (hasInteractiveConfig(command.meta)) {
-          if (validateCtx.rawArgs.interactive !== undefined) {
-            flagInteractive = validateCtx.rawArgs.interactive !== false && validateCtx.rawArgs.interactive !== 'false';
-            delete validateCtx.rawArgs.interactive;
-          }
-          if (validateCtx.rawArgs.i !== undefined) {
-            flagInteractive = validateCtx.rawArgs.i !== false && validateCtx.rawArgs.i !== 'false';
-            delete validateCtx.rawArgs.i;
-          }
-        }
-
-        // Strip --color / --no-color from rawArgs (handled globally)
-        delete validateCtx.rawArgs.color;
-        delete validateCtx.rawArgs['no-color'];
+        // Determine interactivity (flag may have been extracted by the interactive extension)
+        const flagInteractive = state._interactive as boolean | undefined;
 
         const runtimeDefault: boolean | undefined =
           runtime.interactive === 'forced' ? true : runtime.interactive === 'disabled' ? false : undefined;
@@ -350,8 +325,8 @@ export function execCommand(
           runtime.interactive === 'unsupported' || effectiveInteractive === false || (stdinIsPiped && effectiveInteractive !== true);
         const forceInteractive = !interactivitySuppressed && effectiveInteractive === true;
 
-        // Extract config file path from --config or -c flag
-        const configPath = extractConfigPath(parseCtx.input);
+        // Config file path (may have been extracted by the config extension)
+        const configPath = state._configPath as string | undefined;
 
         const effectiveConfigFiles = resolveInherited(command, 'configFiles') as string[] | undefined;
         const configSchema = resolveInherited(command, 'configSchema');

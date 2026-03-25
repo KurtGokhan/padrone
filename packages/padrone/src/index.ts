@@ -1,4 +1,5 @@
 export { buildReplCompleter } from './core/commands.ts';
+export type { PadroneOptions } from './core/create.ts';
 export { createPadrone } from './core/create.ts';
 export type { PadroneErrorOptions } from './core/errors.ts';
 export { ActionError, ConfigError, PadroneError, RoutingError, SignalError, ValidationError } from './core/errors.ts';
@@ -14,8 +15,28 @@ export type {
   PadroneSpinnerPreset,
 } from './core/runtime.ts';
 export { REPL_SIGINT } from './core/runtime.ts';
-export type { PadroneBuiltinsOptions, WithPadroneBuiltins } from './extension/index.ts';
-export { padroneBuiltins } from './extension/index.ts';
+export type {
+  WithCompletion,
+  WithHelp,
+  WithMan,
+  WithMcp,
+  WithRepl,
+  WithServe,
+  WithVersion,
+} from './extension/index.ts';
+export {
+  padroneColor,
+  padroneCompletion,
+  padroneConfig,
+  padroneHelp,
+  padroneInteractive,
+  padroneMan,
+  padroneMcp,
+  padroneRepl,
+  padroneServe,
+  padroneUpdateCheck,
+  padroneVersion,
+} from './extension/index.ts';
 export type { PadroneMcpPreferences } from './feature/mcp.ts';
 export type { UpdateCheckConfig } from './feature/update-check.ts';
 export type { WrapConfig, WrapResult } from './feature/wrap.ts';

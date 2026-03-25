@@ -11,24 +11,17 @@ import type {
   PadroneAPI,
   PadroneReplPreferences,
 } from '../types/index.ts';
-import { getVersion } from '../util/utils.ts';
 import { parsePositionalConfig } from './args.ts';
-import { checkBuiltinCommands } from './builtins.ts';
 import { findCommandByName, getCommandRuntime, resolveAllCommands } from './commands.ts';
 import { RoutingError } from './errors.ts';
 import type { ExecContext } from './exec.ts';
 import { collectInterceptors, errorResultWithSignal, execCommand } from './exec.ts';
 import { noopIndicator, runInterceptorChain } from './interceptors.ts';
-import { parseCliInputToParts } from './parse.ts';
 import { errorResult, makeThenable, thenMaybe, warnIfUnexpectedAsync, withDrain, withPromiseDrain } from './results.ts';
 import { coreValidateForParse } from './validate.ts';
 
-type ProgramContext = ExecContext & {
-  evalCommand: AnyPadroneProgram['eval'];
-};
-
-export function createProgramMethods(ctx: ProgramContext) {
-  const { rootCommand, builder, evalCommand } = ctx;
+export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadroneProgram['eval']) {
+  const { rootCommand } = ctx;
 
   // A never-aborted signal for contexts that don't need signal handling (parse, run).
   const inertSignal = new AbortController().signal;
@@ -36,7 +29,7 @@ export function createProgramMethods(ctx: ProgramContext) {
   const createActionContext = (cmd: AnyPadroneCommand, context?: unknown): Omit<PadroneActionContext, 'signal'> => ({
     runtime: getCommandRuntime(cmd),
     command: cmd,
-    program: builder as any,
+    program: ctx.builder as any,
     progress: noopIndicator,
     context,
   });
@@ -206,85 +199,11 @@ export function createProgramMethods(ctx: ProgramContext) {
       const runtime = getCommandRuntime(rootCommand);
       const resolvedInput = (runtime.argv().join(' ') || undefined) as string | undefined;
 
-      const builtin = checkBuiltinCommands(resolvedInput, rootCommand);
+      // Pass repl preferences to state so the repl extension can use them
+      const initialState: Record<string, unknown> = {};
+      if (cliOptions && 'repl' in cliOptions) initialState._replPrefs = cliOptions.repl;
 
-      if (cliOptions?.repl !== false && builtin?.type === 'repl') {
-        const replPrefs: PadroneReplPreferences = {
-          ...(typeof cliOptions?.repl === 'object' ? cliOptions.repl : {}),
-          scope: builtin.scope,
-          autoOutput: (typeof cliOptions?.repl === 'object' ? cliOptions.repl.autoOutput : undefined) ?? cliOptions?.autoOutput,
-        };
-        const repl = replFn(replPrefs);
-        const drainRepl = async () => {
-          const { value } = await repl.drain();
-          return withDrain({ command: rootCommand, args: undefined, result: value }) as any;
-        };
-        return withPromiseDrain(drainRepl()) as any;
-      }
-
-      if (cliOptions?.mcp !== false && builtin?.type === 'mcp') {
-        const basePrefs = typeof cliOptions?.mcp === 'object' ? cliOptions.mcp : {};
-        const mcpPrefs = {
-          ...basePrefs,
-          transport: builtin.transport ?? basePrefs.transport,
-          port: builtin.port ?? basePrefs.port,
-          host: builtin.host ?? basePrefs.host,
-          basePath: builtin.basePath ?? basePrefs.basePath,
-        };
-        const startMcp = async () => {
-          const { startMcpServer } = await import('../feature/mcp.ts');
-          await startMcpServer(builder as any, rootCommand, evalCommand, mcpPrefs);
-          return withDrain({ command: rootCommand, args: undefined, result: undefined }) as any;
-        };
-        return withPromiseDrain(startMcp()) as any;
-      }
-
-      if (cliOptions?.serve !== false && builtin?.type === 'serve') {
-        const basePrefs = typeof cliOptions?.serve === 'object' ? cliOptions.serve : {};
-        const servePrefs = {
-          ...basePrefs,
-          port: builtin.port ?? basePrefs.port,
-          host: builtin.host ?? basePrefs.host,
-          basePath: builtin.basePath ?? basePrefs.basePath,
-        };
-        const startServe = async () => {
-          const { startServeServer } = await import('../feature/serve.ts');
-          await startServeServer(builder as any, rootCommand, evalCommand, servePrefs);
-          return withDrain({ command: rootCommand, args: undefined, result: undefined }) as any;
-        };
-        return withPromiseDrain(startServe()) as any;
-      }
-
-      // Start background update check (non-blocking)
-      let updateCheckPromise: Promise<(() => void) | undefined> | undefined;
-      if (rootCommand.updateCheck) {
-        const hasNoUpdateCheckFlag =
-          resolvedInput &&
-          parseCliInputToParts(resolvedInput).some((p) => p.type === 'named' && p.key.length === 1 && p.key[0] === 'no-update-check');
-        if (!hasNoUpdateCheckFlag) {
-          const currentVersion = getVersion(rootCommand.version);
-          updateCheckPromise = import('../feature/update-check.ts').then(({ createUpdateChecker }) =>
-            createUpdateChecker(rootCommand.name, currentVersion, rootCommand.updateCheck!, runtime),
-          );
-        }
-      }
-
-      const result = execCommand(resolvedInput, ctx, cliOptions, 'hard');
-
-      if (updateCheckPromise) {
-        if (result instanceof Promise) {
-          return withPromiseDrain(
-            result
-              .then(async (r) => {
-                const showUpdateNotification = await updateCheckPromise;
-                showUpdateNotification?.();
-                return r;
-              })
-              .catch((err: unknown) => errorResultWithSignal(err)),
-          ) as any;
-        }
-        updateCheckPromise.then((show) => show?.());
-      }
+      const result = execCommand(resolvedInput, ctx, cliOptions, 'hard', initialState);
 
       if (result instanceof Promise) return withPromiseDrain(result.catch((err: unknown) => errorResultWithSignal(err))) as any;
       return makeThenable(result);
@@ -370,13 +289,13 @@ export function createProgramMethods(ctx: ProgramContext) {
   const mcp: AnyPadroneProgram['mcp'] = async (prefs) => {
     resolveAllCommands(rootCommand);
     const { startMcpServer } = await import('../feature/mcp.ts');
-    return startMcpServer(builder as any, rootCommand, evalCommand, prefs);
+    return startMcpServer(ctx.builder as any, rootCommand, evalCommand, prefs);
   };
 
   const serve: AnyPadroneProgram['serve'] = async (prefs) => {
     resolveAllCommands(rootCommand);
     const { startServeServer } = await import('../feature/serve.ts');
-    return startServeServer(builder as any, rootCommand, evalCommand, prefs);
+    return startServeServer(ctx.builder as any, rootCommand, evalCommand, prefs);
   };
 
   return {

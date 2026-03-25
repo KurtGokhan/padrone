@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import type { PadroneInterceptor, PadroneSignal } from 'padrone';
-import { createPadrone, padroneBuiltins, SignalError } from 'padrone';
+import { createPadrone, SignalError } from 'padrone';
 import { createConsoleMocker } from './console-mocker.ts';
 
 describe('signal handling', () => {
@@ -183,7 +183,6 @@ describe('signal handling', () => {
 
       const program = createPadrone('test')
         .runtime(runtime)
-        .extend(padroneBuiltins())
         .configure({ version: '1.0.0' })
         .command('cmd', (c) => c.action(() => 'ok'));
 

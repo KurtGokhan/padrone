@@ -117,7 +117,7 @@ program.intercept({
 
 ### Extension System
 
-Compose reusable bundles of configuration, commands, and interceptors with `.extend()` and `PadroneExtension`. Use `padroneBuiltins()` for opt-in built-in features.
+Compose reusable bundles of configuration, commands, and interceptors with `.extend()` and `PadroneExtension`. Built-in features (help, version, repl, color, config, interactive) are included by default.
 
 ### Program Composition
 

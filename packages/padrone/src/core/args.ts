@@ -280,9 +280,6 @@ export function coerceArgs(data: Record<string, unknown>, schema: StandardJSONSc
   return result;
 }
 
-/** Keys consumed by the CLI framework that are not user-defined args. */
-export const frameworkReservedKeys = new Set(['config', 'c']);
-
 /**
  * Detect unknown keys in the args that don't match any schema property.
  * Returns an array of { key, suggestion? } for each unknown key.
@@ -320,7 +317,7 @@ export function detectUnknownArgs(
   const unknowns: { key: string; suggestions: string[] }[] = [];
 
   for (const key of Object.keys(data)) {
-    if (!knownKeys.has(key) && !frameworkReservedKeys.has(key)) {
+    if (!knownKeys.has(key)) {
       const suggestions = suggestFn(key, propertyNames);
       unknowns.push({ key, suggestions });
     }

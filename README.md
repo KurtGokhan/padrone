@@ -109,7 +109,7 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 
 **Interceptors** — middleware hooks for 6 phases (start, parse, validate, execute, error, shutdown). Onion model with `next()`.
 
-**Extensions** — build-time composition with `.extend()` for reusable bundles of configuration, commands, and interceptors. Use `padroneBuiltins()` for opt-in built-in features.
+**Extensions** — build-time composition with `.extend()` for reusable bundles of configuration, commands, and interceptors. Built-in features (help, version, repl, color, config, interactive) are included by default.
 
 **Composition** — mount programs as subcommands with `.mount()`, override commands with merge semantics.
 

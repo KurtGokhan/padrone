@@ -9,7 +9,7 @@ describe('command routing', () => {
   describe('default command (empty name)', () => {
     const program = createPadrone('app')
       .configure({ version: '1.0.0' })
-      .command(['', 'repl'], (c) => c.configure({ title: 'Start interactive mode' }).action(() => 'default-executed'))
+      .command(['', 'shell'], (c) => c.configure({ title: 'Start interactive mode' }).action(() => 'default-executed'))
       .command('greet', (c) =>
         c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
       );
@@ -21,7 +21,7 @@ describe('command routing', () => {
     });
 
     it('should match empty-name command via alias', () => {
-      const result = program.eval('repl');
+      const result = program.eval('shell');
       expect(result.command?.name).toBe('');
       expect(result.result).toBe('default-executed');
     });
@@ -45,10 +45,10 @@ describe('command routing', () => {
 
     it('should use alias as display name with [default] marker in help', () => {
       const helpText = program.help(undefined, { format: 'text' });
-      // Should show 'repl [default]' — alias as display name, [default] marker
-      expect(helpText).toContain('repl');
+      // Should show 'shell [default]' — alias as display name, [default] marker
+      expect(helpText).toContain('shell');
       expect(helpText).toContain('[default]');
-      expect(helpText).not.toContain('(repl)');
+      expect(helpText).not.toContain('(shell)');
     });
 
     it('should show [default] marker for empty-name command without aliases', () => {
@@ -62,35 +62,35 @@ describe('command routing', () => {
 
     it('should show [default] marker with multiple aliases', () => {
       const p = createPadrone('app')
-        .command(['', 'repl', 'r'], (c) => c.configure({ title: 'REPL' }).action(() => 'ok'))
+        .command(['', 'shell', 'r'], (c) => c.configure({ title: 'Shell' }).action(() => 'ok'))
         .command('list', (c) => c.action(() => 'listed'));
       const helpText = p.help(undefined, { format: 'text' });
-      // 'repl' is display name, 'r' is a real alias, [default] is marker
-      expect(helpText).toContain('repl');
+      // 'shell' is display name, 'r' is a real alias, [default] is marker
+      expect(helpText).toContain('shell');
       expect(helpText).toMatch(/\(r\)/);
       expect(helpText).toContain('[default]');
     });
 
     it('should show [default] for reversed alias order', () => {
       const p = createPadrone('app')
-        .command(['repl', ''], (c) => c.configure({ title: 'REPL' }).action(() => 'ok'))
+        .command(['shell', ''], (c) => c.configure({ title: 'Shell' }).action(() => 'ok'))
         .command('list', (c) => c.action(() => 'listed'));
       const helpText = p.help(undefined, { format: 'text' });
-      expect(helpText).toContain('repl');
+      expect(helpText).toContain('shell');
       expect(helpText).toContain('[default]');
     });
 
     it('should use alias in help for the empty-name command itself', () => {
-      const helpText = program.help('repl', { format: 'text' });
+      const helpText = program.help('shell', { format: 'text' });
       // Usage line should reference alias, not 'program'
-      expect(helpText).toContain('repl');
+      expect(helpText).toContain('shell');
       expect(helpText).not.toContain('program');
     });
 
     it('should use alias in error message for empty-name command with extra args', () => {
-      const result = program.eval('repl bogus');
+      const result = program.eval('shell bogus');
       expect(result.error).toBeDefined();
-      expect((result.error as Error).message).toContain("Unexpected arguments for 'repl'");
+      expect((result.error as Error).message).toContain("Unexpected arguments for 'shell'");
     });
   });
 
@@ -164,13 +164,13 @@ describe('command routing', () => {
 
   describe('extra parameters rejection', () => {
     const program = createPadrone('app')
-      .command('repl', (c) => c.action(() => 'repl-started'))
+      .command('start', (c) => c.action(() => 'start-executed'))
       .command('show', (c) => c.arguments(z.object({ id: z.string() }), { positional: ['id'] }).action((args) => `showing ${args.id}`));
 
     it('should reject extra terms for command without positionals', () => {
-      const result = program.eval('repl test');
+      const result = program.eval('start test');
       expect(result.error).toBeDefined();
-      expect((result.error as Error).message).toMatch(/Unexpected arguments for 'repl'/);
+      expect((result.error as Error).message).toMatch(/Unexpected arguments for 'start'/);
     });
 
     it('should accept positional args for commands that define them', () => {
@@ -181,11 +181,11 @@ describe('command routing', () => {
     it('should allow extra args after -- separator', () => {
       // After --, 'test' becomes a positional arg (not a term), so it won't be rejected
       // as an unmatched term. It will be passed through to validation.
-      const result = program.eval('repl -- test');
-      // repl has no positional config, so 'test' is in args but not mapped.
+      const result = program.eval('start -- test');
+      // start has no positional config, so 'test' is in args but not mapped.
       // The command runs successfully since the schema is void.
-      expect(result.command?.name).toBe('repl');
-      expect(result.result).toBe('repl-started');
+      expect(result.command?.name).toBe('start');
+      expect(result.result).toBe('start-executed');
     });
 
     it('should not reject extra terms for commands with positional config', () => {

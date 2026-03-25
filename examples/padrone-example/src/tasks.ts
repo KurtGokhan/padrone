@@ -1,4 +1,4 @@
-import { createPadrone, type PadroneInterceptor, padroneBuiltins } from 'padrone';
+import { createPadrone, type PadroneInterceptor } from 'padrone';
 import { zodAsyncStream } from 'padrone/zod';
 import * as z from 'zod/v4';
 import { addTask, getTask, getTasks, removeTask, setTaskStatus, updateTask } from './tasks-store.ts';
@@ -54,7 +54,6 @@ export const tasksProgram = createPadrone('tasks')
     description: 'A task manager CLI for managing your todos with support for priorities, tags, and due dates.',
     version: '1.0.0',
   })
-  .extend(padroneBuiltins())
   .intercept(telemetry)
   .runtime({ interactive: 'supported' })
   .command(['repl', ''], (c) =>

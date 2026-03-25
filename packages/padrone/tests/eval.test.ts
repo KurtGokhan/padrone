@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { createPadrone, padroneBuiltins } from 'padrone';
+import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 import { createConsoleMocker } from './console-mocker.ts';
 
@@ -7,7 +7,7 @@ describe('eval', () => {
   createConsoleMocker();
 
   const program = createPadrone('test')
-    .extend(padroneBuiltins())
+
     .command('greet', (c) => c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`))
     .command('add', (c) => c.arguments(z.object({ a: z.coerce.number(), b: z.coerce.number() })).action((args) => args.a + args.b))
     .command('fetch', (c) => c.arguments(z.object({ url: z.url() })).action((args) => args.url));
@@ -33,7 +33,6 @@ describe('eval', () => {
 
     it('should handle version flag', () => {
       const versionedProgram = createPadrone('test')
-        .extend(padroneBuiltins())
         .configure({ version: '1.0.0' })
         .command('greet', (c) => c.action(() => 'hi'));
 

@@ -3,7 +3,6 @@ import type { Tool } from 'ai';
 import type { PadroneRuntime } from '../core/runtime.ts';
 import type { PadroneMcpPreferences } from '../feature/mcp.ts';
 import type { PadroneServePreferences } from '../feature/serve.ts';
-import type { UpdateCheckConfig } from '../feature/update-check.ts';
 import type { WrapConfig, WrapResult } from '../feature/wrap.ts';
 import type { HelpPreferences } from '../output/help.ts';
 import type {
@@ -204,10 +203,6 @@ export type PadroneBuilderMethods<
       TResult
     >,
   ) => TResult;
-
-  updateCheck: (
-    config?: UpdateCheckConfig,
-  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync, TContext>;
 
   intercept: (
     interceptor: PadroneInterceptor<StandardSchemaV1.InferOutput<TArgs>, TRes>,

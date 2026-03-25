@@ -45,7 +45,7 @@ The core library lives in `packages/padrone/`:
 - `src/exec.ts` — Core execution pipeline: signal handling → builtin dispatch → parse → validate → execute phases. Contains `execCommand()`, `collectInterceptors()`, `handleBuiltinAction()`, and progress cleanup.
 - `src/validate.ts` — CLI input parsing (`parseCommand`), argument preprocessing (`buildCommandArgs`), schema validation (`validateCommandArgs`), unknown arg detection, stdin reading, env validation.
 - `src/program-methods.ts` — Program API methods: `cli()`, `eval()`, `run()`, `parse()`, `tool()`, `stringify()`, `help()`, `api()`, `repl()`, `mcp()`, `serve()`, `completion()`.
-- `src/builtins.ts` — Built-in command/flag detection (`checkBuiltinCommands`), `--config`/`--color` flag extraction, `resolveInherited()` parent-chain walker. Note: builtins (help, version, completion, man) are opt-in via `.extend(padroneBuiltins())`.
+- `src/builtins.ts` — `resolveInherited()` parent-chain walker for inheriting config values from ancestor commands.
 - `src/suggestions.ts` — "Did you mean?" formatting (`formatSuggestions`), issue enrichment with fuzzy suggestions.
 - `src/command-utils.ts` — Interceptor chain execution (`runInterceptorChain`, `wrapWithLifecycle`), command tree utilities, sync/async preservation helpers (`thenMaybe`).
 - `src/parse.ts` — CLI input tokenizer/parser. Handles flag stacking, `--key=value`, `--no-*` negation, positional args, nested keys.
@@ -85,7 +85,7 @@ When asked to commit with a changeset, create a concise changeset suitable for a
 
 **Interceptor system**: Onion model with 6 phases: start → parse → validate → execute → (error) → shutdown. `collectInterceptors()` in `exec.ts` walks the parent chain (root outermost, subcommand innermost). Parse/start/error/shutdown use root interceptors only; validate/execute use the full collected chain.
 
-**Extension system**: Build-time composition via `.extend(extension)`. A `PadroneExtension` is a function that receives the builder and returns a modified builder, enabling reusable command/config bundles. Unlike interceptors (which hook into runtime phases), extensions operate at definition time to compose commands, arguments, and configuration. Built-in commands (help, version, completion, man) are provided by the `padroneBuiltins()` extension and are opt-in: `.extend(padroneBuiltins())`.
+**Extension system**: Build-time composition via `.extend(extension)`. A `PadroneExtension` is a function that receives the builder and returns a modified builder, enabling reusable command/config bundles. Unlike interceptors (which hook into runtime phases), extensions operate at definition time to compose commands, arguments, and configuration. Built-in features (help, version, repl, color, config, interactive) are included by default via `createPadrone()` and can be individually disabled via `{ builtins: { help: false } }`. Advanced features (completion, man, mcp, serve, update-check) are opt-in extensions.
 
 **Flags vs aliases**: `flags` = single-char short flags (`-v`), stackable. `alias` = multi-char alternative long names (`--dry-run`). `autoAlias` (default: true) auto-generates kebab-case aliases for camelCase option names.
 

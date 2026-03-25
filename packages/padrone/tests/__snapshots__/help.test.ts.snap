@@ -1,259 +1,12 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`help should generate help for the program 1`] = `
-"Usage: padrone-test [command]
-
-Commands:
-  list               
-  list <subcommand>  
-  show               
-  filter             
-  batch              
-  search             
-  noop               
-  tags               
-  deprecated-test    
-  hidden-test        
-  examples-test      
-
-Global: help [command], version, [command] --repl
-Run "padrone-test [command] --help" for more information. Use "--all" for all global commands.
-"
-`;
-
-exports[`help should generate help for the top level command 1`] = `
-"Usage: padrone-test [command]
-
-Commands:
-  list               
-  list <subcommand>  
-  show               
-  filter             
-  batch              
-  search             
-  noop               
-  tags               
-  deprecated-test    
-  hidden-test        
-  examples-test      
-
-Global: help [command], version, [command] --repl
-Run "padrone-test [command] --help" for more information. Use "--all" for all global commands.
-"
-`;
-
-exports[`help should generate help for a command 1`] = `
-"Usage: padrone-test show <id> [options]
-
-Arguments:
-  id  Task ID
-
-Options:
-  --priority  [string]  Priority level (default: medium) (choices: low, medium, high)
-  --verbose             Show detailed information
-"
-`;
-
-exports[`help should generate help for a command with enabled colors 1`] = `
-"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test show\x1B[0m \x1B[90m<id>\x1B[0m \x1B[90m[options]\x1B[0m
-
-\x1B[1mArguments:\x1B[0m
-  \x1B[32mid\x1B[0m  \x1B[2mTask ID\x1B[0m
-
-\x1B[1mOptions:\x1B[0m
-  \x1B[32m--priority\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mPriority level\x1B[0m \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m
-  \x1B[32m--verbose\x1B[0m             \x1B[2mShow detailed information\x1B[0m
-"
-`;
-
-exports[`help should generate help for a command with nested commands 1`] = `
-"Usage: padrone-test list extended [command] [options]
-
-Commands:
-  [default]  
-  extended   
-
-Run "list extended [command] --help" for more information on a command.
-
-Options:
-  --status    [string]  Filter by status (choices: pending, in_progress, completed)
-  --priority  [string]  Filter by priority (default: medium) (choices: low, medium, high)
-"
-`;
-
-exports[`help should generate help for a command with meta object 1`] = `
-"Usage: padrone-test tags [options]
-
-Options:
-  -v, --verbose  Show detailed information
-"
-`;
-
-exports[`help should generate help for a command with array enum options 1`] = `
-"Usage: padrone-test search <query> [options]
-
-Arguments:
-  query  Search query
-
-Options:
-  -s, --status  [string[]]  Filter by status (choices: pending, in_progress, completed)
-"
-`;
-
-exports[`help should generate help for a command with deprecated arguments 1`] = `
-"Usage: padrone-test deprecated-test [options]
-
-Options:
-  --old-arg                  [string]  This arg is deprecated (deprecated)
-  --new-arg                  [string]  This is the new arg
-  --deprecated-with-message            This arg is deprecated with a message
-                                       (deprecated: Use newArg instead)
-"
-`;
-
-exports[`help should generate help for a command with deprecated arguments and colors 1`] = `
-"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test deprecated-test\x1B[0m \x1B[90m[options]\x1B[0m
-
-\x1B[1mOptions:\x1B[0m
-  \x1B[9m\x1B[90m--old-arg\x1B[0m                  \x1B[33m[string]\x1B[0m  \x1B[9m\x1B[90mThis arg is deprecated\x1B[0m \x1B[90m(deprecated)\x1B[0m
-  \x1B[32m--new-arg\x1B[0m                  \x1B[33m[string]\x1B[0m  \x1B[2mThis is the new arg\x1B[0m
-  \x1B[9m\x1B[90m--deprecated-with-message\x1B[0m            \x1B[9m\x1B[90mThis arg is deprecated with a message\x1B[0m
-                                       \x1B[90m(deprecated: Use newArg instead)\x1B[0m
-"
-`;
-
-exports[`help should generate help for a command with hidden arguments 1`] = `
-"Usage: padrone-test hidden-test [options]
-
-Options:
-  --visible-arg      [string]  This arg is visible in help
-  --another-visible            This arg is also visible
-"
-`;
-
-exports[`help should generate help for a command with hidden arguments and colors 1`] = `
-"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test hidden-test\x1B[0m \x1B[90m[options]\x1B[0m
-
-\x1B[1mOptions:\x1B[0m
-  \x1B[32m--visible-arg\x1B[0m      \x1B[33m[string]\x1B[0m  \x1B[2mThis arg is visible in help\x1B[0m
-  \x1B[32m--another-visible\x1B[0m            \x1B[2mThis arg is also visible\x1B[0m
-"
-`;
-
-exports[`help should generate help for a command with examples 1`] = `
-"Usage: padrone-test examples-test [options]
-
-Options:
-  --output   [string]  Specify the output file path
-                       Example: output.txt, ./dist/result.json
-  --format   [string]  Choose the output format (choices: json, yaml, xml)
-                       Example: json, yaml
-  --verbose            Show detailed information
-                       Example: true
-  --config   [string]  Path to configuration file
-                       Example: ./config.json, ~/.config/app.json
-"
-`;
-
-exports[`help should generate help for a command with examples and colors 1`] = `
-"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test examples-test\x1B[0m \x1B[90m[options]\x1B[0m
-
-\x1B[1mOptions:\x1B[0m
-  \x1B[32m--output\x1B[0m   \x1B[33m[string]\x1B[0m  \x1B[2mSpecify the output file path\x1B[0m
-                       \x1B[4mExample:\x1B[0m \x1B[3moutput.txt, ./dist/result.json\x1B[0m
-  \x1B[32m--format\x1B[0m   \x1B[33m[string]\x1B[0m  \x1B[2mChoose the output format\x1B[0m \x1B[90m(choices: json, yaml, xml)\x1B[0m
-                       \x1B[4mExample:\x1B[0m \x1B[3mjson, yaml\x1B[0m
-  \x1B[32m--verbose\x1B[0m            \x1B[2mShow detailed information\x1B[0m
-                       \x1B[4mExample:\x1B[0m \x1B[3mtrue\x1B[0m
-  \x1B[32m--config\x1B[0m   \x1B[33m[string]\x1B[0m  \x1B[2mPath to configuration file\x1B[0m
-                       \x1B[4mExample:\x1B[0m \x1B[3m./config.json, ~/.config/app.json\x1B[0m
-"
-`;
-
-exports[`help should generate help in console format 1`] = `
-"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test show\x1B[0m \x1B[90m<id>\x1B[0m \x1B[90m[options]\x1B[0m
-
-\x1B[1mArguments:\x1B[0m
-  \x1B[32mid\x1B[0m  \x1B[2mTask ID\x1B[0m
-
-\x1B[1mOptions:\x1B[0m
-  \x1B[32m--priority\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mPriority level\x1B[0m \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m
-  \x1B[32m--verbose\x1B[0m             \x1B[2mShow detailed information\x1B[0m
-"
-`;
-
-exports[`help should generate help in markdown format 1`] = `
-"**Usage:** **padrone-test show** *<id>* *[options]*
-
-
-
-### Arguments:
-
-  \`id\`  Task ID
-
-
-
-### Options:
-
-  \`--priority\`  \`[string]\`  Priority level
-
-    *(default: medium)* *(choices: low, medium, high)*
-
-  \`--verbose\`             Show detailed information
-
-"
-`;
-
-exports[`help should generate help in html format 1`] = `"<div style="font-family: monospace; line-height: 1.6;"><strong>Usage:</strong> <strong style="color: #00bcd4;">padrone-test show</strong> <span style="color: #999;">&lt;id&gt;</span> <span style="color: #999;">[options]</span><br><br><h3>Arguments:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">id</code>  <span style="color: #666;">Task ID</span><br><br><h3>Options:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">--priority</code>  <code style="color: #ff9800;">[string]</code>  <span style="color: #666;">Priority level</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #999;">(default: medium)</span> <span style="color: #999;">(choices: low, medium, high)</span><br>&nbsp;&nbsp;<code style="color: #4caf50;">--verbose</code>             <span style="color: #666;">Show detailed information</span><br></div>"`;
-
-exports[`help should generate help in json format 1`] = `
-"{
-  "name": "show",
-  "usage": {
-    "command": "padrone-test show",
-    "hasSubcommands": false,
-    "hasPositionals": true,
-    "hasArguments": true
-  },
-  "positionals": [
-    {
-      "name": "id",
-      "description": "Task ID",
-      "optional": false,
-      "type": "string"
-    }
-  ],
-  "arguments": [
-    {
-      "name": "priority",
-      "description": "Priority level",
-      "optional": true,
-      "default": "medium",
-      "type": "string",
-      "enum": [
-        "low",
-        "medium",
-        "high"
-      ],
-      "variadic": false,
-      "negatable": false
-    },
-    {
-      "name": "verbose",
-      "description": "Show detailed information",
-      "optional": true,
-      "type": "boolean",
-      "variadic": false,
-      "negatable": true
-    }
-  ]
-}"
-`;
-
 exports[`help with full detail mode should generate full help with all nested commands in text format 1`] = `
 "Usage: padrone-test [command]
 
 Commands:
+  help (h)           Display help for a command
+  version            Display the version number
+  repl               Start an interactive REPL
   list               
   list <subcommand>  
   show               
@@ -270,6 +23,23 @@ Global: help [command], version, [command] --repl
 Run "padrone-test [command] --help" for more information. Use "--all" for all global commands.
 
 Subcommand Details:
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test help
+
+Aliases: h
+
+Display help for a command
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test version
+
+Display the version number
+
+────────────────────────────────────────────────────────────
+Usage: padrone-test repl
+
+Start an interactive REPL
 
 ────────────────────────────────────────────────────────────
 Usage: padrone-test list [command] [options]
@@ -393,6 +163,27 @@ exports[`help with full detail mode should generate full help with all nested co
   },
   "subcommands": [
     {
+      "name": "help",
+      "description": "Display help for a command",
+      "aliases": [
+        "h"
+      ],
+      "hidden": true,
+      "hasSubcommands": false
+    },
+    {
+      "name": "version",
+      "description": "Display the version number",
+      "hidden": true,
+      "hasSubcommands": false
+    },
+    {
+      "name": "repl",
+      "description": "Start an interactive REPL",
+      "hidden": true,
+      "hasSubcommands": false
+    },
+    {
       "name": "list"
     },
     {
@@ -437,6 +228,42 @@ exports[`help with full detail mode should generate full help with all nested co
     }
   ],
   "nestedCommands": [
+    {
+      "name": "help",
+      "description": "Display help for a command",
+      "aliases": [
+        "h"
+      ],
+      "hidden": true,
+      "usage": {
+        "command": "padrone-test help",
+        "hasSubcommands": false,
+        "hasPositionals": false,
+        "hasArguments": false
+      }
+    },
+    {
+      "name": "version",
+      "description": "Display the version number",
+      "hidden": true,
+      "usage": {
+        "command": "padrone-test version",
+        "hasSubcommands": false,
+        "hasPositionals": false,
+        "hasArguments": false
+      }
+    },
+    {
+      "name": "repl",
+      "description": "Start an interactive REPL",
+      "hidden": true,
+      "usage": {
+        "command": "padrone-test repl",
+        "hasSubcommands": false,
+        "hasPositionals": false,
+        "hasArguments": false
+      }
+    },
     {
       "name": "list",
       "usage": {
@@ -885,28 +712,6 @@ exports[`help with full detail mode should generate full help with all nested co
   ],
   "builtins": [
     {
-      "name": "help [command], -h, --help",
-      "description": "Show help for a command",
-      "sub": [
-        {
-          "name": "--all",
-          "description": "Show all global commands and flags"
-        },
-        {
-          "name": "--detail <level>",
-          "description": "Detail level (minimal, standard, full)"
-        },
-        {
-          "name": "--format <format>",
-          "description": "Output format (text, ansi, json, markdown, html)"
-        }
-      ]
-    },
-    {
-      "name": "version, -v, --version",
-      "description": "Show version information"
-    },
-    {
       "name": "completion [shell]",
       "description": "Generate shell completions (bash, zsh, fish, powershell)"
     },
@@ -947,6 +752,12 @@ exports[`help with full detail mode should generate full help with all nested co
 
 ### Commands:
 
+  **help** (h)           Display help for a command
+
+  **version**            Display the version number
+
+  **repl**               Start an interactive REPL
+
   **list**               
 
   **list*** <subcommand>*  
@@ -978,6 +789,40 @@ exports[`help with full detail mode should generate full help with all nested co
 
 
 ### Subcommand Details:
+
+
+
+*────────────────────────────────────────────────────────────*
+
+**Usage:** **padrone-test help**
+
+
+
+*Aliases: h*
+
+
+
+Display help for a command
+
+
+
+*────────────────────────────────────────────────────────────*
+
+**Usage:** **padrone-test version**
+
+
+
+Display the version number
+
+
+
+*────────────────────────────────────────────────────────────*
+
+**Usage:** **padrone-test repl**
+
+
+
+Start an interactive REPL
 
 
 
@@ -1325,6 +1170,256 @@ exports[`help with full detail mode should work with ansi format in full detail 
 \x1B[1mOptions:\x1B[0m
   \x1B[32m--status\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mFilter by status\x1B[0m \x1B[90m(choices: pending, in_progress, completed)\x1B[0m
 "
+`;
+
+exports[`help should generate help for the program 1`] = `
+"Usage: padrone-test [command]
+
+Commands:
+  list               
+  list <subcommand>  
+  show               
+  filter             
+  batch              
+  search             
+  noop               
+  tags               
+  deprecated-test    
+  hidden-test        
+  examples-test      
+
+Global: help [command], version, [command] --repl
+Run "padrone-test [command] --help" for more information. Use "--all" for all global commands.
+"
+`;
+
+exports[`help should generate help for the top level command 1`] = `
+"Usage: padrone-test [command]
+
+Commands:
+  list               
+  list <subcommand>  
+  show               
+  filter             
+  batch              
+  search             
+  noop               
+  tags               
+  deprecated-test    
+  hidden-test        
+  examples-test      
+
+Global: help [command], version, [command] --repl
+Run "padrone-test [command] --help" for more information. Use "--all" for all global commands.
+"
+`;
+
+exports[`help should generate help for a command 1`] = `
+"Usage: padrone-test show <id> [options]
+
+Arguments:
+  id  Task ID
+
+Options:
+  --priority  [string]  Priority level (default: medium) (choices: low, medium, high)
+  --verbose             Show detailed information
+"
+`;
+
+exports[`help should generate help for a command with enabled colors 1`] = `
+"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test show\x1B[0m \x1B[90m<id>\x1B[0m \x1B[90m[options]\x1B[0m
+
+\x1B[1mArguments:\x1B[0m
+  \x1B[32mid\x1B[0m  \x1B[2mTask ID\x1B[0m
+
+\x1B[1mOptions:\x1B[0m
+  \x1B[32m--priority\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mPriority level\x1B[0m \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m
+  \x1B[32m--verbose\x1B[0m             \x1B[2mShow detailed information\x1B[0m
+"
+`;
+
+exports[`help should generate help for a command with nested commands 1`] = `
+"Usage: padrone-test list extended [command] [options]
+
+Commands:
+  [default]  
+  extended   
+
+Run "list extended [command] --help" for more information on a command.
+
+Options:
+  --status    [string]  Filter by status (choices: pending, in_progress, completed)
+  --priority  [string]  Filter by priority (default: medium) (choices: low, medium, high)
+"
+`;
+
+exports[`help should generate help for a command with meta object 1`] = `
+"Usage: padrone-test tags [options]
+
+Options:
+  -v, --verbose  Show detailed information
+"
+`;
+
+exports[`help should generate help for a command with array enum options 1`] = `
+"Usage: padrone-test search <query> [options]
+
+Arguments:
+  query  Search query
+
+Options:
+  -s, --status  [string[]]  Filter by status (choices: pending, in_progress, completed)
+"
+`;
+
+exports[`help should generate help for a command with deprecated arguments 1`] = `
+"Usage: padrone-test deprecated-test [options]
+
+Options:
+  --old-arg                  [string]  This arg is deprecated (deprecated)
+  --new-arg                  [string]  This is the new arg
+  --deprecated-with-message            This arg is deprecated with a message
+                                       (deprecated: Use newArg instead)
+"
+`;
+
+exports[`help should generate help for a command with deprecated arguments and colors 1`] = `
+"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test deprecated-test\x1B[0m \x1B[90m[options]\x1B[0m
+
+\x1B[1mOptions:\x1B[0m
+  \x1B[9m\x1B[90m--old-arg\x1B[0m                  \x1B[33m[string]\x1B[0m  \x1B[9m\x1B[90mThis arg is deprecated\x1B[0m \x1B[90m(deprecated)\x1B[0m
+  \x1B[32m--new-arg\x1B[0m                  \x1B[33m[string]\x1B[0m  \x1B[2mThis is the new arg\x1B[0m
+  \x1B[9m\x1B[90m--deprecated-with-message\x1B[0m            \x1B[9m\x1B[90mThis arg is deprecated with a message\x1B[0m
+                                       \x1B[90m(deprecated: Use newArg instead)\x1B[0m
+"
+`;
+
+exports[`help should generate help for a command with hidden arguments 1`] = `
+"Usage: padrone-test hidden-test [options]
+
+Options:
+  --visible-arg      [string]  This arg is visible in help
+  --another-visible            This arg is also visible
+"
+`;
+
+exports[`help should generate help for a command with hidden arguments and colors 1`] = `
+"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test hidden-test\x1B[0m \x1B[90m[options]\x1B[0m
+
+\x1B[1mOptions:\x1B[0m
+  \x1B[32m--visible-arg\x1B[0m      \x1B[33m[string]\x1B[0m  \x1B[2mThis arg is visible in help\x1B[0m
+  \x1B[32m--another-visible\x1B[0m            \x1B[2mThis arg is also visible\x1B[0m
+"
+`;
+
+exports[`help should generate help for a command with examples 1`] = `
+"Usage: padrone-test examples-test [options]
+
+Options:
+  --output   [string]  Specify the output file path
+                       Example: output.txt, ./dist/result.json
+  --format   [string]  Choose the output format (choices: json, yaml, xml)
+                       Example: json, yaml
+  --verbose            Show detailed information
+                       Example: true
+  --config   [string]  Path to configuration file
+                       Example: ./config.json, ~/.config/app.json
+"
+`;
+
+exports[`help should generate help for a command with examples and colors 1`] = `
+"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test examples-test\x1B[0m \x1B[90m[options]\x1B[0m
+
+\x1B[1mOptions:\x1B[0m
+  \x1B[32m--output\x1B[0m   \x1B[33m[string]\x1B[0m  \x1B[2mSpecify the output file path\x1B[0m
+                       \x1B[4mExample:\x1B[0m \x1B[3moutput.txt, ./dist/result.json\x1B[0m
+  \x1B[32m--format\x1B[0m   \x1B[33m[string]\x1B[0m  \x1B[2mChoose the output format\x1B[0m \x1B[90m(choices: json, yaml, xml)\x1B[0m
+                       \x1B[4mExample:\x1B[0m \x1B[3mjson, yaml\x1B[0m
+  \x1B[32m--verbose\x1B[0m            \x1B[2mShow detailed information\x1B[0m
+                       \x1B[4mExample:\x1B[0m \x1B[3mtrue\x1B[0m
+  \x1B[32m--config\x1B[0m   \x1B[33m[string]\x1B[0m  \x1B[2mPath to configuration file\x1B[0m
+                       \x1B[4mExample:\x1B[0m \x1B[3m./config.json, ~/.config/app.json\x1B[0m
+"
+`;
+
+exports[`help should generate help in console format 1`] = `
+"\x1B[1mUsage:\x1B[0m \x1B[36m\x1B[1mpadrone-test show\x1B[0m \x1B[90m<id>\x1B[0m \x1B[90m[options]\x1B[0m
+
+\x1B[1mArguments:\x1B[0m
+  \x1B[32mid\x1B[0m  \x1B[2mTask ID\x1B[0m
+
+\x1B[1mOptions:\x1B[0m
+  \x1B[32m--priority\x1B[0m  \x1B[33m[string]\x1B[0m  \x1B[2mPriority level\x1B[0m \x1B[90m(default: medium)\x1B[0m \x1B[90m(choices: low, medium, high)\x1B[0m
+  \x1B[32m--verbose\x1B[0m             \x1B[2mShow detailed information\x1B[0m
+"
+`;
+
+exports[`help should generate help in markdown format 1`] = `
+"**Usage:** **padrone-test show** *<id>* *[options]*
+
+
+
+### Arguments:
+
+  \`id\`  Task ID
+
+
+
+### Options:
+
+  \`--priority\`  \`[string]\`  Priority level
+
+    *(default: medium)* *(choices: low, medium, high)*
+
+  \`--verbose\`             Show detailed information
+
+"
+`;
+
+exports[`help should generate help in html format 1`] = `"<div style="font-family: monospace; line-height: 1.6;"><strong>Usage:</strong> <strong style="color: #00bcd4;">padrone-test show</strong> <span style="color: #999;">&lt;id&gt;</span> <span style="color: #999;">[options]</span><br><br><h3>Arguments:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">id</code>  <span style="color: #666;">Task ID</span><br><br><h3>Options:</h3><br>&nbsp;&nbsp;<code style="color: #4caf50;">--priority</code>  <code style="color: #ff9800;">[string]</code>  <span style="color: #666;">Priority level</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #999;">(default: medium)</span> <span style="color: #999;">(choices: low, medium, high)</span><br>&nbsp;&nbsp;<code style="color: #4caf50;">--verbose</code>             <span style="color: #666;">Show detailed information</span><br></div>"`;
+
+exports[`help should generate help in json format 1`] = `
+"{
+  "name": "show",
+  "usage": {
+    "command": "padrone-test show",
+    "hasSubcommands": false,
+    "hasPositionals": true,
+    "hasArguments": true
+  },
+  "positionals": [
+    {
+      "name": "id",
+      "description": "Task ID",
+      "optional": false,
+      "type": "string"
+    }
+  ],
+  "arguments": [
+    {
+      "name": "priority",
+      "description": "Priority level",
+      "optional": true,
+      "default": "medium",
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "variadic": false,
+      "negatable": false
+    },
+    {
+      "name": "verbose",
+      "description": "Show detailed information",
+      "optional": true,
+      "type": "boolean",
+      "variadic": false,
+      "negatable": true
+    }
+  ]
+}"
 `;
 
 exports[`help with command-level examples should render command examples in text format 1`] = `

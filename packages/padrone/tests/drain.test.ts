@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'bun:test';
-import { ActionError, asyncSchema, createPadrone, type Drained, type PadroneDrainResult, padroneBuiltins } from 'padrone';
+import { ActionError, asyncSchema, createPadrone, type Drained, type PadroneDrainResult } from 'padrone';
 import * as z from 'zod/v4';
 import { createConsoleMocker } from './console-mocker.ts';
 
@@ -126,7 +126,6 @@ describe('drain()', () => {
   describe('builtin commands', () => {
     it('eval() help result should have drain()', async () => {
       const program = createPadrone('app')
-        .extend(padroneBuiltins())
         .configure({ version: '1.0.0' })
         .command('greet', (c) => c.action(() => 'hi'));
 
@@ -139,7 +138,6 @@ describe('drain()', () => {
 
     it('eval() version result should have drain()', async () => {
       const program = createPadrone('app')
-        .extend(padroneBuiltins())
         .configure({ version: '2.5.0' })
         .command('greet', (c) => c.action(() => 'hi'));
 
@@ -152,7 +150,6 @@ describe('drain()', () => {
 
     it('eval() help result should be thenable', async () => {
       const program = createPadrone('app')
-        .extend(padroneBuiltins())
         .configure({ version: '1.0.0' })
         .command('greet', (c) => c.action(() => 'hi'));
 
@@ -162,7 +159,6 @@ describe('drain()', () => {
 
     it('eval() version result should be thenable', async () => {
       const program = createPadrone('app')
-        .extend(padroneBuiltins())
         .configure({ version: '3.0.0' })
         .command('greet', (c) => c.action(() => 'hi'));
 
@@ -172,7 +168,6 @@ describe('drain()', () => {
 
     it('cli() help result should have drain()', async () => {
       const program = createPadrone('app')
-        .extend(padroneBuiltins())
         .configure({ version: '1.0.0' })
         .runtime({ argv: () => ['--help'] })
         .command('greet', (c) => c.action(() => 'hi'));
@@ -186,7 +181,6 @@ describe('drain()', () => {
 
     it('cli() version result should have drain()', async () => {
       const program = createPadrone('app')
-        .extend(padroneBuiltins())
         .configure({ version: '4.0.0' })
         .runtime({ argv: () => ['--version'] })
         .command('greet', (c) => c.action(() => 'hi'));
@@ -200,7 +194,6 @@ describe('drain()', () => {
 
     it('cli() help result should be thenable', async () => {
       const program = createPadrone('app')
-        .extend(padroneBuiltins())
         .configure({ version: '1.0.0' })
         .runtime({ argv: () => ['--help'] })
         .command('greet', (c) => c.action(() => 'hi'));

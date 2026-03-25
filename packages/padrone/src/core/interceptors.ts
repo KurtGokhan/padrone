@@ -244,8 +244,21 @@ export function wrapWithLifecycle<T>(
     return result;
   };
 
-  // Run start phase wrapping the pipeline
-  const startCtx: InterceptorStartContext = { command, state, input, signal: effectiveSignal, context };
+  // Run start phase wrapping the pipeline.
+  // Use getter/setter so interceptors that set `ctx.input` automatically propagate to `state._input`,
+  // which `runPipeline` reads as the effective input for the parse phase.
+  const startCtx: InterceptorStartContext = {
+    command,
+    state,
+    signal: effectiveSignal,
+    context,
+    get input() {
+      return (state._input as string | undefined) ?? input;
+    },
+    set input(v: string | undefined) {
+      state._input = v;
+    },
+  };
   let result: T | Promise<T>;
   try {
     result = (hasStart ? runInterceptorChain('start', interceptors, startCtx, pipeline) : pipeline()) as T | Promise<T>;

@@ -236,7 +236,7 @@ Registers an interceptor. See [Interceptor System](#interceptor-system).
 
 ### `.extend(extension)`
 
-Applies a build-time extension. A `PadroneExtension` is a reusable bundle of configuration, commands, and interceptors. Use `padroneBuiltins()` for opt-in built-in features.
+Applies a build-time extension. A `PadroneExtension` is a reusable bundle of configuration, commands, and interceptors.
 
 ### `.env(schema)`
 

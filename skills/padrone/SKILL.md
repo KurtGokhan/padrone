@@ -140,7 +140,7 @@ program.intercept(timer);
 
 ## Extension System
 
-Extensions provide build-time composition via `.extend()` and `PadroneExtension`. An extension is a reusable bundle that can add configuration, commands, and interceptors to a program. Use `padroneBuiltins()` for opt-in built-in features.
+Extensions provide build-time composition via `.extend()` and `PadroneExtension`. An extension is a reusable bundle that can add configuration, commands, and interceptors to a program. Built-in features (help, version, repl, color, config, interactive) are included by default. Advanced features (completion, man, mcp, serve, update-check) must be added explicitly.
 
 ## Testing
 

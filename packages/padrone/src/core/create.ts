@@ -1,3 +1,9 @@
+import { padroneColor } from '../extension/color.ts';
+import { padroneConfig } from '../extension/config-ext.ts';
+import { padroneHelp } from '../extension/help.ts';
+import { padroneInteractive } from '../extension/interactive-ext.ts';
+import { padroneRepl } from '../extension/repl.ts';
+import { padroneVersion } from '../extension/version.ts';
 import { createWrapHandler } from '../feature/wrap.ts';
 import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand, PadroneInterceptor, PadroneProgram } from '../types/index.ts';
 import { commandSymbol, findCommandByName, lazyResolver, mergeCommands, repathCommandTree, resolveCommand } from './commands.ts';
@@ -11,8 +17,38 @@ import { parseCommand } from './validate.ts';
 export { buildReplCompleter } from './commands.ts';
 export { asyncSchema } from './results.ts';
 
-export function createPadrone<TProgramName extends string>(name: TProgramName): PadroneProgram<TProgramName, '', ''> {
-  return createPadroneBuilder({ name, path: '', commands: [] } as any) as unknown as PadroneProgram<TProgramName, '', ''>;
+/**
+ * Options for configuring which built-in extensions are applied by default.
+ */
+export type PadroneOptions = {
+  builtins?: {
+    /** Enable `help` command, `--help` / `-h` flags, and default help display. Defaults to `true`. */
+    help?: boolean;
+    /** Enable `version` command and `--version` / `-v` / `-V` flags. Defaults to `true`. */
+    version?: boolean;
+    /** Enable `repl` command and `--repl` flag. Defaults to `true`. */
+    repl?: boolean;
+    /** Enable `--color` / `--no-color` flag support. Defaults to `true`. */
+    color?: boolean;
+  };
+};
+
+export function createPadrone<TProgramName extends string>(
+  name: TProgramName,
+  options?: PadroneOptions,
+): PadroneProgram<TProgramName, '', ''> {
+  let builder: any = createPadroneBuilder({ name, path: '', commands: [] } as any);
+
+  const b = options?.builtins;
+  if (b?.help !== false) builder = builder.extend(padroneHelp());
+  if (b?.version !== false) builder = builder.extend(padroneVersion());
+  if (b?.repl !== false) builder = builder.extend(padroneRepl());
+  if (b?.color !== false) builder = builder.extend(padroneColor());
+  // Framework flag extensions (always on by default)
+  builder = builder.extend(padroneConfig());
+  builder = builder.extend(padroneInteractive());
+
+  return builder as unknown as PadroneProgram<TProgramName, '', ''>;
 }
 
 export function createPadroneBuilder<TBuilder extends PadroneProgram = PadroneProgram>(
@@ -50,10 +86,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
     }
   };
 
-  const programMethods = createProgramMethods({
-    ...execCtx,
-    evalCommand,
-  });
+  const programMethods = createProgramMethods(execCtx, evalCommand);
 
   const builder = {
     extend(extension: (builder: any) => any) {
@@ -125,10 +158,14 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       if (builderFn) {
         const lazyCmd: AnyPadroneCommand = { ...initialCommand };
         (lazyCmd as any)[lazyResolver] = (target: AnyPadroneCommand) => {
+          const savedParent = target.parent;
           const b = createPadroneBuilder(target);
           const commandObj = ((builderFn(b as any) as unknown as typeof b)?.[commandSymbol] as AnyPadroneCommand) ?? target;
           const mergedCommandObj = existingSubcommand ? mergeCommands(existingSubcommand, commandObj) : commandObj;
           Object.assign(target, mergedCommandObj);
+          // Restore parent: mergeCommands copies the existing command's parent which may be stale
+          // (e.g. when an extension is applied twice, the merged parent predates re-parenting).
+          target.parent = savedParent;
         };
 
         const commands = existingCommand.commands || [];
@@ -184,10 +221,6 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
         ...existingCommand,
         interceptors: [...(existingCommand.interceptors ?? []), interceptor],
       }) as any;
-    },
-
-    updateCheck(config = {}) {
-      return createPadroneBuilder({ ...existingCommand, updateCheck: config }) as any;
     },
 
     ...programMethods,

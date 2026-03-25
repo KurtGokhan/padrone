@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { createPadrone, padroneBuiltins } from 'padrone';
+import { createPadrone, padroneUpdateCheck } from 'padrone';
 import { formatUpdateMessage, isNewerVersion, parseInterval } from '../src/feature/update-check.ts';
 import { createConsoleMocker } from './console-mocker.ts';
 
@@ -86,8 +86,10 @@ describe('update-check', () => {
   });
 
   describe('builder integration', () => {
-    it('should add updateCheck via .updateCheck()', () => {
-      const program = createPadrone('test').configure({ version: '1.0.0' }).updateCheck({ registry: 'npm', interval: '1d' });
+    it('should add updateCheck via .extend(padroneUpdateCheck())', () => {
+      const program = createPadrone('test')
+        .configure({ version: '1.0.0' })
+        .extend(padroneUpdateCheck({ registry: 'npm', interval: '1d' }));
 
       // Should still be a valid program
       expect(program.help).toBeDefined();
@@ -95,12 +97,12 @@ describe('update-check', () => {
 
     it('should return a new builder (immutable)', () => {
       const program = createPadrone('test').configure({ version: '1.0.0' });
-      const withCheck = program.updateCheck({ interval: '12h' });
+      const withCheck = program.extend(padroneUpdateCheck({ interval: '12h' }));
       expect(withCheck).not.toBe(program);
     });
 
     it('should accept empty config', () => {
-      const program = createPadrone('test').configure({ version: '1.0.0' }).updateCheck();
+      const program = createPadrone('test').configure({ version: '1.0.0' }).extend(padroneUpdateCheck());
       expect(program.help).toBeDefined();
     });
   });
@@ -110,9 +112,8 @@ describe('update-check', () => {
       const outputs: string[] = [];
       const errors: string[] = [];
       const program = createPadrone('test')
-        .extend(padroneBuiltins())
         .configure({ version: '1.0.0' })
-        .updateCheck({ registry: 'npm', interval: '1d' })
+        .extend(padroneUpdateCheck({ registry: 'npm', interval: '1d' }))
         .runtime({
           argv: () => ['--version'],
           output: (...args) => outputs.push(String(args[0])),
@@ -129,7 +130,7 @@ describe('update-check', () => {
       const errors: string[] = [];
       const program = createPadrone('test')
         .configure({ version: '1.0.0' })
-        .updateCheck()
+        .extend(padroneUpdateCheck())
         .runtime({
           argv: () => ['hello'],
           output: () => {},
@@ -147,7 +148,7 @@ describe('update-check', () => {
       const errors: string[] = [];
       const program = createPadrone('test')
         .configure({ version: '1.0.0' })
-        .updateCheck({ disableEnvVar: 'TEST_NO_UPDATE' })
+        .extend(padroneUpdateCheck({ disableEnvVar: 'TEST_NO_UPDATE' }))
         .runtime({
           argv: () => ['hello'],
           output: () => {},

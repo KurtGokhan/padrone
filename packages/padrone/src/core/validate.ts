@@ -5,7 +5,6 @@ import {
   coerceArgs,
   detectUnknownArgs,
   extractSchemaMetadata,
-  frameworkReservedKeys,
   getJsonSchema,
   isArrayField,
   isAsyncStreamField,
@@ -198,7 +197,7 @@ export function checkUnknownArgs(
   if (!command.argsSchema) {
     const unknowns: { key: string; suggestions: string[] }[] = [];
     for (const key of Object.keys(preprocessedArgs)) {
-      if (!frameworkReservedKeys.has(key)) unknowns.push({ key, suggestions: [] });
+      unknowns.push({ key, suggestions: [] });
     }
     return unknowns;
   }

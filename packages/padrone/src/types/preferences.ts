@@ -1,6 +1,4 @@
 import type { PadroneRuntime } from '../core/runtime.ts';
-import type { PadroneMcpPreferences } from '../feature/mcp.ts';
-import type { PadroneServePreferences } from '../feature/serve.ts';
 
 /**
  * Options for `repl()` to customize the REPL session.
@@ -98,10 +96,9 @@ export type PadroneEvalPreferences = {
  * Options that can be passed to `cli()` to control execution behavior.
  */
 export type PadroneCliPreferences<TScope extends string = string> = PadroneEvalPreferences & {
-  /** REPL preferences used when `--repl` flag is passed. Set to `false` to disable the `--repl` flag. */
+  /**
+   * REPL preferences. When provided, the `--repl` flag will use these settings.
+   * Set to `false` to disable the `--repl` flag entirely.
+   */
   repl?: PadroneReplPreferences<TScope> | false;
-  /** MCP server preferences used when `mcp` command is used. Set to `false` to disable. */
-  mcp?: PadroneMcpPreferences | false;
-  /** REST server preferences used when `serve` command is used. Set to `false` to disable. */
-  serve?: PadroneServePreferences | false;
 };
