@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { JSON_SCHEMA_OPTS } from '../core/args.ts';
+import { getJsonSchema } from '../core/args.ts';
 import type { FieldMeta } from './types.ts';
 
 interface SchemaToCodeResult {
@@ -58,7 +58,7 @@ function jsonSchemaPropertyToZod(prop: Record<string, any>, required: boolean, a
  */
 export function schemaToCode(schema: StandardSchemaV1): SchemaToCodeResult {
   try {
-    const jsonSchema = (schema as any)['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
+    const jsonSchema = getJsonSchema(schema as any) as Record<string, any>;
     return jsonSchemaToCode(jsonSchema);
   } catch {
     return { code: 'z.unknown()', imports: ['z'] };

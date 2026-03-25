@@ -1,7 +1,7 @@
 import type { AnyPadroneCommand } from '../types/index.ts';
-import { extractSchemaMetadata, JSON_SCHEMA_OPTS } from './args.ts';
+import { extractSchemaMetadata, getJsonSchema } from './args.ts';
+import { resolveRuntime } from './default-runtime.ts';
 import type { ResolvedPadroneRuntime } from './runtime.ts';
-import { resolveRuntime } from './runtime.ts';
 
 // ---------------------------------------------------------------------------
 // Lazy command resolution
@@ -184,7 +184,7 @@ export function buildReplCompleter(
         try {
           const argsMeta = targetCommand.meta?.fields;
           const { flags, aliases } = extractSchemaMetadata(targetCommand.argsSchema, argsMeta, targetCommand.meta?.autoAlias);
-          const jsonSchema = targetCommand.argsSchema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
+          const jsonSchema = getJsonSchema(targetCommand.argsSchema) as Record<string, any>;
           if (jsonSchema.type === 'object' && jsonSchema.properties) {
             for (const key of Object.keys(jsonSchema.properties)) {
               options.push(`--${key}`);
@@ -364,7 +364,7 @@ export function buildInputSchema(cmd: AnyPadroneCommand): Record<string, unknown
     return { type: 'object', additionalProperties: false };
   }
   try {
-    return cmd.argsSchema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, unknown>;
+    return getJsonSchema(cmd.argsSchema) as Record<string, unknown>;
   } catch {
     return { type: 'object', additionalProperties: false };
   }

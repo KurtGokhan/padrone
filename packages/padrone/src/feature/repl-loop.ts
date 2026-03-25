@@ -1,6 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { buildReplCompleter, findCommandByName, getCommandRuntime } from '../core/commands.ts';
-import { createTerminalReplSession, REPL_SIGINT, type ReplSessionConfig } from '../core/runtime.ts';
+import { createTerminalReplSession } from '../core/default-runtime.ts';
+import { REPL_SIGINT, type ReplSessionConfig } from '../core/runtime.ts';
 import type { AnyPadroneCommand, PadroneEvalPreferences, PadroneReplPreferences } from '../types/index.ts';
 import { getVersion } from '../util/utils.ts';
 

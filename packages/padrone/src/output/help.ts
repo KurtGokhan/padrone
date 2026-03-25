@@ -1,11 +1,5 @@
 import type { StandardJSONSchemaV1 } from '@standard-schema/spec';
-import {
-  extractSchemaMetadata,
-  JSON_SCHEMA_OPTS,
-  type PadroneArgsSchemaMeta,
-  parsePositionalConfig,
-  parseStdinConfig,
-} from '../core/args.ts';
+import { extractSchemaMetadata, getJsonSchema, type PadroneArgsSchemaMeta, parsePositionalConfig } from '../core/args.ts';
 import { findCommandByName } from '../core/commands.ts';
 import type { AnyPadroneCommand } from '../types/index.ts';
 import { getRootCommand } from '../util/utils.ts';
@@ -47,7 +41,7 @@ function extractPositionalArgsInfo(
   const positionalConfig = parsePositionalConfig(meta.positional);
 
   try {
-    const jsonSchema = schema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
+    const jsonSchema = getJsonSchema(schema) as Record<string, any>;
 
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
       const properties = jsonSchema.properties as Record<string, any>;
@@ -87,7 +81,7 @@ function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaM
   const argsMeta = meta?.fields;
 
   try {
-    const jsonSchema = schema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
+    const jsonSchema = getJsonSchema(schema) as Record<string, any>;
 
     // Handle object: z.object({ key: z.string(), ... })
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
@@ -198,7 +192,7 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
       hasSubcommands: !!(cmd.commands && cmd.commands.length > 0),
       hasPositionals,
       hasArguments: false, // updated below after extracting arguments
-      stdinField: cmd.meta?.stdin ? parseStdinConfig(cmd.meta.stdin) : undefined,
+      stdinField: cmd.meta?.stdin,
     },
   };
 

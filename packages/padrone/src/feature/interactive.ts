@@ -1,4 +1,4 @@
-import { JSON_SCHEMA_OPTS } from '../core/args.ts';
+import { getJsonSchema } from '../core/args.ts';
 import type { InteractivePromptConfig, ResolvedPadroneRuntime } from '../core/runtime.ts';
 import type { AnyPadroneCommand } from '../types/index.ts';
 
@@ -110,7 +110,7 @@ export async function promptInteractiveFields(
   let requiredFields: Set<string> = new Set();
   if (command.argsSchema) {
     try {
-      const jsonSchema = command.argsSchema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
+      const jsonSchema = getJsonSchema(command.argsSchema) as Record<string, any>;
       if (jsonSchema.type === 'object' && jsonSchema.properties) {
         jsonProperties = jsonSchema.properties;
       }

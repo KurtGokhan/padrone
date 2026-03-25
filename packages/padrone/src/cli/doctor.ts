@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import * as z from 'zod/v4';
-import { JSON_SCHEMA_OPTS } from '../core/args.ts';
+import { getJsonSchema } from '../core/args.ts';
 import { getCommand, isPadroneProgram } from '../core/commands.ts';
 import type { AnyPadroneCommand, PadroneActionContext } from '../types/index.ts';
 import { detectEntry } from './link.ts';
@@ -110,10 +110,10 @@ function commandDisplayName(cmd: AnyPadroneCommand): string {
   return cmd.path || cmd.name || '<root>';
 }
 
-function getJsonSchema(cmd: AnyPadroneCommand): Record<string, any> | null {
+function getCommandJsonSchema(cmd: AnyPadroneCommand): Record<string, any> | null {
   try {
     if (!cmd.argsSchema) return null;
-    return cmd.argsSchema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
+    return getJsonSchema(cmd.argsSchema) as Record<string, any>;
   } catch {
     return null;
   }
@@ -170,7 +170,7 @@ function checkShadowedOptionNames(commands: AnyPadroneCommand[], diagnostics: Di
     }
 
     // Check option names in schema
-    const jsonSchema = getJsonSchema(cmd);
+    const jsonSchema = getCommandJsonSchema(cmd);
     if (!jsonSchema?.properties) continue;
 
     for (const propName of Object.keys(jsonSchema.properties)) {
@@ -243,7 +243,7 @@ function checkCommandsWithoutActions(commands: AnyPadroneCommand[], diagnostics:
  */
 function checkSchemasWithoutDescriptions(commands: AnyPadroneCommand[], diagnostics: Diagnostic[]) {
   for (const cmd of commands) {
-    const jsonSchema = getJsonSchema(cmd);
+    const jsonSchema = getCommandJsonSchema(cmd);
     if (!jsonSchema?.properties) continue;
 
     for (const [propName, propSchema] of Object.entries(jsonSchema.properties as Record<string, any>)) {
@@ -298,7 +298,7 @@ function checkConflictingPositionals(commands: AnyPadroneCommand[], diagnostics:
     }
 
     // Check for positional names that don't exist in schema
-    const jsonSchema = getJsonSchema(cmd);
+    const jsonSchema = getCommandJsonSchema(cmd);
     if (jsonSchema?.properties) {
       for (const p of positional) {
         const name = (p as string).replace(/^\.\.\./, '');

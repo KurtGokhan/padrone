@@ -1,3 +1,12 @@
+/**
+ * Convert a camelCase string to kebab-case.
+ * Returns null if the string has no uppercase letters (no conversion needed).
+ */
+export function camelToKebab(str: string): string | null {
+  if (!/[A-Z]/.test(str)) return null;
+  return str.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`);
+}
+
 export type ShellType = 'bash' | 'zsh' | 'fish' | 'powershell';
 
 /**

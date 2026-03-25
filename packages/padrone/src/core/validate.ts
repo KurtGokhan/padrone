@@ -6,18 +6,17 @@ import {
   detectUnknownArgs,
   extractSchemaMetadata,
   frameworkReservedKeys,
+  getJsonSchema,
   isArrayField,
   isAsyncStreamField,
-  JSON_SCHEMA_OPTS,
   parsePositionalConfig,
-  parseStdinConfig,
   preprocessArgs,
 } from './args.ts';
 import { resolveInherited } from './builtins.ts';
 import { getCommandRuntime, suggestSimilar } from './commands.ts';
+import { resolveStdin, resolveStdinAlways } from './default-runtime.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
 import { thenMaybe } from './results.ts';
-import { resolveStdin, resolveStdinAlways } from './runtime.ts';
 import { formatSuggestions } from './suggestions.ts';
 
 /**
@@ -72,7 +71,7 @@ export function parseCommand(input: string | undefined, rootCommand: AnyPadroneC
   const arrayArguments = new Set<string>();
   if (curCommand.argsSchema) {
     try {
-      const jsonSchema = curCommand.argsSchema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
+      const jsonSchema = getJsonSchema(curCommand.argsSchema) as Record<string, any>;
       if (jsonSchema.type === 'object' && jsonSchema.properties) {
         for (const [key, prop] of Object.entries(jsonSchema.properties as Record<string, any>)) {
           if (prop?.type === 'array') arrayArguments.add(key);
@@ -258,35 +257,33 @@ export function readStdinData(
   rawArgs: Record<string, unknown>,
   rootCommand: AnyPadroneCommand,
 ): Record<string, unknown> | Promise<Record<string, unknown>> {
-  const stdinConfig = command.meta?.stdin;
-  if (!stdinConfig) return {};
-
-  const field = parseStdinConfig(stdinConfig);
+  const stdinField = command.meta?.stdin;
+  if (!stdinField) return {};
 
   // Skip if the field was already provided via CLI flags
-  if (field in rawArgs && rawArgs[field] !== undefined) return {};
+  if (stdinField in rawArgs && rawArgs[stdinField] !== undefined) return {};
 
   const runtime = getCommandRuntime(rootCommand);
 
-  const streamInfo = isAsyncStreamField(command.argsSchema, field);
+  const streamInfo = isAsyncStreamField(command.argsSchema, stdinField);
   if (streamInfo) {
     const stdinForStream = resolveStdinAlways(runtime as any);
-    return { [field]: createStdinStream(stdinForStream, streamInfo.itemSchema) };
+    return { [stdinField]: createStdinStream(stdinForStream, streamInfo.itemSchema) };
   }
 
   const stdin = resolveStdin(runtime as any);
   if (!stdin) return {};
 
-  if (isArrayField(command.argsSchema, field)) {
+  if (isArrayField(command.argsSchema, stdinField)) {
     return (async () => {
       const lines: string[] = [];
       for await (const line of stdin.lines()) {
         lines.push(line);
       }
-      return { [field]: lines };
+      return { [stdinField]: lines };
     })();
   }
-  return stdin.text().then((text) => (text ? { [field]: text } : {}));
+  return stdin.text().then((text) => (text ? { [stdinField]: text } : {}));
 }
 
 /**
@@ -315,7 +312,7 @@ export function validateEnvData(
 export function getKnownOptionNames(command: AnyPadroneCommand): string[] {
   if (!command.argsSchema) return [];
   try {
-    const js = command.argsSchema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
+    const js = getJsonSchema(command.argsSchema) as Record<string, any>;
     if (js.type === 'object' && js.properties) return Object.keys(js.properties);
   } catch {
     /* ignore */

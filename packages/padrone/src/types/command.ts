@@ -1,8 +1,8 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type { PadroneArgsSchemaMeta } from '../core/args.ts';
 import type { PadroneProgressIndicator, PadroneRuntime, PadroneSpinnerConfig, ResolvedPadroneRuntime } from '../core/runtime.ts';
 import type { UpdateCheckConfig } from '../feature/update-check.ts';
 import type { FullCommandName } from '../util/type-utils.ts';
+import type { PadroneArgsSchemaMeta } from './args-meta.ts';
 import type { AnyPadroneProgram } from './builder.ts';
 import type { PadronePlugin } from './plugin.ts';
 import type { PadroneSchema } from './schema.ts';

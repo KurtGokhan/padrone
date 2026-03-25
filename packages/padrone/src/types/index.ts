@@ -1,3 +1,4 @@
+export type { PadroneArgsSchemaMeta, PadroneFieldMeta, SingleChar, StdinConfig } from './args-meta.ts';
 export type {
   AnyPadroneBuilder,
   AnyPadroneProgram,
@@ -5,7 +6,6 @@ export type {
   PadroneBuilderMethods,
   PadroneProgram,
 } from './builder.ts';
-
 export type {
   AnyPadroneCommand,
   CommandTypesBase,
@@ -36,7 +36,6 @@ export type {
   PadroneReplPreferences,
   PadroneReplSpacing,
 } from './preferences.ts';
-
 export type {
   GetArguments,
   GetResults,

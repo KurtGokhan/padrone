@@ -1,181 +1,22 @@
 import type { StandardJSONSchemaV1, StandardSchemaV1 } from '@standard-schema/spec';
+import type { PadroneFieldMeta } from '../types/args-meta.ts';
+import { camelToKebab } from '../util/shell-utils.ts';
 import { asyncStreamRegistry } from '../util/stream.ts';
 
-type Letter =
-  | 'a'
-  | 'b'
-  | 'c'
-  | 'd'
-  | 'e'
-  | 'f'
-  | 'g'
-  | 'h'
-  | 'i'
-  | 'j'
-  | 'k'
-  | 'l'
-  | 'm'
-  | 'n'
-  | 'o'
-  | 'p'
-  | 'q'
-  | 'r'
-  | 's'
-  | 't'
-  | 'u'
-  | 'v'
-  | 'w'
-  | 'x'
-  | 'y'
-  | 'z';
+export type { PadroneArgsSchemaMeta, PadroneFieldMeta, SingleChar, StdinConfig } from '../types/args-meta.ts';
 
-/** A single letter character, valid as a short CLI flag (e.g. `'v'`, `'n'`, `'V'`). */
-export type SingleChar = Letter | Uppercase<Letter>;
-
-export interface PadroneFieldMeta {
-  description?: string;
-  /** Single-character short flags (stackable: `-abc` = `-a -b -c`). Used with single dash. */
-  flags?: readonly SingleChar[] | SingleChar;
-  /** Multi-character alternative long names. Used with double dash (e.g. `--dry-run` for `--dryRun`). */
-  alias?: readonly string[] | string;
-  deprecated?: boolean | string;
-  hidden?: boolean;
-  examples?: readonly unknown[];
-  /** Group name for organizing this option under a labeled section in help output. */
-  group?: string;
+/** Extract the JSON schema from a Standard Schema, returning it as a plain record. */
+export function getJsonSchema(schema: StandardJSONSchemaV1): Record<string, any> {
+  return schema['~standard'].jsonSchema.input({
+    target: 'draft-2020-12',
+    libraryOptions: { unrepresentable: 'any' },
+  }) as Record<string, any>;
 }
-
-type PositionalArgs<TObj> =
-  TObj extends Record<string, any>
-    ? {
-        [K in keyof TObj]: NonNullable<TObj[K]> extends Array<any> ? `...${K & string}` | (K & string) : K & string;
-      }[keyof TObj]
-    : string;
-
-/**
- * Meta configuration for arguments, including positional arguments.
- * The `positional` array defines which arguments are positional and their order.
- * Use '...name' prefix to indicate variadic (rest) arguments, matching JS/TS rest syntax.
- *
- * @example
- * ```ts
- * .arguments(schema, {
- *   positional: ['source', '...files', 'dest'],  // '...files' is variadic
- * })
- * ```
- */
-/**
- * Configuration for reading from stdin and mapping it to an argument field.
- * Simply specify the field name — the read mode is inferred from the schema:
- * - `string` field → reads all stdin as text
- * - `string[]` field → reads stdin line-by-line
- */
-export type StdinConfig<TObj = Record<string, any>> = keyof TObj & string;
-
-export interface PadroneArgsSchemaMeta<TObj = Record<string, any>> {
-  /**
-   * Array of argument names that should be treated as positional arguments.
-   * Order in array determines position. Use '...name' prefix for variadic args.
-   * @example ['source', '...files', 'dest'] - 'files' captures multiple values
-   */
-  positional?: readonly PositionalArgs<TObj>[];
-  /**
-   * Per-argument metadata.
-   */
-  fields?: { [K in keyof TObj]?: PadroneFieldMeta };
-  /**
-   * Automatically generate kebab-case aliases for camelCase option names.
-   * For example, `dryRun` automatically gets `--dry-run` as an alias.
-   * Defaults to `true`. Set to `false` to disable.
-   *
-   * @default true
-   * @example
-   * ```ts
-   * // Auto-aliases enabled (default): --dry-run → dryRun
-   * .arguments(z.object({ dryRun: z.boolean() }))
-   *
-   * // Disable auto-aliases
-   * .arguments(z.object({ dryRun: z.boolean() }), { autoAlias: false })
-   * ```
-   */
-  autoAlias?: boolean;
-  /**
-   * Read from stdin and inject the data into the specified argument field.
-   * Only reads when stdin is piped (not a TTY) and the field wasn't already provided via CLI flags.
-   *
-   * The read mode is inferred from the schema type of the target field:
-   * - `string` field → reads all stdin as a single string
-   * - `string[]` field → reads stdin line-by-line into an array
-   *
-   * Precedence: CLI flags > stdin > env vars > config file > schema defaults.
-   *
-   * @example
-   * ```ts
-   * // Read all stdin as text into 'data' field
-   * .arguments(z.object({ data: z.string() }), { stdin: 'data' })
-   *
-   * // Read stdin lines into 'lines' field (inferred from array schema)
-   * .arguments(z.object({ lines: z.string().array() }), { stdin: 'lines' })
-   * ```
-   */
-  stdin?: StdinConfig<TObj>;
-  /**
-   * Fields to interactively prompt for when their values are missing after CLI/env/config resolution.
-   * - `true`: prompt for all required fields that are missing.
-   * - `string[]`: prompt for these specific fields if missing.
-   *
-   * Interactive prompting only occurs in `cli()` when the runtime has `interactive: true`.
-   * Setting this makes `parse()` and `cli()` return Promises.
-   *
-   * @example
-   * ```ts
-   * .arguments(schema, {
-   *   interactive: true,                        // prompt all missing required fields
-   *   interactive: ['name', 'template'],         // prompt only these fields
-   * })
-   * ```
-   */
-  interactive?: true | readonly (keyof TObj & string)[];
-  /**
-   * Optional fields offered after required interactive prompts.
-   * Users are shown a multi-select to choose which of these fields to configure.
-   * - `true`: offer all optional fields that are missing.
-   * - `string[]`: offer these specific fields.
-   *
-   * @example
-   * ```ts
-   * .arguments(schema, {
-   *   interactive: ['name'],
-   *   optionalInteractive: ['typescript', 'eslint', 'prettier'],
-   * })
-   * ```
-   */
-  optionalInteractive?: true | readonly (keyof TObj & string)[];
-}
-
-/**
- * Convert a camelCase string to kebab-case.
- * Returns null if the string has no uppercase letters (no conversion needed).
- */
-export function camelToKebab(str: string): string | null {
-  if (!/[A-Z]/.test(str)) return null;
-  return str.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`);
-}
-
-/**
- * Returns the stdin field name from the config.
- */
-export function parseStdinConfig(stdin: StdinConfig): string {
-  return stdin;
-}
-
-/** Options passed to `jsonSchema.input()` to handle unrepresentable types like `z.custom()`. */
-export const JSON_SCHEMA_OPTS = { target: 'draft-2020-12', libraryOptions: { unrepresentable: 'any' } } as const;
 
 function getFieldJsonSchema(schema: StandardJSONSchemaV1 | undefined, field: string): Record<string, any> | undefined {
   if (!schema) return undefined;
   try {
-    const jsonSchema = schema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
+    const jsonSchema = getJsonSchema(schema);
     if (jsonSchema.type === 'object' && jsonSchema.properties) return jsonSchema.properties[field];
   } catch {}
   return undefined;
@@ -262,7 +103,7 @@ export function extractSchemaMetadata(
 
   // Extract from JSON schema properties
   try {
-    const jsonSchema = schema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
+    const jsonSchema = getJsonSchema(schema) as Record<string, any>;
     if (jsonSchema.type === 'object' && jsonSchema.properties) {
       for (const [propertyName, propertySchema] of Object.entries(jsonSchema.properties as Record<string, any>)) {
         if (!propertySchema) continue;
@@ -383,7 +224,7 @@ export function preprocessArgs(data: Record<string, unknown>, ctx: ParseArgsCont
 export function coerceArgs(data: Record<string, unknown>, schema: StandardJSONSchemaV1): Record<string, unknown> {
   let properties: Record<string, any>;
   try {
-    const jsonSchema = schema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
+    const jsonSchema = getJsonSchema(schema) as Record<string, any>;
     if (jsonSchema.type !== 'object' || !jsonSchema.properties) return data;
     properties = jsonSchema.properties;
   } catch {
@@ -457,7 +298,7 @@ export function detectUnknownArgs(
   let properties: Record<string, any>;
   let isLoose = false;
   try {
-    const jsonSchema = schema['~standard'].jsonSchema.input(JSON_SCHEMA_OPTS) as Record<string, any>;
+    const jsonSchema = getJsonSchema(schema) as Record<string, any>;
     if (jsonSchema.type !== 'object' || !jsonSchema.properties) return [];
     properties = jsonSchema.properties;
     // If additionalProperties is set (true, {}, or a schema), the schema allows extra keys

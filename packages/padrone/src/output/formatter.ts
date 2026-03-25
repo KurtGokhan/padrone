@@ -1,4 +1,4 @@
-import { camelToKebab } from '../core/args.ts';
+import { camelToKebab } from '../util/shell-utils.ts';
 import { type ColorConfig, type ColorTheme, createColorizer } from './colorizer.ts';
 
 const DEFAULT_TERMINAL_WIDTH = 80;
