@@ -1,7 +1,13 @@
-import { parseCliInputToParts } from '../core/parse.ts';
-import { withDrain } from '../core/results.ts';
+import { thenMaybe } from '#src/core/results.ts';
 import type { PadroneBuilder, PadroneProgram } from '../types/builder.ts';
-import type { AnyPadroneCommand, CommandTypesBase, InterceptorStartContext, PadroneCommand } from '../types/index.ts';
+import type {
+  AnyPadroneBuilder,
+  AnyPadroneCommand,
+  CommandTypesBase,
+  InterceptorParseContext,
+  InterceptorParseResult,
+  PadroneCommand,
+} from '../types/index.ts';
 import type { PadroneSchema } from '../types/schema.ts';
 import type { ReplaceOrAppendCommand } from '../util/type-utils.ts';
 import { getRootCommand, getVersion } from '../util/utils.ts';
@@ -32,7 +38,7 @@ export type WithVersion<T> = T extends {
 /**
  * Extension that adds version support:
  * - `version` command
- * - `--version` / `-v` / `-V` flags
+ * - `--version` / `-v` / `-V` flags (root command only)
  *
  * Usage:
  * ```ts
@@ -40,8 +46,8 @@ export type WithVersion<T> = T extends {
  * ```
  */
 export function padroneVersion(): <T extends CommandTypesBase>(builder: T) => WithVersion<T> {
-  return ((builder: any) => {
-    let result = builder;
+  return ((builder: AnyPadroneBuilder) => {
+    let result = builder as any;
 
     result = result.command('version', (c: any) =>
       c.configure({ description: 'Display the version number', hidden: true, autoOutput: true }).action((_args: any, ctx: any) => {
@@ -54,37 +60,29 @@ export function padroneVersion(): <T extends CommandTypesBase>(builder: T) => Wi
       id: 'padrone:version',
       name: 'padrone:version',
       order: -1000,
-      start(ctx: InterceptorStartContext, next: () => unknown) {
-        const flag = checkVersionFlags(ctx.input, ctx.command);
-        if (!flag) return next();
+      parse(ctx: InterceptorParseContext, next: () => InterceptorParseResult) {
+        return thenMaybe(next(), (res) => {
+          if (!ctx.state._execMode) return res;
 
-        const rootCommand = ctx.command;
-        const runtime = ctx.runtime;
-        const version = getVersion(rootCommand.version);
-        runtime.output(version);
-        return withDrain({ command: rootCommand, args: undefined, result: version });
+          const hasVersionFlag = res.rawArgs.version || res.rawArgs.v || res.rawArgs.V;
+
+          // Only show version for root command (no subcommand matched)
+          if (hasVersionFlag && !res.command.parent) {
+            delete res.rawArgs.version;
+            delete res.rawArgs.v;
+            delete res.rawArgs.V;
+
+            const version = getVersion(res.command.version);
+            ctx.runtime.output(version);
+            ctx.state._drain = version;
+            return res;
+          }
+
+          return res;
+        });
       },
     });
 
     return result;
   }) as any;
-}
-
-/** Check for --version/-v/-V flags (only for root command, no subcommand terms). */
-function checkVersionFlags(input: string | undefined, rootCommand: AnyPadroneCommand): boolean {
-  if (!input) return false;
-
-  const parts = parseCliInputToParts(input);
-  const terms = parts.filter((p) => p.type === 'term').map((p) => p.value);
-  const args = parts.filter((p) => p.type === 'named' || p.type === 'alias');
-  const keyIs = (key: string[], name: string) => key.length === 1 && key[0] === name;
-
-  const hasVersionFlag = args.some(
-    (p) => (p.type === 'named' && keyIs(p.key, 'version')) || (p.type === 'alias' && (keyIs(p.key, 'v') || keyIs(p.key, 'V'))),
-  );
-
-  const normalizedTerms = [...terms];
-  if (normalizedTerms[0] === rootCommand.name) normalizedTerms.shift();
-
-  return hasVersionFlag && normalizedTerms.length === 0;
 }

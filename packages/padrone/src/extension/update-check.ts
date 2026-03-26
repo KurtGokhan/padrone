@@ -1,6 +1,6 @@
-import { parseCliInputToParts } from '../core/parse.ts';
+import { thenMaybe } from '#src/core/results.ts';
 import type { UpdateCheckConfig } from '../feature/update-check.ts';
-import type { CommandTypesBase, InterceptorShutdownContext, InterceptorStartContext } from '../types/index.ts';
+import type { AnyPadroneBuilder, CommandTypesBase } from '../types/index.ts';
 import { getVersion } from '../util/utils.ts';
 
 // ── Extension ────────────────────────────────────────────────────────────
@@ -18,56 +18,35 @@ import { getVersion } from '../util/utils.ts';
  * ```
  */
 export function padroneUpdateCheck(config: UpdateCheckConfig = {}): <T extends CommandTypesBase>(builder: T) => T {
-  return ((builder: any) =>
+  return ((builder: AnyPadroneBuilder) =>
     builder.intercept({
       id: 'padrone:update-check',
       name: 'padrone:update-check',
       order: 1000,
-      start(ctx: InterceptorStartContext, next: () => unknown) {
-        // Check for --no-update-check flag
-        const hasNoUpdateCheckFlag =
-          ctx.input &&
-          parseCliInputToParts(ctx.input).some((p) => p.type === 'named' && p.key.length === 1 && p.key[0] === 'no-update-check');
+      start(ctx, next) {
+        const rootCommand = ctx.command;
+        const currentVersion = getVersion(rootCommand.version);
+        const runtime = ctx.runtime;
 
-        if (!hasNoUpdateCheckFlag) {
-          const rootCommand = ctx.command;
-          const currentVersion = getVersion(rootCommand.version);
-          const runtime = ctx.runtime;
-
-          // Start background check
-          const checkPromise = import('../feature/update-check.ts').then(({ createUpdateChecker }) => {
-            const show = createUpdateChecker(rootCommand.name, currentVersion, config, runtime);
-            return show;
-          });
-          ctx.state._updateCheckPromise = checkPromise;
-        }
-
-        // Strip --no-update-check from input
-        if (hasNoUpdateCheckFlag && ctx.input) {
-          const parts = parseCliInputToParts(ctx.input);
-          const filtered = parts.filter((p) => !(p.type === 'named' && p.key.length === 1 && p.key[0] === 'no-update-check'));
-          const tokens: string[] = [];
-          for (const part of filtered) {
-            if (part.type === 'term' || part.type === 'arg') {
-              tokens.push(part.value.includes(' ') ? `"${part.value}"` : part.value);
-            } else if (part.type === 'named') {
-              const key = part.key.join('.');
-              if (part.negated) tokens.push(`--no-${key}`);
-              else if (part.value !== undefined) tokens.push(`--${key}=${Array.isArray(part.value) ? part.value.join(',') : part.value}`);
-              else tokens.push(`--${key}`);
-            } else if (part.type === 'alias') {
-              const key = part.key[0]!;
-              if (part.value !== undefined) tokens.push(`-${key} ${Array.isArray(part.value) ? part.value.join(',') : part.value}`);
-              else tokens.push(`-${key}`);
-            }
-          }
-          ctx.input = tokens.join(' ') || undefined;
-        }
+        ctx.state._updateCheckPromise = import('../feature/update-check.ts').then(({ createUpdateChecker }) =>
+          createUpdateChecker(rootCommand.name, currentVersion, config, runtime),
+        );
 
         return next();
       },
-      shutdown(ctx: InterceptorShutdownContext, next: () => void) {
+      parse(ctx, next) {
+        return thenMaybe(next(), (res) => {
+          if ('update-check' in res.rawArgs) {
+            if (res.rawArgs['update-check'] === false) ctx.state._noUpdateCheck = true;
+            delete res.rawArgs['update-check'];
+          }
+          return res;
+        });
+      },
+      shutdown(ctx, next) {
         const result = next();
+        if (ctx.state._noUpdateCheck) return result;
+
         const showPromise = ctx.state._updateCheckPromise as Promise<(() => void) | undefined> | undefined;
         if (!showPromise) return result;
 
@@ -82,13 +61,10 @@ export function padroneUpdateCheck(config: UpdateCheckConfig = {}): <T extends C
           },
         );
 
-        // If already resolved, show now
         if (resolved !== null) {
           (resolved as (() => void) | undefined)?.();
-          return result;
         }
 
-        // Otherwise the cache will be written for next time
         return result;
       },
     })) as any;

@@ -1,22 +1,5 @@
 import type { AnyPadroneCommand } from '../types/index.ts';
 
-/**
- * Strip specific flags (named and alias) from a raw CLI input string.
- * Returns the cleaned input with matching flags removed.
- *
- * Each flag definition specifies:
- * - `name`: the long flag name (e.g., 'color', 'config')
- * - `aliases`: optional single-char aliases (e.g., ['c'])
- * - `hasValue`: whether the flag consumes a value (e.g., --config=path or --config path)
- * - `negatable`: whether --no-<name> should also be stripped
- */
-export type FlagDef = {
-  name: string;
-  aliases?: string[];
-  hasValue?: boolean;
-  negatable?: boolean;
-};
-
 /** Minimal Standard Schema that passes through known fields, ignoring unknown ones. */
 export function passthroughSchema(fields: Record<string, 'string' | 'string[]' | 'boolean'>) {
   return {

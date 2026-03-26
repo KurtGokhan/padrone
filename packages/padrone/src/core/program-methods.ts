@@ -26,14 +26,6 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
   // A never-aborted signal for contexts that don't need signal handling (parse, run).
   const inertSignal = new AbortController().signal;
 
-  const createActionContext = (cmd: AnyPadroneCommand, context?: unknown): Omit<PadroneActionContext, 'signal'> => ({
-    runtime: getCommandRuntime(cmd),
-    command: cmd,
-    program: ctx.builder as any,
-    progress: noopIndicator,
-    context,
-  });
-
   const stringify: AnyPadroneProgram['stringify'] = (command = '' as any, args) => {
     const commandObj = typeof command === 'string' ? findCommandByName(command, rootCommand.commands) : (command as AnyPadroneCommand);
     if (!commandObj) throw new RoutingError(`Command "${command ?? ''}" not found`);

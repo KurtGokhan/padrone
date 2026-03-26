@@ -17,14 +17,7 @@ import type {
 import { resolveInherited } from './builtins.ts';
 import { getCommandRuntime, resolveAllCommands, resolveCommand, suggestSimilar } from './commands.ts';
 import { ConfigError, RoutingError, signalExitCode, ValidationError } from './errors.ts';
-import {
-  createLazyIndicator,
-  createProgress,
-  noopIndicator,
-  resolveProgressMessage,
-  runInterceptorChain,
-  wrapWithLifecycle,
-} from './interceptors.ts';
+import { createLazyIndicator, createProgress, resolveProgressMessage, runInterceptorChain, wrapWithLifecycle } from './interceptors.ts';
 import { errorResult, hasInteractiveConfig, noop, outputValue, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
 import type { PadroneProgressIndicator, PadroneSignal } from './runtime.ts';
 import { collectSuggestionsFromIssues, enrichIssuesWithSuggestions, formatSuggestions } from './suggestions.ts';
@@ -178,14 +171,6 @@ export function execCommand(
     return resolved;
   };
 
-  const createActionContext = (cmd: AnyPadroneCommand): Omit<PadroneActionContext, 'signal'> => ({
-    runtime: getCommandRuntime(cmd),
-    command: cmd,
-    program: ctx.builder as any,
-    progress: noopIndicator,
-    context: resolveContext(cmd),
-  });
-
   // Shared interceptor state for this execution
   const state: Record<string, unknown> = { ...initialState };
   // Internal keys are non-enumerable so they don't leak into user-facing state spreads
@@ -270,8 +255,8 @@ export function execCommand(
       const { command } = parsed;
       const commandInterceptors = collectInterceptorsFn(command);
 
-      if (parsed.rawArgs['~help']) {
-        return { command, args: undefined, result: parsed.rawArgs['~help'] } as any;
+      if (state._drain !== undefined) {
+        return withDrain({ command, args: undefined, result: state._drain }) as any;
       }
 
       // ── Auto-progress: start before validation ───────────────────────
