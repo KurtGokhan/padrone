@@ -1,16 +1,14 @@
-import { createPadrone, type PadroneInterceptor } from 'padrone';
+import { createPadrone, defineInterceptor } from 'padrone';
 import { zodAsyncStream } from 'padrone/zod';
 import * as z from 'zod/v4';
 import { addTask, getTask, getTasks, removeTask, setTaskStatus, updateTask } from './tasks-store.ts';
 
 type CommandTelemetry = { command: string; startTime: Date; duration: number };
 
-function telemetryInterceptor(): PadroneInterceptor & { entries: CommandTelemetry[] } {
+function telemetryInterceptor() {
   const entries: CommandTelemetry[] = [];
 
-  return {
-    name: 'telemetry',
-    entries,
+  const interceptor = defineInterceptor({ name: 'telemetry' }, () => ({
     execute: (ctx, next) => {
       const startTime = new Date();
       const start = performance.now();
@@ -29,7 +27,9 @@ function telemetryInterceptor(): PadroneInterceptor & { entries: CommandTelemetr
       record();
       return result;
     },
-  };
+  }));
+
+  return Object.assign(interceptor, { entries });
 }
 
 const telemetry = telemetryInterceptor();

@@ -28,7 +28,7 @@ import type {
   PadroneCommandConfig,
   PadroneProgressPrefs,
 } from './command.ts';
-import type { PadroneInterceptor } from './interceptor.ts';
+import type { InterceptorFactory, InterceptorMeta, PadroneInterceptorFn } from './interceptor.ts';
 import type { PadroneCliPreferences, PadroneEvalPreferences, PadroneReplPreferences } from './preferences.ts';
 import type {
   GetArguments,
@@ -204,9 +204,17 @@ export type PadroneBuilderMethods<
     >,
   ) => TResult;
 
-  intercept: (
-    interceptor: PadroneInterceptor<StandardSchemaV1.InferOutput<TArgs>, TRes>,
-  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync, TContext>;
+  intercept: {
+    /** Register an interceptor from a single-value form (created via `defineInterceptor`). */
+    (
+      interceptor: PadroneInterceptorFn<StandardSchemaV1.InferOutput<TArgs>, TRes>,
+    ): BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync, TContext>;
+    /** Register an interceptor with static metadata and a factory function. */
+    (
+      meta: InterceptorMeta,
+      factory: InterceptorFactory<StandardSchemaV1.InferOutput<TArgs>, TRes>,
+    ): BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync, TContext>;
+  };
 
   configure: (
     config: PadroneCommandConfig,

@@ -1,13 +1,7 @@
 import { thenMaybe } from '#src/core/results.ts';
+import { defineInterceptor } from '../core/interceptors.ts';
 import type { PadroneBuilder, PadroneProgram } from '../types/builder.ts';
-import type {
-  AnyPadroneBuilder,
-  AnyPadroneCommand,
-  CommandTypesBase,
-  InterceptorParseContext,
-  InterceptorParseResult,
-  PadroneCommand,
-} from '../types/index.ts';
+import type { AnyPadroneBuilder, AnyPadroneCommand, CommandTypesBase, PadroneCommand } from '../types/index.ts';
 import type { PadroneSchema } from '../types/schema.ts';
 import type { ReplaceOrAppendCommand } from '../util/type-utils.ts';
 import { getRootCommand, getVersion } from '../util/utils.ts';
@@ -33,6 +27,32 @@ export type WithVersion<T> = T extends {
     : PadroneBuilder<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, 'version', VersionCommand>, any, any, any, AS, CTX>
   : T;
 
+// ── Interceptor ─────────────────────────────────────────────────────────
+
+const versionInterceptor = defineInterceptor({ id: 'padrone:version', name: 'padrone:version', order: -1000 }, () => ({
+  parse(ctx, next) {
+    return thenMaybe(next(), (res) => {
+      if (!ctx.state._execMode) return res;
+
+      const hasVersionFlag = res.rawArgs.version || res.rawArgs.v || res.rawArgs.V;
+
+      // Only show version for root command (no subcommand matched)
+      if (hasVersionFlag && !res.command.parent) {
+        delete res.rawArgs.version;
+        delete res.rawArgs.v;
+        delete res.rawArgs.V;
+
+        const version = getVersion(res.command.version);
+        ctx.runtime.output(version);
+        ctx.state._drain = version;
+        return res;
+      }
+
+      return res;
+    });
+  },
+}));
+
 // ── Extension ────────────────────────────────────────────────────────────
 
 /**
@@ -56,32 +76,7 @@ export function padroneVersion(): <T extends CommandTypesBase>(builder: T) => Wi
       }),
     );
 
-    result = result.intercept({
-      id: 'padrone:version',
-      name: 'padrone:version',
-      order: -1000,
-      parse(ctx: InterceptorParseContext, next: () => InterceptorParseResult) {
-        return thenMaybe(next(), (res) => {
-          if (!ctx.state._execMode) return res;
-
-          const hasVersionFlag = res.rawArgs.version || res.rawArgs.v || res.rawArgs.V;
-
-          // Only show version for root command (no subcommand matched)
-          if (hasVersionFlag && !res.command.parent) {
-            delete res.rawArgs.version;
-            delete res.rawArgs.v;
-            delete res.rawArgs.V;
-
-            const version = getVersion(res.command.version);
-            ctx.runtime.output(version);
-            ctx.state._drain = version;
-            return res;
-          }
-
-          return res;
-        });
-      },
-    });
+    result = result.intercept(versionInterceptor);
 
     return result;
   }) as any;

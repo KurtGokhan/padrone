@@ -1,5 +1,31 @@
+import { defineInterceptor } from '../core/interceptors.ts';
 import { hasInteractiveConfig } from '../core/results.ts';
 import type { CommandTypesBase, InterceptorValidateContext } from '../types/index.ts';
+
+// ── Interceptor ─────────────────────────────────────────────────────────
+
+const interactiveInterceptor = defineInterceptor({ id: 'padrone:interactive', name: 'padrone:interactive', order: -999 }, () => ({
+  validate(ctx: InterceptorValidateContext, next) {
+    if (hasInteractiveConfig(ctx.command.meta)) {
+      let flagInteractive: boolean | undefined;
+
+      if (ctx.rawArgs.interactive !== undefined) {
+        flagInteractive = ctx.rawArgs.interactive !== false && ctx.rawArgs.interactive !== 'false';
+        delete ctx.rawArgs.interactive;
+      }
+      if (ctx.rawArgs.i !== undefined) {
+        flagInteractive = ctx.rawArgs.i !== false && ctx.rawArgs.i !== 'false';
+        delete ctx.rawArgs.i;
+      }
+
+      if (flagInteractive !== undefined) {
+        ctx.state._interactive = flagInteractive;
+      }
+    }
+
+    return next();
+  },
+}));
 
 // ── Extension ────────────────────────────────────────────────────────────
 
@@ -17,30 +43,5 @@ import type { CommandTypesBase, InterceptorValidateContext } from '../types/inde
  * ```
  */
 export function padroneInteractive(): <T extends CommandTypesBase>(builder: T) => T {
-  return ((builder: any) =>
-    builder.intercept({
-      id: 'padrone:interactive',
-      name: 'padrone:interactive',
-      order: -999,
-      validate(ctx: InterceptorValidateContext, next: () => unknown) {
-        if (hasInteractiveConfig(ctx.command.meta)) {
-          let flagInteractive: boolean | undefined;
-
-          if (ctx.rawArgs.interactive !== undefined) {
-            flagInteractive = ctx.rawArgs.interactive !== false && ctx.rawArgs.interactive !== 'false';
-            delete ctx.rawArgs.interactive;
-          }
-          if (ctx.rawArgs.i !== undefined) {
-            flagInteractive = ctx.rawArgs.i !== false && ctx.rawArgs.i !== 'false';
-            delete ctx.rawArgs.i;
-          }
-
-          if (flagInteractive !== undefined) {
-            ctx.state._interactive = flagInteractive;
-          }
-        }
-
-        return next();
-      },
-    })) as any;
+  return ((builder: any) => builder.intercept(interactiveInterceptor)) as any;
 }

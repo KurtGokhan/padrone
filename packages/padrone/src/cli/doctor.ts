@@ -324,12 +324,13 @@ function checkUnusedInterceptors(commands: AnyPadroneCommand[], diagnostics: Dia
     if (!cmd.interceptors) continue;
 
     for (const interceptor of cmd.interceptors) {
-      const hasHandler = phases.some((phase) => typeof (interceptor as any)[phase] === 'function');
+      const phases_obj = interceptor.factory();
+      const hasHandler = phases.some((phase) => typeof (phases_obj as any)[phase] === 'function');
       if (!hasHandler) {
         diagnostics.push({
           severity: 'warning',
           command: commandDisplayName(cmd),
-          message: `Interceptor "${interceptor.name}" has no phase handlers.`,
+          message: `Interceptor "${interceptor.meta.name}" has no phase handlers.`,
         });
       }
     }

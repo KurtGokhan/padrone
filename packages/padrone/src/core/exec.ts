@@ -12,12 +12,20 @@ import type {
   InterceptorValidateResult,
   PadroneActionContext,
   PadroneEvalPreferences,
-  PadroneInterceptor,
+  RegisteredInterceptor,
+  ResolvedInterceptor,
 } from '../types/index.ts';
 import { resolveInherited } from './builtins.ts';
 import { getCommandRuntime, resolveAllCommands, resolveCommand, suggestSimilar } from './commands.ts';
 import { ConfigError, RoutingError, signalExitCode, ValidationError } from './errors.ts';
-import { createLazyIndicator, createProgress, resolveProgressMessage, runInterceptorChain, wrapWithLifecycle } from './interceptors.ts';
+import {
+  createLazyIndicator,
+  createProgress,
+  resolveProgressMessage,
+  resolveRegisteredInterceptors,
+  runInterceptorChain,
+  wrapWithLifecycle,
+} from './interceptors.ts';
 import { errorResult, hasInteractiveConfig, noop, outputValue, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
 import type { PadroneProgressIndicator, PadroneSignal } from './runtime.ts';
 import { collectSuggestionsFromIssues, enrichIssuesWithSuggestions, formatSuggestions } from './suggestions.ts';
@@ -39,15 +47,15 @@ export type ExecContext = {
     args: string[];
     unmatchedTerms: string[];
   };
-  collectInterceptorsFn: (cmd: AnyPadroneCommand) => PadroneInterceptor<any, any>[];
+  collectInterceptorsFn: (cmd: AnyPadroneCommand) => RegisteredInterceptor[];
 };
 
 /**
- * Collects interceptors from the command's parent chain (root → ... → target).
+ * Collects registered interceptors from the command's parent chain (root → ... → target).
  * Root/program interceptors come first (outermost), target command's interceptors last (innermost).
  */
-export function collectInterceptors(cmd: AnyPadroneCommand, rootCommand: AnyPadroneCommand): PadroneInterceptor<any, any>[] {
-  const chain: PadroneInterceptor<any, any>[][] = [];
+export function collectInterceptors(cmd: AnyPadroneCommand, rootCommand: AnyPadroneCommand): RegisteredInterceptor[] {
+  const chain: RegisteredInterceptor[][] = [];
   let current: AnyPadroneCommand | undefined = cmd;
   while (current) {
     if (!current.parent) {
@@ -176,7 +184,12 @@ export function execCommand(
   // Internal keys are non-enumerable so they don't leak into user-facing state spreads
   Object.defineProperty(state, '_execMode', { value: true, writable: true });
   Object.defineProperty(state, '_program', { value: ctx.builder, writable: true });
-  const rootInterceptors = rootCommand.interceptors ?? [];
+
+  // Factory resolution cache — ensures each factory is called at most once per execution,
+  // so root interceptor closures are shared when they appear in both root and command chains.
+  const factoryCache = new Map<RegisteredInterceptor, ResolvedInterceptor>();
+  const rootRegistered = rootCommand.interceptors ?? [];
+  const rootInterceptors = resolveRegisteredInterceptors(rootRegistered, factoryCache);
 
   const runPipeline = () => {
     // ── Phase 1: Parse ──────────────────────────────────────────────────
@@ -253,7 +266,7 @@ export function execCommand(
     // ── Phases 2 & 3 chained after parse ────────────────────────────────
     const continueAfterParse = (parsed: InterceptorParseResult) => {
       const { command } = parsed;
-      const commandInterceptors = collectInterceptorsFn(command);
+      const commandInterceptors = resolveRegisteredInterceptors(collectInterceptorsFn(command), factoryCache);
 
       if (state._drain !== undefined) {
         return withDrain({ command, args: undefined, result: state._drain }) as any;

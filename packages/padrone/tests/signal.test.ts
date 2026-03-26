@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
-import type { PadroneInterceptor, PadroneSignal } from 'padrone';
-import { createPadrone, SignalError } from 'padrone';
+import type { PadroneSignal } from 'padrone';
+import { createPadrone, defineInterceptor, SignalError } from 'padrone';
 import { createConsoleMocker } from './console-mocker.ts';
 
 describe('signal handling', () => {
@@ -109,8 +109,7 @@ describe('signal handling', () => {
       const { runtime, sendSignal: _sendSignal } = createSignalRuntime();
       const signals: Record<string, AbortSignal> = {};
 
-      const interceptor: PadroneInterceptor = {
-        name: 'signal-checker',
+      const interceptor = defineInterceptor({ name: 'signal-checker' }, () => ({
         start: (ctx, next) => {
           signals.start = ctx.signal;
           return next();
@@ -131,7 +130,7 @@ describe('signal handling', () => {
           signals.shutdown = ctx.signal;
           return next();
         },
-      };
+      }));
 
       const program = createPadrone('test')
         .runtime(runtime)
@@ -202,14 +201,13 @@ describe('signal handling', () => {
 
       const program = createPadrone('test')
         .runtime(runtime)
-        .intercept({
-          name: 'shutdown-tracker',
+        .intercept({ name: 'shutdown-tracker' }, () => ({
           shutdown: (ctx, next) => {
             shutdownRan = true;
             shutdownError = ctx.error;
             return next();
           },
-        })
+        }))
         .command('cmd', (c) =>
           c.action((_args, ctx) => {
             sendSignal('SIGTERM');

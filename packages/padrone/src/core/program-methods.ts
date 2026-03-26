@@ -16,7 +16,7 @@ import { findCommandByName, getCommandRuntime, resolveAllCommands } from './comm
 import { RoutingError } from './errors.ts';
 import type { ExecContext } from './exec.ts';
 import { collectInterceptors, errorResultWithSignal, execCommand } from './exec.ts';
-import { noopIndicator, runInterceptorChain } from './interceptors.ts';
+import { noopIndicator, resolveRegisteredInterceptors, runInterceptorChain } from './interceptors.ts';
 import { errorResult, makeThenable, thenMaybe, warnIfUnexpectedAsync, withDrain, withPromiseDrain } from './results.ts';
 import { coreValidateForParse } from './validate.ts';
 
@@ -133,7 +133,7 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
         return { result };
       };
 
-      const commandInterceptors = collectInterceptors(commandObj, rootCommand);
+      const commandInterceptors = resolveRegisteredInterceptors(collectInterceptors(commandObj, rootCommand), new Map());
       const executedOrPromise = runInterceptorChain('execute', commandInterceptors, executeCtx, coreExecute);
 
       const toResult = (e: InterceptorExecuteResult) => withDrain({ command: commandObj as any, args: args as any, result: e.result });
@@ -241,12 +241,13 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
       return { command, rawArgs, positionalArgs: args };
     };
 
-    const rootInterceptors = rootCommand.interceptors ?? [];
+    const factoryCache = new Map();
+    const rootInterceptors = resolveRegisteredInterceptors(rootCommand.interceptors ?? [], factoryCache);
     const parsedOrPromise = runInterceptorChain('parse', rootInterceptors, parseCtx, coreParse);
 
     const continueAfterParse = (parsed: any) => {
       const { command } = parsed;
-      const commandInterceptors = collectInterceptors(command, rootCommand);
+      const commandInterceptors = resolveRegisteredInterceptors(collectInterceptors(command, rootCommand), factoryCache);
       const validateCtx = {
         command,
         rawArgs: parsed.rawArgs,

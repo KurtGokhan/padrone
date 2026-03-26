@@ -214,10 +214,9 @@ describe('progress', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app')
         .runtime({ progress: factory })
-        .intercept({
-          name: 'test-interceptor',
+        .intercept({ name: 'test-interceptor' }, () => ({
           execute: (_ctx, next) => next(),
-        })
+        }))
         .command('cmd', (c) => c.progress('Working...').action(() => 'done'));
 
       const result = program.eval('cmd');
@@ -229,12 +228,11 @@ describe('progress', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app')
         .runtime({ progress: factory })
-        .intercept({
-          name: 'failing-interceptor',
+        .intercept({ name: 'failing-interceptor' }, () => ({
           execute: () => {
             throw new Error('interceptor error');
           },
-        })
+        }))
         .command('cmd', (c) => c.progress('Working...').action(() => 'done'));
 
       const result = program.eval('cmd');

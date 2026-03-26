@@ -5,11 +5,21 @@ import { padroneInteractive } from '../extension/interactive-ext.ts';
 import { padroneRepl } from '../extension/repl.ts';
 import { padroneVersion } from '../extension/version.ts';
 import { createWrapHandler } from '../feature/wrap.ts';
-import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand, PadroneInterceptor, PadroneProgram } from '../types/index.ts';
+import type {
+  AnyPadroneCommand,
+  AnyPadroneProgram,
+  InterceptorFactory,
+  InterceptorMeta,
+  PadroneCommand,
+  PadroneInterceptorFn,
+  PadroneProgram,
+  RegisteredInterceptor,
+} from '../types/index.ts';
 import { commandSymbol, findCommandByName, lazyResolver, mergeCommands, repathCommandTree, resolveCommand } from './commands.ts';
 import { RoutingError } from './errors.ts';
 import type { ExecContext } from './exec.ts';
 import { collectInterceptors, errorResultWithSignal, execCommand } from './exec.ts';
+import { toRegisteredInterceptor } from './interceptors.ts';
 import { createProgramMethods } from './program-methods.ts';
 import { hasInteractiveConfig, isAsyncBranded, makeThenable, noop, withPromiseDrain } from './results.ts';
 import { parseCommand } from './validate.ts';
@@ -216,10 +226,11 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       return createPadroneBuilder({ ...existingCommand, commands: updatedCommands }) as any;
     },
 
-    intercept(interceptor: PadroneInterceptor<any, any>) {
+    intercept(metaOrFn: InterceptorMeta | PadroneInterceptorFn<any, any>, factory?: InterceptorFactory<any, any>) {
+      const registered: RegisteredInterceptor = toRegisteredInterceptor(metaOrFn, factory);
       return createPadroneBuilder({
         ...existingCommand,
-        interceptors: [...(existingCommand.interceptors ?? []), interceptor],
+        interceptors: [...(existingCommand.interceptors ?? []), registered],
       }) as any;
     },
 

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import type { PadroneInterceptor } from 'padrone';
-import { createPadrone } from 'padrone';
+import { createPadrone, defineInterceptor } from 'padrone';
 import * as z from 'zod/v4';
 import { createConsoleMocker } from './console-mocker.ts';
 
@@ -17,7 +16,7 @@ describe('interceptors', () => {
   describe('registration and chaining', () => {
     it('should return a new program for chaining (immutable builder)', () => {
       const program = makeProgram();
-      const result = program.intercept({ name: 'test' });
+      const result = program.intercept({ name: 'test' }, () => ({}));
       expect(result).not.toBe(program);
       // Should still be usable
       expect(result.eval('greet World').result).toBe('Hello, World!');
@@ -26,20 +25,18 @@ describe('interceptors', () => {
     it('should allow multiple interceptors via chaining', () => {
       const log: string[] = [];
       const result = makeProgram()
-        .intercept({
-          name: 'a',
+        .intercept({ name: 'a' }, () => ({
           execute: (_ctx, next) => {
             log.push('a');
             return next();
           },
-        })
-        .intercept({
-          name: 'b',
+        }))
+        .intercept({ name: 'b' }, () => ({
           execute: (_ctx, next) => {
             log.push('b');
             return next();
           },
-        });
+        }));
 
       result.eval('greet World');
       expect(log).toEqual(['a', 'b']);
@@ -49,15 +46,14 @@ describe('interceptors', () => {
   describe('execute phase', () => {
     it('should intercept handler execution', () => {
       const log: string[] = [];
-      const interceptor: PadroneInterceptor = {
-        name: 'logger',
+      const interceptor = defineInterceptor({ name: 'logger' }, () => ({
         execute: (ctx, next) => {
           log.push(`before:${ctx.command.path}`);
           const result = next();
           log.push('after');
           return result;
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const result = program.eval('greet World');
@@ -67,12 +63,11 @@ describe('interceptors', () => {
     });
 
     it('should allow short-circuiting (not calling next)', () => {
-      const interceptor: PadroneInterceptor = {
-        name: 'blocker',
+      const interceptor = defineInterceptor({ name: 'blocker' }, () => ({
         execute: (_ctx, _next) => {
           return { result: 'blocked' };
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const result = program.eval('greet World');
@@ -81,14 +76,13 @@ describe('interceptors', () => {
     });
 
     it('should allow transforming the result', () => {
-      const interceptor: PadroneInterceptor = {
-        name: 'upper',
+      const interceptor = defineInterceptor({ name: 'upper' }, () => ({
         execute: (_ctx, next) => {
           const result = next();
           if (result instanceof Promise) return result;
           return { result: String(result.result).toUpperCase() };
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const result = program.eval('greet World');
@@ -103,8 +97,7 @@ describe('interceptors', () => {
             throw new Error('boom');
           }),
         )
-        .intercept({
-          name: 'error-handler',
+        .intercept({ name: 'error-handler' }, () => ({
           execute: (_ctx, next) => {
             try {
               return next();
@@ -112,7 +105,7 @@ describe('interceptors', () => {
               return { result: 'caught' };
             }
           },
-        });
+        }));
 
       const result = errorProgram.eval('fail');
       expect(result.result! as string).toBe('caught');
@@ -124,14 +117,13 @@ describe('interceptors', () => {
       let capturedInput: string | undefined;
       let capturedCommandName: string | undefined;
 
-      const interceptor: PadroneInterceptor = {
-        name: 'parse-spy',
+      const interceptor = defineInterceptor({ name: 'parse-spy' }, () => ({
         parse: (ctx, next) => {
           capturedInput = ctx.input;
           capturedCommandName = ctx.command.name;
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       program.eval('greet World');
@@ -141,8 +133,7 @@ describe('interceptors', () => {
     });
 
     it('should allow modifying input before routing', () => {
-      const interceptor: PadroneInterceptor = {
-        name: 'alias',
+      const interceptor = defineInterceptor({ name: 'alias' }, () => ({
         parse: (ctx, next) => {
           // Rewrite input
           if (ctx.input === 'hi World') {
@@ -150,7 +141,7 @@ describe('interceptors', () => {
           }
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const result = program.eval('hi World');
@@ -164,14 +155,13 @@ describe('interceptors', () => {
       let capturedCommandPath: string | undefined;
       let capturedRawArgs: Record<string, unknown> | undefined;
 
-      const interceptor: PadroneInterceptor = {
-        name: 'validate-spy',
+      const interceptor = defineInterceptor({ name: 'validate-spy' }, () => ({
         validate: (ctx, next) => {
           capturedCommandPath = ctx.command.path;
           capturedRawArgs = { ...ctx.rawArgs };
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       program.eval('add --a=2 --b=3');
@@ -181,15 +171,14 @@ describe('interceptors', () => {
     });
 
     it('should allow injecting args before validation', () => {
-      const interceptor: PadroneInterceptor = {
-        name: 'default-name',
+      const interceptor = defineInterceptor({ name: 'default-name' }, () => ({
         validate: (ctx, next) => {
           if (ctx.command.path === 'greet' && !ctx.rawArgs.name && ctx.positionalArgs.length === 0) {
             ctx.positionalArgs = ['DefaultUser'];
           }
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const result = program.eval('greet');
@@ -202,8 +191,7 @@ describe('interceptors', () => {
     it('should share state across phases within one execution', () => {
       const stateLog: Record<string, unknown>[] = [];
 
-      const interceptor: PadroneInterceptor = {
-        name: 'state-test',
+      const interceptor = defineInterceptor({ name: 'state-test' }, () => ({
         parse: (ctx, next) => {
           ctx.state.startTime = 1;
           return next();
@@ -217,7 +205,7 @@ describe('interceptors', () => {
           stateLog.push({ fromParse: ctx.state.startTime, validated: ctx.state.validated });
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       program.eval('greet World');
@@ -228,14 +216,13 @@ describe('interceptors', () => {
     it('should create fresh state per execution', () => {
       const states: Record<string, unknown>[] = [];
 
-      const interceptor: PadroneInterceptor = {
-        name: 'state-isolation',
+      const interceptor = defineInterceptor({ name: 'state-isolation' }, () => ({
         execute: (ctx, next) => {
           ctx.state.count = ((ctx.state.count as number) || 0) + 1;
           states.push({ ...ctx.state });
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       program.eval('greet A');
@@ -250,25 +237,23 @@ describe('interceptors', () => {
     it('should execute first-registered as outermost (before others, after others on return)', () => {
       const log: string[] = [];
 
-      const interceptorA: PadroneInterceptor = {
-        name: 'A',
+      const interceptorA = defineInterceptor({ name: 'A' }, () => ({
         execute: (_ctx, next) => {
           log.push('A:before');
           const result = next();
           log.push('A:after');
           return result;
         },
-      };
+      }));
 
-      const interceptorB: PadroneInterceptor = {
-        name: 'B',
+      const interceptorB = defineInterceptor({ name: 'B' }, () => ({
         execute: (_ctx, next) => {
           log.push('B:before');
           const result = next();
           log.push('B:after');
           return result;
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptorA).intercept(interceptorB);
       program.eval('greet World');
@@ -279,27 +264,23 @@ describe('interceptors', () => {
     it('should respect order parameter (lower = outermost)', () => {
       const log: string[] = [];
 
-      const innerInterceptor: PadroneInterceptor = {
-        name: 'inner',
-        order: 10,
+      const innerInterceptor = defineInterceptor({ name: 'inner', order: 10 }, () => ({
         execute: (_ctx, next) => {
           log.push('inner:before');
           const result = next();
           log.push('inner:after');
           return result;
         },
-      };
+      }));
 
-      const outerInterceptor: PadroneInterceptor = {
-        name: 'outer',
-        order: -10,
+      const outerInterceptor = defineInterceptor({ name: 'outer', order: -10 }, () => ({
         execute: (_ctx, next) => {
           log.push('outer:before');
           const result = next();
           log.push('outer:after');
           return result;
         },
-      };
+      }));
 
       // Register inner first, but outer has lower order so it should be outermost
       const program = makeProgram().intercept(innerInterceptor).intercept(outerInterceptor);
@@ -311,16 +292,15 @@ describe('interceptors', () => {
     it('should preserve registration order for same order value', () => {
       const log: string[] = [];
 
-      const makeInterceptor = (name: string): PadroneInterceptor => ({
-        name,
-        order: 0,
-        execute: (_ctx, next) => {
-          log.push(`${name}:before`);
-          const result = next();
-          log.push(`${name}:after`);
-          return result;
-        },
-      });
+      const makeInterceptor = (name: string) =>
+        defineInterceptor({ name, order: 0 }, () => ({
+          execute: (_ctx, next) => {
+            log.push(`${name}:before`);
+            const result = next();
+            log.push(`${name}:after`);
+            return result;
+          },
+        }));
 
       const program = makeProgram().intercept(makeInterceptor('A')).intercept(makeInterceptor('B')).intercept(makeInterceptor('C'));
       program.eval('greet World');
@@ -333,14 +313,13 @@ describe('interceptors', () => {
     it('should allow interceptors to skip based on command path', () => {
       const log: string[] = [];
 
-      const interceptor: PadroneInterceptor = {
-        name: 'greet-only',
+      const interceptor = defineInterceptor({ name: 'greet-only' }, () => ({
         execute: (ctx, next) => {
           if (ctx.command.path !== 'greet') return next();
           log.push(`intercepted:${ctx.command.path}`);
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
 
@@ -355,13 +334,12 @@ describe('interceptors', () => {
     it('should apply execute interceptors to run()', () => {
       const log: string[] = [];
 
-      const interceptor: PadroneInterceptor = {
-        name: 'run-spy',
+      const interceptor = defineInterceptor({ name: 'run-spy' }, () => ({
         execute: (ctx, next) => {
           log.push(`execute:${ctx.command.path}`);
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const result = program.run('greet', { name: 'World' });
@@ -375,8 +353,7 @@ describe('interceptors', () => {
     it('should apply parse and validate interceptors to parse()', () => {
       const log: string[] = [];
 
-      const interceptor: PadroneInterceptor = {
-        name: 'parse-spy',
+      const interceptor = defineInterceptor({ name: 'parse-spy' }, () => ({
         parse: (ctx, next) => {
           log.push(`parse:${ctx.input}`);
           return next();
@@ -385,7 +362,7 @@ describe('interceptors', () => {
           log.push(`validate:${ctx.command.path}`);
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       program.parse('greet World');
@@ -396,10 +373,9 @@ describe('interceptors', () => {
 
   describe('sync preservation', () => {
     it('should stay sync when all interceptors are sync', () => {
-      const interceptor: PadroneInterceptor = {
-        name: 'sync-interceptor',
+      const interceptor = defineInterceptor({ name: 'sync-interceptor' }, () => ({
         execute: (_ctx, next) => next(),
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const result = program.eval('greet World');
@@ -410,13 +386,12 @@ describe('interceptors', () => {
     });
 
     it('should become async when an interceptor returns a Promise', async () => {
-      const interceptor: PadroneInterceptor = {
-        name: 'async-interceptor',
+      const interceptor = defineInterceptor({ name: 'async-interceptor' }, () => ({
         execute: async (_ctx, next) => {
           const result = await next();
           return result;
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const resultOrPromise = program.eval('greet World');
@@ -435,10 +410,9 @@ describe('interceptors', () => {
     });
 
     it('should work with interceptors that have no handlers for the phase', () => {
-      const interceptor: PadroneInterceptor = {
-        name: 'empty',
+      const interceptor = defineInterceptor({ name: 'empty' }, () => ({
         // No parse, validate, or execute handlers
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const result = program.eval('greet World');
@@ -450,8 +424,7 @@ describe('interceptors', () => {
     it('should intercept all configured phases', () => {
       const log: string[] = [];
 
-      const interceptor: PadroneInterceptor = {
-        name: 'full-lifecycle',
+      const interceptor = defineInterceptor({ name: 'full-lifecycle' }, () => ({
         parse: (ctx, next) => {
           log.push(`parse:${ctx.input}`);
           return next();
@@ -464,7 +437,7 @@ describe('interceptors', () => {
           log.push(`execute:${ctx.command.path}`);
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       program.eval('greet World');
@@ -475,13 +448,12 @@ describe('interceptors', () => {
 
   describe('args mutation in execute context', () => {
     it('should allow modifying args before handler runs', () => {
-      const interceptor: PadroneInterceptor = {
-        name: 'args-mutator',
+      const interceptor = defineInterceptor({ name: 'args-mutator' }, () => ({
         execute: (ctx, next) => {
           (ctx.args as Record<string, unknown>).name = 'Overridden';
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const result = program.eval('greet World');
@@ -494,8 +466,7 @@ describe('interceptors', () => {
     it('should run before parse phase', () => {
       const log: string[] = [];
 
-      const interceptor: PadroneInterceptor = {
-        name: 'lifecycle',
+      const interceptor = defineInterceptor({ name: 'lifecycle' }, () => ({
         start: (_ctx, next) => {
           log.push('start');
           return next();
@@ -508,7 +479,7 @@ describe('interceptors', () => {
           log.push('execute');
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       program.eval('greet World');
@@ -520,14 +491,13 @@ describe('interceptors', () => {
       let capturedInput: string | undefined;
       let capturedCommandName: string | undefined;
 
-      const interceptor: PadroneInterceptor = {
-        name: 'start-spy',
+      const interceptor = defineInterceptor({ name: 'start-spy' }, () => ({
         start: (ctx, next) => {
           capturedInput = ctx.input;
           capturedCommandName = ctx.command.name;
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       program.eval('greet World');
@@ -539,8 +509,7 @@ describe('interceptors', () => {
     it('should allow short-circuiting the pipeline', () => {
       const log: string[] = [];
 
-      const interceptor: PadroneInterceptor = {
-        name: 'blocker',
+      const interceptor = defineInterceptor({ name: 'blocker' }, () => ({
         start: (_ctx, _next) => {
           log.push('start:blocked');
           return { command: {}, result: 'blocked' };
@@ -549,7 +518,7 @@ describe('interceptors', () => {
           log.push('parse');
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const result = program.eval('greet World');
@@ -561,8 +530,7 @@ describe('interceptors', () => {
     it('should share state with other phases', () => {
       const stateLog: Record<string, unknown>[] = [];
 
-      const interceptor: PadroneInterceptor = {
-        name: 'state-test',
+      const interceptor = defineInterceptor({ name: 'state-test' }, () => ({
         start: (ctx, next) => {
           ctx.state.initialized = true;
           return next();
@@ -571,7 +539,7 @@ describe('interceptors', () => {
           stateLog.push({ initialized: ctx.state.initialized });
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       program.eval('greet World');
@@ -582,15 +550,14 @@ describe('interceptors', () => {
     it('should support async start hooks', async () => {
       const log: string[] = [];
 
-      const interceptor: PadroneInterceptor = {
-        name: 'async-start',
+      const interceptor = defineInterceptor({ name: 'async-start' }, () => ({
         start: async (_ctx, next) => {
           log.push('async-start');
           const result = await next();
           log.push('async-start:after');
           return result;
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const result = await program.eval('greet World');
@@ -602,13 +569,12 @@ describe('interceptors', () => {
     it('should not run for parse() calls', () => {
       let startCalled = false;
 
-      const interceptor: PadroneInterceptor = {
-        name: 'start-spy',
+      const interceptor = defineInterceptor({ name: 'start-spy' }, () => ({
         start: (_ctx, next) => {
           startCalled = true;
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       program.parse('greet World');
@@ -619,13 +585,12 @@ describe('interceptors', () => {
     it('should not run for run() calls', () => {
       let startCalled = false;
 
-      const interceptor: PadroneInterceptor = {
-        name: 'start-spy',
+      const interceptor = defineInterceptor({ name: 'start-spy' }, () => ({
         start: (_ctx, next) => {
           startCalled = true;
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       program.run('greet', { name: 'World' });
@@ -642,12 +607,11 @@ describe('interceptors', () => {
             throw new Error('boom');
           }),
         )
-        .intercept({
-          name: 'error-handler',
+        .intercept({ name: 'error-handler' }, () => ({
           error: (ctx) => {
             return { error: undefined, result: `caught: ${(ctx.error as Error).message}` };
           },
-        });
+        }));
 
       const result = errorProgram.eval('fail');
       expect(result.result! as string).toBe('caught: boom');
@@ -660,12 +624,11 @@ describe('interceptors', () => {
             throw new Error('original');
           }),
         )
-        .intercept({
-          name: 'transformer',
+        .intercept({ name: 'transformer' }, () => ({
           error: (ctx, _next) => {
             return { error: new Error(`transformed: ${(ctx.error as Error).message}`) };
           },
-        });
+        }));
 
       const result = errorProgram.eval('fail');
       expect(result.error).toBeInstanceOf(Error);
@@ -681,22 +644,20 @@ describe('interceptors', () => {
             throw new Error('boom');
           }),
         )
-        .intercept({
-          name: 'outer',
+        .intercept({ name: 'outer' }, () => ({
           error: (_ctx, next) => {
             log.push('outer:before');
             const result = next();
             log.push('outer:after');
             return result;
           },
-        })
-        .intercept({
-          name: 'inner',
+        }))
+        .intercept({ name: 'inner' }, () => ({
           error: (_ctx, _next) => {
             log.push('inner:suppress');
             return { error: undefined, result: 'suppressed' };
           },
-        });
+        }));
 
       const result = errorProgram.eval('fail');
       expect(result.result! as string).toBe('suppressed');
@@ -712,13 +673,12 @@ describe('interceptors', () => {
             throw new Error('boom');
           }),
         )
-        .intercept({
-          name: 'logger',
+        .intercept({ name: 'logger' }, () => ({
           error: (ctx, next) => {
             log.push(`logged: ${(ctx.error as Error).message}`);
             return next();
           },
-        });
+        }));
 
       const result = errorProgram.eval('fail');
       expect(result.error).toBeInstanceOf(Error);
@@ -729,13 +689,12 @@ describe('interceptors', () => {
     it('should not run when pipeline succeeds', () => {
       let errorCalled = false;
 
-      const program = makeProgram().intercept({
-        name: 'error-spy',
+      const program = makeProgram().intercept({ name: 'error-spy' }, () => ({
         error: (_ctx, next) => {
           errorCalled = true;
           return next();
         },
-      });
+      }));
 
       program.eval('greet World');
       expect(errorCalled).toBe(false);
@@ -748,12 +707,11 @@ describe('interceptors', () => {
             throw new Error('async-boom');
           }),
         )
-        .intercept({
-          name: 'error-handler',
+        .intercept({ name: 'error-handler' }, () => ({
           error: (ctx, _next) => {
             return { error: undefined, result: `caught: ${(ctx.error as Error).message}` };
           },
-        });
+        }));
 
       const result = await errorProgram.eval('fail');
       expect(result.result as unknown as string).toBe('caught: async-boom');
@@ -764,8 +722,7 @@ describe('interceptors', () => {
     it('should run after successful execution', () => {
       const log: string[] = [];
 
-      const interceptor: PadroneInterceptor = {
-        name: 'shutdown-spy',
+      const interceptor = defineInterceptor({ name: 'shutdown-spy' }, () => ({
         execute: (_ctx, next) => {
           log.push('execute');
           return next();
@@ -774,7 +731,7 @@ describe('interceptors', () => {
           log.push(`shutdown:result=${(ctx.result as any)?.result}`);
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       program.eval('greet World');
@@ -791,13 +748,12 @@ describe('interceptors', () => {
             throw new Error('boom');
           }),
         )
-        .intercept({
-          name: 'lifecycle',
+        .intercept({ name: 'lifecycle' }, () => ({
           shutdown: (ctx, next) => {
             log.push(`shutdown:error=${(ctx.error as Error)?.message}`);
             return next();
           },
-        });
+        }));
 
       const result = errorProgram.eval('fail');
       expect(result.error).toBeInstanceOf(Error);
@@ -814,8 +770,7 @@ describe('interceptors', () => {
             throw new Error('boom');
           }),
         )
-        .intercept({
-          name: 'lifecycle',
+        .intercept({ name: 'lifecycle' }, () => ({
           error: (_ctx, _next) => {
             log.push('error:suppress');
             return { error: undefined, result: 'recovered' };
@@ -824,7 +779,7 @@ describe('interceptors', () => {
             log.push(`shutdown:error=${ctx.error}:result=${(ctx.result as any)?.result}`);
             return next();
           },
-        });
+        }));
 
       const result = errorProgram.eval('fail');
       expect(result.result! as string).toBe('recovered');
@@ -835,21 +790,19 @@ describe('interceptors', () => {
       const log: string[] = [];
 
       const program = makeProgram()
-        .intercept({
-          name: 'outer',
+        .intercept({ name: 'outer' }, () => ({
           shutdown: (_ctx, next) => {
             log.push('outer:before');
             next();
             log.push('outer:after');
           },
-        })
-        .intercept({
-          name: 'inner',
+        }))
+        .intercept({ name: 'inner' }, () => ({
           shutdown: (_ctx, next) => {
             log.push('inner');
             next();
           },
-        });
+        }));
 
       program.eval('greet World');
       expect(log).toEqual(['outer:before', 'inner', 'outer:after']);
@@ -858,13 +811,12 @@ describe('interceptors', () => {
     it('should support async shutdown', async () => {
       const log: string[] = [];
 
-      const interceptor: PadroneInterceptor = {
-        name: 'async-shutdown',
+      const interceptor = defineInterceptor({ name: 'async-shutdown' }, () => ({
         shutdown: async (_ctx, next) => {
           log.push('shutdown');
           await next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const result = await program.eval('greet World');
@@ -878,8 +830,7 @@ describe('interceptors', () => {
     it('should run all phases in order: start -> parse -> validate -> execute -> shutdown', () => {
       const log: string[] = [];
 
-      const interceptor: PadroneInterceptor = {
-        name: 'full',
+      const interceptor = defineInterceptor({ name: 'full' }, () => ({
         start: (_ctx, next) => {
           log.push('start');
           return next();
@@ -900,7 +851,7 @@ describe('interceptors', () => {
           log.push('shutdown');
           return next();
         },
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       program.eval('greet World');
@@ -917,8 +868,7 @@ describe('interceptors', () => {
             throw new Error('boom');
           }),
         )
-        .intercept({
-          name: 'full',
+        .intercept({ name: 'full' }, () => ({
           start: (_ctx, next) => {
             log.push('start');
             return next();
@@ -931,7 +881,7 @@ describe('interceptors', () => {
             log.push('shutdown');
             return next();
           },
-        });
+        }));
 
       const result = program.eval('fail');
       expect(result.result! as string).toBe('recovered');
@@ -939,11 +889,10 @@ describe('interceptors', () => {
     });
 
     it('should preserve sync when all hooks are sync', () => {
-      const interceptor: PadroneInterceptor = {
-        name: 'sync-lifecycle',
+      const interceptor = defineInterceptor({ name: 'sync-lifecycle' }, () => ({
         start: (_ctx, next) => next(),
         shutdown: (_ctx, next) => next(),
-      };
+      }));
 
       const program = makeProgram().intercept(interceptor);
       const result = program.eval('greet World');
@@ -962,13 +911,12 @@ describe('interceptors', () => {
           c
             .arguments(z.object({ name: z.string() }), { positional: ['name'] })
             .action((args) => `Hello, ${args.name}!`)
-            .intercept({
-              name: 'greet-only',
+            .intercept({ name: 'greet-only' }, () => ({
               execute: (ctx, next) => {
                 log.push(`greet-interceptor:${ctx.command.path}`);
                 return next();
               },
-            }),
+            })),
         )
         .command('add', (c) => c.arguments(z.object({ a: z.coerce.number(), b: z.coerce.number() })).action((args) => args.a + args.b));
 
@@ -986,25 +934,23 @@ describe('interceptors', () => {
           c
             .arguments(z.object({ name: z.string() }), { positional: ['name'] })
             .action((args) => `Hello, ${args.name}!`)
-            .intercept({
-              name: 'sub-interceptor',
+            .intercept({ name: 'sub-interceptor' }, () => ({
               execute: (_ctx, next) => {
                 log.push('sub:before');
                 const r = next();
                 log.push('sub:after');
                 return r;
               },
-            }),
+            })),
         )
-        .intercept({
-          name: 'root-interceptor',
+        .intercept({ name: 'root-interceptor' }, () => ({
           execute: (_ctx, next) => {
             log.push('root:before');
             const r = next();
             log.push('root:after');
             return r;
           },
-        });
+        }));
 
       program.eval('greet World');
 
@@ -1019,14 +965,13 @@ describe('interceptors', () => {
         c
           .arguments(z.object({ name: z.string() }), { positional: ['name'] })
           .action((args) => `Hello, ${args.name}!`)
-          .intercept({
-            name: 'validate-spy',
+          .intercept({ name: 'validate-spy' }, () => ({
             validate: (ctx, next) => {
               intercepted = true;
               expect(ctx.command.path).toBe('greet');
               return next();
             },
-          }),
+          })),
       );
 
       const result = program.eval('greet World');
@@ -1041,13 +986,12 @@ describe('interceptors', () => {
         c
           .arguments(z.object({ name: z.string() }), { positional: ['name'] })
           .action((args) => `Hello, ${args.name}!`)
-          .intercept({
-            name: 'sub-parse',
+          .intercept({ name: 'sub-parse' }, () => ({
             parse: (_ctx, next) => {
               parseCalled = true;
               return next();
             },
-          }),
+          })),
       );
 
       const result = program.eval('greet World');
@@ -1061,32 +1005,29 @@ describe('interceptors', () => {
       const program = createPadrone('test')
         .command('db', (c) =>
           c
-            .intercept({
-              name: 'db-interceptor',
+            .intercept({ name: 'db-interceptor' }, () => ({
               execute: (_ctx, next) => {
                 log.push('db');
                 return next();
               },
-            })
+            }))
             .command('migrate', (sub) =>
               sub
                 .action(() => 'migrated')
-                .intercept({
-                  name: 'migrate-interceptor',
+                .intercept({ name: 'migrate-interceptor' }, () => ({
                   execute: (_ctx, next) => {
                     log.push('migrate');
                     return next();
                   },
-                }),
+                })),
             ),
         )
-        .intercept({
-          name: 'root-interceptor',
+        .intercept({ name: 'root-interceptor' }, () => ({
           execute: (_ctx, next) => {
             log.push('root');
             return next();
           },
-        });
+        }));
 
       const result = program.eval('db migrate');
       expect(result.result).toBe('migrated');
@@ -1100,22 +1041,18 @@ describe('interceptors', () => {
       const log: string[] = [];
 
       const program = makeProgram()
-        .intercept({
-          name: 'first',
-          id: 'auth',
+        .intercept({ name: 'first', id: 'auth' }, () => ({
           execute: (_ctx, next) => {
             log.push('first');
             return next();
           },
-        })
-        .intercept({
-          name: 'second',
-          id: 'auth',
+        }))
+        .intercept({ name: 'second', id: 'auth' }, () => ({
           execute: (_ctx, next) => {
             log.push('second');
             return next();
           },
-        });
+        }));
 
       program.eval('greet World');
       expect(log).toEqual(['second']);
@@ -1125,20 +1062,18 @@ describe('interceptors', () => {
       const log: string[] = [];
 
       const program = makeProgram()
-        .intercept({
-          name: 'a',
+        .intercept({ name: 'a' }, () => ({
           execute: (_ctx, next) => {
             log.push('a');
             return next();
           },
-        })
-        .intercept({
-          name: 'b',
+        }))
+        .intercept({ name: 'b' }, () => ({
           execute: (_ctx, next) => {
             log.push('b');
             return next();
           },
-        });
+        }));
 
       program.eval('greet World');
       expect(log).toEqual(['a', 'b']);
@@ -1148,36 +1083,30 @@ describe('interceptors', () => {
       const log: string[] = [];
 
       const program = makeProgram()
-        .intercept({
-          name: 'no-id-1',
+        .intercept({ name: 'no-id-1' }, () => ({
           execute: (_ctx, next) => {
             log.push('no-id-1');
             return next();
           },
-        })
-        .intercept({
-          name: 'first-auth',
-          id: 'auth',
+        }))
+        .intercept({ name: 'first-auth', id: 'auth' }, () => ({
           execute: (_ctx, next) => {
             log.push('first-auth');
             return next();
           },
-        })
-        .intercept({
-          name: 'no-id-2',
+        }))
+        .intercept({ name: 'no-id-2' }, () => ({
           execute: (_ctx, next) => {
             log.push('no-id-2');
             return next();
           },
-        })
-        .intercept({
-          name: 'second-auth',
-          id: 'auth',
+        }))
+        .intercept({ name: 'second-auth', id: 'auth' }, () => ({
           execute: (_ctx, next) => {
             log.push('second-auth');
             return next();
           },
-        });
+        }));
 
       program.eval('greet World');
       expect(log).toEqual(['no-id-1', 'no-id-2', 'second-auth']);
@@ -1191,23 +1120,19 @@ describe('interceptors', () => {
           c
             .arguments(z.object({ name: z.string() }), { positional: ['name'] })
             .action((args) => `Hello, ${args.name}!`)
-            .intercept({
-              name: 'sub-auth',
-              id: 'auth',
+            .intercept({ name: 'sub-auth', id: 'auth' }, () => ({
               execute: (_ctx, next) => {
                 log.push('sub-auth');
                 return next();
               },
-            }),
+            })),
         )
-        .intercept({
-          name: 'root-auth',
-          id: 'auth',
+        .intercept({ name: 'root-auth', id: 'auth' }, () => ({
           execute: (_ctx, next) => {
             log.push('root-auth');
             return next();
           },
-        });
+        }));
 
       program.eval('greet World');
       // Subcommand interceptor comes after root in collected chain, so it wins
@@ -1218,9 +1143,7 @@ describe('interceptors', () => {
       const log: string[] = [];
 
       const program = makeProgram()
-        .intercept({
-          name: 'first',
-          id: 'logger',
+        .intercept({ name: 'first', id: 'logger' }, () => ({
           validate: (_ctx, next) => {
             log.push('validate:first');
             return next();
@@ -1229,20 +1152,95 @@ describe('interceptors', () => {
             log.push('execute:first');
             return next();
           },
-        })
-        .intercept({
-          name: 'second',
-          id: 'logger',
+        }))
+        .intercept({ name: 'second', id: 'logger' }, () => ({
           execute: (_ctx, next) => {
             log.push('execute:second');
             return next();
           },
           // no validate — but dedup still removes the first interceptor entirely
-        });
+        }));
 
       program.eval('greet World');
       // The second interceptor replaced the first (same id), so first's validate is gone too
       expect(log).toEqual(['execute:second']);
+    });
+  });
+
+  describe('closure-based cross-phase state', () => {
+    it('should allow factory closure to share typed state across phases', () => {
+      let capturedUser: string | undefined;
+
+      const interceptor = defineInterceptor({ name: 'auth' }, () => {
+        let user: string | undefined;
+
+        return {
+          parse: (_ctx, next) => {
+            const result = next();
+            user = 'admin';
+            return result;
+          },
+          execute: (_ctx, next) => {
+            capturedUser = user;
+            return next();
+          },
+        };
+      });
+
+      const program = makeProgram().intercept(interceptor);
+      program.eval('greet World');
+
+      expect(capturedUser).toBe('admin');
+    });
+
+    it('should create fresh closure per execution', () => {
+      const counters: number[] = [];
+
+      const interceptor = defineInterceptor({ name: 'counter' }, () => {
+        let count = 0;
+
+        return {
+          parse: (_ctx, next) => {
+            count++;
+            return next();
+          },
+          execute: (_ctx, next) => {
+            counters.push(count);
+            return next();
+          },
+        };
+      });
+
+      const program = makeProgram().intercept(interceptor);
+      program.eval('greet A');
+      program.eval('greet B');
+
+      // Each execution gets a fresh closure, so count starts at 0 each time
+      expect(counters).toEqual([1, 1]);
+    });
+
+    it('should allow timing across phases via closure', () => {
+      let duration: number | undefined;
+
+      const interceptor = defineInterceptor({ name: 'timer' }, () => {
+        let startTime: number;
+
+        return {
+          start: (_ctx, next) => {
+            startTime = Date.now();
+            return next();
+          },
+          shutdown: (_ctx, next) => {
+            duration = Date.now() - startTime;
+            return next();
+          },
+        };
+      });
+
+      const program = makeProgram().intercept(interceptor);
+      program.eval('greet World');
+
+      expect(duration).toBeGreaterThanOrEqual(0);
     });
   });
 });

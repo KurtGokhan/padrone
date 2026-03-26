@@ -1,3 +1,4 @@
+import { defineInterceptor } from '../core/interceptors.ts';
 import { parseCliInputToParts } from '../core/parse.ts';
 import { withDrain } from '../core/results.ts';
 import type { PadroneBuilder, PadroneProgram } from '../types/builder.ts';
@@ -76,34 +77,35 @@ export function padroneRepl(defaults?: PadroneReplPreferences): <T extends Comma
     );
 
     // --repl flag interceptor: starts REPL directly, bypassing normal command routing
-    result = result.intercept({
-      id: 'padrone:repl',
-      name: 'padrone:repl',
-      order: -1000,
-      start(ctx: InterceptorStartContext, next: () => unknown) {
-        // If repl is disabled via cli preferences, skip
-        if (ctx.state._replPrefs === false) return next();
-
-        const replInfo = checkReplFlag(ctx.input, ctx.command);
-        if (!replInfo) return next();
-
-        // Start REPL directly using the program from exec state
-        const program = ctx.state._program as AnyPadroneProgram | undefined;
-        if (!program?.repl) return next();
-
-        const cliPrefs = typeof ctx.state._replPrefs === 'object' ? (ctx.state._replPrefs as PadroneReplPreferences) : undefined;
-        const prefs: PadroneReplPreferences = { ...defaults, ...cliPrefs, scope: replInfo.scope ?? cliPrefs?.scope ?? defaults?.scope };
-
-        // Return a Promise so the pipeline awaits the REPL result
-        return program
-          .repl(prefs)
-          .drain()
-          .then((r: any) => withDrain({ command: ctx.command, args: undefined, result: r.value }));
-      },
-    });
+    result = result.intercept(createReplInterceptor(defaults));
 
     return result;
   }) as any;
+}
+
+function createReplInterceptor(defaults?: PadroneReplPreferences) {
+  return defineInterceptor({ id: 'padrone:repl', name: 'padrone:repl', order: -1000 }, () => ({
+    start(ctx: InterceptorStartContext, next: () => unknown) {
+      // If repl is disabled via cli preferences, skip
+      if (ctx.state._replPrefs === false) return next();
+
+      const replInfo = checkReplFlag(ctx.input, ctx.command);
+      if (!replInfo) return next();
+
+      // Start REPL directly using the program from exec state
+      const program = ctx.state._program as AnyPadroneProgram | undefined;
+      if (!program?.repl) return next();
+
+      const cliPrefs = typeof ctx.state._replPrefs === 'object' ? (ctx.state._replPrefs as PadroneReplPreferences) : undefined;
+      const prefs: PadroneReplPreferences = { ...defaults, ...cliPrefs, scope: replInfo.scope ?? cliPrefs?.scope ?? defaults?.scope };
+
+      // Return a Promise so the pipeline awaits the REPL result
+      return program
+        .repl(prefs)
+        .drain()
+        .then((r: any) => withDrain({ command: ctx.command, args: undefined, result: r.value }));
+    },
+  }));
 }
 
 /** Check for --repl flag in input. */

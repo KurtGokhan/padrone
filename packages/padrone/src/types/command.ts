@@ -3,7 +3,7 @@ import type { PadroneProgressIndicator, PadroneRuntime, PadroneSpinnerConfig, Re
 import type { FullCommandName } from '../util/type-utils.ts';
 import type { PadroneArgsSchemaMeta } from './args-meta.ts';
 import type { AnyPadroneProgram } from './builder.ts';
-import type { PadroneInterceptor } from './interceptor.ts';
+import type { RegisteredInterceptor } from './interceptor.ts';
 import type { PadroneSchema } from './schema.ts';
 
 type UnknownRecord = Record<string, unknown>;
@@ -151,7 +151,7 @@ export type PadroneCommand<
   contextTransform?: (ctx: unknown) => unknown;
 
   /** Interceptors registered on this command. Collected from the parent chain at execution time. */
-  interceptors?: PadroneInterceptor<any, any>[];
+  interceptors?: RegisteredInterceptor[];
 
   parent?: AnyPadroneCommand;
   commands?: TCommands;

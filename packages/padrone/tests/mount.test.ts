@@ -153,15 +153,14 @@ describe('mount', () => {
     const calls: string[] = [];
 
     const pluggedProgram = createPadrone('plugged')
-      .intercept({
-        name: 'test-interceptor',
+      .intercept({ name: 'test-interceptor' }, () => ({
         execute: (_ctx, next) => {
           calls.push('interceptor-before');
           const result = next();
           calls.push('interceptor-after');
           return result;
         },
-      })
+      }))
       .command('cmd', (c) =>
         c.action(() => {
           calls.push('handler');

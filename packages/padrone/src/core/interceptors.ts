@@ -2,18 +2,97 @@ import type {
   AnyPadroneCommand,
   InterceptorErrorContext,
   InterceptorErrorResult,
+  InterceptorFactory,
+  InterceptorMeta,
   InterceptorShutdownContext,
   InterceptorStartContext,
-  PadroneInterceptor,
+  PadroneInterceptorFn,
+  RegisteredInterceptor,
+  ResolvedInterceptor,
 } from '../types/index.ts';
 import { thenMaybe } from './results.ts';
 import type { PadroneProgressIndicator, ResolvedPadroneRuntime } from './runtime.ts';
+
+// ---------------------------------------------------------------------------
+// defineInterceptor — creates a single-value distributable interceptor
+// ---------------------------------------------------------------------------
+
+/**
+ * Creates a self-contained interceptor value by attaching static metadata to the factory function.
+ * The returned value can be passed directly to `.intercept()` or exported from a package.
+ *
+ * ```ts
+ * export const myInterceptor = defineInterceptor(
+ *   { name: 'my-interceptor', order: 10 },
+ *   () => ({
+ *     execute(ctx, next) { return next(); },
+ *   }),
+ * );
+ * ```
+ */
+export function defineInterceptor<TArgs = unknown, TResult = unknown>(
+  meta: InterceptorMeta,
+  factory: InterceptorFactory<TArgs, TResult>,
+): PadroneInterceptorFn<TArgs, TResult> {
+  // Function.name is readonly, so we need Object.defineProperty to override it
+  Object.defineProperty(factory, 'name', { value: meta.name, configurable: true });
+  if (meta.id !== undefined) (factory as any).id = meta.id;
+  if (meta.order !== undefined) (factory as any).order = meta.order;
+  return factory as PadroneInterceptorFn<TArgs, TResult>;
+}
+
+// ---------------------------------------------------------------------------
+// Registration normalization
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalizes an interceptor input (single-value form or two-arg form) into the internal
+ * `RegisteredInterceptor` storage format.
+ */
+export function toRegisteredInterceptor(
+  metaOrFn: InterceptorMeta | PadroneInterceptorFn<any, any>,
+  factory?: InterceptorFactory<any, any>,
+): RegisteredInterceptor {
+  if (typeof metaOrFn === 'function') {
+    // Single-value form: PadroneInterceptorFn (factory with meta as own properties)
+    return { meta: { name: metaOrFn.name, id: metaOrFn.id, order: metaOrFn.order }, factory: metaOrFn };
+  }
+  // Two-arg form: (meta, factory)
+  return { meta: metaOrFn, factory: factory! };
+}
+
+// ---------------------------------------------------------------------------
+// Factory resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolves registered interceptors by calling their factories and merging the resulting
+ * phase handlers with the static metadata. Uses a cache to ensure each factory is called
+ * at most once per execution (so root interceptor closures are shared across all phases).
+ */
+export function resolveRegisteredInterceptors(
+  registered: RegisteredInterceptor[],
+  cache: Map<RegisteredInterceptor, ResolvedInterceptor>,
+): ResolvedInterceptor[] {
+  return registered.map((reg) => {
+    let resolved = cache.get(reg);
+    if (!resolved) {
+      resolved = { ...reg.meta, ...reg.factory() };
+      cache.set(reg, resolved);
+    }
+    return resolved;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Interceptor chain runner
+// ---------------------------------------------------------------------------
 
 /**
  * Deduplicates interceptors by `id`. When multiple interceptors share the same `id`,
  * only the last one in the array is kept. Interceptors without an `id` are always kept.
  */
-function deduplicateInterceptors(interceptors: PadroneInterceptor<any, any>[]): PadroneInterceptor<any, any>[] {
+function deduplicateInterceptors(interceptors: ResolvedInterceptor[]): ResolvedInterceptor[] {
   // Fast path: no ids at all
   if (!interceptors.some((p) => p.id)) return interceptors;
 
@@ -38,7 +117,7 @@ function deduplicateInterceptors(interceptors: PadroneInterceptor<any, any>[]): 
  */
 export function runInterceptorChain<TCtx extends object, TResult>(
   phase: 'start' | 'parse' | 'validate' | 'execute' | 'error' | 'shutdown',
-  interceptors: PadroneInterceptor<any, any>[],
+  interceptors: ResolvedInterceptor[],
   ctx: TCtx,
   core: (ctx: TCtx) => TResult | Promise<TResult>,
 ): TResult | Promise<TResult> {
@@ -151,7 +230,7 @@ export function createLazyIndicator(runtime: ResolvedPadroneRuntime, state: Reco
  * - Always: `shutdown` interceptors run (success or failure).
  */
 export function wrapWithLifecycle<T>(
-  interceptors: PadroneInterceptor<any, any>[],
+  interceptors: ResolvedInterceptor[],
   command: AnyPadroneCommand,
   state: Record<string, unknown>,
   input: string | undefined,

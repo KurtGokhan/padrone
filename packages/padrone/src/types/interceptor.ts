@@ -102,26 +102,12 @@ type InterceptorPhaseHandler<TCtx, TNextResult, TReturn = TNextResult> = (
   next: (overrides?: InterceptorNextOverrides) => TNextResult | Promise<TNextResult>,
 ) => TReturn | Promise<TReturn>;
 
-/**
- * A Padrone interceptor that can intercept the parse, validate, and execute phases of command execution.
- * Interceptors are registered at the program or subcommand level with `.intercept()`.
- *
- * Type parameters:
- * - `TArgs` — the validated arguments type (output of the args schema). Provides typed `ctx.args` in the execute phase
- *   and typed `args` in the validate result from `next()`.
- * - `TResult` — the command's return type. Provides typed `result` in execute/error/shutdown phases.
- *
- * When registered inline on a builder, these are inferred from the command's types automatically.
- * For reusable interceptors that work with any command, use `PadroneInterceptor<any, any>`.
- *
- * Each phase handler receives a context and a `next()` function (onion/middleware pattern):
- * - Call `next()` to proceed to the next interceptor or the core operation.
- * - Return without calling `next()` to short-circuit.
- * - Wrap `next()` in try/catch for error handling.
- * - Modify context fields before `next()` to alter inputs.
- * - Transform the return value of `next()` to alter outputs.
- */
-export type PadroneInterceptor<TArgs = unknown, TResult = unknown> = {
+// ---------------------------------------------------------------------------
+// Interceptor meta, phases, and factory
+// ---------------------------------------------------------------------------
+
+/** Static metadata for an interceptor. Always available at registration time without calling the factory. */
+export type InterceptorMeta = {
   /** Display name for this interceptor. Used for identification in logs and debugging. */
   name: string;
   /**
@@ -135,6 +121,18 @@ export type PadroneInterceptor<TArgs = unknown, TResult = unknown> = {
    * Interceptors with the same order preserve registration order. Defaults to `0`.
    */
   order?: number;
+};
+
+/**
+ * Phase handler definitions returned by an interceptor factory.
+ * The factory's closure provides typed, scoped cross-phase state — no `state` bag needed
+ * for data that stays within a single interceptor.
+ *
+ * Type parameters:
+ * - `TArgs` — the validated arguments type (output of the args schema).
+ * - `TResult` — the command's return type.
+ */
+export type InterceptorPhases<TArgs = unknown, TResult = unknown> = {
   /**
    * Runs before the pipeline (parse → validate → execute). `next()` proceeds to the pipeline.
    * Root interceptors only. Use for startup tasks like telemetry, update checks, or global config loading.
@@ -157,3 +155,41 @@ export type PadroneInterceptor<TArgs = unknown, TResult = unknown> = {
    */
   shutdown?: InterceptorPhaseHandler<InterceptorShutdownContext<TResult>, void>;
 };
+
+/**
+ * Factory function that creates phase handlers for an interceptor.
+ * Called once per command execution — the closure provides typed, scoped cross-phase state.
+ */
+export type InterceptorFactory<TArgs = unknown, TResult = unknown> = () => InterceptorPhases<TArgs, TResult>;
+
+/**
+ * A self-contained interceptor value: a factory function with static metadata as own properties.
+ * Created via `defineInterceptor(meta, factory)`. This is the distributable form — a single
+ * importable value that packages can export.
+ *
+ * Also accepted directly by `.intercept()` as the single-argument form.
+ */
+export type PadroneInterceptorFn<TArgs = unknown, TResult = unknown> = InterceptorFactory<TArgs, TResult> & InterceptorMeta;
+
+/**
+ * A Padrone interceptor in its single-value distributable form.
+ * Alias for `PadroneInterceptorFn` — this is the primary public type.
+ *
+ * Create with `defineInterceptor(meta, factory)` or pass `(meta, factory)` directly to `.intercept()`.
+ */
+export type PadroneInterceptor<TArgs = unknown, TResult = unknown> = PadroneInterceptorFn<TArgs, TResult>;
+
+/**
+ * Internal stored form on command objects. Separates static metadata from the factory
+ * so that deduplication and sorting can happen without calling the factory.
+ */
+export type RegisteredInterceptor = {
+  meta: InterceptorMeta;
+  factory: InterceptorFactory<any, any>;
+};
+
+/**
+ * Resolved interceptor: metadata merged with phase handlers after the factory has been called.
+ * Used internally by the runtime chain runner.
+ */
+export type ResolvedInterceptor = InterceptorMeta & InterceptorPhases<any, any>;

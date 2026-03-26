@@ -3,6 +3,7 @@ export type { PadroneOptions } from './core/create.ts';
 export { createPadrone } from './core/create.ts';
 export type { PadroneErrorOptions } from './core/errors.ts';
 export { ActionError, ConfigError, PadroneError, RoutingError, SignalError, ValidationError } from './core/errors.ts';
+export { defineInterceptor } from './core/interceptors.ts';
 export { asyncSchema } from './core/results.ts';
 export type {
   InteractiveMode,
@@ -54,8 +55,11 @@ export type {
   InterceptorErrorResult,
   InterceptorExecuteContext,
   InterceptorExecuteResult,
+  InterceptorFactory,
+  InterceptorMeta,
   InterceptorParseContext,
   InterceptorParseResult,
+  InterceptorPhases,
   InterceptorShutdownContext,
   InterceptorStartContext,
   InterceptorValidateContext,
@@ -67,6 +71,7 @@ export type {
   PadroneDrainResult,
   PadroneExtension,
   PadroneInterceptor,
+  PadroneInterceptorFn,
   PadroneParseResult,
   PadroneProgram,
   PadroneProgressMessage,
