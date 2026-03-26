@@ -198,9 +198,16 @@ export function execCommand(
     const signal = abortController.signal;
     // Start-phase interceptors may override input via state._input
     const effectiveInput = (state._input as string | undefined) ?? resolvedInput;
-    const parseCtx: InterceptorParseContext = { input: effectiveInput, command: rootCommand, state, signal, context: initialContext };
+    const parseCtx: InterceptorParseContext = {
+      input: effectiveInput,
+      command: rootCommand,
+      state,
+      signal,
+      context: initialContext,
+      runtime,
+    };
 
-    const coreParse = (): InterceptorParseResult => {
+    const coreParse = (parseCtx: InterceptorParseContext): InterceptorParseResult => {
       const { command, rawArgs, args, unmatchedTerms } = parseCommandFn(parseCtx.input);
 
       // Reject unmatched terms when the matched command doesn't accept positional args
@@ -309,9 +316,10 @@ export function execCommand(
         state,
         signal,
         context: resolveContext(command),
+        runtime,
       };
 
-      const coreValidate = (): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
+      const coreValidate = (validateCtx: InterceptorValidateContext): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
         // Determine interactivity (flag may have been extracted by the interactive extension)
         const flagInteractive = state._interactive as boolean | undefined;
 
@@ -483,15 +491,25 @@ export function execCommand(
           activeIndicator.update(state._progressMsg as string);
         }
 
-        const executeCtx: InterceptorExecuteContext = { command, args: v.args, state, signal, context: resolveContext(command) };
+        const executeCtx: InterceptorExecuteContext = {
+          command,
+          args: v.args,
+          state,
+          signal,
+          context: resolveContext(command),
+          runtime,
+        };
 
-        const coreExecute = (): InterceptorExecuteResult => {
+        const coreExecute = (executeCtx: InterceptorExecuteContext): InterceptorExecuteResult => {
           const handler = command.action ?? noop;
+          const effectiveRuntime = executeCtx.runtime;
           const actionCtx: PadroneActionContext = {
-            ...createActionContext(command),
-            runtime,
-            progress: (state._progress as PadroneProgressIndicator) ?? createLazyIndicator(runtime, state),
-            signal,
+            runtime: effectiveRuntime,
+            command: executeCtx.command,
+            program: ctx.builder as any,
+            progress: (state._progress as PadroneProgressIndicator) ?? createLazyIndicator(effectiveRuntime, state),
+            signal: executeCtx.signal,
+            context: executeCtx.context,
           };
           const result = handler(executeCtx.args as any, actionCtx);
           return { result };
@@ -546,6 +564,7 @@ export function execCommand(
       (result) => withDrain({ command: rootCommand, args: undefined, argsResult: undefined, result }),
       abortController.signal,
       initialContext,
+      runtime,
     );
   } catch (err) {
     cleanupSignal();

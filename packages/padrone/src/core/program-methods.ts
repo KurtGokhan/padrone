@@ -117,12 +117,27 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
       if (!commandObj.action) throw new RoutingError(`Command "${commandObj.path}" has no action`, { command: commandObj.path });
 
       const resolvedCtx = resolveContext(commandObj, prefs?.context);
+      const commandRuntime = getCommandRuntime(commandObj);
       const state: Record<string, unknown> = {};
-      const executeCtx: InterceptorExecuteContext = { command: commandObj, args, state, signal: inertSignal, context: resolvedCtx };
+      const executeCtx: InterceptorExecuteContext = {
+        command: commandObj,
+        args,
+        state,
+        signal: inertSignal,
+        context: resolvedCtx,
+        runtime: commandRuntime,
+      };
 
-      const coreExecute = (): InterceptorExecuteResult => {
-        const actionCtx = createActionContext(commandObj, resolvedCtx);
-        const result = commandObj.action!(executeCtx.args as any, { ...actionCtx, signal: inertSignal });
+      const coreExecute = (executeCtx: InterceptorExecuteContext): InterceptorExecuteResult => {
+        const actionCtx: PadroneActionContext = {
+          runtime: executeCtx.runtime,
+          command: executeCtx.command,
+          program: ctx.builder as any,
+          progress: noopIndicator,
+          signal: inertSignal,
+          context: executeCtx.context,
+        };
+        const result = commandObj.action!(executeCtx.args as any, actionCtx);
         return { result };
       };
 
@@ -219,9 +234,17 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
 
   const parse: AnyPadroneProgram['parse'] = (input) => {
     const state: Record<string, unknown> = {};
+    const parseRuntime = getCommandRuntime(rootCommand);
 
-    const parseCtx = { input: input as string | undefined, command: rootCommand, state, signal: inertSignal, context: undefined };
-    const coreParse = () => {
+    const parseCtx = {
+      input: input as string | undefined,
+      command: rootCommand,
+      state,
+      signal: inertSignal,
+      context: undefined,
+      runtime: parseRuntime,
+    };
+    const coreParse = (parseCtx: any) => {
       const { command, rawArgs, args } = ctx.parseCommandFn(parseCtx.input);
       return { command, rawArgs, positionalArgs: args };
     };
@@ -239,6 +262,7 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
         state,
         signal: inertSignal,
         context: undefined,
+        runtime: parseRuntime,
       };
 
       const coreValidate = () => coreValidateForParse(command, validateCtx.rawArgs, validateCtx.positionalArgs, rootCommand);

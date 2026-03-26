@@ -23,6 +23,7 @@ export type {
   InterceptorErrorResult,
   InterceptorExecuteContext,
   InterceptorExecuteResult,
+  InterceptorNextOverrides,
   InterceptorParseContext,
   InterceptorParseResult,
   InterceptorShutdownContext,

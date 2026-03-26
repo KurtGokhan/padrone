@@ -1,4 +1,3 @@
-import { getCommandRuntime } from '../core/commands.ts';
 import { parseCliInputToParts } from '../core/parse.ts';
 import type { UpdateCheckConfig } from '../feature/update-check.ts';
 import type { CommandTypesBase, InterceptorShutdownContext, InterceptorStartContext } from '../types/index.ts';
@@ -33,7 +32,7 @@ export function padroneUpdateCheck(config: UpdateCheckConfig = {}): <T extends C
         if (!hasNoUpdateCheckFlag) {
           const rootCommand = ctx.command;
           const currentVersion = getVersion(rootCommand.version);
-          const runtime = getCommandRuntime(rootCommand);
+          const runtime = ctx.runtime;
 
           // Start background check
           const checkPromise = import('../feature/update-check.ts').then(({ createUpdateChecker }) => {

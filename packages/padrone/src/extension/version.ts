@@ -1,4 +1,3 @@
-import { getCommandRuntime } from '../core/commands.ts';
 import { parseCliInputToParts } from '../core/parse.ts';
 import { withDrain } from '../core/results.ts';
 import type { PadroneBuilder, PadroneProgram } from '../types/builder.ts';
@@ -59,8 +58,8 @@ export function padroneVersion(): <T extends CommandTypesBase>(builder: T) => Wi
         const flag = checkVersionFlags(ctx.input, ctx.command);
         if (!flag) return next();
 
-        const runtime = getCommandRuntime(ctx.command);
         const rootCommand = ctx.command;
+        const runtime = ctx.runtime;
         const version = getVersion(rootCommand.version);
         runtime.output(version);
         return withDrain({ command: rootCommand, args: undefined, result: version });

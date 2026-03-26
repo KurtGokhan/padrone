@@ -1,4 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { ResolvedPadroneRuntime } from '../core/runtime.ts';
 import type { AnyPadroneCommand } from './command.ts';
 
 // ---------------------------------------------------------------------------
@@ -15,6 +16,8 @@ export type InterceptorBaseContext = {
   signal: AbortSignal;
   /** User-defined context object, resolved through the command's parent chain. */
   context: unknown;
+  /** The resolved runtime for this execution. Interceptors can override this before calling `next()`. */
+  runtime: ResolvedPadroneRuntime;
 };
 
 /** Context for the parse phase. */
@@ -83,6 +86,9 @@ export type InterceptorShutdownContext<TResult = unknown> = InterceptorBaseConte
   result?: TResult;
 };
 
+/** Overrides passable to `next()`. Provides autocomplete for common fields; accepts any phase-specific fields. */
+export type InterceptorNextOverrides = Partial<InterceptorBaseContext> & Record<string, unknown>;
+
 /**
  * A phase handler function for the interceptor middleware chain.
  *
@@ -93,7 +99,7 @@ export type InterceptorShutdownContext<TResult = unknown> = InterceptorBaseConte
  */
 type InterceptorPhaseHandler<TCtx, TNextResult, TReturn = TNextResult> = (
   ctx: TCtx,
-  next: () => TNextResult | Promise<TNextResult>,
+  next: (overrides?: InterceptorNextOverrides) => TNextResult | Promise<TNextResult>,
 ) => TReturn | Promise<TReturn>;
 
 /**

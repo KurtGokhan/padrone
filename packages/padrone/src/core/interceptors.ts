@@ -32,33 +32,39 @@ function deduplicateInterceptors(interceptors: PadroneInterceptor<any, any>[]): 
  * Interceptors are sorted by `order` (ascending, stable), then composed so that
  * the first interceptor in sorted order is the outermost wrapper.
  * If no interceptors handle this phase, `core` is called directly.
+ *
+ * Each interceptor's `next()` accepts optional partial overrides that are merged
+ * into the context before passing to the next interceptor or core function.
  */
-export function runInterceptorChain<TCtx, TResult>(
+export function runInterceptorChain<TCtx extends object, TResult>(
   phase: 'start' | 'parse' | 'validate' | 'execute' | 'error' | 'shutdown',
   interceptors: PadroneInterceptor<any, any>[],
   ctx: TCtx,
-  core: () => TResult | Promise<TResult>,
+  core: (ctx: TCtx) => TResult | Promise<TResult>,
 ): TResult | Promise<TResult> {
   // Deduplicate by id (last wins), then filter to interceptors that have a handler for this phase
   const deduped = deduplicateInterceptors(interceptors);
   const phaseInterceptors = deduped.filter((p) => p[phase]);
-  if (phaseInterceptors.length === 0) return core();
+  if (phaseInterceptors.length === 0) return core(ctx);
 
   // Stable sort by order (lower = outermost). Equal order preserves registration order.
   phaseInterceptors.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   // Build chain from inside out: last interceptor wraps core, first interceptor is outermost
-  let next = core;
+  let next: (currentCtx: TCtx) => TResult | Promise<TResult> = core;
   for (let i = phaseInterceptors.length - 1; i >= 0; i--) {
     const handler = phaseInterceptors[i]![phase]! as unknown as (
       ctx: TCtx,
-      next: () => TResult | Promise<TResult>,
+      next: (overrides?: Record<string, unknown>) => TResult | Promise<TResult>,
     ) => TResult | Promise<TResult>;
     const prevNext = next;
-    next = () => handler(ctx, prevNext);
+    next = (currentCtx: TCtx) =>
+      handler(currentCtx, (overrides?: Record<string, unknown>) =>
+        prevNext(overrides ? (Object.assign({}, currentCtx, overrides) as TCtx) : currentCtx),
+      );
   }
 
-  return next();
+  return next(ctx);
 }
 
 /**
@@ -153,6 +159,7 @@ export function wrapWithLifecycle<T>(
   wrapErrorResult?: (result: unknown) => T,
   signal?: AbortSignal,
   context?: unknown,
+  runtime?: ResolvedPadroneRuntime,
 ): T | Promise<T> {
   const hasStart = interceptors.some((p) => p.start);
   const hasError = interceptors.some((p) => p.error);
@@ -210,7 +217,7 @@ export function wrapWithLifecycle<T>(
   const runShutdown = (error?: unknown, result?: unknown) => {
     cleanupProgress(error);
     if (!hasShutdown) return;
-    const ctx: InterceptorShutdownContext = { command, state, error, result, signal: effectiveSignal, context };
+    const ctx: InterceptorShutdownContext = { command, state, error, result, signal: effectiveSignal, context, runtime: runtime! };
     return runInterceptorChain('shutdown', interceptors, ctx, () => {});
   };
 
@@ -223,7 +230,7 @@ export function wrapWithLifecycle<T>(
         });
       throw error;
     }
-    const ctx: InterceptorErrorContext = { command, state, error, signal: effectiveSignal, context };
+    const ctx: InterceptorErrorContext = { command, state, error, signal: effectiveSignal, context, runtime: runtime! };
     const errorResult = runInterceptorChain('error', interceptors, ctx, (): InterceptorErrorResult => ({ error }));
     return thenMaybe(errorResult, (er) => {
       if (er.error !== undefined) {
@@ -252,6 +259,7 @@ export function wrapWithLifecycle<T>(
     state,
     signal: effectiveSignal,
     context,
+    runtime: runtime!,
     get input() {
       return (state._input as string | undefined) ?? input;
     },
@@ -261,7 +269,7 @@ export function wrapWithLifecycle<T>(
   };
   let result: T | Promise<T>;
   try {
-    result = (hasStart ? runInterceptorChain('start', interceptors, startCtx, pipeline) : pipeline()) as T | Promise<T>;
+    result = (hasStart ? runInterceptorChain('start', interceptors, startCtx, pipeline as any) : pipeline()) as T | Promise<T>;
   } catch (e) {
     return runError(e);
   }
