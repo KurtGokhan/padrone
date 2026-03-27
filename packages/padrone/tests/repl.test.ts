@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { buildReplCompleter, createPadrone } from 'padrone';
+import { buildReplCompleter, createPadrone, padroneRepl } from 'padrone';
 import * as z from 'zod/v4';
 import { createConsoleMocker } from './console-mocker.ts';
 
@@ -947,12 +947,13 @@ describe('REPL', () => {
     it('should start REPL when --repl flag is used in cli()', async () => {
       const readLine = mockReadLine(['greet World', null]);
       const program = createPadrone('test')
+        .extend(padroneRepl({ greeting: false, hint: false }))
         .runtime({ readLine, argv: () => ['--repl'], output: () => {}, error: () => {} })
         .command('greet', (c) =>
           c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
         );
 
-      const result = await program.cli({ repl: { greeting: false, hint: false } });
+      const result = await program.cli();
       expect(result.result).toHaveLength(1);
       expect((result.result as any)[0].result).toBe('Hello, World!');
     });
@@ -960,37 +961,40 @@ describe('REPL', () => {
     it('should start scoped REPL when --repl is used with a command', async () => {
       const readLine = mockReadLine(['seed', null]);
       const program = createPadrone('test')
+        .extend(padroneRepl({ greeting: false, hint: false }))
         .runtime({ readLine, argv: () => ['db', '--repl'], output: () => {}, error: () => {} })
         .command('db', (c) => c.command('seed', (s) => s.action(() => 'seeded')));
 
-      const result = await program.cli({ repl: { greeting: false, hint: false } });
+      const result = await program.cli();
       expect(result.result).toHaveLength(1);
       expect((result.result as any)[0].result).toBe('seeded');
     });
 
-    it('should disable --repl flag when repl: false in cli preferences', async () => {
+    it('should disable --repl flag when repl is disabled', async () => {
       const readLine = mockReadLine([null]);
       const errors: string[] = [];
       const program = createPadrone('test')
+        .extend(padroneRepl({ disabled: true }))
         .runtime({ readLine, argv: () => ['--repl'], output: () => {}, error: (msg) => errors.push(msg) })
         .command('greet', (c) => c.action(() => 'hi'));
 
-      // With repl: false, --repl is not intercepted and treated as a regular unknown flag
+      // With disabled repl, --repl is not intercepted and treated as a regular unknown flag
       try {
-        await program.cli({ repl: false });
+        await program.cli();
       } catch {
         // May throw since --repl is not a valid argument
       }
     });
 
-    it('should pass repl preferences from cli options', async () => {
+    it('should pass repl preferences from extension', async () => {
       const output: unknown[] = [];
       const readLine = mockReadLine([null]);
       const program = createPadrone('test')
+        .extend(padroneRepl({ greeting: 'Welcome!', hint: false }))
         .runtime({ readLine, argv: () => ['--repl'], output: (msg) => output.push(msg), error: () => {} })
         .command('greet', (c) => c.action(() => 'hi'));
 
-      await program.cli({ repl: { greeting: 'Welcome!', hint: false } });
+      await program.cli();
       expect(output).toContain('Welcome!');
     });
   });

@@ -635,7 +635,7 @@ export type PadroneProgram<
   >;
 
   cli: (
-    prefs?: PadroneCliPreferences<PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>> & ContextParam<TContext>,
+    prefs?: PadroneCliPreferences & ContextParam<TContext>,
   ) => MaybePromiseCommandResult<FlattenCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>, TAsync>;
 
   parse: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, false>>(

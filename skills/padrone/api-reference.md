@@ -325,7 +325,7 @@ CLI entry point. Parses `process.argv`. Throws on validation errors.
 
 ```ts
 program.cli();
-program.cli({ repl: { prompt: '> ' } });
+program.cli({ context: { db } });
 program.cli({ context: { db } });  // provide typed context
 ```
 
@@ -333,7 +333,6 @@ Preferences:
 ```ts
 type PadroneCliPreferences = {
   interactive?: boolean,
-  repl?: PadroneReplPreferences | false,
   context?: TContext,         // required when context type is not `unknown`
 };
 ```

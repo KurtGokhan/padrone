@@ -555,7 +555,6 @@ program.cli({ context: { db, logger } });
 - `prefs` (optional): `PadroneCliPreferences`
   - `interactive`: Override interactive prompting (`true` = force, `false` = suppress, `undefined` = inherit from runtime)
   - `runtime`: Override runtime configuration
-  - `repl`: Override REPL preferences (used when `--repl` flag is passed)
   - `context`: User-defined context object. Required when the program has a non-`unknown` context type.
 
 **Returns:** `PadroneCommandResult` with `command`, `args`, `argsResult`, and `result`. Returns a `Promise` when the matched command is async.

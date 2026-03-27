@@ -207,11 +207,7 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
       const runtime = getCommandRuntime(rootCommand);
       const resolvedInput = (runtime.argv().join(' ') || undefined) as string | undefined;
 
-      // Pass repl preferences via initialState; exec.ts moves them to runtime for extension access
-      const initialState: Record<string, unknown> = {};
-      if (cliOptions && 'repl' in cliOptions) initialState._replPrefs = cliOptions.repl;
-
-      const result = execCommand(resolvedInput, ctx, cliOptions, 'hard', 'cli', initialState);
+      const result = execCommand(resolvedInput, ctx, cliOptions, 'hard', 'cli');
 
       if (result instanceof Promise) return withPromiseDrain(result.catch((err: unknown) => errorResultWithSignal(err))) as any;
       return makeThenable(result);

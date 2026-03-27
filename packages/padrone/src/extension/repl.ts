@@ -43,7 +43,10 @@ export type WithRepl<T> = WithCommand<T, 'repl', ReplCommand>;
  * createPadrone('my-cli').extend(padroneRepl())
  * ```
  */
-export function padroneRepl(defaults?: PadroneReplPreferences): <T extends CommandTypesBase>(builder: T) => WithRepl<T> {
+export function padroneRepl(
+  defaults?: PadroneReplPreferences & { disabled?: boolean },
+): <T extends CommandTypesBase>(builder: T) => WithRepl<T> {
+  const disabled = defaults?.disabled;
   return ((builder: AnyPadroneBuilder) =>
     builder
       .command('repl', (c) =>
@@ -58,24 +61,19 @@ export function padroneRepl(defaults?: PadroneReplPreferences): <T extends Comma
             return value;
           }),
       )
-      .intercept(createReplInterceptor(defaults))) as any;
+      .intercept(createReplInterceptor(defaults, disabled))) as any;
 }
 
-function createReplInterceptor(defaults?: PadroneReplPreferences) {
-  return defineInterceptor({ id: 'padrone:repl', name: 'padrone:repl', order: -1000 }, () => ({
+function createReplInterceptor(defaults?: PadroneReplPreferences, disabled?: boolean) {
+  return defineInterceptor({ id: 'padrone:repl', name: 'padrone:repl', order: -1000, disabled }, () => ({
     start(ctx: InterceptorStartContext, next: () => unknown) {
-      // If repl is disabled via cli preferences (stored on runtime by exec.ts), skip
-      const replPrefsValue = (ctx.runtime as any)._replPrefs;
-      if (replPrefsValue === false) return next();
-
       const replInfo = checkReplFlag(ctx.input, ctx.command);
       if (!replInfo) return next();
 
       const program = ctx.program;
       if (!program?.repl) return next();
 
-      const cliPrefs = typeof replPrefsValue === 'object' ? (replPrefsValue as PadroneReplPreferences) : undefined;
-      const prefs: PadroneReplPreferences = { ...defaults, ...cliPrefs, scope: replInfo.scope ?? cliPrefs?.scope ?? defaults?.scope };
+      const prefs: PadroneReplPreferences = { ...defaults, scope: replInfo.scope ?? defaults?.scope };
 
       // Return a Promise so the pipeline awaits the REPL result
       return program

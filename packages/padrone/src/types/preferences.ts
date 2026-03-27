@@ -80,10 +80,4 @@ export type PadroneEvalPreferences = {
 /**
  * Options that can be passed to `cli()` to control execution behavior.
  */
-export type PadroneCliPreferences<TScope extends string = string> = PadroneEvalPreferences & {
-  /**
-   * REPL preferences. When provided, the `--repl` flag will use these settings.
-   * Set to `false` to disable the `--repl` flag entirely.
-   */
-  repl?: PadroneReplPreferences<TScope> | false;
-};
+export type PadroneCliPreferences = PadroneEvalPreferences;

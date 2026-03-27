@@ -83,7 +83,6 @@ export function execCommand(
   evalOptions?: PadroneEvalPreferences,
   errorMode: 'soft' | 'hard' = 'soft',
   caller: PadroneActionContext['caller'] = 'eval',
-  initialState?: Record<string, unknown>,
 ) {
   const { rootCommand, parseCommandFn, collectInterceptorsFn } = ctx;
   const baseRuntime = getCommandRuntime(rootCommand);
@@ -153,12 +152,7 @@ export function execCommand(
   };
 
   // Shared interceptor state for this execution
-  const state: Record<string, unknown> = { ...initialState };
-  // Move repl preferences from state to runtime for extension access (avoids state bag)
-  if (state._replPrefs !== undefined) {
-    (runtime as any)._replPrefs = state._replPrefs;
-    delete state._replPrefs;
-  }
+  const state: Record<string, unknown> = {};
 
   // Factory resolution cache — ensures each factory is called at most once per execution,
   // so root interceptor closures are shared when they appear in both root and command chains.
