@@ -26,7 +26,6 @@ import type {
   PadroneActionContext,
   PadroneCommand,
   PadroneCommandConfig,
-  PadroneProgressPrefs,
 } from './command.ts';
 import type { InterceptorFactory, InterceptorMeta, PadroneInterceptorFn } from './interceptor.ts';
 import type { PadroneCliPreferences, PadroneEvalPreferences, PadroneReplPreferences } from './preferences.ts';
@@ -317,10 +316,6 @@ export type PadroneBuilderMethods<
     OrAsync<TAsync, TNewEnv>,
     TContext
   >;
-
-  progress: (
-    config?: boolean | string | PadroneProgressPrefs<Awaited<TRes>>,
-  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TConfig, TEnv, TAsync, TContext>;
 
   action: <TNewRes>(
     handler?: (

@@ -133,10 +133,6 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedEnv);
       return createPadroneBuilder({ ...existingCommand, envSchema: resolvedEnv as any, isAsync }) as any;
     },
-    progress(config = true) {
-      const progress = typeof config === 'boolean' || typeof config === 'string' ? config : { ...config };
-      return createPadroneBuilder({ ...existingCommand, progress }) as any;
-    },
     action(handler = noop) {
       const baseHandler = existingCommand.action ?? noop;
       return createPadroneBuilder({

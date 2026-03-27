@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type { PadroneProgressIndicator, PadroneRuntime, PadroneSpinnerConfig, ResolvedPadroneRuntime } from '../core/runtime.ts';
+import type { PadroneProgressIndicator, PadroneRuntime, ResolvedPadroneRuntime } from '../core/runtime.ts';
 import type { FullCommandName } from '../util/type-utils.ts';
 import type { PadroneArgsSchemaMeta } from './args-meta.ts';
 import type { AnyPadroneProgram } from './builder.ts';
@@ -36,33 +36,6 @@ export type PadroneActionContext<TContext = unknown> = {
   context: TContext;
   /** Which API entry point triggered this execution. */
   caller: 'cli' | 'eval' | 'run' | 'repl' | 'serve' | 'mcp' | 'tool';
-};
-
-/**
- * A progress message value: a plain string, `null` to suppress, or an object with a message and custom indicator icon.
- */
-export type PadroneProgressMessage = string | null | { message?: string | null; indicator?: string };
-
-/**
- * Progress indicator configuration with per-state messages and optional dynamic callbacks.
- *
- * The `success` and `error` fields accept either a static value or a callback function:
- * - `string` — static message.
- * - `null` — suppress the message entirely.
- * - `{ message, indicator }` — custom message with a per-call indicator icon override.
- * - `(result) => PadroneProgressMessage` / `(error) => PadroneProgressMessage` — dynamic from the actual result/error.
- */
-export type PadroneProgressPrefs<TRes = unknown> = {
-  /** Message shown during async validation. Defaults to `''` (spinner only). */
-  validation?: string;
-  /** Message shown while the command's action is running. */
-  progress?: string;
-  /** Message shown when the command succeeds. `null` to suppress. Defaults to the `progress` message. */
-  success?: PadroneProgressMessage | ((result: TRes) => PadroneProgressMessage);
-  /** Message shown when the command fails. `null` to suppress. Defaults to the error message. */
-  error?: PadroneProgressMessage | ((error: unknown) => PadroneProgressMessage);
-  /** Spinner configuration: a preset name, custom frames/interval, or `false` to disable. */
-  spinner?: PadroneSpinnerConfig;
 };
 
 /**
@@ -127,16 +100,6 @@ export type PadroneCommand<
   autoOutput?: boolean;
   /** Usage examples shown in help output. Each entry is a command-line invocation string. */
   examples?: string[];
-  /**
-   * Auto-start a progress indicator when the command's execute phase begins.
-   * - `true` — generic message based on command name.
-   * - `string` — custom message for all states.
-   * - `PadroneProgressConfig` — separate messages for progress, success, and error states.
-   *
-   * The indicator is automatically stopped on success (`.succeed()`) or failure (`.fail()`).
-   * Requires a `progress` factory on the runtime — silently skipped if not available.
-   */
-  progress?: boolean | string | PadroneProgressPrefs;
   argsSchema?: TArgs;
   configSchema?: TConfig;
   envSchema?: TEnv;

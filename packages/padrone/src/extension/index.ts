@@ -9,6 +9,8 @@ export type { WithMan } from './man.ts';
 export { padroneMan } from './man.ts';
 export type { WithMcp } from './mcp-ext.ts';
 export { padroneMcp } from './mcp-ext.ts';
+export type { PadroneProgressConfig, PadroneProgressMessage } from './progress.ts';
+export { padroneProgress } from './progress.ts';
 export type { WithRepl } from './repl.ts';
 export { padroneRepl } from './repl.ts';
 export type { WithServe } from './serve-ext.ts';

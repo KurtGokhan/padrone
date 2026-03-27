@@ -14,8 +14,6 @@ export type {
   PadroneActionContext,
   PadroneCommand,
   PadroneCommandConfig,
-  PadroneProgressMessage,
-  PadroneProgressPrefs,
 } from './command.ts';
 export type {
   InterceptorBaseContext,

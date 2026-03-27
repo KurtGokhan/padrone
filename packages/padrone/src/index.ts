@@ -17,6 +17,8 @@ export type {
 } from './core/runtime.ts';
 export { REPL_SIGINT } from './core/runtime.ts';
 export type {
+  PadroneProgressConfig,
+  PadroneProgressMessage,
   WithCompletion,
   WithHelp,
   WithMan,
@@ -33,6 +35,7 @@ export {
   padroneInteractive,
   padroneMan,
   padroneMcp,
+  padroneProgress,
   padroneRepl,
   padroneServe,
   padroneUpdateCheck,
@@ -74,8 +77,6 @@ export type {
   PadroneInterceptorFn,
   PadroneParseResult,
   PadroneProgram,
-  PadroneProgressMessage,
-  PadroneProgressPrefs as PadroneProgressConfig,
   PadroneSchema,
 } from './types/index.ts';
 export type { AsyncStreamMeta } from './util/stream.ts';

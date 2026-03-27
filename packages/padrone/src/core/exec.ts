@@ -18,16 +18,9 @@ import type {
 import { resolveInherited } from './builtins.ts';
 import { getCommandRuntime, resolveAllCommands, resolveCommand, suggestSimilar } from './commands.ts';
 import { ConfigError, RoutingError, signalExitCode, ValidationError } from './errors.ts';
-import {
-  createLazyIndicator,
-  createProgress,
-  resolveProgressMessage,
-  resolveRegisteredInterceptors,
-  runInterceptorChain,
-  wrapWithLifecycle,
-} from './interceptors.ts';
+import { noopIndicator, resolveRegisteredInterceptors, runInterceptorChain, wrapWithLifecycle } from './interceptors.ts';
 import { errorResult, hasInteractiveConfig, noop, outputValue, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
-import type { PadroneProgressIndicator, PadroneSignal } from './runtime.ts';
+import type { PadroneSignal } from './runtime.ts';
 import { collectSuggestionsFromIssues, enrichIssuesWithSuggestions, formatSuggestions } from './suggestions.ts';
 import {
   buildCommandArgs,
@@ -76,27 +69,6 @@ export function errorResultWithSignal(err: unknown) {
     (result as any).exitCode = (err as any)._padroneExitCode;
   }
   return result;
-}
-
-/** Clean up an active progress indicator from the interceptor state. */
-function cleanupProgressIndicator(state: Record<string, unknown>, resultOrError: unknown, isError: boolean) {
-  const indicator = state._progress as PadroneProgressIndicator | undefined;
-  if (!indicator) return;
-
-  const hasProgressConfig = '_progressMsg' in state;
-  if (!hasProgressConfig) {
-    indicator.stop();
-  } else if (isError) {
-    const fallback = resultOrError instanceof Error ? resultOrError.message : String(resultOrError);
-    const { message: errorMsg, indicator: errorIcon } = resolveProgressMessage(state._progressError, resultOrError, fallback);
-    indicator.fail(errorMsg, errorIcon !== undefined ? { indicator: errorIcon } : undefined);
-  } else {
-    const { message: successMsg, indicator: successIcon } = resolveProgressMessage(state._progressSuccess, resultOrError);
-    indicator.succeed(successMsg, successIcon !== undefined ? { indicator: successIcon } : undefined);
-  }
-  (state._restoreOutput as (() => void) | undefined)?.();
-  state._progress = undefined;
-  state._restoreOutput = undefined;
 }
 
 /**
@@ -271,40 +243,6 @@ export function execCommand(
       const { command } = parsed;
       const commandInterceptors = resolveRegisteredInterceptors(collectInterceptorsFn(command), factoryCache);
 
-      // ── Auto-progress: start before validation ───────────────────────
-      const progressConfig = command.progress;
-      if (progressConfig && runtime.progress) {
-        const isObj = typeof progressConfig === 'object';
-        const defaultMsg = typeof progressConfig === 'string' ? progressConfig : `Running ${command.name}...`;
-        const progressMsg = isObj ? (progressConfig.progress ?? defaultMsg) : defaultMsg;
-        const validationMsg = isObj ? (progressConfig.validation ?? '') : '';
-        state._progressSuccess = isObj ? progressConfig.success : undefined;
-        state._progressError = isObj ? progressConfig.error : undefined;
-        state._progressMsg = progressMsg;
-        state._progressValidationMsg = validationMsg || undefined;
-        const spinnerConfig = isObj ? progressConfig.spinner : undefined;
-        const progressOptions = spinnerConfig !== undefined ? { spinner: spinnerConfig } : undefined;
-        const indicator = createProgress(runtime, validationMsg || progressMsg, progressOptions);
-        state._progress = indicator;
-
-        const originalOutput = runtime.output;
-        const originalError = runtime.error;
-        runtime.output = (...args: unknown[]) => {
-          indicator.pause();
-          originalOutput(...args);
-          indicator.resume();
-        };
-        runtime.error = (text: string) => {
-          indicator.pause();
-          originalError(text);
-          indicator.resume();
-        };
-        state._restoreOutput = () => {
-          runtime.output = originalOutput;
-          runtime.error = originalError;
-        };
-      }
-
       // ── Phase 2: Validate ───────────────────────────────────────────
       const validateCtx: InterceptorValidateContext = {
         command,
@@ -477,12 +415,6 @@ export function execCommand(
           });
         }
 
-        // Update auto-progress message from validation to execute phase
-        const activeIndicator = state._progress as PadroneProgressIndicator | undefined;
-        if (activeIndicator && state._progressMsg && state._progressValidationMsg) {
-          activeIndicator.update(state._progressMsg as string);
-        }
-
         const executeCtx: InterceptorExecuteContext = {
           command,
           args: v.args,
@@ -499,7 +431,7 @@ export function execCommand(
             runtime: effectiveRuntime,
             command: executeCtx.command,
             program: ctx.builder as any,
-            progress: (state._progress as PadroneProgressIndicator) ?? createLazyIndicator(effectiveRuntime, state),
+            progress: executeCtx.progress ?? noopIndicator,
             signal: executeCtx.signal,
             context: executeCtx.context,
             caller,
@@ -512,8 +444,6 @@ export function execCommand(
 
         return thenMaybe(executedOrPromise, (e) => {
           const finalize = (result: unknown) => {
-            cleanupProgressIndicator(state, result, false);
-
             const commandResult = withDrain({
               command: command as any,
               args: v.args,
@@ -530,10 +460,7 @@ export function execCommand(
           };
 
           if (e.result instanceof Promise) {
-            return e.result.then(finalize, (err: unknown) => {
-              cleanupProgressIndicator(state, err, true);
-              throw err;
-            });
+            return e.result.then(finalize);
           }
 
           return finalize(e.result);

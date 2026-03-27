@@ -129,8 +129,8 @@ export type PadroneRuntime = {
   prompt?: (config: InteractivePromptConfig) => Promise<unknown>;
   /**
    * Create a progress indicator (spinner, progress bar, etc).
-   * Used by commands that set `progress` in their config, or manually via `ctx.progress()` in actions.
-   * When not provided, auto-progress is silently skipped and `ctx.progress()` returns a no-op indicator.
+   * Used by the `padroneProgress()` extension and available to interceptors via the runtime.
+   * When not provided, progress extensions silently degrade to no-ops.
    */
   progress?: (message: string, options?: PadroneProgressOptions) => PadroneProgressIndicator;
   /**

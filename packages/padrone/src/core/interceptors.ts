@@ -147,26 +147,7 @@ export function runInterceptorChain<TCtx extends object, TResult>(
   return next(ctx);
 }
 
-/**
- * Resolves a progress message field (static or callback) into the arguments for succeed/fail.
- * Handles string, null, `{ message, indicator }` objects, and callback functions.
- */
-export function resolveProgressMessage(
-  field: unknown,
-  value: unknown,
-  fallback?: string,
-): { message: string | null | undefined; indicator?: string } {
-  const raw = typeof field === 'function' ? (field as (v: unknown) => unknown)(value) : field;
-  if (raw === undefined) return { message: fallback };
-  if (raw === null || typeof raw === 'string') return { message: raw };
-  if (typeof raw === 'object' && raw !== null) {
-    const obj = raw as { message?: string | null; indicator?: string };
-    return { message: obj.message, indicator: obj.indicator };
-  }
-  return { message: fallback };
-}
-
-/** No-op progress indicator returned when the runtime doesn't provide a `progress` factory. */
+/** No-op progress indicator returned when no progress extension is active. */
 export const noopIndicator: PadroneProgressIndicator = {
   update() {},
   succeed() {},
@@ -175,54 +156,6 @@ export const noopIndicator: PadroneProgressIndicator = {
   pause() {},
   resume() {},
 };
-
-/** Creates a progress indicator from the runtime, or returns a no-op if unavailable. */
-export function createProgress(
-  runtime: ResolvedPadroneRuntime,
-  message: string,
-  options?: import('./runtime.ts').PadroneProgressOptions,
-): PadroneProgressIndicator {
-  return runtime.progress?.(message, options) ?? noopIndicator;
-}
-
-/**
- * Creates a lazy progress indicator that defers real indicator creation until first use.
- * This allows `ctx.progress` to work even without `.progress()` config, as long as the
- * runtime provides a progress factory.
- */
-export function createLazyIndicator(runtime: ResolvedPadroneRuntime, state: Record<string, unknown>): PadroneProgressIndicator {
-  if (!runtime.progress) return noopIndicator;
-
-  let real: PadroneProgressIndicator | undefined;
-  const ensure = (message?: string) => {
-    if (!real) {
-      real = runtime.progress!(message ?? '', undefined);
-      state._progress = real;
-    }
-    return real;
-  };
-
-  return {
-    update(msg) {
-      ensure(msg).update(msg);
-    },
-    succeed(msg) {
-      if (real) real.succeed(msg);
-    },
-    fail(msg) {
-      if (real) real.fail(msg);
-    },
-    stop() {
-      if (real) real.stop();
-    },
-    pause() {
-      if (real) real.pause();
-    },
-    resume() {
-      if (real) real.resume();
-    },
-  };
-}
 
 /**
  * Wraps a pipeline with start → error → shutdown lifecycle hooks.
@@ -246,57 +179,13 @@ export function wrapWithLifecycle<T>(
   const hasError = interceptors.some((p) => p.error);
   const hasShutdown = interceptors.some((p) => p.shutdown);
 
-  const cleanupProgress = (error?: unknown, result?: unknown) => {
-    const indicator = state._progress as PadroneProgressIndicator | undefined;
-    if (indicator) {
-      // If there's no progress config (lazy/manual indicator), just stop it silently
-      const hasProgressConfig = '_progressMsg' in state;
-      if (!hasProgressConfig) {
-        indicator.stop();
-      } else if (error !== undefined) {
-        const fallback = error instanceof Error ? error.message : String(error);
-        const { message: errorMsg, indicator: errorIcon } = resolveProgressMessage(state._progressError, error, fallback);
-        indicator.fail(errorMsg, errorIcon !== undefined ? { indicator: errorIcon } : undefined);
-      } else {
-        const { message: successMsg, indicator: successIcon } = resolveProgressMessage(state._progressSuccess, result);
-        indicator.succeed(successMsg, successIcon !== undefined ? { indicator: successIcon } : undefined);
-      }
-      (state._restoreOutput as (() => void) | undefined)?.();
-      state._progress = undefined;
-      state._restoreOutput = undefined;
-    }
-  };
-
-  // Fast path: no lifecycle interceptors — still need progress cleanup
-  if (!hasStart && !hasError && !hasShutdown) {
-    let result: T | Promise<T>;
-    try {
-      result = pipeline();
-    } catch (e) {
-      cleanupProgress(e);
-      throw e;
-    }
-    if (result instanceof Promise) {
-      return result.then(
-        (r) => {
-          cleanupProgress();
-          return r;
-        },
-        (e) => {
-          cleanupProgress(e);
-          throw e;
-        },
-      );
-    }
-    cleanupProgress();
-    return result;
-  }
+  // Fast path: no lifecycle interceptors
+  if (!hasStart && !hasError && !hasShutdown) return pipeline();
 
   const defaultSignal = typeof AbortSignal !== 'undefined' ? AbortSignal.abort() : (undefined as unknown as AbortSignal);
   const effectiveSignal = signal ?? defaultSignal;
 
   const runShutdown = (error?: unknown, result?: unknown) => {
-    cleanupProgress(error);
     if (!hasShutdown) return;
     const ctx: InterceptorShutdownContext = { command, state, error, result, signal: effectiveSignal, context, runtime: runtime! };
     return runInterceptorChain('shutdown', interceptors, ctx, () => {});

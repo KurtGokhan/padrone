@@ -1,4 +1,4 @@
-import { createPadrone, defineInterceptor } from 'padrone';
+import { createPadrone, defineInterceptor, padroneProgress } from 'padrone';
 import { zodAsyncStream } from 'padrone/zod';
 import * as z from 'zod/v4';
 import { addTask, getTask, getTasks, removeTask, setTaskStatus, updateTask } from './tasks-store.ts';
@@ -292,15 +292,17 @@ export const tasksProgram = createPadrone('tasks')
           message: `Synced ${tasks.length} task(s) to remote.`,
         };
       })
-      .progress({
-        validation: 'Validating before sync...',
-        progress: 'Syncing tasks to remote...',
-        success: (res) => ({
-          message: `${res.count} tasks synced successfully!`,
-          indicator: res.count > 3 ? '🚀' : '✅',
+      .extend(
+        padroneProgress({
+          validation: 'Validating before sync...',
+          progress: 'Syncing tasks to remote...',
+          success: (res) => ({
+            message: `${(res as any).count} tasks synced successfully!`,
+            indicator: (res as any).count > 3 ? '🚀' : '✅',
+          }),
+          error: 'Failed to sync tasks.',
         }),
-        error: 'Failed to sync tasks.',
-      }),
+      ),
   )
   .command('import', (c) =>
     c
@@ -320,10 +322,12 @@ export const tasksProgram = createPadrone('tasks')
         }
         return `Successfully imported ${count} task(s) from ${args.file}`;
       })
-      .progress({
-        progress: 'Importing tasks...',
-        success: (res) => res,
-      }),
+      .extend(
+        padroneProgress({
+          progress: 'Importing tasks...',
+          success: (res) => res as string,
+        }),
+      ),
   )
   .command('advanced', (c) =>
     c

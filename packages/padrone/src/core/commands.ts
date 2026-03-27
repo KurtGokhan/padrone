@@ -71,8 +71,6 @@ export function mergeCommands(existing: AnyPadroneCommand, override: AnyPadroneC
   if (override.runtime !== existing.runtime) merged.runtime = override.runtime;
   if (override.interceptors !== existing.interceptors) merged.interceptors = override.interceptors;
   if (override.aliases !== existing.aliases) merged.aliases = override.aliases;
-  if (override.progress !== existing.progress) merged.progress = override.progress;
-
   // Recursively merge subcommands by name
   if (override.commands) {
     const baseCommands = [...(existing.commands || [])];
