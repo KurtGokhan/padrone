@@ -1,11 +1,11 @@
 import { padroneAutoOutput } from '../extension/auto-output.ts';
 import { padroneColor } from '../extension/color.ts';
-import { padroneConfig } from '../extension/config-ext.ts';
+import { padroneConfig } from '../extension/config.ts';
 import { padroneHelp } from '../extension/help.ts';
-import { padroneInteractive } from '../extension/interactive-ext.ts';
+import { padroneInteractive } from '../extension/interactive.ts';
 import { padroneRepl } from '../extension/repl.ts';
 import { padroneSignalHandling } from '../extension/signal.ts';
-import { padroneStdin } from '../extension/stdin-ext.ts';
+import { padroneStdin } from '../extension/stdin.ts';
 import { padroneVersion } from '../extension/version.ts';
 import { createWrapHandler } from '../feature/wrap.ts';
 import type {
