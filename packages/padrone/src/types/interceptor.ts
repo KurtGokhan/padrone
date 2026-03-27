@@ -41,8 +41,10 @@ export type InterceptorValidateContext = InterceptorBaseContext & {
   rawArgs: Record<string, unknown>;
   /** Positional argument strings extracted by the parser. */
   positionalArgs: string[];
-  /** Interactive mode override (set by the interactive extension when `--interactive` is used). */
+  /** Interactive mode override (set by the interactive extension when `--interactive` / `-i` flag is used). */
   interactive?: boolean;
+  /** Interactive mode preference from eval/cli options. Available for the interactive extension. */
+  evalInteractive?: boolean;
 };
 
 /** Result returned by the validate phase's `next()`. */
@@ -159,7 +161,7 @@ export type InterceptorPhases<TArgs = unknown, TResult = unknown> = {
   start?: InterceptorPhaseHandler<InterceptorStartContext, unknown>;
   /** Intercepts command routing and raw argument extraction. */
   parse?: InterceptorPhaseHandler<InterceptorParseContext, InterceptorParseResult>;
-  /** Intercepts argument preprocessing, interactive prompting, and schema validation. */
+  /** Intercepts argument preprocessing and schema validation. Interactive prompting is handled by the interactive extension. */
   validate?: InterceptorPhaseHandler<InterceptorValidateContext, InterceptorValidateResult<TArgs>, InterceptorValidateResult>;
   /** Intercepts handler execution. */
   execute?: InterceptorPhaseHandler<InterceptorExecuteContext<TArgs>, InterceptorExecuteResult<TResult>, InterceptorExecuteResult>;

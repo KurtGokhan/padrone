@@ -1,5 +1,3 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { promptInteractiveFields } from '../feature/interactive.ts';
 import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
@@ -17,9 +15,9 @@ import type {
 import { getCommandRuntime, resolveCommand, suggestSimilar } from './commands.ts';
 import { RoutingError, ValidationError } from './errors.ts';
 import { noopIndicator, resolveRegisteredInterceptors, runInterceptorChain, wrapWithLifecycle } from './interceptors.ts';
-import { errorResult, hasInteractiveConfig, noop, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
+import { errorResult, noop, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
 import { collectSuggestionsFromIssues, enrichIssuesWithSuggestions, formatSuggestions } from './suggestions.ts';
-import { buildCommandArgs, checkUnknownArgs, formatIssueMessages, getKnownOptionNames, validateCommandArgs } from './validate.ts';
+import { buildCommandArgs, formatIssueMessages, getKnownOptionNames, validateCommandArgs } from './validate.ts';
 
 export type ExecContext = {
   rootCommand: AnyPadroneCommand;
@@ -178,67 +176,13 @@ export function execCommand(
         runtime,
         program: ctx.builder,
         caller,
+        evalInteractive: evalOptions?.interactive,
       };
 
       const coreValidate = (validateCtx: InterceptorValidateContext): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
-        // Determine interactivity (flag may have been set by the interactive extension via next() override)
-        const flagInteractive = validateCtx.interactive;
-
-        const runtimeDefault: boolean | undefined =
-          runtime.interactive === 'forced' ? true : runtime.interactive === 'disabled' ? false : undefined;
-        const effectiveInteractive: boolean | undefined = flagInteractive ?? evalOptions?.interactive ?? runtimeDefault;
-        const commandUsesStdin = !!command.meta?.stdin;
-        const stdinIsPiped =
-          commandUsesStdin && (runtime.stdin ? !runtime.stdin.isTTY : typeof process !== 'undefined' && process.stdin?.isTTY !== true);
-        const interactivitySuppressed =
-          runtime.interactive === 'unsupported' || effectiveInteractive === false || (stdinIsPiped && effectiveInteractive !== true);
-        const forceInteractive = !interactivitySuppressed && effectiveInteractive === true;
-
-        // Extensions (stdin, env, config) have already merged their data into rawArgs via next({ rawArgs }).
-        const preprocessedArgs = buildCommandArgs(command, validateCtx.rawArgs, validateCtx.positionalArgs);
-
-        const doPrompt = (args: Record<string, unknown>): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
-          const willPrompt = !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta);
-          const afterInteractive = willPrompt ? promptInteractiveFields(args, command, runtime, forceInteractive || undefined) : args;
-
-          return thenMaybe(afterInteractive, (filledArgs) => {
-            const validated = validateCommandArgs(command, filledArgs);
-            return thenMaybe(validated, (v) => v as InterceptorValidateResult);
-          });
-        };
-
-        const willPrompt = !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta);
-        if (willPrompt) {
-          const unknowns = checkUnknownArgs(command, preprocessedArgs);
-          if (unknowns.length > 0) {
-            const issues: StandardSchemaV1.Issue[] = unknowns.map(({ key, suggestions }) => {
-              const hint = formatSuggestions(suggestions, '--');
-              return { path: [key], message: hint ? `Unknown option: "${key}". ${hint}` : `Unknown option: "${key}"` };
-            });
-            return { args: undefined, argsResult: { issues } as any };
-          }
-
-          if (command.argsSchema) {
-            const providedKeys = new Set(Object.keys(preprocessedArgs).filter((k) => preprocessedArgs[k] !== undefined));
-            const earlyCheck = command.argsSchema['~standard'].validate(preprocessedArgs);
-            const checkForProvidedFieldErrors = (result: StandardSchemaV1.Result<unknown>): InterceptorValidateResult | undefined => {
-              if (!result.issues) return undefined;
-              const providedFieldIssues = result.issues.filter((issue) => {
-                const rootKey = issue.path?.[0];
-                return rootKey !== undefined && providedKeys.has(String(rootKey));
-              });
-              if (providedFieldIssues.length > 0) return { args: undefined, argsResult: { issues: providedFieldIssues } as any };
-              return undefined;
-            };
-            const earlyResult = thenMaybe(earlyCheck, (result) => checkForProvidedFieldErrors(result) ?? undefined);
-            if (earlyResult instanceof Promise) {
-              return earlyResult.then((err) => (err ? err : doPrompt(preprocessedArgs)));
-            }
-            if (earlyResult) return earlyResult;
-          }
-        }
-
-        return doPrompt(preprocessedArgs);
+        const preprocessedArgs = buildCommandArgs(validateCtx.command, validateCtx.rawArgs, validateCtx.positionalArgs);
+        const validated = validateCommandArgs(validateCtx.command, preprocessedArgs);
+        return thenMaybe(validated, (v) => v as InterceptorValidateResult);
       };
 
       const validatedOrPromise = runInterceptorChain('validate', commandInterceptors, validateCtx, coreValidate);
