@@ -1,11 +1,8 @@
 import { describe, expect, expectTypeOf, it } from 'bun:test';
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('mount', () => {
-  createConsoleMocker();
-
   const admin = createPadrone('admin')
     .configure({ description: 'Admin panel' })
     .arguments(z.object({ verbose: z.boolean().default(false) }))

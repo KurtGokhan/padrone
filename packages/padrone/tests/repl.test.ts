@@ -1,7 +1,6 @@
 import { describe, expect, it, mock } from 'bun:test';
 import { buildReplCompleter, createPadrone, padroneRepl } from 'padrone';
 import * as z from 'zod/v4';
-import { createConsoleMocker } from './console-mocker.ts';
 
 /**
  * Creates a mock readLine that returns inputs in sequence, then null (EOF).
@@ -31,8 +30,6 @@ function createTestProgram(readLine: ReturnType<typeof mockReadLine>) {
 }
 
 describe('REPL', () => {
-  createConsoleMocker();
-
   it('should support drain() to collect all results', async () => {
     const readLine = mockReadLine(['greet World', 'add --a=2 --b=3', null]);
     const program = createTestProgram(readLine);

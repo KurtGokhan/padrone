@@ -2,11 +2,8 @@ import { describe, expect, it } from 'bun:test';
 import { createPadrone, padroneConfig, padroneEnv } from 'padrone';
 import { testCli } from 'padrone/test';
 import * as z from 'zod/v4';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('testCli', () => {
-  createConsoleMocker();
-
   describe('basic eval', () => {
     const program = createPadrone('test')
       .command('greet', (c) =>

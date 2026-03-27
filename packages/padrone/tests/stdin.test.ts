@@ -3,11 +3,8 @@ import { createPadrone, padroneConfig, padroneEnv } from 'padrone';
 import { testCli } from 'padrone/test';
 import { jsonCodec, zodAsyncStream } from 'padrone/zod';
 import * as z from 'zod/v4';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('stdin', () => {
-  createConsoleMocker();
-
   describe('text mode (default)', () => {
     const program = createPadrone('test').command('process', (c) =>
       c.arguments(z.object({ data: z.string() }), { stdin: 'data' }).action((args) => `processed: ${args.data}`),

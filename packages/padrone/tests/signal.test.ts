@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import type { PadroneSignal } from 'padrone';
 import { createPadrone, defineInterceptor, SignalError } from 'padrone';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('signal handling', () => {
-  createConsoleMocker();
-
   /** Creates a runtime with a controllable onSignal. */
   const createSignalRuntime = () => {
     let signalCallback: ((signal: PadroneSignal) => void) | undefined;

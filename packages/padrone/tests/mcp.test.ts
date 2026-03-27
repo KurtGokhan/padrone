@@ -3,15 +3,12 @@ import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 import { commandSymbol } from '../src/core/commands.ts';
 import { createMcpHandler } from '../src/feature/mcp.ts';
-import { createConsoleMocker } from './console-mocker.ts';
 
 function getCommand(program: any) {
   return program[commandSymbol];
 }
 
 describe('mcp', () => {
-  createConsoleMocker();
-
   const program = createPadrone('test')
     .configure({ version: '1.0.0', description: 'Test program' })
     .command('greet', (c) =>

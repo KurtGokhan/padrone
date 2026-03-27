@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import { createPadrone, padroneUpdateCheck } from 'padrone';
 import { formatUpdateMessage, isNewerVersion, parseInterval } from '../src/feature/update-check.ts';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('update-check', () => {
-  createConsoleMocker();
-
   describe('parseInterval', () => {
     it('should parse milliseconds', () => {
       expect(parseInterval('500ms')).toBe(500);

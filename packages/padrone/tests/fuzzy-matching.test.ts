@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('fuzzy matching', () => {
-  createConsoleMocker();
-
   describe('command suggestions', () => {
     const program = createPadrone('app')
       .command('deploy', (c) => c.action(() => 'deployed'))

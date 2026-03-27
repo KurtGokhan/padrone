@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import { ActionError, ConfigError, createPadrone, PadroneError, RoutingError, ValidationError } from 'padrone';
 import * as z from 'zod/v4';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('structured errors', () => {
-  createConsoleMocker();
-
   describe('PadroneError base class', () => {
     it('should have default exitCode of 1', () => {
       const err = new PadroneError('test');

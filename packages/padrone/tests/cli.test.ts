@@ -2,11 +2,9 @@ import { describe, expect, it, mock } from 'bun:test';
 import { asyncSchema, createPadrone, padroneConfig, padroneEnv } from 'padrone';
 import * as z from 'zod/v4';
 import { createTasksProgram } from './common.ts';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('CLI', () => {
   const program = createTasksProgram();
-  createConsoleMocker();
 
   describe('programmatic execution', () => {
     it('should execute a simple command with args and args', () => {

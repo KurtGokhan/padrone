@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import { createPadrone, defineInterceptor } from 'padrone';
 import * as z from 'zod/v4';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('interceptors', () => {
-  createConsoleMocker();
-
   const makeProgram = () =>
     createPadrone('test')
       .command('greet', (c) =>

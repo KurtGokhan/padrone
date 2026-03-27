@@ -1,11 +1,8 @@
 import { describe, expect, expectTypeOf, it } from 'bun:test';
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('command routing', () => {
-  createConsoleMocker();
-
   describe('default command (empty name)', () => {
     const program = createPadrone('app')
       .configure({ version: '1.0.0' })

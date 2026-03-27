@@ -2,11 +2,8 @@ import { describe, expect, it, mock } from 'bun:test';
 import type { InteractivePromptConfig } from 'padrone';
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('Interactive', () => {
-  createConsoleMocker();
-
   function createMockPrompt(responses: Record<string, unknown>) {
     return mock(async (config: InteractivePromptConfig) => {
       return responses[config.name];

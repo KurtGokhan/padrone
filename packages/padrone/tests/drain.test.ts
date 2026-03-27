@@ -1,11 +1,8 @@
 import { describe, expect, expectTypeOf, it } from 'bun:test';
 import { ActionError, asyncSchema, createPadrone, type Drained, type PadroneDrainResult } from 'padrone';
 import * as z from 'zod/v4';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('drain()', () => {
-  createConsoleMocker();
-
   describe('sync commands', () => {
     it('should drain a simple value', async () => {
       const program = createPadrone('app').command('greet', (c) =>

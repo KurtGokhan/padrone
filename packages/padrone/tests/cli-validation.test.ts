@@ -1,11 +1,8 @@
 import { describe, expect, it, mock } from 'bun:test';
 import { createPadrone, type InteractivePromptConfig, RoutingError, ValidationError } from 'padrone';
 import * as z from 'zod/v4';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('CLI validation improvements', () => {
-  createConsoleMocker();
-
   // ====================================================================
   // Issue #1: Auto-coercion of CLI types
   // ====================================================================

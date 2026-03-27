@@ -1,11 +1,8 @@
 import { describe, expect, expectTypeOf, it, test } from 'bun:test';
 import { asyncSchema, createPadrone } from 'padrone';
 import * as z from 'zod/v4';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('Positional argument help signature', () => {
-  createConsoleMocker();
-
   it('should show choices for enum positional arguments', () => {
     const program = createPadrone('app').command('deploy', (c) =>
       c
@@ -75,8 +72,6 @@ describe('Positional argument help signature', () => {
 });
 
 describe('Optional array enum positional type safety', () => {
-  createConsoleMocker();
-
   it('should accept ...name for optional array enum positionals', () => {
     const program = createPadrone('app').command('deploy', (c) =>
       c
@@ -119,8 +114,6 @@ describe('Optional array enum positional type safety', () => {
 });
 
 describe('Single item to array coercion', () => {
-  createConsoleMocker();
-
   it('should coerce a single string to string[] when schema expects array', () => {
     const program = createPadrone('app').command('tag', (c) =>
       c.arguments(z.object({ tags: z.array(z.string()) })).action((args) => args.tags),
@@ -190,8 +183,6 @@ describe('Single item to array coercion', () => {
 });
 
 describe('Thenable results', () => {
-  createConsoleMocker();
-
   describe('eval() returns thenable', () => {
     it('should support .then() on sync eval result', async () => {
       const program = createPadrone('app').command('greet', (c) =>

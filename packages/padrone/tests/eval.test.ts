@@ -1,11 +1,8 @@
 import { describe, expect, it, mock } from 'bun:test';
 import { createPadrone } from 'padrone';
 import * as z from 'zod/v4';
-import { createConsoleMocker } from './console-mocker.ts';
 
 describe('eval', () => {
-  createConsoleMocker();
-
   const program = createPadrone('test')
 
     .command('greet', (c) => c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`))

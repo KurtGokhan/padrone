@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'bun:test';
 import { createPadrone, type PadroneProgressIndicator, padroneProgress } from 'padrone';
-import { createConsoleMocker } from './console-mocker.ts';
 
 function createMockProgress() {
   const indicators: { message: string; indicator: PadroneProgressIndicator & { calls: string[] } }[] = [];
@@ -38,8 +37,6 @@ function createMockProgress() {
 }
 
 describe('progress', () => {
-  createConsoleMocker();
-
   describe('auto-progress via padroneProgress extension', () => {
     it('should start and succeed progress for a sync command', () => {
       const { factory, indicators } = createMockProgress();
