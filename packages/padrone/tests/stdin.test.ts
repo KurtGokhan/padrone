@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { createPadrone } from 'padrone';
+import { createPadrone, padroneConfig, padroneEnv } from 'padrone';
 import { testCli } from 'padrone/test';
 import { jsonCodec, zodAsyncStream } from 'padrone/zod';
 import * as z from 'zod/v4';
@@ -91,8 +91,8 @@ describe('stdin', () => {
     const program = createPadrone('test').command('greet', (c) =>
       c
         .arguments(z.object({ name: z.string() }), { stdin: 'name' })
-        .env(z.object({ GREET_NAME: z.string().optional() }).transform((e) => ({ name: e.GREET_NAME! })))
-        .configFile('config.json')
+        .extend(padroneEnv(z.object({ GREET_NAME: z.string().optional() }).transform((e) => ({ name: e.GREET_NAME! }))))
+        .extend(padroneConfig({ files: ['config.json'] }))
         .action((args) => `Hello, ${args.name}!`),
     );
 

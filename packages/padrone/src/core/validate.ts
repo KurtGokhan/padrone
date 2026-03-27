@@ -1,19 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { AnyPadroneCommand, InterceptorValidateResult } from '../types/index.ts';
-import { createStdinStream } from '../util/stream.ts';
-import {
-  coerceArgs,
-  detectUnknownArgs,
-  extractSchemaMetadata,
-  getJsonSchema,
-  isArrayField,
-  isAsyncStreamField,
-  parsePositionalConfig,
-  preprocessArgs,
-} from './args.ts';
-import { resolveInherited } from './builtins.ts';
+import { coerceArgs, detectUnknownArgs, extractSchemaMetadata, getJsonSchema, parsePositionalConfig, preprocessArgs } from './args.ts';
 import { getCommandRuntime, suggestSimilar } from './commands.ts';
-import { resolveStdin, resolveStdinAlways } from './default-runtime.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
 import { thenMaybe } from './results.ts';
 import { formatSuggestions } from './suggestions.ts';
@@ -138,22 +126,15 @@ export function parseCommand(input: string | undefined, rootCommand: AnyPadroneC
 type FindCommandFn = (name: string, commands?: AnyPadroneCommand[]) => AnyPadroneCommand | undefined;
 
 /**
- * Preprocesses raw arguments: applies env/config values and maps positional arguments.
- * Also performs auto-coercion (string→number/boolean) and unknown arg detection.
+ * Preprocesses raw arguments: maps positional arguments and performs auto-coercion.
+ * External data sources (stdin, env, config) are handled by extensions before this runs.
  */
 export function buildCommandArgs(
   command: AnyPadroneCommand,
   rawArgs: Record<string, unknown>,
   positionalArgs: string[],
-  context?: { stdinData?: Record<string, unknown>; envData?: Record<string, unknown>; configData?: Record<string, unknown> },
 ): Record<string, unknown> {
-  let preprocessedArgs = preprocessArgs(rawArgs, {
-    flags: {},
-    aliases: {},
-    stdinData: context?.stdinData,
-    envData: context?.envData,
-    configData: context?.configData,
-  });
+  let preprocessedArgs = preprocessArgs(rawArgs, { flags: {}, aliases: {} });
 
   const positionalConfig = command.meta?.positional ? parsePositionalConfig(command.meta.positional) : [];
 
@@ -234,78 +215,6 @@ export function validateCommandArgs(command: AnyPadroneCommand, preprocessedArgs
 }
 
 /**
- * Preprocesses and validates raw arguments against the command's schema.
- * Returns sync or async result depending on the schema's validate method.
- */
-export function validateArgs(
-  command: AnyPadroneCommand,
-  rawArgs: Record<string, unknown>,
-  positionalArgs: string[],
-  context?: { stdinData?: Record<string, unknown>; envData?: Record<string, unknown>; configData?: Record<string, unknown> },
-) {
-  const preprocessedArgs = buildCommandArgs(command, rawArgs, positionalArgs, context);
-  return validateCommandArgs(command, preprocessedArgs);
-}
-
-/**
- * Reads stdin data for a command if configured and the field was not already provided.
- * Returns a record with the stdin field populated, or empty object.
- */
-export function readStdinData(
-  command: AnyPadroneCommand,
-  rawArgs: Record<string, unknown>,
-  rootCommand: AnyPadroneCommand,
-): Record<string, unknown> | Promise<Record<string, unknown>> {
-  const stdinField = command.meta?.stdin;
-  if (!stdinField) return {};
-
-  // Skip if the field was already provided via CLI flags
-  if (stdinField in rawArgs && rawArgs[stdinField] !== undefined) return {};
-
-  const runtime = getCommandRuntime(rootCommand);
-
-  const streamInfo = isAsyncStreamField(command.argsSchema, stdinField);
-  if (streamInfo) {
-    const stdinForStream = resolveStdinAlways(runtime as any);
-    return { [stdinField]: createStdinStream(stdinForStream, streamInfo.itemSchema) };
-  }
-
-  const stdin = resolveStdin(runtime as any);
-  if (!stdin) return {};
-
-  if (isArrayField(command.argsSchema, stdinField)) {
-    return (async () => {
-      const lines: string[] = [];
-      for await (const line of stdin.lines()) {
-        lines.push(line);
-      }
-      return { [stdinField]: lines };
-    })();
-  }
-  return stdin.text().then((text) => (text ? { [stdinField]: text } : {}));
-}
-
-/**
- * Validates env vars against the inherited env schema, returning validated data or undefined.
- */
-export function validateEnvData(
-  command: AnyPadroneCommand,
-  rootCommand: AnyPadroneCommand,
-): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> {
-  const envSchema = resolveInherited(command, 'envSchema');
-  if (!envSchema) return undefined;
-
-  const runtime = getCommandRuntime(rootCommand);
-  const rawEnv = runtime.env();
-  const envValidated = envSchema['~standard'].validate(rawEnv);
-
-  return thenMaybe(envValidated, (result) => {
-    if (!result.issues) return result.value as unknown as Record<string, unknown>;
-    return undefined;
-  });
-}
-
-/**
  * Returns the list of known option names from a command's schema (for fuzzy suggestion).
  */
 export function getKnownOptionNames(command: AnyPadroneCommand): string[] {
@@ -348,26 +257,16 @@ export function formatIssueMessages(issues: readonly StandardSchemaV1.Issue[], c
 }
 
 /**
- * Core validate function for parse() — handles env + stdin + schema validation.
+ * Core validate function for parse() — preprocesses and validates CLI args.
  * Used by the parse program method (lighter weight than the full exec pipeline).
+ * External data sources (stdin, env, config) are not resolved here — use eval() for that.
  */
 export function coreValidateForParse(
   command: AnyPadroneCommand,
   rawArgs: Record<string, unknown>,
   positionalArgs: string[],
-  rootCommand: AnyPadroneCommand,
 ): InterceptorValidateResult | Promise<InterceptorValidateResult> {
-  const envDataOrPromise = validateEnvData(command, rootCommand);
-
-  return thenMaybe(envDataOrPromise, (envData) => {
-    const stdinDataOrPromise = readStdinData(command, rawArgs, rootCommand);
-    return thenMaybe(stdinDataOrPromise, (stdinData) => {
-      const hasStdinData = Object.keys(stdinData).length > 0;
-      const validated = validateArgs(command, rawArgs, positionalArgs, {
-        stdinData: hasStdinData ? stdinData : undefined,
-        envData,
-      });
-      return thenMaybe(validated, (v) => v as InterceptorValidateResult);
-    });
-  });
+  const preprocessedArgs = buildCommandArgs(command, rawArgs, positionalArgs);
+  const validated = validateCommandArgs(command, preprocessedArgs);
+  return thenMaybe(validated, (v) => v as InterceptorValidateResult);
 }

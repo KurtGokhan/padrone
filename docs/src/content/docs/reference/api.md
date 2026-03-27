@@ -69,8 +69,7 @@ program.runtime({
 | `argv` | `() => string[]` | `process.argv.slice(2)` | Return raw CLI arguments |
 | `env` | `() => Record<string, string \| undefined>` | `process.env` | Return environment variables |
 | `format` | `string` | `'auto'` | Default help output format |
-| `loadConfigFile` | `(path: string) => Record<string, unknown> \| undefined` | Built-in JSON/YAML loader | Load a config file |
-| `findFile` | `(names: string[]) => string \| undefined` | Built-in file finder | Find config file by name |
+| `loadConfig` | `(files: string \| string[]) => Record<string, unknown> \| undefined` | Built-in JSON/YAML/TOML loader | Find and load a config file. Single path or list of candidates |
 | `interactive` | `boolean` | `false` | Whether the runtime supports interactive prompts |
 | `prompt` | `(config: InteractivePromptConfig) => Promise<unknown>` | Enquirer (when `interactive: true`) | Custom prompt implementation |
 | `progress` | `(message: string, options?: PadroneProgressOptions) => PadroneProgressIndicator` | Built-in terminal spinner | Progress indicator factory. See [Progress Indicators](/padrone/guides/progress-indicators/) |
@@ -166,59 +165,69 @@ program.action((args, ctx) => {
 
 ---
 
-### .env(schema)
+### padroneEnv(schema)
 
-Define a schema for parsing environment variables into arguments. The schema validates `process.env` and transforms env var names into argument field names.
+Extension for parsing environment variables into arguments. The schema validates `process.env` and transforms env var names into argument field names. Imported from `'padrone'`.
 
 ```typescript
-program.env(
-  z.object({
-    APP_PORT: z.coerce.number().optional(),
-    API_KEY: z.string().optional(),
-  }).transform((env) => ({
-    port: env.APP_PORT,
-    apiKey: env.API_KEY,
-  }))
+import { createPadrone, padroneEnv } from 'padrone';
+
+program.extend(
+  padroneEnv(
+    z.object({
+      APP_PORT: z.coerce.number().optional(),
+      API_KEY: z.string().optional(),
+    }).transform((env) => ({
+      port: env.APP_PORT,
+      apiKey: env.API_KEY,
+    }))
+  )
 );
 ```
 
 **Parameters:**
-- `schema`: A Zod schema (or function returning one) that validates env vars and transforms them to argument names
+- `schema`: A Standard Schema that validates env vars and transforms them to argument names
 
-Env values are applied after CLI args and stdin, but before config file values. The env schema is inherited by subcommands if not overridden.
-
-**Returns:** The program builder (chainable)
+Env values are applied after CLI args and stdin, but before config file values. Can be applied at the program level (inherited by all commands) or at the command level.
 
 ---
 
-### .configFile(file, schema?)
+### padroneConfig(options)
 
-Configure config file path(s) and optional schema for loading arguments from config files.
+Extension for loading arguments from configuration files. Imported from `'padrone'`.
 
 ```typescript
+import { createPadrone, padroneConfig } from 'padrone';
+
 // Simple: config file with matching argument names
-program.configFile('app.config.json');
+program.extend(padroneConfig({ files: 'app.config.json' }));
 
 // With schema: transform config keys to argument names
-program.configFile(
-  'app.config.json',
-  z.object({
-    port: z.number().optional(),
-    apiKey: z.string().optional(),
+program.extend(
+  padroneConfig({
+    files: 'app.config.json',
+    schema: z.object({
+      port: z.number().optional(),
+      apiKey: z.string().optional(),
+    }),
   })
 );
 
 // Multiple file paths (first found wins)
-program.configFile(['app.config.json', '.apprc']);
+program.extend(padroneConfig({ files: ['app.config.json', '.apprc'] }));
+
+// Disable config loading
+program.extend(padroneConfig({ files: 'app.config.json', disabled: true }));
 ```
 
-**Parameters:**
-- `file`: Config file path string, array of paths, or `undefined` to clear
-- `schema` (optional): A Zod schema (or function) to validate/transform config values
+**Options:**
+| Property | Type | Description |
+|----------|------|-------------|
+| `files` | `string \| string[]` | Config file path(s). When multiple paths are provided, the first existing file is used |
+| `schema` | `StandardSchema` | Optional schema to validate/transform config values |
+| `disabled` | `boolean` | Disable config file loading |
 
-Config values are applied after CLI args, stdin, and env vars. The config file setting is inherited by subcommands if not overridden.
-
-**Returns:** The program builder (chainable)
+Config values have the lowest precedence: CLI > stdin > env > config. Can be applied at the program level (inherited by all commands) or at the command level.
 
 ---
 

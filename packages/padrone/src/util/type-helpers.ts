@@ -1,4 +1,4 @@
-import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand, PadroneSchema } from '../types/index.ts';
+import type { AnyPadroneCommand, AnyPadroneProgram, PadroneCommand } from '../types/index.ts';
 import type { PickCommandByName, PossibleCommands } from './type-utils.ts';
 
 /**
@@ -18,45 +18,6 @@ export type InferArgsInput<T extends AnyPadroneCommand> = T['~types']['argsInput
  * ```
  */
 export type InferArgsOutput<T extends AnyPadroneCommand> = T['~types']['argsOutput'];
-
-/**
- * Extracts the input type of the config schema from a command.
- * @example
- * ```ts
- * type Config = InferConfigInput<typeof myCommand>;
- * ```
- */
-export type InferConfigInput<T extends AnyPadroneCommand> = T['configSchema'] extends PadroneSchema<infer I, any> ? I : never;
-
-/**
- * Extracts the output type of the config schema from a command.
- * This is the type after transformation, which should match the arguments shape.
- * @example
- * ```ts
- * type ConfigOutput = InferConfigOutput<typeof myCommand>;
- * ```
- */
-export type InferConfigOutput<T extends AnyPadroneCommand> = T['configSchema'] extends PadroneSchema<any, infer O> ? O : never;
-
-/**
- * Extracts the input type of the env schema from a command.
- * This represents the raw environment variables shape (e.g., { PORT: string }).
- * @example
- * ```ts
- * type EnvInput = InferEnvInput<typeof myCommand>;
- * ```
- */
-export type InferEnvInput<T extends AnyPadroneCommand> = T['envSchema'] extends PadroneSchema<infer I, any> ? I : never;
-
-/**
- * Extracts the output type of the env schema from a command.
- * This is the type after transformation, which should match the arguments shape.
- * @example
- * ```ts
- * type EnvOutput = InferEnvOutput<typeof myCommand>;
- * ```
- */
-export type InferEnvOutput<T extends AnyPadroneCommand> = T['envSchema'] extends PadroneSchema<any, infer O> ? O : never;
 
 /**
  * Extracts the context type from a command.

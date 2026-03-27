@@ -66,8 +66,8 @@ program.cli();
 | `.configure(config)` | Set title, description, version, deprecated, hidden, group, mutation |
 | `.intercept(interceptor)` | Register a middleware interceptor |
 | `.extend(extension)` | Apply a build-time extension (bundle of config, commands, interceptors) |
-| `.env(schema)` | Parse environment variables into args |
-| `.configFile(file, schema?)` | Load args from config files |
+| `.extend(padroneEnv(schema))` | Parse environment variables into args (import `padroneEnv` from `'padrone'`) |
+| `.extend(padroneConfig({ files, schema? }))` | Load args from config files (import `padroneConfig` from `'padrone'`) |
 | `.wrap(config)` | Wrap an external CLI tool *(experimental)* |
 | `.progress(config?)` | Configure auto-managed progress indicator |
 | `.runtime(runtime)` | Custom I/O adapter (output, error, env, prompt, progress) |

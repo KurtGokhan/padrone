@@ -8,7 +8,7 @@ import { getRootCommand, getVersion } from '../util/utils.ts';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
-type VersionCommand = PadroneCommand<'version', '', PadroneSchema<void>, string, [], [], PadroneSchema<void>, PadroneSchema<void>, false>;
+type VersionCommand = PadroneCommand<'version', '', PadroneSchema<void>, string, [], [], false>;
 
 export type WithVersion<T> = WithCommand<T, 'version', VersionCommand>;
 

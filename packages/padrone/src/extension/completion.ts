@@ -10,17 +10,7 @@ import { passthroughSchema } from './utils.ts';
 
 type CompletionArgs = { shell?: string; setup?: boolean };
 
-type CompletionCommand = PadroneCommand<
-  'completion',
-  '',
-  PadroneSchema<CompletionArgs>,
-  string,
-  [],
-  [],
-  PadroneSchema<CompletionArgs>,
-  PadroneSchema<CompletionArgs>,
-  true
->;
+type CompletionCommand = PadroneCommand<'completion', '', PadroneSchema<CompletionArgs>, string, [], [], true>;
 
 export type WithCompletion<T> = WithCommand<T, 'completion', CompletionCommand>;
 

@@ -154,23 +154,14 @@ function preprocessMappings(data: Record<string, unknown>, mappings: Record<stri
   return result;
 }
 
-interface ParseArgsContext {
-  flags?: Record<string, string>;
-  aliases?: Record<string, string>;
-  stdinData?: Record<string, unknown>;
-  envData?: Record<string, unknown>;
-  configData?: Record<string, unknown>;
-}
-
 /**
- * Apply values directly to arguments.
- * CLI values take precedence over the provided values.
+ * Apply values to arguments using "set if not present" semantics.
+ * Existing values take precedence — only fills in undefined or missing keys.
  */
-function applyValues(data: Record<string, unknown>, values: Record<string, unknown>): Record<string, unknown> {
+export function applyValues(data: Record<string, unknown>, values: Record<string, unknown>): Record<string, unknown> {
   const result = { ...data };
 
   for (const [key, value] of Object.entries(values)) {
-    // Only apply value if arg wasn't already set
     if (key in result && result[key] !== undefined) continue;
     if (value !== undefined) {
       result[key] = value;
@@ -180,37 +171,18 @@ function applyValues(data: Record<string, unknown>, values: Record<string, unkno
   return result;
 }
 
-/**
- * Combined preprocessing of arguments with all features.
- * Precedence order (highest to lowest): CLI args > stdin > env vars > config file
- */
-export function preprocessArgs(data: Record<string, unknown>, ctx: ParseArgsContext): Record<string, unknown> {
+/** Applies flag and alias mappings to raw arguments. */
+export function preprocessArgs(
+  data: Record<string, unknown>,
+  ctx: { flags?: Record<string, string>; aliases?: Record<string, string> },
+): Record<string, unknown> {
   let result = { ...data };
 
-  // 1. Apply flags and aliases first
   if (ctx.flags && Object.keys(ctx.flags).length > 0) {
     result = preprocessMappings(result, ctx.flags);
   }
   if (ctx.aliases && Object.keys(ctx.aliases).length > 0) {
     result = preprocessMappings(result, ctx.aliases);
-  }
-
-  // 2. Apply stdin data (higher precedence than env)
-  // Only applies if CLI didn't set the arg
-  if (ctx.stdinData) {
-    result = applyValues(result, ctx.stdinData);
-  }
-
-  // 3. Apply environment variables (higher precedence than config)
-  // These only apply if CLI/stdin didn't set the arg
-  if (ctx.envData) {
-    result = applyValues(result, ctx.envData);
-  }
-
-  // 4. Apply config file values (lowest precedence)
-  // These only apply if neither CLI, stdin, nor env set the arg
-  if (ctx.configData) {
-    result = applyValues(result, ctx.configData);
   }
 
   return result;

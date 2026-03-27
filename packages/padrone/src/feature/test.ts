@@ -228,8 +228,11 @@ function buildRuntime(
   }
 
   if (opts.configFiles) {
-    runtime.loadConfigFile = (path: string) => opts.configFiles![path];
-    runtime.findFile = (names: string[]) => names.find((n) => n in opts.configFiles!);
+    runtime.loadConfig = (files: string | string[]) => {
+      if (typeof files === 'string') return opts.configFiles![files];
+      const found = (files as string[]).find((n) => n in opts.configFiles!);
+      return found ? opts.configFiles![found] : undefined;
+    };
   }
 
   if (opts.readLine) {

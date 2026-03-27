@@ -40,10 +40,10 @@ The `--conditions=padrone@dev` flag is critical — it resolves package exports 
 Monorepo with bun workspaces: `packages/*`, `examples/*`, `docs/`.
 
 The core library lives in `packages/padrone/`:
-- `src/types.ts` — All type definitions (`PadroneCommand`, `PadroneBuilder`, `PadroneProgram`, interceptors, extensions, etc.). PadroneCommand has 10 generic type params.
+- `src/types.ts` — All type definitions (`PadroneCommand`, `PadroneBuilder`, `PadroneProgram`, interceptors, extensions, etc.). PadroneCommand has 8 generic type params.
 - `src/create.ts` — `createPadrone()` factory and builder object. Wires together the modules below. Immutable builder methods (configure, arguments, action, command, mount, intercept, extend, etc.).
 - `src/exec.ts` — Core execution pipeline: parse → validate → execute phases. Contains `execCommand()`, `collectInterceptors()`. Signal handling and error help display are handled by extensions.
-- `src/validate.ts` — CLI input parsing (`parseCommand`), argument preprocessing (`buildCommandArgs`), schema validation (`validateCommandArgs`), unknown arg detection, stdin reading, env validation.
+- `src/validate.ts` — CLI input parsing (`parseCommand`), argument preprocessing (`buildCommandArgs`), schema validation (`validateCommandArgs`), unknown arg detection, stdin reading.
 - `src/program-methods.ts` — Program API methods: `cli()`, `eval()`, `run()`, `parse()`, `tool()`, `stringify()`, `help()`, `api()`, `repl()`, `mcp()`, `serve()`, `completion()`.
 - `src/builtins.ts` — `resolveInherited()` parent-chain walker for inheriting config values from ancestor commands.
 - `src/suggestions.ts` — "Did you mean?" formatting (`formatSuggestions`), issue enrichment with fuzzy suggestions.

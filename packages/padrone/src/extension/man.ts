@@ -9,7 +9,7 @@ import { passthroughSchema } from './utils.ts';
 
 type ManArgs = { setup?: boolean; remove?: boolean };
 
-type ManCommand = PadroneCommand<'man', '', PadroneSchema<ManArgs>, string, [], [], PadroneSchema<ManArgs>, PadroneSchema<ManArgs>, true>;
+type ManCommand = PadroneCommand<'man', '', PadroneSchema<ManArgs>, string, [], [], true>;
 
 export type WithMan<T> = WithCommand<T, 'man', ManCommand>;
 

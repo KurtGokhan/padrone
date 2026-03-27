@@ -72,8 +72,6 @@ export type PadroneCommand<
   TRes = void,
   TCommands extends [...AnyPadroneCommand[]] = [],
   TAliases extends string[] = string[],
-  TConfig extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = PadroneSchema<void>,
-  TEnv extends PadroneSchema<unknown, StandardSchemaV1.InferInput<TArgs>> = PadroneSchema<void>,
   TAsync extends boolean = false,
   TContext = unknown,
 > = {
@@ -94,12 +92,8 @@ export type PadroneCommand<
   /** Usage examples shown in help output. Each entry is a command-line invocation string. */
   examples?: string[];
   argsSchema?: TArgs;
-  configSchema?: TConfig;
-  envSchema?: TEnv;
   meta?: GetArgsMeta<TArgs>;
   action?: (args: StandardSchemaV1.InferOutput<TArgs>, ctx: PadroneActionContext<TContext>) => TRes;
-  /** List of possible config file names to search for. */
-  configFiles?: string[];
   /** Runtime flag indicating this command uses async validation. Set by `.async()` or `asyncSchema()`. */
   isAsync?: boolean;
   /** Runtime configuration for I/O abstraction. */
@@ -125,14 +119,12 @@ export type PadroneCommand<
     argsOutput: StandardSchemaV1.InferOutput<TArgs>;
     result: TRes;
     commands: TCommands;
-    configSchema: TConfig;
-    envSchema: TEnv;
     async: TAsync;
     context: TContext;
   };
 };
 
-export type AnyPadroneCommand = PadroneCommand<string, any, any, any, [...AnyPadroneCommand[]], string[], any, any, any, any>;
+export type AnyPadroneCommand = PadroneCommand<string, any, any, any, [...AnyPadroneCommand[]], string[], any, any>;
 
 /**
  * Base type for extracting command information from builder or program.

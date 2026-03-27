@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { createPadrone, padroneCompletion } from 'padrone';
+import { createPadrone, padroneCompletion, padroneConfig, padroneEnv } from 'padrone';
 import * as z from 'zod/v4';
 
 describe('runtime', () => {
@@ -62,7 +62,7 @@ describe('runtime', () => {
     it('should use custom env', () => {
       const program = createPadrone('app')
         .runtime({ env: () => ({ APP_NAME: 'TestApp' }) })
-        .env(z.object({ APP_NAME: z.string() }).transform((e) => ({ name: e.APP_NAME })))
+        .extend(padroneEnv(z.object({ APP_NAME: z.string() }).transform((e) => ({ name: e.APP_NAME }))))
         .command('greet', (c) => c.arguments(z.object({ name: z.string().optional() })).action((args) => `Hello, ${args.name}!`));
 
       const result = program.eval('greet');
@@ -79,36 +79,34 @@ describe('runtime', () => {
       expect(helpText).toContain('**');
     });
 
-    it('should use custom loadConfigFile', () => {
-      const loadConfigFile = mock(() => ({ port: 8080 }));
+    it('should use custom loadConfig with explicit --config flag', () => {
+      const loadConfig = mock(() => ({ port: 8080 }));
       const program = createPadrone('app')
-        .runtime({ loadConfigFile })
+        .runtime({ loadConfig })
         .command('serve', (c) =>
           c
             .arguments(z.object({ port: z.coerce.number().default(3000) }))
-            .configFile('config.json')
+            .extend(padroneConfig({ files: ['config.json'] }))
             .action((args) => args.port),
         );
 
       program.eval('serve --config=my.json');
-      expect(loadConfigFile).toHaveBeenCalledWith('my.json');
+      expect(loadConfig).toHaveBeenCalledWith('my.json');
     });
 
-    it('should use custom findFile', () => {
-      const findFile = mock(() => '/fake/config.json');
-      const loadConfigFile = mock(() => ({ port: 9090 }));
+    it('should use custom loadConfig with auto-detection', () => {
+      const loadConfig = mock(() => ({ port: 9090 }));
       const program = createPadrone('app')
-        .runtime({ findFile, loadConfigFile })
+        .runtime({ loadConfig })
         .command('serve', (c) =>
           c
             .arguments(z.object({ port: z.coerce.number().default(3000) }))
-            .configFile(['config.json', 'config.yaml'])
+            .extend(padroneConfig({ files: ['config.json', 'config.yaml'] }))
             .action((args) => args.port),
         );
 
       const result = program.eval('serve');
-      expect(findFile).toHaveBeenCalledWith(['config.json', 'config.yaml']);
-      expect(loadConfigFile).toHaveBeenCalledWith('/fake/config.json');
+      expect(loadConfig).toHaveBeenCalledWith(['config.json', 'config.yaml']);
       expect(result.result).toBe(9090);
     });
   });
@@ -160,7 +158,7 @@ describe('runtime', () => {
 
       const program = createPadrone('app')
         .runtime({ env })
-        .env(z.object({ GREETING: z.string() }).transform((e) => ({ greeting: e.GREETING })))
+        .extend(padroneEnv(z.object({ GREETING: z.string() }).transform((e) => ({ greeting: e.GREETING }))))
         .command('greet', (c) => c.arguments(z.object({ greeting: z.string().optional() })).action((args) => args.greeting));
 
       const result = program.eval('greet');

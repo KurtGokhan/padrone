@@ -208,9 +208,12 @@ See the [Interactive Prompting guide](/padrone/guides/interactive-prompting/) fo
 
 ## Environment Variables
 
-Bind arguments to environment variables using the `.env()` builder method:
+Bind arguments to environment variables using the `padroneEnv` extension:
 
 ```typescript
+import { createPadrone, padroneEnv } from 'padrone';
+import * as z from 'zod/v4';
+
 const program = createPadrone('app')
   .command('serve', (c) =>
     c
@@ -220,14 +223,16 @@ const program = createPadrone('app')
           apiKey: z.string(),
         }),
       )
-      .env(
-        z.object({
-          APP_PORT: z.coerce.number().optional(),
-          API_KEY: z.string().optional(),
-        }).transform((env) => ({
-          port: env.APP_PORT,
-          apiKey: env.API_KEY,
-        }))
+      .extend(
+        padroneEnv(
+          z.object({
+            APP_PORT: z.coerce.number().optional(),
+            API_KEY: z.string().optional(),
+          }).transform((env) => ({
+            port: env.APP_PORT,
+            apiKey: env.API_KEY,
+          }))
+        )
       )
       .action((args) => {
         console.log(`Server on port ${args.port}`);
@@ -235,7 +240,7 @@ const program = createPadrone('app')
   );
 ```
 
-The env schema validates `process.env` and transforms env var names into argument names. Only provided env values are used — undefined values are skipped.
+The env schema validates `process.env` and transforms env var names into argument names. Only provided env values are used — undefined values are skipped. `padroneEnv` can be applied at the program level (inherited by all commands) or at the command level.
 
 **Resolution priority:**
 1. CLI argument (highest)
@@ -249,9 +254,12 @@ The env schema validates `process.env` and transforms env var names into argumen
 
 ## Config Files
 
-Load arguments from configuration files using the `.configFile()` builder method:
+Load arguments from configuration files using the `padroneConfig` extension:
 
 ```typescript
+import { createPadrone, padroneConfig } from 'padrone';
+import * as z from 'zod/v4';
+
 const program = createPadrone('app')
   .command('serve', (c) =>
     c
@@ -261,11 +269,13 @@ const program = createPadrone('app')
           host: z.string().default('localhost'),
         }),
       )
-      .configFile(
-        'app.config.json',
-        z.object({
-          port: z.number().optional(),
-          host: z.string().optional(),
+      .extend(
+        padroneConfig({
+          files: 'app.config.json',
+          schema: z.object({
+            port: z.number().optional(),
+            host: z.string().optional(),
+          }),
         })
       )
       .action((args) => {
@@ -274,10 +284,10 @@ const program = createPadrone('app')
   );
 ```
 
-Multiple config file paths can be provided as an array — the first existing file is used:
+Multiple config file paths can be provided in the `files` array — the first existing file is used:
 
 ```typescript
-.configFile(['app.config.json', '.apprc'])
+.extend(padroneConfig({ files: ['app.config.json', '.apprc'] }))
 ```
 
 If no schema is provided, the config file values are matched against the command's argument schema directly.

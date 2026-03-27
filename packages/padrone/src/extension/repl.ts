@@ -17,17 +17,7 @@ import { passthroughSchema } from './utils.ts';
 
 type ReplArgs = { scope?: string };
 
-type ReplCommand = PadroneCommand<
-  'repl',
-  '',
-  PadroneSchema<ReplArgs>,
-  void,
-  [],
-  [],
-  PadroneSchema<ReplArgs>,
-  PadroneSchema<ReplArgs>,
-  true
->;
+type ReplCommand = PadroneCommand<'repl', '', PadroneSchema<ReplArgs>, void, [], [], true>;
 
 export type WithRepl<T> = WithCommand<T, 'repl', ReplCommand>;
 

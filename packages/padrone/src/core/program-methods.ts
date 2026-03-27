@@ -227,7 +227,7 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
   const parse: AnyPadroneProgram['parse'] = (input) => {
     const { command, rawArgs, args } = ctx.parseCommandFn(input as string | undefined);
 
-    const validatedOrPromise = coreValidateForParse(command, rawArgs, args, rootCommand);
+    const validatedOrPromise = coreValidateForParse(command, rawArgs, args);
 
     return makeThenable(
       warnIfUnexpectedAsync(

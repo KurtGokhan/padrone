@@ -15,17 +15,7 @@ import { findCommandInTree, passthroughSchema } from './utils.ts';
 
 type HelpArgs = { command?: string[]; detail?: string; format?: string; all?: boolean };
 
-type HelpCommand = PadroneCommand<
-  'help',
-  '',
-  PadroneSchema<HelpArgs>,
-  string,
-  [],
-  ['h', ''],
-  PadroneSchema<HelpArgs>,
-  PadroneSchema<HelpArgs>,
-  false
->;
+type HelpCommand = PadroneCommand<'help', '', PadroneSchema<HelpArgs>, string, [], ['h', ''], false>;
 
 export type WithHelp<T> = WithCommand<T, 'help', HelpCommand>;
 

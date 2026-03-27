@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { asyncSchema, createPadrone } from 'padrone';
+import { asyncSchema, createPadrone, padroneConfig, padroneEnv } from 'padrone';
 import * as z from 'zod/v4';
 import { createTasksProgram } from './common.ts';
 import { createConsoleMocker } from './console-mocker.ts';
@@ -901,11 +901,11 @@ describe('CLI', () => {
               apiKey: z.string().optional(),
             }),
           )
-          .env(z.object({ API_KEY: z.string().optional() }).transform((env) => ({ apiKey: env.API_KEY })))
+          .extend(padroneEnv(z.object({ API_KEY: z.string().optional() }).transform((env) => ({ apiKey: env.API_KEY }))))
           .action((args) => args),
       );
 
-      const result = program.runtime({ env: () => ({ API_KEY: 'secret123' }) }).parse('test');
+      const result = program.runtime({ env: () => ({ API_KEY: 'secret123' }) }).eval('test');
 
       expect(result.args?.apiKey).toBe('secret123');
     });
@@ -918,11 +918,11 @@ describe('CLI', () => {
               apiKey: z.string().optional(),
             }),
           )
-          .env(z.object({ API_KEY: z.string().optional() }).transform((env) => ({ apiKey: env.API_KEY })))
+          .extend(padroneEnv(z.object({ API_KEY: z.string().optional() }).transform((env) => ({ apiKey: env.API_KEY }))))
           .action((args) => args),
       );
 
-      const result = program.runtime({ env: () => ({ API_KEY: 'from-env' }) }).parse('test --apiKey=from-cli');
+      const result = program.runtime({ env: () => ({ API_KEY: 'from-env' }) }).eval('test --apiKey=from-cli');
 
       expect(result.args?.apiKey).toBe('from-cli');
     });
@@ -935,16 +935,18 @@ describe('CLI', () => {
               port: z.coerce.number().optional(),
             }),
           )
-          .env(
-            z
-              .object({ PORT: z.string().optional(), APP_PORT: z.string().optional() })
-              .transform((env) => ({ port: env.PORT ? Number(env.PORT) : env.APP_PORT ? Number(env.APP_PORT) : undefined })),
+          .extend(
+            padroneEnv(
+              z
+                .object({ PORT: z.string().optional(), APP_PORT: z.string().optional() })
+                .transform((env) => ({ port: env.PORT ? Number(env.PORT) : env.APP_PORT ? Number(env.APP_PORT) : undefined })),
+            ),
           )
           .action((args) => args),
       );
 
       // First env var not set, second one is
-      const result = program.runtime({ env: () => ({ APP_PORT: '8080' }) }).parse('test');
+      const result = program.runtime({ env: () => ({ APP_PORT: '8080' }) }).eval('test');
 
       expect(result.args?.port).toBe(8080);
     });
@@ -957,11 +959,13 @@ describe('CLI', () => {
               debug: z.boolean().optional(),
             }),
           )
-          .env(z.object({ DEBUG: z.string().optional() }).transform((env) => ({ debug: env.DEBUG === 'true' ? true : undefined })))
+          .extend(
+            padroneEnv(z.object({ DEBUG: z.string().optional() }).transform((env) => ({ debug: env.DEBUG === 'true' ? true : undefined }))),
+          )
           .action((args) => args),
       );
 
-      const result = program.runtime({ env: () => ({ DEBUG: 'true' }) }).parse('test');
+      const result = program.runtime({ env: () => ({ DEBUG: 'true' }) }).eval('test');
 
       expect(result.args?.debug).toBe(true);
     });
@@ -1016,9 +1020,11 @@ describe('CLI', () => {
               host: z.string().optional(),
             }),
           )
-          .configFile(
-            'config.json',
-            z.object({ server: z.object({ port: z.number(), host: z.string() }) }).transform((data) => data.server),
+          .extend(
+            padroneConfig({
+              files: ['config.json'],
+              schema: z.object({ server: z.object({ port: z.number(), host: z.string() }) }).transform((data) => data.server),
+            }),
           )
           .action((args) => args),
       );
@@ -1030,7 +1036,7 @@ describe('CLI', () => {
         },
       };
 
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test');
+      const result = program.runtime({ loadConfig: () => configData }).eval('test');
 
       expect(result.args?.port).toBe(3000);
       expect(result.args?.host).toBe('localhost');
@@ -1044,15 +1050,17 @@ describe('CLI', () => {
               port: z.coerce.number().optional(),
             }),
           )
-          .configFile(
-            'config.json',
-            z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
+          .extend(
+            padroneConfig({
+              files: ['config.json'],
+              schema: z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
+            }),
           )
           .action((args) => args),
       );
 
       const configData = { server: { port: 3000 } };
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test --port=8080');
+      const result = program.runtime({ loadConfig: () => configData }).eval('test --port=8080');
 
       expect(result.args?.port).toBe(8080);
     });
@@ -1065,18 +1073,20 @@ describe('CLI', () => {
               port: z.coerce.number().optional(),
             }),
           )
-          .env(z.object({ PORT: z.string().optional() }).transform((env) => ({ port: env.PORT ? Number(env.PORT) : undefined })))
-          .configFile(
-            'config.json',
-            z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
+          .extend(
+            padroneEnv(z.object({ PORT: z.string().optional() }).transform((env) => ({ port: env.PORT ? Number(env.PORT) : undefined }))),
+          )
+          .extend(
+            padroneConfig({
+              files: ['config.json'],
+              schema: z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
+            }),
           )
           .action((args) => args),
       );
 
       const configData = { server: { port: 3000 } };
-      const result = program
-        .runtime({ findFile: () => 'config.json', loadConfigFile: () => configData, env: () => ({ PORT: '9000' }) })
-        .eval('test');
+      const result = program.runtime({ loadConfig: () => configData, env: () => ({ PORT: '9000' }) }).eval('test');
 
       expect(result.args?.port).toBe(9000);
     });
@@ -1089,11 +1099,13 @@ describe('CLI', () => {
               timeout: z.coerce.number().optional(),
             }),
           )
-          .configFile(
-            'config.json',
-            z
-              .object({ services: z.object({ api: z.object({ connection: z.object({ timeout: z.number() }) }) }) })
-              .transform((data) => ({ timeout: data.services.api.connection.timeout })),
+          .extend(
+            padroneConfig({
+              files: ['config.json'],
+              schema: z
+                .object({ services: z.object({ api: z.object({ connection: z.object({ timeout: z.number() }) }) }) })
+                .transform((data) => ({ timeout: data.services.api.connection.timeout })),
+            }),
           )
           .action((args) => args),
       );
@@ -1108,7 +1120,7 @@ describe('CLI', () => {
         },
       };
 
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test');
+      const result = program.runtime({ loadConfig: () => configData }).eval('test');
 
       expect(result.args?.timeout).toBe(5000);
     });
@@ -1124,12 +1136,12 @@ describe('CLI', () => {
               host: z.string().optional(),
             }),
           )
-          .configFile('config.json', z.object({ port: z.number(), host: z.string() }))
+          .extend(padroneConfig({ files: ['config.json'], schema: z.object({ port: z.number(), host: z.string() }) }))
           .action((args) => args),
       );
 
       const configData = { port: 3000, host: 'localhost' };
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test');
+      const result = program.runtime({ loadConfig: () => configData }).eval('test');
 
       expect(result.args?.port).toBe(3000);
       expect(result.args?.host).toBe('localhost');
@@ -1143,13 +1155,13 @@ describe('CLI', () => {
               port: z.number().optional(),
             }),
           )
-          .configFile('config.json', z.object({ port: z.number() }))
+          .extend(padroneConfig({ files: ['config.json'], schema: z.object({ port: z.number() }) }))
           .action((args) => args),
       );
 
       const configData = { port: 'not-a-number' };
 
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test');
+      const result = program.runtime({ loadConfig: () => configData }).eval('test');
       expect(result.error).toBeInstanceOf(Error);
       expect((result.error as Error).message).toMatch(/Invalid config file/);
     });
@@ -1162,20 +1174,22 @@ describe('CLI', () => {
               port: z.number().optional(),
             }),
           )
-          .configFile(
-            'config.json',
-            z.object({ serverPort: z.number() }).transform((data) => ({ port: data.serverPort })),
+          .extend(
+            padroneConfig({
+              files: ['config.json'],
+              schema: z.object({ serverPort: z.number() }).transform((data) => ({ port: data.serverPort })),
+            }),
           )
           .action((args) => args),
       );
 
       const configData = { serverPort: 8080 };
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test');
+      const result = program.runtime({ loadConfig: () => configData }).eval('test');
 
       expect(result.args?.port).toBe(8080);
     });
 
-    it('should use function-based schema with access to args schema', () => {
+    it('should use schema that matches args shape', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -1184,49 +1198,47 @@ describe('CLI', () => {
               host: z.string().optional(),
             }),
           )
-          .configFile('config.json', (argsSchema) => argsSchema.partial())
+          .extend(padroneConfig({ files: ['config.json'], schema: z.object({ port: z.number().optional(), host: z.string().optional() }) }))
           .action((args) => args),
       );
 
       const configData = { port: 3000 };
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test');
+      const result = program.runtime({ loadConfig: () => configData }).eval('test');
 
       expect(result.args?.port).toBe(3000);
     });
 
-    it('should set configFiles as array when given string', () => {
+    it('should load config from single file name', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(z.object({ name: z.string().optional() }))
-          .configFile('myapp.config.json')
+          .extend(padroneConfig({ files: 'myapp.config.json' }))
           .action((args) => args),
       );
 
-      const command = program.find('test');
-      expect(command?.configFiles).toEqual(['myapp.config.json']);
+      const result = program.runtime({ loadConfig: () => ({ name: 'loaded' }) }).eval('test');
+      expect(result.args?.name).toBe('loaded');
     });
 
-    it('should set configFiles as array when given array', () => {
+    it('should load config from array of file names', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(z.object({ name: z.string().optional() }))
-          .configFile(['myapp.config.json', '.myapprc'])
+          .extend(padroneConfig({ files: ['myapp.config.json', '.myapprc'] }))
           .action((args) => args),
       );
 
-      const command = program.find('test');
-      expect(command?.configFiles).toEqual(['myapp.config.json', '.myapprc']);
+      const result = program.runtime({ loadConfig: () => ({ name: 'loaded' }) }).eval('test');
+      expect(result.args?.name).toBe('loaded');
     });
 
-    it('should inherit config schema from parent command', () => {
-      const configSchema = z.object({ port: z.number() });
-
+    it('should inherit config extension from parent command', () => {
       const program = createPadrone('padrone-test')
-        .configFile('config.json', configSchema)
+        .extend(padroneConfig({ files: ['config.json'], schema: z.object({ port: z.number() }) }))
         .command('sub', (c) => c.arguments(z.object({ port: z.number().optional() })).action((args) => args));
 
       const configData = { port: 3000 };
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('sub');
+      const result = program.runtime({ loadConfig: () => configData }).eval('sub');
 
       expect(result.args?.port).toBe(3000);
     });
@@ -1239,12 +1251,12 @@ describe('CLI', () => {
               port: z.coerce.number().optional(),
             }),
           )
-          .configFile('config.json', z.object({ port: z.number() }))
+          .extend(padroneConfig({ files: ['config.json'], schema: z.object({ port: z.number() }) }))
           .action((args) => args),
       );
 
       const configData = { port: 3000 };
-      const result = program.runtime({ findFile: () => 'config.json', loadConfigFile: () => configData }).eval('test --port=8080');
+      const result = program.runtime({ loadConfig: () => configData }).eval('test --port=8080');
 
       expect(result.args?.port).toBe(8080);
     });
@@ -1654,9 +1666,11 @@ describe('CLI', () => {
         const program = createPadrone('test-cli').command('serve', (c) =>
           c
             .arguments(z.object({ port: z.coerce.number().optional() }))
-            .configFile(
-              'config.json',
-              z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
+            .extend(
+              padroneConfig({
+                files: ['config.json'],
+                schema: z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
+              }),
             )
             .action((args) => args?.port),
         );
@@ -1683,7 +1697,7 @@ describe('CLI', () => {
         const program = createPadrone('test-cli').command('connect', (c) =>
           c
             .arguments(z.object({ host: z.string().optional() }))
-            .configFile('config.json', z.object({ host: z.string() }))
+            .extend(padroneConfig({ files: ['config.json'], schema: z.object({ host: z.string() }) }))
             .action((args) => args?.host),
         );
 
@@ -1709,9 +1723,11 @@ describe('CLI', () => {
         const program = createPadrone('test-cli').command('serve', (c) =>
           c
             .arguments(z.object({ port: z.coerce.number().optional() }))
-            .configFile(
-              'config.json',
-              z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
+            .extend(
+              padroneConfig({
+                files: ['config.json'],
+                schema: z.object({ server: z.object({ port: z.number() }) }).transform((data) => ({ port: data.server.port })),
+              }),
             )
             .action((args) => args?.port),
         );

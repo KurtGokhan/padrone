@@ -237,27 +237,32 @@ Registers an interceptor. See [Interceptor System](#interceptor-system).
 
 Applies a build-time extension. A `PadroneExtension` is a reusable bundle of configuration, commands, and interceptors.
 
-### `.env(schema)`
+#### `padroneEnv(schema)` extension
 
-Parses environment variables into argument values.
+Parses environment variables into argument values. Replaces the former `.env()` builder method.
 
 ```ts
-.env(z.object({
+import { createPadrone, padroneEnv } from 'padrone';
+
+.extend(padroneEnv(z.object({
   MY_APP_PORT: z.coerce.number(),
   MY_APP_HOST: z.string().optional(),
 }).transform((e) => ({
   port: e.MY_APP_PORT,
   host: e.MY_APP_HOST,
-})))
+}))))
 ```
 
-### `.configFile(file, schema?)`
+#### `padroneConfig(options)` extension
 
-Loads arguments from config files.
+Loads arguments from config files. Replaces the former `.configFile()` builder method.
 
 ```ts
-.configFile('app.config.json')
-.configFile(['app.config.json', 'app.config.yaml'], configSchema)
+import { createPadrone, padroneConfig } from 'padrone';
+
+.extend(padroneConfig({ files: 'app.config.json' }))
+.extend(padroneConfig({ files: ['app.config.json', 'app.config.yaml'], schema: configSchema }))
+.extend(padroneConfig({ files: 'app.config.json', disabled: true }))
 ```
 
 ### `.wrap(config)` *(experimental)*
@@ -290,8 +295,7 @@ Custom I/O adapter for non-terminal environments.
   interactive?: 'supported' | 'unsupported' | 'forced' | 'disabled',
   prompt?: (config) => Promise<unknown>,
   readLine?: (prompt: string) => Promise<string | null>,
-  loadConfigFile?: (path: string) => Record<string, unknown> | undefined,
-  findFile?: (names: string[]) => string | undefined,
+  loadConfig?: (files: string | string[]) => Record<string, unknown> | undefined,
 })
 ```
 
@@ -578,10 +582,6 @@ const builder = testCli(program);
 import type {
   InferArgsInput,   // Extract input type of a command's args schema
   InferArgsOutput,  // Extract output type of a command's args schema
-  InferConfigInput, // Extract config schema input type
-  InferConfigOutput,// Extract config schema output type
-  InferEnvInput,    // Extract env schema input type
-  InferEnvOutput,   // Extract env schema output type
   InferCommand,     // Get command type by path: InferCommand<typeof program, 'db migrate'>
   InferContext,     // Extract context type: InferContext<typeof program>
 } from 'padrone';

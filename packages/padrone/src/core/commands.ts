@@ -64,9 +64,6 @@ export function mergeCommands(existing: AnyPadroneCommand, override: AnyPadroneC
   if (override.action !== existing.action) merged.action = override.action;
   if (override.argsSchema !== existing.argsSchema) merged.argsSchema = override.argsSchema;
   if (override.meta !== existing.meta) merged.meta = override.meta;
-  if (override.configSchema !== existing.configSchema) merged.configSchema = override.configSchema;
-  if (override.envSchema !== existing.envSchema) merged.envSchema = override.envSchema;
-  if (override.configFiles !== existing.configFiles) merged.configFiles = override.configFiles;
   if (override.isAsync !== existing.isAsync) merged.isAsync = override.isAsync || existing.isAsync;
   if (override.runtime !== existing.runtime) merged.runtime = override.runtime;
   if (override.interceptors !== existing.interceptors) merged.interceptors = override.interceptors;

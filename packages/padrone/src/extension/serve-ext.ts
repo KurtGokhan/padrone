@@ -10,17 +10,7 @@ import { passthroughSchema } from './utils.ts';
 
 type ServeArgs = { port?: string; host?: string; basePath?: string };
 
-type ServeCommand = PadroneCommand<
-  'serve',
-  '',
-  PadroneSchema<ServeArgs>,
-  void,
-  [],
-  [],
-  PadroneSchema<ServeArgs>,
-  PadroneSchema<ServeArgs>,
-  true
->;
+type ServeCommand = PadroneCommand<'serve', '', PadroneSchema<ServeArgs>, void, [], [], true>;
 
 export type WithServe<T> = WithCommand<T, 'serve', ServeCommand>;
 

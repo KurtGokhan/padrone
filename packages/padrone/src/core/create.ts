@@ -5,6 +5,7 @@ import { padroneHelp } from '../extension/help.ts';
 import { padroneInteractive } from '../extension/interactive-ext.ts';
 import { padroneRepl } from '../extension/repl.ts';
 import { padroneSignalHandling } from '../extension/signal.ts';
+import { padroneStdin } from '../extension/stdin-ext.ts';
 import { padroneVersion } from '../extension/version.ts';
 import { createWrapHandler } from '../feature/wrap.ts';
 import type {
@@ -59,6 +60,7 @@ export function createPadrone<TProgramName extends string>(
   // Framework extensions (always on by default)
   builder = builder.extend(padroneSignalHandling());
   builder = builder.extend(padroneAutoOutput());
+  builder = builder.extend(padroneStdin());
   builder = builder.extend(padroneConfig());
   builder = builder.extend(padroneInteractive());
 
@@ -125,17 +127,6 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       const resolvedArgs = typeof schema === 'function' ? schema(existingCommand.argsSchema as any) : schema;
       const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedArgs) || hasInteractiveConfig(meta);
       return createPadroneBuilder({ ...existingCommand, argsSchema: resolvedArgs, meta, isAsync }) as any;
-    },
-    configFile(file, schema) {
-      const configFiles = file === undefined ? undefined : Array.isArray(file) ? file : [file];
-      const resolvedConfig = typeof schema === 'function' ? schema(existingCommand.argsSchema) : (schema ?? existingCommand.argsSchema);
-      const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedConfig);
-      return createPadroneBuilder({ ...existingCommand, configFiles, configSchema: resolvedConfig as any, isAsync }) as any;
-    },
-    env(schema) {
-      const resolvedEnv = typeof schema === 'function' ? schema(existingCommand.argsSchema) : schema;
-      const isAsync = existingCommand.isAsync || isAsyncBranded(resolvedEnv);
-      return createPadroneBuilder({ ...existingCommand, envSchema: resolvedEnv as any, isAsync }) as any;
     },
     action(handler = noop) {
       const baseHandler = existingCommand.action ?? noop;

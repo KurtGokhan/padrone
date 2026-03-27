@@ -14,20 +14,12 @@ import type {
   RegisteredInterceptor,
   ResolvedInterceptor,
 } from '../types/index.ts';
-import { resolveInherited } from './builtins.ts';
 import { getCommandRuntime, resolveCommand, suggestSimilar } from './commands.ts';
-import { ConfigError, RoutingError, ValidationError } from './errors.ts';
+import { RoutingError, ValidationError } from './errors.ts';
 import { noopIndicator, resolveRegisteredInterceptors, runInterceptorChain, wrapWithLifecycle } from './interceptors.ts';
 import { errorResult, hasInteractiveConfig, noop, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
 import { collectSuggestionsFromIssues, enrichIssuesWithSuggestions, formatSuggestions } from './suggestions.ts';
-import {
-  buildCommandArgs,
-  checkUnknownArgs,
-  formatIssueMessages,
-  getKnownOptionNames,
-  readStdinData,
-  validateCommandArgs,
-} from './validate.ts';
+import { buildCommandArgs, checkUnknownArgs, formatIssueMessages, getKnownOptionNames, validateCommandArgs } from './validate.ts';
 
 export type ExecContext = {
   rootCommand: AnyPadroneCommand;
@@ -202,102 +194,12 @@ export function execCommand(
           runtime.interactive === 'unsupported' || effectiveInteractive === false || (stdinIsPiped && effectiveInteractive !== true);
         const forceInteractive = !interactivitySuppressed && effectiveInteractive === true;
 
-        const effectiveConfigFiles = resolveInherited(command, 'configFiles') as string[] | undefined;
-        const configSchema = resolveInherited(command, 'configSchema');
-        const envSchema = resolveInherited(command, 'envSchema');
+        // Extensions (stdin, env, config) have already merged their data into rawArgs via next({ rawArgs }).
+        const preprocessedArgs = buildCommandArgs(command, validateCtx.rawArgs, validateCtx.positionalArgs);
 
-        // Config data: may have been pre-loaded by the config extension (--config flag), or auto-detected
-        let configData: Record<string, unknown> | undefined = validateCtx.configData;
-        if (!configData && effectiveConfigFiles?.length) {
-          const foundConfigPath = runtime.findFile(effectiveConfigFiles);
-          if (foundConfigPath) configData = runtime.loadConfigFile(foundConfigPath);
-        }
-
-        // Step 1: Validate config data against schema
-        const validateConfig = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
-          if (configData && configSchema) {
-            const configValidated = configSchema['~standard'].validate(configData);
-            return thenMaybe(configValidated, (result) => {
-              if (result.issues) {
-                const issueMessages = result.issues
-                  .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
-                  .join('\n');
-                throw new ConfigError(`Invalid config file:\n${issueMessages}`, { command: command.path || command.name });
-              }
-              return result.value as unknown as Record<string, unknown>;
-            });
-          }
-          return configData;
-        };
-
-        // Step 2: Validate env vars
-        const validateEnv = (): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> => {
-          if (!envSchema) return undefined;
-          const rawEnv = runtime.env();
-          const envValidated = envSchema['~standard'].validate(rawEnv);
-          return thenMaybe(envValidated, (result) => {
-            if (!result.issues) return result.value as unknown as Record<string, unknown>;
-            return undefined;
-          });
-        };
-
-        // Step 3: Read stdin
-        const readStdin = (): Record<string, unknown> | Promise<Record<string, unknown>> =>
-          readStdinData(command, validateCtx.rawArgs, rootCommand);
-
-        // Step 4: Preprocess, interactive prompt, and validate
-        const finalizeValidation = (
-          validatedConfigData: Record<string, unknown> | undefined,
-          envData: Record<string, unknown> | undefined,
-          stdinData: Record<string, unknown> | undefined,
-        ): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
-          const preprocessedArgs = buildCommandArgs(command, validateCtx.rawArgs, validateCtx.positionalArgs, {
-            stdinData,
-            envData,
-            configData: validatedConfigData,
-          });
-
+        const doPrompt = (args: Record<string, unknown>): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
           const willPrompt = !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta);
-          if (willPrompt) {
-            const unknowns = checkUnknownArgs(command, preprocessedArgs);
-            if (unknowns.length > 0) {
-              const issues: StandardSchemaV1.Issue[] = unknowns.map(({ key, suggestions }) => {
-                const hint = formatSuggestions(suggestions, '--');
-                return { path: [key], message: hint ? `Unknown option: "${key}". ${hint}` : `Unknown option: "${key}"` };
-              });
-              return { args: undefined, argsResult: { issues } as any };
-            }
-
-            if (command.argsSchema) {
-              const providedKeys = new Set(Object.keys(preprocessedArgs).filter((k) => preprocessedArgs[k] !== undefined));
-              const earlyCheck = command.argsSchema['~standard'].validate(preprocessedArgs);
-              const checkForProvidedFieldErrors = (result: StandardSchemaV1.Result<unknown>): InterceptorValidateResult | undefined => {
-                if (!result.issues) return undefined;
-                const providedFieldIssues = result.issues.filter((issue) => {
-                  const rootKey = issue.path?.[0];
-                  return rootKey !== undefined && providedKeys.has(String(rootKey));
-                });
-                if (providedFieldIssues.length > 0) return { args: undefined, argsResult: { issues: providedFieldIssues } as any };
-                return undefined;
-              };
-              const earlyResult = thenMaybe(earlyCheck, (result) => checkForProvidedFieldErrors(result) ?? undefined);
-              if (earlyResult instanceof Promise) {
-                return earlyResult.then((err) => (err ? err : continueWithPrompt(preprocessedArgs)));
-              }
-              if (earlyResult) return earlyResult;
-            }
-          }
-
-          return continueWithPrompt(preprocessedArgs);
-        };
-
-        const continueWithPrompt = (
-          preprocessedArgs: Record<string, unknown>,
-        ): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
-          const willPrompt = !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta);
-          const afterInteractive = willPrompt
-            ? promptInteractiveFields(preprocessedArgs, command, runtime, forceInteractive || undefined)
-            : preprocessedArgs;
+          const afterInteractive = willPrompt ? promptInteractiveFields(args, command, runtime, forceInteractive || undefined) : args;
 
           return thenMaybe(afterInteractive, (filledArgs) => {
             const validated = validateCommandArgs(command, filledArgs);
@@ -305,18 +207,38 @@ export function execCommand(
           });
         };
 
-        // Chain: config → env → stdin → validate
-        const validatedConfig = validateConfig();
-        return thenMaybe(validatedConfig, (cfgData) => {
-          const validatedEnv = validateEnv();
-          return thenMaybe(validatedEnv, (envData) => {
-            const stdinDataOrPromise = readStdin();
-            return thenMaybe(stdinDataOrPromise, (stdinData) => {
-              const hasStdinData = Object.keys(stdinData).length > 0;
-              return finalizeValidation(cfgData, envData, hasStdinData ? stdinData : undefined);
+        const willPrompt = !interactivitySuppressed && runtime.prompt && hasInteractiveConfig(command.meta);
+        if (willPrompt) {
+          const unknowns = checkUnknownArgs(command, preprocessedArgs);
+          if (unknowns.length > 0) {
+            const issues: StandardSchemaV1.Issue[] = unknowns.map(({ key, suggestions }) => {
+              const hint = formatSuggestions(suggestions, '--');
+              return { path: [key], message: hint ? `Unknown option: "${key}". ${hint}` : `Unknown option: "${key}"` };
             });
-          });
-        });
+            return { args: undefined, argsResult: { issues } as any };
+          }
+
+          if (command.argsSchema) {
+            const providedKeys = new Set(Object.keys(preprocessedArgs).filter((k) => preprocessedArgs[k] !== undefined));
+            const earlyCheck = command.argsSchema['~standard'].validate(preprocessedArgs);
+            const checkForProvidedFieldErrors = (result: StandardSchemaV1.Result<unknown>): InterceptorValidateResult | undefined => {
+              if (!result.issues) return undefined;
+              const providedFieldIssues = result.issues.filter((issue) => {
+                const rootKey = issue.path?.[0];
+                return rootKey !== undefined && providedKeys.has(String(rootKey));
+              });
+              if (providedFieldIssues.length > 0) return { args: undefined, argsResult: { issues: providedFieldIssues } as any };
+              return undefined;
+            };
+            const earlyResult = thenMaybe(earlyCheck, (result) => checkForProvidedFieldErrors(result) ?? undefined);
+            if (earlyResult instanceof Promise) {
+              return earlyResult.then((err) => (err ? err : doPrompt(preprocessedArgs)));
+            }
+            if (earlyResult) return earlyResult;
+          }
+        }
+
+        return doPrompt(preprocessedArgs);
       };
 
       const validatedOrPromise = runInterceptorChain('validate', commandInterceptors, validateCtx, coreValidate);

@@ -191,8 +191,8 @@ export type WithCommand<T, TName extends string, TCmd extends AnyPadroneCommand>
   };
 }
   ? T extends { run: any }
-    ? PadroneProgram<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, TName, TCmd>, any, any, any, AS, CTX>
-    : PadroneBuilder<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, TName, TCmd>, any, any, any, AS, CTX>
+    ? PadroneProgram<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, TName, TCmd>, any, AS, CTX>
+    : PadroneBuilder<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, TName, TCmd>, any, AS, CTX>
   : T;
 
 export type PickCommandByName<
@@ -281,8 +281,6 @@ type RepathCommand<TCommand extends AnyPadroneCommand, TNewParentName extends st
   TCommand['~types']['result'],
   RepathCommands<TCommand['~types']['commands'], FullCommandName<TCommand['~types']['name'], TNewParentName>>,
   TCommand['~types']['aliases'],
-  TCommand['~types']['configSchema'],
-  TCommand['~types']['envSchema'],
   TCommand['~types']['async'],
   TCommand['~types']['context']
 >;

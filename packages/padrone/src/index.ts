@@ -32,6 +32,7 @@ export {
   padroneColor,
   padroneCompletion,
   padroneConfig,
+  padroneEnv,
   padroneHelp,
   padroneInteractive,
   padroneMan,
@@ -40,6 +41,7 @@ export {
   padroneRepl,
   padroneServe,
   padroneSignalHandling,
+  padroneStdin,
   padroneUpdateCheck,
   padroneVersion,
 } from './extension/index.ts';

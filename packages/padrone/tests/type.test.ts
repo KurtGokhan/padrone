@@ -14,8 +14,6 @@ describe.skip('Types - Builder vs Program separation', async () => {
   expectTypeOf<'arguments'>().toExtend<BuilderKeys>();
   expectTypeOf<'action'>().toExtend<BuilderKeys>();
   expectTypeOf<'command'>().toExtend<BuilderKeys>();
-  expectTypeOf<'configFile'>().toExtend<BuilderKeys>();
-  expectTypeOf<'env'>().toExtend<BuilderKeys>();
   expectTypeOf<'~types'>().toExtend<BuilderKeys>();
 
   // Builder should NOT have these program-only methods

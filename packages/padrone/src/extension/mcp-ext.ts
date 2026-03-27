@@ -10,7 +10,7 @@ import { passthroughSchema } from './utils.ts';
 
 type McpArgs = { transport?: string; port?: string; host?: string; basePath?: string };
 
-type McpCommand = PadroneCommand<'mcp', '', PadroneSchema<McpArgs>, void, [], [], PadroneSchema<McpArgs>, PadroneSchema<McpArgs>, true>;
+type McpCommand = PadroneCommand<'mcp', '', PadroneSchema<McpArgs>, void, [], [], true>;
 
 export type WithMcp<T> = WithCommand<T, 'mcp', McpCommand>;
 

@@ -294,36 +294,46 @@ function defaultOnSignal(callback: (signal: PadroneSignal) => void): () => void 
   };
 }
 
+function resolveConfigPath(fs: any, path: any, cwd: string, files: string | string[]): string | undefined {
+  if (typeof files === 'string') {
+    const abs = path.isAbsolute(files) ? files : path.resolve(cwd, files);
+    if (!fs.existsSync(abs)) {
+      console.error(`Config file not found: ${abs}`);
+      return undefined;
+    }
+    return abs;
+  }
+  for (const candidate of files) {
+    const abs = path.isAbsolute(candidate) ? candidate : path.resolve(cwd, candidate);
+    if (fs.existsSync(abs)) return abs;
+  }
+  return undefined;
+}
+
 /**
- * Loads and parses a config file from the given path.
- * Supports JSON, JSONC (JSON with comments), and attempts to parse other formats.
+ * Find and load a config file. Accepts a single explicit path or a list of
+ * candidate file names to search in the current working directory.
+ * Supports JSON, JSONC, YAML, TOML, and JS/TS config files.
  */
-export function loadConfigFile(configPath: string): Record<string, unknown> | undefined {
+export function loadConfig(files: string | string[]): Record<string, unknown> | undefined {
   if (typeof process === 'undefined') return undefined;
 
   try {
     const fs = require('node:fs');
     const path = require('node:path');
+    const cwd = process.cwd();
 
-    // Resolve to absolute path
-    const absolutePath = path.isAbsolute(configPath) ? configPath : path.resolve(process.cwd(), configPath);
+    // Resolve which file to load
+    const absolutePath = resolveConfigPath(fs, path, cwd, files);
+    if (!absolutePath) return undefined;
 
-    if (!fs.existsSync(absolutePath)) {
-      console.error(`Config file not found: ${absolutePath}`);
-      return undefined;
-    }
-
+    // Parse the file
     const getContent = () => fs.readFileSync(absolutePath, 'utf-8');
     const ext = path.extname(absolutePath).toLowerCase();
 
-    if (ext === '.yaml' || ext === '.yml') {
-      return Bun.YAML.parse(getContent()) as any;
-    }
-
-    if (ext === '.toml') {
-      return Bun.TOML.parse(getContent()) as any;
-    }
-
+    if (ext === '.yaml' || ext === '.yml') return Bun.YAML.parse(getContent()) as any;
+    if (ext === '.toml') return Bun.TOML.parse(getContent()) as any;
+    if (ext === '.jsonc') return Bun.JSONC.parse(getContent()) as any;
     if (ext === '.json') {
       if (Bun.JSONC) return Bun.JSONC.parse(getContent()) as any;
       try {
@@ -332,17 +342,11 @@ export function loadConfigFile(configPath: string): Record<string, unknown> | un
         return Bun.JSONC.parse(getContent()) as any;
       }
     }
-
-    if (ext === '.jsonc') {
-      return Bun.JSONC.parse(getContent()) as any;
-    }
-
     if (ext === '.js' || ext === '.cjs' || ext === '.mjs' || ext === '.ts' || ext === '.cts' || ext === '.mts') {
-      // For JS files, require them
       return require(absolutePath);
     }
 
-    // For unknown extensions, try to parse as JSON
+    // Unknown extension — try JSON
     try {
       return JSON.parse(getContent());
     } catch {
@@ -356,31 +360,6 @@ export function loadConfigFile(configPath: string): Record<string, unknown> | un
 }
 
 /**
- * Searches for a config file from a list of possible file names.
- * Searches in the current working directory.
- */
-export function findConfigFile(configFiles: string[]): string | undefined {
-  if (typeof process === 'undefined' || !configFiles?.length) return undefined;
-
-  try {
-    const fs = require('node:fs');
-    const path = require('node:path');
-    const cwd = process.cwd();
-
-    for (const configFile of configFiles) {
-      const configPath = path.isAbsolute(configFile) ? configFile : path.resolve(cwd, configFile);
-      if (fs.existsSync(configPath)) {
-        return configPath;
-      }
-    }
-  } catch {
-    // Ignore errors (e.g., fs not available in browser)
-  }
-
-  return undefined;
-}
-
-/**
  * Creates the default Node.js/Bun runtime.
  */
 export function createDefaultRuntime(): ResolvedPadroneRuntime {
@@ -390,8 +369,7 @@ export function createDefaultRuntime(): ResolvedPadroneRuntime {
     argv: () => (typeof process !== 'undefined' ? process.argv.slice(2) : []),
     env: () => (typeof process !== 'undefined' ? (process.env as Record<string, string | undefined>) : {}),
     format: 'auto',
-    loadConfigFile,
-    findFile: findConfigFile,
+    loadConfig,
     prompt: defaultTerminalPrompt,
     interactive: detectInteractiveMode(),
     progress: createTerminalSpinner,
@@ -433,8 +411,7 @@ export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime
     argv: partial.argv ?? defaults.argv,
     env: partial.env ?? defaults.env,
     format: partial.format ?? defaults.format,
-    loadConfigFile: partial.loadConfigFile ?? defaults.loadConfigFile,
-    findFile: partial.findFile ?? defaults.findFile,
+    loadConfig: partial.loadConfig ?? defaults.loadConfig,
     interactive: partial.interactive ?? defaults.interactive,
     prompt: partial.prompt ?? defaults.prompt,
     readLine: partial.readLine ?? defaults.readLine,

@@ -101,7 +101,7 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 
 **Arguments** — positional args, variadic args, short flags (`-v`), long aliases (`--dry-run`), auto kebab-case aliases, negatable booleans (`--no-verbose`).
 
-**Env & Config** — load from environment variables with `.env()` and config files with `.configFile()`. Precedence: CLI > stdin > env > config > defaults.
+**Env & Config** — load from environment variables with `.extend(padroneEnv(schema))` and config files with `.extend(padroneConfig({ files, schema }))`. Precedence: CLI > stdin > env > config > defaults.
 
 **Interactive prompts** — auto-prompt for missing fields. Booleans become confirm, enums become select, arrays become multi-select.
 
@@ -127,8 +127,8 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 | `.context(transform?)` | Define typed context or transform inherited context |
 | `.mount(name, program, options?)` | Mount another program as subcommand tree |
 | `.configure(config)` | Set title, description, version, etc. |
-| `.env(schema)` | Map env vars to args |
-| `.configFile(file, schema?)` | Load args from config files |
+| `.extend(padroneEnv(schema))` | Map env vars to args (composable extension) |
+| `.extend(padroneConfig({ files, schema }))` | Load args from config files (composable extension) |
 | `.wrap(config)` | Wrap an external CLI tool *(experimental)* |
 | `.progress(config?)` | Auto-managed spinner |
 | `.intercept(interceptor)` | Register middleware interceptor |

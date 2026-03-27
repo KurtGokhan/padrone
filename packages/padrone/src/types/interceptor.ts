@@ -41,8 +41,6 @@ export type InterceptorValidateContext = InterceptorBaseContext & {
   rawArgs: Record<string, unknown>;
   /** Positional argument strings extracted by the parser. */
   positionalArgs: string[];
-  /** Pre-loaded config data (set by the config extension when `--config` is used). */
-  configData?: Record<string, unknown>;
   /** Interactive mode override (set by the interactive extension when `--interactive` is used). */
   interactive?: boolean;
 };

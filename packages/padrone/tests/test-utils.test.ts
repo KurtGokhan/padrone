@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { createPadrone } from 'padrone';
+import { createPadrone, padroneConfig, padroneEnv } from 'padrone';
 import { testCli } from 'padrone/test';
 import * as z from 'zod/v4';
 import { createConsoleMocker } from './console-mocker.ts';
@@ -85,7 +85,7 @@ describe('testCli', () => {
       const program = createPadrone('test').command('deploy', (c) =>
         c
           .arguments(z.object({ target: z.string().default('staging') }))
-          .env(z.object({ DEPLOY_TARGET: z.string().optional() }).transform((e) => ({ target: e.DEPLOY_TARGET })))
+          .extend(padroneEnv(z.object({ DEPLOY_TARGET: z.string().optional() }).transform((e) => ({ target: e.DEPLOY_TARGET }))))
           .action((args) => `deployed to ${args.target}`),
       );
 
@@ -121,7 +121,7 @@ describe('testCli', () => {
       const program = createPadrone('test').command('serve', (c) =>
         c
           .arguments(z.object({ port: z.number().default(3000) }))
-          .configFile('app.config.json')
+          .extend(padroneConfig({ files: ['app.config.json'] }))
           .action((args) => `serving on ${args.port}`),
       );
 

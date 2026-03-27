@@ -133,19 +133,21 @@ When run with flags: skips prompts for provided values.
 ## Environment Variables
 
 ```ts
+import { createPadrone, padroneEnv } from 'padrone';
+
 .command('serve', (c) =>
   c
     .arguments(z.object({
       port: z.coerce.number().default(3000),
       host: z.string().default('localhost'),
     }))
-    .env(z.object({
+    .extend(padroneEnv(z.object({
       PORT: z.coerce.number().optional(),
       HOST: z.string().optional(),
     }).transform((e) => ({
       port: e.PORT,
       host: e.HOST,
-    })))
+    }))))
     .action((args) => `Serving on ${args.host}:${args.port}`),
 )
 // CLI flags > env vars > defaults
@@ -155,6 +157,8 @@ When run with flags: skips prompts for provided values.
 ## Config Files
 
 ```ts
+import { createPadrone, padroneConfig } from 'padrone';
+
 .command('build', (c) =>
   c
     .arguments(z.object({
@@ -162,7 +166,7 @@ When run with flags: skips prompts for provided values.
       minify: z.boolean().default(false),
       target: z.enum(['es2020', 'es2022', 'esnext']).default('es2022'),
     }))
-    .configFile('build.config.json')
+    .extend(padroneConfig({ files: 'build.config.json' }))
     .action((args) => `Building to ${args.outDir}`),
 )
 // Priority: CLI flags > config file > defaults
