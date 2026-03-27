@@ -1,3 +1,4 @@
+export { padroneAutoOutput } from './auto-output.ts';
 export { padroneColor } from './color.ts';
 export type { WithCompletion } from './completion.ts';
 export { padroneCompletion } from './completion.ts';

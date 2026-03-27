@@ -112,7 +112,7 @@ export type TestCliBuilder = {
  * Avoids strict variance issues with `AnyPadroneProgram`.
  */
 type TestableProgram = {
-  eval: (input: string, prefs?: { autoOutput?: boolean }) => any;
+  eval: (input: string, prefs?: Record<string, unknown>) => any;
   runtime: (runtime: PadroneRuntime) => TestableProgram;
   repl: (options?: { greeting?: false; hint?: false }) => AsyncIterable<any>;
 };
@@ -153,7 +153,7 @@ export function testCli(program: TestableProgram): TestCliBuilder {
       const runtime = buildRuntime(stdout, stderr, { envVars, promptAnswers, configFiles, stdinData });
       const testProgram = program.runtime(runtime);
 
-      const evalResult = await testProgram.eval(runInput ?? input ?? '', { autoOutput: false });
+      const evalResult = await testProgram.eval(runInput ?? input ?? '', {});
       if (evalResult.error) {
         stderr.push(evalResult.error instanceof Error ? evalResult.error.message : String(evalResult.error));
       }

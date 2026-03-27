@@ -130,6 +130,11 @@ export type InterceptorMeta = {
    * Interceptors with the same order preserve registration order. Defaults to `0`.
    */
   order?: number;
+  /**
+   * When `true`, the interceptor is skipped during execution. Combined with `id`-based deduplication,
+   * this lets downstream code disable an interceptor by re-registering it with `disabled: true`.
+   */
+  disabled?: boolean;
 };
 
 /**

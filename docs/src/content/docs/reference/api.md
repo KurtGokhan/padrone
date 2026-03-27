@@ -43,7 +43,6 @@ program.configure({
 | `deprecated` | `boolean \| string` | Mark as deprecated with optional message |
 | `hidden` | `boolean` | Hide from help output |
 | `group` | `string` | Group name for organizing in help output |
-| `autoOutput` | `boolean` | Automatically write return value to output |
 | `mutation` | `boolean` | Mark as mutation (POST-only in serve, destructiveHint in MCP, defaults needsApproval in tool) |
 
 ---
@@ -542,7 +541,7 @@ Execute the program as a CLI. This is the main process entry point that reads fr
 program.cli();
 
 // With preferences
-program.cli({ interactive: true, autoOutput: true });
+program.cli({ interactive: true });
 
 // With context
 program.cli({ context: { db, logger } });
@@ -555,7 +554,6 @@ program.cli({ context: { db, logger } });
 **Parameters:**
 - `prefs` (optional): `PadroneCliPreferences`
   - `interactive`: Override interactive prompting (`true` = force, `false` = suppress, `undefined` = inherit from runtime)
-  - `autoOutput`: Automatically write return value to output
   - `runtime`: Override runtime configuration
   - `repl`: Override REPL preferences (used when `--repl` flag is passed)
   - `context`: User-defined context object. Required when the program has a non-`unknown` context type.

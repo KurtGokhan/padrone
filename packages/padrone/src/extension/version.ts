@@ -54,7 +54,7 @@ export function padroneVersion(): <T extends CommandTypesBase>(builder: T) => Wi
   return ((builder: AnyPadroneBuilder) =>
     builder
       .command('version', (c) =>
-        c.configure({ description: 'Display the version number', hidden: true, autoOutput: true }).action((_args, ctx) => {
+        c.configure({ description: 'Display the version number', hidden: true }).action((_args, ctx) => {
           const rootCommand = getRootCommand(ctx.command);
           return getVersion(rootCommand.version);
         }),

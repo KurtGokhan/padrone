@@ -54,12 +54,6 @@ export type PadroneCommandConfig = {
   hidden?: boolean;
   /** Group name for organizing this command under a labeled section in help output. */
   group?: string;
-  /**
-   * Automatically write this command's return value to output in CLI/eval/REPL mode.
-   * Overrides the `autoOutput` setting in eval/cli preferences for this command.
-   * See `PadroneEvalPreferences.autoOutput` for serialization details.
-   */
-  autoOutput?: boolean;
   /** Usage examples shown in help output. Each entry is a command-line invocation string. */
   examples?: string[];
   /**
@@ -97,7 +91,6 @@ export type PadroneCommand<
   /** Whether this command performs a mutation (create, update, delete). Affects HTTP method in serve (POST-only) and MCP tool annotations (destructiveHint). */
   mutation?: boolean;
   needsApproval?: boolean | ((args: TArgs) => Promise<boolean> | boolean);
-  autoOutput?: boolean;
   /** Usage examples shown in help output. Each entry is a command-line invocation string. */
   examples?: string[];
   argsSchema?: TArgs;

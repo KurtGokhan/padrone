@@ -229,7 +229,6 @@ export function createServeHandler(
     const output: string[] = [];
     const errors: string[] = [];
     const result = await evalCommand(commandString || (undefined as any), {
-      autoOutput: false,
       caller: 'serve',
       runtime: {
         output: (...args: unknown[]) => output.push(args.map(String).join(' ')),

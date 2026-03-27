@@ -27,7 +27,7 @@ export function padroneMan(): <T extends CommandTypesBase>(builder: T) => WithMa
   return ((builder: AnyPadroneBuilder) =>
     builder.command('man', (c) =>
       c
-        .configure({ description: 'Generate man pages', hidden: true, autoOutput: true })
+        .configure({ description: 'Generate man pages', hidden: true })
         .arguments(passthroughSchema({ setup: 'boolean', remove: 'boolean' }))
         .async()
         .action(async (args, ctx) => {

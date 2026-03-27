@@ -57,7 +57,7 @@ export const tasksProgram = createPadrone('tasks')
   .intercept(telemetry)
   .runtime({ interactive: 'supported' })
   .command(['repl', ''], (c) =>
-    c.configure({ title: 'Start interactive REPL', autoOutput: false }).action(async (_args, { program }) => {
+    c.configure({ title: 'Start interactive REPL' }).action(async (_args, { program }) => {
       for await (const _ of program.repl({
         spacing: { before: ['▆', true], after: [true, '▆', true] },
         outputPrefix: '│   ',
@@ -68,7 +68,7 @@ export const tasksProgram = createPadrone('tasks')
   )
   .command('chat', (c) =>
     c
-      .configure({ title: 'Start a conversation with the assistant', autoOutput: true })
+      .configure({ title: 'Start a conversation with the assistant' })
       .async()
       .arguments(
         z.object({
@@ -266,7 +266,7 @@ export const tasksProgram = createPadrone('tasks')
   )
   .command('sync', (c) =>
     c
-      .configure({ title: 'Sync tasks to remote', autoOutput: false })
+      .configure({ title: 'Sync tasks to remote' })
       .async()
       .arguments(
         z.object({

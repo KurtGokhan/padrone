@@ -39,6 +39,7 @@ export function defineInterceptor<TArgs = unknown, TResult = unknown>(
   Object.defineProperty(factory, 'name', { value: meta.name, configurable: true });
   if (meta.id !== undefined) (factory as any).id = meta.id;
   if (meta.order !== undefined) (factory as any).order = meta.order;
+  if (meta.disabled !== undefined) (factory as any).disabled = meta.disabled;
   return factory as PadroneInterceptorFn<TArgs, TResult>;
 }
 
@@ -56,7 +57,7 @@ export function toRegisteredInterceptor(
 ): RegisteredInterceptor {
   if (typeof metaOrFn === 'function') {
     // Single-value form: PadroneInterceptorFn (factory with meta as own properties)
-    return { meta: { name: metaOrFn.name, id: metaOrFn.id, order: metaOrFn.order }, factory: metaOrFn };
+    return { meta: { name: metaOrFn.name, id: metaOrFn.id, order: metaOrFn.order, disabled: metaOrFn.disabled }, factory: metaOrFn };
   }
   // Two-arg form: (meta, factory)
   return { meta: metaOrFn, factory: factory! };
@@ -122,9 +123,9 @@ export function runInterceptorChain<TCtx extends object, TResult>(
   ctx: TCtx,
   core: (ctx: TCtx) => TResult | Promise<TResult>,
 ): TResult | Promise<TResult> {
-  // Deduplicate by id (last wins), then filter to interceptors that have a handler for this phase
+  // Deduplicate by id (last wins), then filter to enabled interceptors that have a handler for this phase
   const deduped = deduplicateInterceptors(interceptors);
-  const phaseInterceptors = deduped.filter((p) => p[phase]);
+  const phaseInterceptors = deduped.filter((p) => p[phase] && !p.disabled);
   if (phaseInterceptors.length === 0) return core(ctx);
 
   // Stable sort by order (lower = outermost). Equal order preserves registration order.

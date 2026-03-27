@@ -226,7 +226,6 @@ Re-paths all nested commands. Drops the mounted program's version. Preserves int
   version?: string,
   deprecated?: boolean | string,
   hidden?: boolean,
-  autoOutput?: boolean,
 })
 ```
 
@@ -327,7 +326,6 @@ CLI entry point. Parses `process.argv`. Throws on validation errors.
 ```ts
 program.cli();
 program.cli({ repl: { prompt: '> ' } });
-program.cli({ autoOutput: false });
 program.cli({ context: { db } });  // provide typed context
 ```
 
@@ -335,7 +333,6 @@ Preferences:
 ```ts
 type PadroneCliPreferences = {
   interactive?: boolean,
-  autoOutput?: boolean,      // default: true
   repl?: PadroneReplPreferences | false,
   context?: TContext,         // required when context type is not `unknown`
 };

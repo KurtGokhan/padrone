@@ -19,7 +19,7 @@ import { resolveInherited } from './builtins.ts';
 import { getCommandRuntime, resolveAllCommands, resolveCommand, suggestSimilar } from './commands.ts';
 import { ConfigError, RoutingError, signalExitCode, ValidationError } from './errors.ts';
 import { noopIndicator, resolveRegisteredInterceptors, runInterceptorChain, wrapWithLifecycle } from './interceptors.ts';
-import { errorResult, hasInteractiveConfig, noop, outputValue, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
+import { errorResult, hasInteractiveConfig, noop, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
 import type { PadroneSignal } from './runtime.ts';
 import { collectSuggestionsFromIssues, enrichIssuesWithSuggestions, formatSuggestions } from './suggestions.ts';
 import {
@@ -443,21 +443,13 @@ export function execCommand(
         const executedOrPromise = runInterceptorChain('execute', commandInterceptors, executeCtx, coreExecute);
 
         return thenMaybe(executedOrPromise, (e) => {
-          const finalize = (result: unknown) => {
-            const commandResult = withDrain({
+          const finalize = (result: unknown) =>
+            withDrain({
               command: command as any,
               args: v.args,
               argsResult: v.argsResult,
               result,
             });
-
-            if (command.autoOutput ?? evalOptions?.autoOutput ?? true) {
-              const outputOrPromise = outputValue(result, runtime.output);
-              if (outputOrPromise instanceof Promise) return outputOrPromise.then(() => commandResult);
-            }
-
-            return commandResult;
-          };
 
           if (e.result instanceof Promise) {
             return e.result.then(finalize);

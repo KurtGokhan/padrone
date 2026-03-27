@@ -42,7 +42,7 @@ describe('drain()', () => {
         }),
       );
 
-      const { value, error } = await program.eval('gen', { autoOutput: false }).drain();
+      const { value, error } = await program.eval('gen', {}).drain();
       expect(error).toBeUndefined();
       expect(value).toEqual([1, 2, 3]);
     });
@@ -56,7 +56,7 @@ describe('drain()', () => {
         }),
       );
 
-      const { value, error } = await program.eval('stream', { autoOutput: false }).drain();
+      const { value, error } = await program.eval('stream', {}).drain();
       expect(error).toBeUndefined();
       expect(value).toEqual(['a', 'b', 'c']);
     });
@@ -78,7 +78,7 @@ describe('drain()', () => {
         }),
       );
 
-      const { value, error } = await program.eval('fail-stream', { autoOutput: false }).drain();
+      const { value, error } = await program.eval('fail-stream', {}).drain();
       expect(value).toBeUndefined();
       expect(error).toBeDefined();
       expect((error as Error).message).toBe('stream boom');

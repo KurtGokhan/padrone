@@ -113,7 +113,7 @@ export function padroneHelp(): <T extends CommandTypesBase>(builder: T) => WithH
     builder
       .command(['help', 'h'], (c) =>
         c
-          .configure({ description: 'Display help for a command', hidden: true, autoOutput: true })
+          .configure({ description: 'Display help for a command', hidden: true })
           .arguments(passthroughSchema({ command: 'string[]', detail: 'string', format: 'string', all: 'boolean' }), {
             positional: ['...command'],
           })

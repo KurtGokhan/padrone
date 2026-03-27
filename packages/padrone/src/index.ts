@@ -28,6 +28,7 @@ export type {
   WithVersion,
 } from './extension/index.ts';
 export {
+  padroneAutoOutput,
   padroneColor,
   padroneCompletion,
   padroneConfig,

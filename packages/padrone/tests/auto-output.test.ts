@@ -1,8 +1,35 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { createPadrone } from 'padrone';
+import { createPadrone, padroneAutoOutput } from 'padrone';
 import * as z from 'zod/v4';
 
 describe('autoOutput', () => {
+  describe('disabled', () => {
+    it('should not output when disabled at program level', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .extend(padroneAutoOutput({ disabled: true }))
+        .command('greet', (c) => c.action(() => 'hello'));
+
+      program.eval('greet');
+      expect(output).not.toHaveBeenCalled();
+    });
+
+    it('should not output when disabled at command level', () => {
+      const output = mock();
+      const program = createPadrone('test')
+        .runtime({ output })
+        .command('greet', (c) => c.extend(padroneAutoOutput({ disabled: true })).action(() => 'hello'))
+        .command('other', (c) => c.action(() => 'world'));
+
+      program.eval('greet');
+      expect(output).not.toHaveBeenCalled();
+
+      program.eval('other');
+      expect(output).toHaveBeenCalledWith('world');
+    });
+  });
+
   describe('eval', () => {
     it('should output result by default', () => {
       const output = mock();
@@ -12,16 +39,6 @@ describe('autoOutput', () => {
 
       program.eval('greet');
       expect(output).toHaveBeenCalledWith('hello');
-    });
-
-    it('should not output when autoOutput is false', () => {
-      const output = mock();
-      const program = createPadrone('test')
-        .runtime({ output })
-        .command('greet', (c) => c.action(() => 'hello'));
-
-      program.eval('greet', { autoOutput: false });
-      expect(output).not.toHaveBeenCalled();
     });
 
     it('should output number result', () => {
@@ -141,58 +158,6 @@ describe('autoOutput', () => {
     });
   });
 
-  describe('command-level config', () => {
-    it('should auto-output when command has autoOutput configured', () => {
-      const output = mock();
-      const program = createPadrone('test')
-        .runtime({ output })
-        .command('greet', (c) => c.configure({ autoOutput: true }).action(() => 'configured-hello'));
-
-      program.eval('greet');
-      expect(output).toHaveBeenCalledWith('configured-hello');
-    });
-
-    it('command-level autoOutput should override eval prefs (command true, prefs false)', () => {
-      const output = mock();
-      const program = createPadrone('test')
-        .runtime({ output })
-        .command('greet', (c) => c.configure({ autoOutput: true }).action(() => 'from-command'));
-
-      program.eval('greet', { autoOutput: false });
-      expect(output).toHaveBeenCalledWith('from-command');
-    });
-
-    it('command-level autoOutput=false should suppress output even if prefs say true', () => {
-      const output = mock();
-      const program = createPadrone('test')
-        .runtime({ output })
-        .command('greet', (c) => c.configure({ autoOutput: false }).action(() => 'suppressed'));
-
-      program.eval('greet', { autoOutput: true });
-      expect(output).not.toHaveBeenCalled();
-    });
-
-    it('command-level autoOutput=false should suppress output with default prefs', () => {
-      const output = mock();
-      const program = createPadrone('test')
-        .runtime({ output })
-        .command('greet', (c) => c.configure({ autoOutput: false }).action(() => 'suppressed'));
-
-      program.eval('greet');
-      expect(output).not.toHaveBeenCalled();
-    });
-
-    it('should fall back to eval prefs when command has no autoOutput', () => {
-      const output = mock();
-      const program = createPadrone('test')
-        .runtime({ output })
-        .command('greet', (c) => c.action(() => 'from-prefs'));
-
-      program.eval('greet', { autoOutput: true });
-      expect(output).toHaveBeenCalledWith('from-prefs');
-    });
-  });
-
   describe('cli', () => {
     it('should output result by default', () => {
       const output = mock();
@@ -202,16 +167,6 @@ describe('autoOutput', () => {
 
       program.cli();
       expect(output).toHaveBeenCalledWith('cli-hello');
-    });
-
-    it('should not output result when autoOutput is false', () => {
-      const output = mock();
-      const program = createPadrone('test')
-        .runtime({ output, argv: () => ['greet'] })
-        .command('greet', (c) => c.action(() => 'cli-hello'));
-
-      program.cli({ autoOutput: false });
-      expect(output).not.toHaveBeenCalled();
     });
   });
 
@@ -231,23 +186,6 @@ describe('autoOutput', () => {
       }
 
       expect(output).toContain('repl-hello');
-    });
-
-    it('should not output results in REPL when autoOutput is false', async () => {
-      const inputs = ['greet', '.exit'];
-      let inputIndex = 0;
-      const readLine = async () => (inputIndex < inputs.length ? inputs[inputIndex++]! : null);
-
-      const output: unknown[] = [];
-      const program = createPadrone('test')
-        .runtime({ readLine, output: (msg) => output.push(msg), error: () => {} })
-        .command('greet', (c) => c.action(() => 'repl-hello'));
-
-      for await (const _ of program.repl({ autoOutput: false, greeting: false, hint: false })) {
-        // drain
-      }
-
-      expect(output).not.toContain('repl-hello');
     });
   });
 });

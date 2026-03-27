@@ -185,7 +185,6 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
         const output: string[] = [];
         const errors: string[] = [];
         const result = await evalCommand(input.command, {
-          autoOutput: false,
           caller: 'tool',
           runtime: {
             output: (...args) => output.push(args.map(String).join(' ')),

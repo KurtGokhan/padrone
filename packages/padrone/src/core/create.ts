@@ -1,3 +1,4 @@
+import { padroneAutoOutput } from '../extension/auto-output.ts';
 import { padroneColor } from '../extension/color.ts';
 import { padroneConfig } from '../extension/config-ext.ts';
 import { padroneHelp } from '../extension/help.ts';
@@ -54,7 +55,8 @@ export function createPadrone<TProgramName extends string>(
   if (b?.version !== false) builder = builder.extend(padroneVersion());
   if (b?.repl !== false) builder = builder.extend(padroneRepl());
   if (b?.color !== false) builder = builder.extend(padroneColor());
-  // Framework flag extensions (always on by default)
+  // Framework extensions (always on by default)
+  builder = builder.extend(padroneAutoOutput());
   builder = builder.extend(padroneConfig());
   builder = builder.extend(padroneInteractive());
 

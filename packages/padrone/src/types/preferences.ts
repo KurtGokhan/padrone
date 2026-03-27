@@ -44,13 +44,6 @@ export type PadroneReplPreferences<TScope extends string = string> = {
    * Users can change scope at runtime with `.scope <subcommand>` and `.scope ..`/`..`.
    */
   scope?: TScope;
-
-  /**
-   * Automatically write each command's return value to output.
-   * See `PadroneEvalPreferences.autoOutput` for details on how values are serialized.
-   * Defaults to `true`.
-   */
-  autoOutput?: boolean;
 };
 
 /**
@@ -66,18 +59,6 @@ export type PadroneEvalPreferences = {
    * - `false`: suppress all interactive prompts.
    */
   interactive?: boolean;
-
-  /**
-   * Automatically write the command's return value to output.
-   *
-   * - Values are passed directly to the runtime's `output` function (no stringification).
-   * - Promises are awaited before output.
-   * - Iterators and async iterators are consumed, outputting each yielded value as it arrives.
-   * - `undefined` and `null` results produce no output.
-   *
-   * Defaults to `true`. Set to `false` to disable.
-   */
-  autoOutput?: boolean;
 
   /**
    * Override the runtime for this execution.
