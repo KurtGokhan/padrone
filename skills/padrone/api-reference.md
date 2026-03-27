@@ -487,8 +487,9 @@ All handlers can return Promises for async behavior.
 
 **Shared across all phases:**
 - `command`: The resolved command
-- `state`: Mutable `Record<string, unknown>` shared across phases per execution
 - `context`: The user-provided context (from `cli()`/`eval()`/`run()` prefs)
+- `signal`: `AbortSignal` for cancellation
+- `runtime`: The resolved runtime
 
 **Phase-specific fields:**
 

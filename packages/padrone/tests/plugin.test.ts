@@ -187,52 +187,6 @@ describe('interceptors', () => {
     });
   });
 
-  describe('state sharing', () => {
-    it('should share state across phases within one execution', () => {
-      const stateLog: Record<string, unknown>[] = [];
-
-      const interceptor = defineInterceptor({ name: 'state-test' }, () => ({
-        parse: (ctx, next) => {
-          ctx.state.startTime = 1;
-          return next();
-        },
-        validate: (ctx, next) => {
-          stateLog.push({ fromParse: ctx.state.startTime });
-          ctx.state.validated = true;
-          return next();
-        },
-        execute: (ctx, next) => {
-          stateLog.push({ fromParse: ctx.state.startTime, validated: ctx.state.validated });
-          return next();
-        },
-      }));
-
-      const program = makeProgram().intercept(interceptor);
-      program.eval('greet World');
-
-      expect(stateLog).toEqual([{ fromParse: 1 }, { fromParse: 1, validated: true }]);
-    });
-
-    it('should create fresh state per execution', () => {
-      const states: Record<string, unknown>[] = [];
-
-      const interceptor = defineInterceptor({ name: 'state-isolation' }, () => ({
-        execute: (ctx, next) => {
-          ctx.state.count = ((ctx.state.count as number) || 0) + 1;
-          states.push({ ...ctx.state });
-          return next();
-        },
-      }));
-
-      const program = makeProgram().intercept(interceptor);
-      program.eval('greet A');
-      program.eval('greet B');
-
-      // Each execution should start with fresh state
-      expect(states).toEqual([{ count: 1 }, { count: 1 }]);
-    });
-  });
-
   describe('ordering', () => {
     it('should execute first-registered as outermost (before others, after others on return)', () => {
       const log: string[] = [];
@@ -527,19 +481,22 @@ describe('interceptors', () => {
       expect(log).toEqual(['start:blocked']);
     });
 
-    it('should share state with other phases', () => {
+    it('should share closure state with other phases', () => {
       const stateLog: Record<string, unknown>[] = [];
 
-      const interceptor = defineInterceptor({ name: 'state-test' }, () => ({
-        start: (ctx, next) => {
-          ctx.state.initialized = true;
-          return next();
-        },
-        execute: (ctx, next) => {
-          stateLog.push({ initialized: ctx.state.initialized });
-          return next();
-        },
-      }));
+      const interceptor = defineInterceptor({ name: 'state-test' }, () => {
+        let initialized = false;
+        return {
+          start: (_ctx, next) => {
+            initialized = true;
+            return next();
+          },
+          execute: (_ctx, next) => {
+            stateLog.push({ initialized });
+            return next();
+          },
+        };
+      });
 
       const program = makeProgram().intercept(interceptor);
       program.eval('greet World');

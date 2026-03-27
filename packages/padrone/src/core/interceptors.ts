@@ -167,7 +167,6 @@ export const noopIndicator: PadroneProgressIndicator = {
 export function wrapWithLifecycle<T>(
   interceptors: ResolvedInterceptor[],
   command: AnyPadroneCommand,
-  state: Record<string, unknown>,
   input: string | undefined,
   pipeline: () => T | Promise<T>,
   wrapErrorResult?: (result: unknown) => T,
@@ -188,7 +187,7 @@ export function wrapWithLifecycle<T>(
 
   const runShutdown = (error?: unknown, result?: unknown) => {
     if (!hasShutdown) return;
-    const ctx: InterceptorShutdownContext = { command, state, error, result, signal: effectiveSignal, context, runtime: runtime! };
+    const ctx: InterceptorShutdownContext = { command, error, result, signal: effectiveSignal, context, runtime: runtime! };
     return runInterceptorChain('shutdown', interceptors, ctx, () => {});
   };
 
@@ -201,7 +200,7 @@ export function wrapWithLifecycle<T>(
         });
       throw error;
     }
-    const ctx: InterceptorErrorContext = { command, state, error, signal: effectiveSignal, context, runtime: runtime! };
+    const ctx: InterceptorErrorContext = { command, error, signal: effectiveSignal, context, runtime: runtime! };
     const errorResult = runInterceptorChain('error', interceptors, ctx, (): InterceptorErrorResult => ({ error }));
     return thenMaybe(errorResult, (er) => {
       if (er.error !== undefined) {
@@ -222,22 +221,13 @@ export function wrapWithLifecycle<T>(
     return result;
   };
 
-  // Run start phase wrapping the pipeline.
-  // Use getter/setter so interceptors that set `ctx.input` automatically propagate to `state._input`,
-  // which `runPipeline` reads as the effective input for the parse phase.
   const startCtx: InterceptorStartContext = {
     command,
-    state,
     signal: effectiveSignal,
     context,
     runtime: runtime!,
     program: program!,
-    get input() {
-      return (state._input as string | undefined) ?? input;
-    },
-    set input(v: string | undefined) {
-      state._input = v;
-    },
+    input,
   };
   let result: T | Promise<T>;
   try {

@@ -151,9 +151,6 @@ export function execCommand(
     return resolved;
   };
 
-  // Shared interceptor state for this execution
-  const state: Record<string, unknown> = {};
-
   // Factory resolution cache — ensures each factory is called at most once per execution,
   // so root interceptor closures are shared when they appear in both root and command chains.
   const factoryCache = new Map<RegisteredInterceptor, ResolvedInterceptor>();
@@ -163,12 +160,9 @@ export function execCommand(
   const runPipeline = () => {
     // ── Phase 1: Parse ──────────────────────────────────────────────────
     const signal = abortController.signal;
-    // Start-phase interceptors may override input via state._input
-    const effectiveInput = (state._input as string | undefined) ?? resolvedInput;
     const parseCtx: InterceptorParseContext = {
-      input: effectiveInput,
+      input: resolvedInput,
       command: rootCommand,
-      state,
       signal,
       context: initialContext,
       runtime,
@@ -242,7 +236,6 @@ export function execCommand(
         command,
         rawArgs: parsed.rawArgs,
         positionalArgs: parsed.positionalArgs,
-        state,
         signal,
         context: resolveContext(command),
         runtime,
@@ -412,7 +405,6 @@ export function execCommand(
         const executeCtx: InterceptorExecuteContext = {
           command,
           args: v.args,
-          state,
           signal,
           context: resolveContext(command),
           runtime,
@@ -464,7 +456,6 @@ export function execCommand(
     lifecycleResult = wrapWithLifecycle(
       rootInterceptors,
       rootCommand,
-      state,
       resolvedInput,
       runPipeline,
       (result) => withDrain({ command: rootCommand, args: undefined, argsResult: undefined, result }),

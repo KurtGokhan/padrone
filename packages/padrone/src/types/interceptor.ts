@@ -11,8 +11,6 @@ import type { AnyPadroneCommand } from './command.ts';
 export type InterceptorBaseContext = {
   /** The resolved command for this execution. In the parse phase, this is the root program. */
   command: AnyPadroneCommand;
-  /** Mutable state bag shared across phases for this execution. Interceptors can store cross-phase data here. */
-  state: Record<string, unknown>;
   /** Cancellation signal that fires when the process receives a termination signal. */
   signal: AbortSignal;
   /** User-defined context object, resolved through the command's parent chain. */
@@ -139,8 +137,7 @@ export type InterceptorMeta = {
 
 /**
  * Phase handler definitions returned by an interceptor factory.
- * The factory's closure provides typed, scoped cross-phase state — no `state` bag needed
- * for data that stays within a single interceptor.
+ * The factory's closure provides typed, scoped cross-phase state.
  *
  * Type parameters:
  * - `TArgs` — the validated arguments type (output of the args schema).
@@ -172,7 +169,7 @@ export type InterceptorPhases<TArgs = unknown, TResult = unknown> = {
 
 /**
  * Factory function that creates phase handlers for an interceptor.
- * Called once per command execution — the closure provides typed, scoped cross-phase state.
+ * Called once per command execution — the closure provides typed, scoped cross-phase state across phases.
  */
 export type InterceptorFactory<TArgs = unknown, TResult = unknown> = () => InterceptorPhases<TArgs, TResult>;
 

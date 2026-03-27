@@ -110,11 +110,9 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
 
       const resolvedCtx = resolveContext(commandObj, prefs?.context);
       const commandRuntime = getCommandRuntime(commandObj);
-      const state: Record<string, unknown> = {};
       const executeCtx: InterceptorExecuteContext = {
         command: commandObj,
         args,
-        state,
         signal: inertSignal,
         context: resolvedCtx,
         runtime: commandRuntime,

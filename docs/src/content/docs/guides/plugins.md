@@ -74,7 +74,7 @@ const startup: PadroneInterceptor = {
 |----------|------|-------------|
 | `command` | `PadroneCommand` | The root command |
 | `input` | `string \| undefined` | Raw CLI input string |
-| `state` | `Record<string, unknown>` | Shared mutable state bag |
+
 | `context` | `unknown` | User-provided context from `cli()`/`eval()` |
 
 **Result:** The full pipeline result (passed through from parse → validate → execute).
@@ -100,7 +100,7 @@ const parseLogger: PadroneInterceptor = {
 |----------|------|-------------|
 | `command` | `PadroneCommand` | The root command |
 | `input` | `string \| undefined` | Raw CLI input string |
-| `state` | `Record<string, unknown>` | Shared mutable state bag |
+
 | `context` | `unknown` | User-provided context from `cli()`/`eval()` |
 
 **Result:**
@@ -131,7 +131,7 @@ const defaults: PadroneInterceptor = {
 | `command` | `PadroneCommand` | Resolved command |
 | `rawArgs` | `Record<string, unknown>` | Mutable raw arguments — modify before `next()` |
 | `positionalArgs` | `string[]` | Positional argument values |
-| `state` | `Record<string, unknown>` | Shared mutable state bag |
+
 | `context` | `unknown` | User-provided context |
 
 **Result:**
@@ -162,7 +162,7 @@ const timer: PadroneInterceptor = {
 |----------|------|-------------|
 | `command` | `PadroneCommand` | Resolved command |
 | `args` | `unknown` | Mutable validated arguments — modify before `next()` |
-| `state` | `Record<string, unknown>` | Shared mutable state bag |
+
 | `context` | `unknown` | User-provided context |
 
 **Result:**
@@ -202,7 +202,7 @@ const errorRecovery: PadroneInterceptor = {
 |----------|------|-------------|
 | `command` | `PadroneCommand` | The root command |
 | `error` | `unknown` | The error that was thrown |
-| `state` | `Record<string, unknown>` | Shared mutable state bag |
+
 | `context` | `unknown` | User-provided context |
 
 **Result:**
@@ -236,7 +236,7 @@ const cleanup: PadroneInterceptor = {
 | `command` | `PadroneCommand` | The root command |
 | `error` | `unknown \| undefined` | The error, if the pipeline failed |
 | `result` | `unknown \| undefined` | The pipeline result, if it succeeded |
-| `state` | `Record<string, unknown>` | Shared mutable state bag |
+
 | `context` | `unknown` | User-provided context |
 
 ### Middleware Order
@@ -283,24 +283,26 @@ const metrics: PadroneInterceptor = {
 
 Interceptors with the same `order` (default: `0`) preserve their registration order.
 
-### Shared State
+### Cross-Phase State
 
-The `state` object is mutable and shared across all phases within a single execution. Use it to pass data between phases:
+Use the interceptor factory's closure to share state across phases within a single execution:
 
 ```typescript
-const auditInterceptor: PadroneInterceptor = {
-  name: 'audit',
-  parse: (context, next) => {
-    context.state.startTime = Date.now();
-    return next();
-  },
-  execute: (context, next) => {
-    const result = next();
-    const duration = Date.now() - (context.state.startTime as number);
-    auditLog({ command: context.command.name, duration });
-    return result;
-  },
-};
+const auditInterceptor = defineInterceptor({ name: 'audit' }, () => {
+  let startTime: number;
+  return {
+    parse: (context, next) => {
+      startTime = Date.now();
+      return next();
+    },
+    execute: (context, next) => {
+      const result = next();
+      const duration = Date.now() - startTime;
+      auditLog({ command: context.command.name, duration });
+      return result;
+    },
+  };
+});
 ```
 
 ### Short-Circuiting
@@ -308,16 +310,15 @@ const auditInterceptor: PadroneInterceptor = {
 Return early without calling `next()` to skip the rest of the chain:
 
 ```typescript
-const dryRun: PadroneInterceptor = {
-  name: 'dry-run',
+const dryRun = defineInterceptor({ name: 'dry-run' }, () => ({
   execute: (context, next) => {
-    if (context.state.dryRun) {
+    if (context.args.dryRun) {
       console.log('Dry run — skipping execution');
       return { result: undefined };
     }
     return next();
   },
-};
+}));
 ```
 
 ### Sync Preservation

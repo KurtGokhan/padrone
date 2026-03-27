@@ -267,23 +267,23 @@ const cleanup: PadroneInterceptor = {
 ### Full Lifecycle Interceptor
 
 ```ts
-const telemetry: PadroneInterceptor = {
-  name: 'telemetry',
-  start: (ctx, next) => {
-    ctx.state.startTime = Date.now();
-    return next();
-  },
-  execute: (ctx, next) => {
-    const result = next();
-    ctx.state.executionResult = result;
-    return result;
-  },
-  shutdown: (ctx, next) => {
-    const duration = Date.now() - (ctx.state.startTime as number);
-    console.log(`Command ${ctx.command.path} completed in ${duration}ms`);
-    next();
-  },
-};
+const telemetry = defineInterceptor({ name: 'telemetry' }, () => {
+  let startTime: number;
+  return {
+    start: (_ctx, next) => {
+      startTime = Date.now();
+      return next();
+    },
+    execute: (_ctx, next) => {
+      return next();
+    },
+    shutdown: (ctx, next) => {
+      const duration = Date.now() - startTime;
+      console.log(`Command ${ctx.command.path} completed in ${duration}ms`);
+      next();
+    },
+  };
+});
 ```
 
 ### Subcommand-Scoped Interceptor
