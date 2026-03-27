@@ -74,8 +74,9 @@ const startup: PadroneInterceptor = {
 |----------|------|-------------|
 | `command` | `PadroneCommand` | The root command |
 | `input` | `string \| undefined` | Raw CLI input string |
-
+| `signal` | `AbortSignal` | Cancellation signal (provided by the signal extension) |
 | `context` | `unknown` | User-provided context from `cli()`/`eval()` |
+| `caller` | `string` | Invocation method (`'cli'`, `'eval'`, `'repl'`, etc.) |
 
 **Result:** The full pipeline result (passed through from parse → validate → execute).
 
@@ -100,8 +101,9 @@ const parseLogger: PadroneInterceptor = {
 |----------|------|-------------|
 | `command` | `PadroneCommand` | The root command |
 | `input` | `string \| undefined` | Raw CLI input string |
-
+| `signal` | `AbortSignal` | Cancellation signal |
 | `context` | `unknown` | User-provided context from `cli()`/`eval()` |
+| `caller` | `string` | Invocation method |
 
 **Result:**
 | Property | Type | Description |
@@ -131,8 +133,9 @@ const defaults: PadroneInterceptor = {
 | `command` | `PadroneCommand` | Resolved command |
 | `rawArgs` | `Record<string, unknown>` | Mutable raw arguments — modify before `next()` |
 | `positionalArgs` | `string[]` | Positional argument values |
-
+| `signal` | `AbortSignal` | Cancellation signal |
 | `context` | `unknown` | User-provided context |
+| `caller` | `string` | Invocation method |
 
 **Result:**
 | Property | Type | Description |
@@ -162,8 +165,9 @@ const timer: PadroneInterceptor = {
 |----------|------|-------------|
 | `command` | `PadroneCommand` | Resolved command |
 | `args` | `unknown` | Mutable validated arguments — modify before `next()` |
-
+| `signal` | `AbortSignal` | Cancellation signal |
 | `context` | `unknown` | User-provided context |
+| `caller` | `string` | Invocation method |
 
 **Result:**
 | Property | Type | Description |
@@ -202,8 +206,9 @@ const errorRecovery: PadroneInterceptor = {
 |----------|------|-------------|
 | `command` | `PadroneCommand` | The root command |
 | `error` | `unknown` | The error that was thrown |
-
+| `signal` | `AbortSignal` | Cancellation signal |
 | `context` | `unknown` | User-provided context |
+| `caller` | `string` | Invocation method |
 
 **Result:**
 | Property | Type | Description |
@@ -236,8 +241,9 @@ const cleanup: PadroneInterceptor = {
 | `command` | `PadroneCommand` | The root command |
 | `error` | `unknown \| undefined` | The error, if the pipeline failed |
 | `result` | `unknown \| undefined` | The pipeline result, if it succeeded |
-
+| `signal` | `AbortSignal` | Cancellation signal |
 | `context` | `unknown` | User-provided context |
+| `caller` | `string` | Invocation method |
 
 ### Middleware Order
 
@@ -355,7 +361,7 @@ const asyncInterceptor: PadroneInterceptor = {
 | `parse()` | No | Yes | Yes | No | No | No |
 | `run()` | No | No | No | Yes | No | No |
 
-Built-in features (help, version, repl, color, config, interactive) bypass interceptors entirely.
+Built-in features (help, version, repl, color, config, interactive, signal handling) are implemented as interceptor extensions. The help extension also provides error-phase handling that displays help text for routing and validation errors in CLI mode.
 
 ## Extensions
 

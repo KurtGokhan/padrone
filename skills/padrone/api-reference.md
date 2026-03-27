@@ -488,8 +488,9 @@ All handlers can return Promises for async behavior.
 **Shared across all phases:**
 - `command`: The resolved command
 - `context`: The user-provided context (from `cli()`/`eval()`/`run()` prefs)
-- `signal`: `AbortSignal` for cancellation
+- `signal`: `AbortSignal` for cancellation (provided by the signal extension)
 - `runtime`: The resolved runtime
+- `caller`: Invocation method (`'cli'`, `'eval'`, `'run'`, `'repl'`, `'serve'`, `'mcp'`, `'tool'`)
 
 **Phase-specific fields:**
 

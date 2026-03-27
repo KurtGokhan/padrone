@@ -1,9 +1,11 @@
-import { resolveAllCommands } from '../core/commands.ts';
+import { resolveAllCommands, resolveCommand } from '../core/commands.ts';
+import { RoutingError, ValidationError } from '../core/errors.ts';
 import { defineInterceptor } from '../core/interceptors.ts';
 import { thenMaybe } from '../core/results.ts';
+import { formatIssueMessages } from '../core/validate.ts';
 import type { HelpDetail, HelpFormat } from '../output/formatter.ts';
 import { generateHelp } from '../output/help.ts';
-import type { AnyPadroneBuilder, CommandTypesBase, PadroneCommand } from '../types/index.ts';
+import type { AnyPadroneBuilder, AnyPadroneCommand, CommandTypesBase, PadroneCommand } from '../types/index.ts';
 import type { PadroneSchema } from '../types/schema.ts';
 import type { WithCommand } from '../util/type-utils.ts';
 import { getRootCommand } from '../util/utils.ts';
@@ -90,6 +92,54 @@ const helpInterceptor = defineInterceptor({ id: 'padrone:help', name: 'padrone:h
         return { result: generateHelp(rootCommand, ctx.command, { format: ctx.runtime.format, theme: ctx.runtime.theme }) };
       }
       return next();
+    },
+    error(ctx, next) {
+      return thenMaybe(next(), (er) => {
+        if (ctx.caller !== 'cli' || !er.error) return er;
+
+        const rootCommand = getRootCommand(ctx.command);
+
+        if (er.error instanceof RoutingError) {
+          const targetPath = er.error.command;
+          const targetCommand = targetPath ? findCommandInTree(targetPath, rootCommand) : undefined;
+          const sourceCmd = targetCommand ?? rootCommand;
+
+          ctx.runtime.error(er.error.message);
+
+          if (er.error.suggestions.length > 0) {
+            const visibleCommands = (sourceCmd.commands ?? []).filter((c: AnyPadroneCommand) => !c.hidden && c.name);
+            if (visibleCommands.length > 0) {
+              for (const cmd of visibleCommands) resolveCommand(cmd);
+              const cmdList = visibleCommands.map((c: AnyPadroneCommand) => c.name).join(', ');
+              ctx.runtime.output(`\nAvailable commands: ${cmdList}`);
+            }
+          } else {
+            resolveAllCommands(rootCommand);
+            const helpText = generateHelp(rootCommand, sourceCmd, { format: ctx.runtime.format, theme: ctx.runtime.theme });
+            ctx.runtime.error(helpText);
+          }
+
+          return er;
+        }
+
+        if (er.error instanceof ValidationError) {
+          const targetPath = er.error.command;
+          const targetCommand = targetPath ? findCommandInTree(targetPath, rootCommand) : undefined;
+          const issueMessages = formatIssueMessages(er.error.issues, targetCommand ?? rootCommand);
+
+          resolveAllCommands(rootCommand);
+          const helpText = generateHelp(rootCommand, targetCommand ?? rootCommand, {
+            format: ctx.runtime.format,
+            theme: ctx.runtime.theme,
+          });
+          ctx.runtime.error(`Validation error:\n${issueMessages}`);
+          ctx.runtime.error(helpText);
+
+          return er;
+        }
+
+        return er;
+      });
     },
   };
 });

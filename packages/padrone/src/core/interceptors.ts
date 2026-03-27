@@ -168,26 +168,40 @@ export function wrapWithLifecycle<T>(
   interceptors: ResolvedInterceptor[],
   command: AnyPadroneCommand,
   input: string | undefined,
-  pipeline: () => T | Promise<T>,
+  pipeline: (signal: AbortSignal) => T | Promise<T>,
   wrapErrorResult?: (result: unknown) => T,
   signal?: AbortSignal,
   context?: unknown,
   runtime?: ResolvedPadroneRuntime,
   program?: AnyPadroneProgram,
+  caller: 'cli' | 'eval' | 'run' | 'repl' | 'serve' | 'mcp' | 'tool' = 'eval',
+  pipelineState?: { rawArgs?: Record<string, unknown>; positionalArgs?: string[]; args?: unknown },
 ): T | Promise<T> {
+  const defaultSignal = typeof AbortSignal !== 'undefined' ? AbortSignal.abort() : (undefined as unknown as AbortSignal);
   const hasStart = interceptors.some((p) => p.start);
   const hasError = interceptors.some((p) => p.error);
   const hasShutdown = interceptors.some((p) => p.shutdown);
 
   // Fast path: no lifecycle interceptors
-  if (!hasStart && !hasError && !hasShutdown) return pipeline();
-
-  const defaultSignal = typeof AbortSignal !== 'undefined' ? AbortSignal.abort() : (undefined as unknown as AbortSignal);
-  const effectiveSignal = signal ?? defaultSignal;
+  if (!hasStart && !hasError && !hasShutdown) return pipeline(signal ?? defaultSignal);
+  // Mutable ref: start-phase interceptors can override the signal (e.g., signal extension),
+  // and the override propagates to error/shutdown contexts.
+  let effectiveSignal = signal ?? defaultSignal;
 
   const runShutdown = (error?: unknown, result?: unknown) => {
     if (!hasShutdown) return;
-    const ctx: InterceptorShutdownContext = { command, error, result, signal: effectiveSignal, context, runtime: runtime! };
+    const ctx: InterceptorShutdownContext = {
+      command,
+      input,
+      error,
+      result,
+      signal: effectiveSignal,
+      context,
+      runtime: runtime!,
+      program: program!,
+      caller,
+      ...pipelineState,
+    };
     return runInterceptorChain('shutdown', interceptors, ctx, () => {});
   };
 
@@ -200,7 +214,17 @@ export function wrapWithLifecycle<T>(
         });
       throw error;
     }
-    const ctx: InterceptorErrorContext = { command, error, signal: effectiveSignal, context, runtime: runtime! };
+    const ctx: InterceptorErrorContext = {
+      command,
+      input,
+      error,
+      signal: effectiveSignal,
+      context,
+      runtime: runtime!,
+      program: program!,
+      caller,
+      ...pipelineState,
+    };
     const errorResult = runInterceptorChain('error', interceptors, ctx, (): InterceptorErrorResult => ({ error }));
     return thenMaybe(errorResult, (er) => {
       if (er.error !== undefined) {
@@ -228,10 +252,19 @@ export function wrapWithLifecycle<T>(
     runtime: runtime!,
     program: program!,
     input,
+    caller,
   };
   let result: T | Promise<T>;
   try {
-    result = (hasStart ? runInterceptorChain('start', interceptors, startCtx, pipeline as any) : pipeline()) as T | Promise<T>;
+    result = (
+      hasStart
+        ? runInterceptorChain('start', interceptors, startCtx, (ctx) => {
+            // Capture the (possibly overridden) signal so error/shutdown phases see the same instance.
+            effectiveSignal = ctx.signal;
+            return pipeline(ctx.signal);
+          })
+        : pipeline(effectiveSignal)
+    ) as T | Promise<T>;
   } catch (e) {
     return runError(e);
   }

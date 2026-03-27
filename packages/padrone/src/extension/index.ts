@@ -16,6 +16,7 @@ export type { WithRepl } from './repl.ts';
 export { padroneRepl } from './repl.ts';
 export type { WithServe } from './serve-ext.ts';
 export { padroneServe } from './serve-ext.ts';
+export { padroneSignalHandling } from './signal.ts';
 export { padroneUpdateCheck } from './update-check.ts';
 export type { WithVersion } from './version.ts';
 export { padroneVersion } from './version.ts';

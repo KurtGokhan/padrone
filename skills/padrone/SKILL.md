@@ -122,7 +122,7 @@ Six phases in onion/middleware pattern with `next()`:
 5. **error** — error handling (return `{ error: undefined, result }` to suppress)
 6. **shutdown** — cleanup, always runs
 
-All phase contexts include `context: unknown` (the user-provided context from `cli()`/`eval()`/`run()`).
+All phase contexts include `context` (user-provided context), `signal` (AbortSignal for cancellation), `caller` (invocation method: `'cli'`, `'eval'`, `'run'`, etc.), and `runtime`.
 
 ```ts
 const timer: PadroneInterceptor = {
@@ -140,7 +140,7 @@ program.intercept(timer);
 
 ## Extension System
 
-Extensions provide build-time composition via `.extend()` and `PadroneExtension`. An extension is a reusable bundle that can add configuration, commands, and interceptors to a program. Built-in features (help, version, repl, color, config, interactive) are included by default. Advanced features (completion, man, mcp, serve, update-check) must be added explicitly.
+Extensions provide build-time composition via `.extend()` and `PadroneExtension`. An extension is a reusable bundle that can add configuration, commands, and interceptors to a program. Built-in features (help, version, repl, color, signal handling, auto-output, config, interactive) are included by default. Advanced features (completion, man, mcp, serve, update-check) must be added explicitly.
 
 ## Testing
 

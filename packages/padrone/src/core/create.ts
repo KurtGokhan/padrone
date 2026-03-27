@@ -4,6 +4,7 @@ import { padroneConfig } from '../extension/config-ext.ts';
 import { padroneHelp } from '../extension/help.ts';
 import { padroneInteractive } from '../extension/interactive-ext.ts';
 import { padroneRepl } from '../extension/repl.ts';
+import { padroneSignalHandling } from '../extension/signal.ts';
 import { padroneVersion } from '../extension/version.ts';
 import { createWrapHandler } from '../feature/wrap.ts';
 import type {
@@ -56,6 +57,7 @@ export function createPadrone<TProgramName extends string>(
   if (b?.repl !== false) builder = builder.extend(padroneRepl());
   if (b?.color !== false) builder = builder.extend(padroneColor());
   // Framework extensions (always on by default)
+  builder = builder.extend(padroneSignalHandling());
   builder = builder.extend(padroneAutoOutput());
   builder = builder.extend(padroneConfig());
   builder = builder.extend(padroneInteractive());

@@ -1,6 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { promptInteractiveFields } from '../feature/interactive.ts';
-import { generateHelp } from '../output/help.ts';
 import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
@@ -16,11 +15,10 @@ import type {
   ResolvedInterceptor,
 } from '../types/index.ts';
 import { resolveInherited } from './builtins.ts';
-import { getCommandRuntime, resolveAllCommands, resolveCommand, suggestSimilar } from './commands.ts';
-import { ConfigError, RoutingError, signalExitCode, ValidationError } from './errors.ts';
+import { getCommandRuntime, resolveCommand, suggestSimilar } from './commands.ts';
+import { ConfigError, RoutingError, ValidationError } from './errors.ts';
 import { noopIndicator, resolveRegisteredInterceptors, runInterceptorChain, wrapWithLifecycle } from './interceptors.ts';
 import { errorResult, hasInteractiveConfig, noop, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
-import type { PadroneSignal } from './runtime.ts';
 import { collectSuggestionsFromIssues, enrichIssuesWithSuggestions, formatSuggestions } from './suggestions.ts';
 import {
   buildCommandArgs,
@@ -90,49 +88,11 @@ export function execCommand(
     ? Object.assign({}, baseRuntime, Object.fromEntries(Object.entries(evalOptions.runtime).filter(([, v]) => v !== undefined)))
     : baseRuntime;
 
-  // ── Signal handling ─────────────────────────────────────────────────
-  const abortController = new AbortController();
-  let receivedSignal: PadroneSignal | undefined;
-  let lastSigintTime = 0;
-  const DOUBLE_SIGINT_MS = 2000;
+  // Inert signal — the signal extension overrides this via next({ signal }) in the start phase.
+  const inertSignal = new AbortController().signal;
 
-  const unsubscribeSignal = runtime.onSignal?.((sig) => {
-    if (abortController.signal.aborted) {
-      if (sig === 'SIGINT') {
-        const elapsed = Date.now() - lastSigintTime;
-        if (elapsed > 0 && elapsed < DOUBLE_SIGINT_MS) {
-          if (typeof process !== 'undefined') process.exit(signalExitCode(sig));
-        }
-        lastSigintTime = Date.now();
-      }
-      return;
-    }
-    if (sig === 'SIGINT') lastSigintTime = Date.now();
-    receivedSignal = sig;
-    abortController.abort(sig);
-  });
-
-  const attachSignalInfo = <T extends Record<string, unknown>>(result: T): T => {
-    if (receivedSignal) {
-      (result as any).signal = receivedSignal;
-      (result as any).exitCode = signalExitCode(receivedSignal);
-    }
-    return result;
-  };
-
-  const cleanupSignal = () => unsubscribeSignal?.();
-
-  const tagErrorWithSignal = (err: unknown) => {
-    if (receivedSignal && err instanceof Error) {
-      (err as any)._padroneSignal = receivedSignal;
-      (err as any)._padroneExitCode = signalExitCode(receivedSignal);
-    }
-  };
-
-  const finalizeResult = (r: unknown) => {
-    cleanupSignal();
-    return attachSignalInfo(r as Record<string, unknown>);
-  };
+  // Pipeline state accumulated as phases complete — propagated to error/shutdown contexts.
+  const pipelineState: { rawArgs?: Record<string, unknown>; positionalArgs?: string[]; args?: unknown } = {};
 
   const initialContext = evalOptions?.context;
 
@@ -157,15 +117,16 @@ export function execCommand(
   const rootRegistered = rootCommand.interceptors ?? [];
   const rootInterceptors = resolveRegisteredInterceptors(rootRegistered, factoryCache);
 
-  const runPipeline = () => {
+  const runPipeline = (signal: AbortSignal) => {
     // ── Phase 1: Parse ──────────────────────────────────────────────────
-    const signal = abortController.signal;
     const parseCtx: InterceptorParseContext = {
       input: resolvedInput,
       command: rootCommand,
       signal,
       context: initialContext,
       runtime,
+      program: ctx.builder,
+      caller,
     };
 
     const coreParse = (parseCtx: InterceptorParseContext): InterceptorParseResult => {
@@ -198,25 +159,6 @@ export function execCommand(
             : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}`;
           const errorMsg = suggestionText ? `${baseMsg}\n\n  ${suggestionText}` : baseMsg;
 
-          if (errorMode === 'hard') {
-            runtime.error(errorMsg);
-            if (suggestions.length > 0) {
-              const visibleCommands = (sourceCmd.commands ?? []).filter((c) => !c.hidden && c.name);
-              if (visibleCommands.length > 0) {
-                const cmdList = visibleCommands.map((c) => c.name).join(', ');
-                runtime.output(`\nAvailable commands: ${cmdList}`);
-              }
-            } else {
-              resolveAllCommands(rootCommand);
-              const helpText = generateHelp(rootCommand, isRootCommand ? rootCommand : command, {
-                format: runtime.format,
-                theme: runtime.theme,
-              });
-              runtime.error(helpText);
-            }
-            throw new RoutingError(errorMsg, { suggestions, command: command.path || command.name });
-          }
-
           throw new RoutingError(errorMsg, { suggestions, command: command.path || command.name });
         }
       }
@@ -229,16 +171,21 @@ export function execCommand(
     // ── Phases 2 & 3 chained after parse ────────────────────────────────
     const continueAfterParse = (parsed: InterceptorParseResult) => {
       const { command } = parsed;
+      pipelineState.rawArgs = parsed.rawArgs;
+      pipelineState.positionalArgs = parsed.positionalArgs;
       const commandInterceptors = resolveRegisteredInterceptors(collectInterceptorsFn(command), factoryCache);
 
       // ── Phase 2: Validate ───────────────────────────────────────────
       const validateCtx: InterceptorValidateContext = {
         command,
+        input: resolvedInput,
         rawArgs: parsed.rawArgs,
         positionalArgs: parsed.positionalArgs,
         signal,
         context: resolveContext(command),
         runtime,
+        program: ctx.builder,
+        caller,
       };
 
       const coreValidate = (validateCtx: InterceptorValidateContext): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
@@ -376,16 +323,13 @@ export function execCommand(
 
       // ── Phase 3: Execute (or handle validation errors) ──────────────
       const continueAfterValidate = (v: InterceptorValidateResult) => {
+        pipelineState.args = v.args;
         if (v.argsResult?.issues) {
           const getKnown = () => getKnownOptionNames(command);
-          const allSuggestions = collectSuggestionsFromIssues(v.argsResult.issues, getKnown);
-          const issueMessages = formatIssueMessages(v.argsResult.issues, command);
 
           if (errorMode === 'hard') {
-            resolveAllCommands(rootCommand);
-            const helpText = generateHelp(rootCommand, command, { format: runtime.format, theme: runtime.theme });
-            runtime.error(`Validation error:\n${issueMessages}`);
-            runtime.error(helpText);
+            const allSuggestions = collectSuggestionsFromIssues(v.argsResult.issues, getKnown);
+            const issueMessages = formatIssueMessages(v.argsResult.issues, command);
             throw new ValidationError(`Validation error:\n${issueMessages}`, v.argsResult.issues as any, {
               suggestions: allSuggestions,
               command: command.path || command.name,
@@ -404,10 +348,15 @@ export function execCommand(
 
         const executeCtx: InterceptorExecuteContext = {
           command,
+          input: resolvedInput,
+          rawArgs: parsed.rawArgs,
+          positionalArgs: parsed.positionalArgs,
           args: v.args,
           signal,
           context: resolveContext(command),
           runtime,
+          program: ctx.builder,
+          caller,
         };
 
         const coreExecute = (executeCtx: InterceptorExecuteContext): InterceptorExecuteResult => {
@@ -451,31 +400,17 @@ export function execCommand(
     return thenMaybe(parsedOrPromise, continueAfterParse) as any;
   };
 
-  let lifecycleResult: any;
-  try {
-    lifecycleResult = wrapWithLifecycle(
-      rootInterceptors,
-      rootCommand,
-      resolvedInput,
-      runPipeline,
-      (result) => withDrain({ command: rootCommand, args: undefined, argsResult: undefined, result }),
-      abortController.signal,
-      initialContext,
-      runtime,
-      ctx.builder,
-    );
-  } catch (err) {
-    cleanupSignal();
-    tagErrorWithSignal(err);
-    throw err;
-  }
-
-  if (lifecycleResult instanceof Promise) {
-    return lifecycleResult.then(finalizeResult, (err: unknown) => {
-      cleanupSignal();
-      tagErrorWithSignal(err);
-      throw err;
-    }) as any;
-  }
-  return finalizeResult(lifecycleResult) as any;
+  return wrapWithLifecycle(
+    rootInterceptors,
+    rootCommand,
+    resolvedInput,
+    runPipeline,
+    (result) => withDrain({ command: rootCommand, args: undefined, argsResult: undefined, result }),
+    inertSignal,
+    initialContext,
+    runtime,
+    ctx.builder,
+    caller,
+    pipelineState,
+  ) as any;
 }

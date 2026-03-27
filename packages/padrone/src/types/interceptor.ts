@@ -1,7 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { PadroneProgressIndicator, ResolvedPadroneRuntime } from '../core/runtime.ts';
 import type { AnyPadroneProgram } from './builder.ts';
-import type { AnyPadroneCommand } from './command.ts';
+import type { AnyPadroneCommand, PadroneActionContext } from './command.ts';
 
 // ---------------------------------------------------------------------------
 // Interceptor system
@@ -11,19 +11,22 @@ import type { AnyPadroneCommand } from './command.ts';
 export type InterceptorBaseContext = {
   /** The resolved command for this execution. In the parse phase, this is the root program. */
   command: AnyPadroneCommand;
+  /** The raw CLI input string (undefined when invoked without input). */
+  input: string | undefined;
   /** Cancellation signal that fires when the process receives a termination signal. */
   signal: AbortSignal;
   /** User-defined context object, resolved through the command's parent chain. */
   context: unknown;
   /** The resolved runtime for this execution. Interceptors can override this before calling `next()`. */
   runtime: ResolvedPadroneRuntime;
+  /** The program instance. Available for extensions that need program-level methods. */
+  program: AnyPadroneProgram;
+  /** The invocation method that triggered this execution (e.g. 'cli', 'eval', 'run'). */
+  caller: PadroneActionContext['caller'];
 };
 
 /** Context for the parse phase. */
-export type InterceptorParseContext = InterceptorBaseContext & {
-  /** The raw CLI input string (undefined when invoked without input). */
-  input: string | undefined;
-};
+export type InterceptorParseContext = InterceptorBaseContext;
 
 /** Result returned by the parse phase's `next()`. */
 export type InterceptorParseResult = {
@@ -50,8 +53,8 @@ export type InterceptorValidateResult<TArgs = unknown> = {
   argsResult: StandardSchemaV1.Result<TArgs>;
 };
 
-/** Context for the execute phase. */
-export type InterceptorExecuteContext<TArgs = unknown> = InterceptorBaseContext & {
+/** Context for the execute phase. Includes validate context fields (rawArgs, positionalArgs). */
+export type InterceptorExecuteContext<TArgs = unknown> = InterceptorValidateContext & {
   /** Validated arguments that will be passed to the action. Mutable — modify before `next()` to override. */
   args: TArgs;
   /** Progress indicator injected by an interceptor. Action handlers receive this as `ctx.progress`. Defaults to a no-op. */
@@ -64,17 +67,18 @@ export type InterceptorExecuteResult<TResult = unknown> = {
 };
 
 /** Context for the start phase. Runs before parsing, wraps the entire pipeline. */
-export type InterceptorStartContext = InterceptorBaseContext & {
-  /** The raw CLI input string (undefined when invoked without input). */
-  input: string | undefined;
-  /** The program instance. Available for extensions that need program-level methods (e.g., repl). */
-  program: AnyPadroneProgram;
-};
+export type InterceptorStartContext = InterceptorBaseContext;
 
-/** Context for the error phase. Called when the pipeline throws. */
+/** Context for the error phase. Called when the pipeline throws. Includes pipeline state accumulated before the error. */
 export type InterceptorErrorContext = InterceptorBaseContext & {
   /** The error that was thrown. */
   error: unknown;
+  /** Raw named arguments (available if parse completed). */
+  rawArgs?: Record<string, unknown>;
+  /** Positional argument strings (available if parse completed). */
+  positionalArgs?: string[];
+  /** Validated arguments (available if validate completed). */
+  args?: unknown;
 };
 
 /** Result returned by the error phase's `next()`. */
@@ -85,12 +89,18 @@ export type InterceptorErrorResult<TResult = unknown> = {
   result?: TResult;
 };
 
-/** Context for the shutdown phase. Always runs after the pipeline (success or failure). */
+/** Context for the shutdown phase. Always runs after the pipeline (success or failure). Includes pipeline state accumulated before completion. */
 export type InterceptorShutdownContext<TResult = unknown> = InterceptorBaseContext & {
   /** The error, if the pipeline failed (after error phase processing). */
   error?: unknown;
   /** The pipeline result, if it succeeded. */
   result?: TResult;
+  /** Raw named arguments (available if parse completed). */
+  rawArgs?: Record<string, unknown>;
+  /** Positional argument strings (available if parse completed). */
+  positionalArgs?: string[];
+  /** Validated arguments (available if validate completed). */
+  args?: unknown;
 };
 
 /** Overrides passable to `next()`. Provides autocomplete for common fields; accepts any phase-specific fields. */
