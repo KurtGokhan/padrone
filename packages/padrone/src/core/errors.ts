@@ -139,8 +139,8 @@ export class ActionError extends PadroneError {
 export class SignalError extends PadroneError {
   readonly signal: PadroneSignal;
 
-  constructor(signal: PadroneSignal) {
-    super(`Process interrupted by ${signal}`, { exitCode: signalExitCode(signal) });
+  constructor(signal: PadroneSignal, options?: { cause?: unknown }) {
+    super(`Process interrupted by ${signal}`, { exitCode: signalExitCode(signal), cause: options?.cause });
     this.name = 'SignalError';
     this.signal = signal;
   }

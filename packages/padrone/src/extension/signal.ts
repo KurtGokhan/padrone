@@ -1,4 +1,4 @@
-import { signalExitCode } from '../core/errors.ts';
+import { SignalError, signalExitCode } from '../core/errors.ts';
 import { defineInterceptor } from '../core/interceptors.ts';
 import { thenMaybe } from '../core/results.ts';
 import type { PadroneSignal } from '../core/runtime.ts';
@@ -55,8 +55,7 @@ const signalInterceptor = defineInterceptor(signalMeta, () => {
     error(_ctx, next) {
       return thenMaybe(next(), (er) => {
         if (receivedSignal && er.error instanceof Error) {
-          (er.error as any)._padroneSignal = receivedSignal;
-          (er.error as any)._padroneExitCode = signalExitCode(receivedSignal);
+          er.error = new SignalError(receivedSignal, { cause: er.error });
         }
         return er;
       });

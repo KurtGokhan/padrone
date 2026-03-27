@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
@@ -13,7 +14,7 @@ import type {
   ResolvedInterceptor,
 } from '../types/index.ts';
 import { getCommandRuntime } from './commands.ts';
-import { RoutingError, ValidationError } from './errors.ts';
+import { RoutingError, SignalError, ValidationError } from './errors.ts';
 import { noopIndicator, resolveRegisteredInterceptors, runInterceptorChain, wrapWithLifecycle } from './interceptors.ts';
 import { errorResult, noop, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
 import { buildCommandArgs, formatIssueMessages, validateCommandArgs } from './validate.ts';
@@ -51,11 +52,66 @@ export function collectInterceptors(cmd: AnyPadroneCommand, rootCommand: AnyPadr
 /** Wraps an error into a result, preserving any signal info from the pipeline. */
 export function errorResultWithSignal(err: unknown) {
   const result = errorResult(err);
-  if (err && typeof err === 'object' && '_padroneSignal' in err) {
-    (result as any).signal = (err as any)._padroneSignal;
-    (result as any).exitCode = (err as any)._padroneExitCode;
+  if (err instanceof SignalError) {
+    (result as any).signal = err.signal;
+    (result as any).exitCode = err.exitCode;
   }
   return result;
+}
+
+/** Resolve context by walking the command parent chain and applying transforms from root to target. */
+function resolveContext(command: AnyPadroneCommand, initialContext: unknown): unknown {
+  const chain: AnyPadroneCommand[] = [];
+  let current: AnyPadroneCommand | undefined = command;
+  while (current) {
+    chain.unshift(current);
+    current = current.parent;
+  }
+  let resolved = initialContext;
+  for (const cmd of chain) {
+    if (cmd.contextTransform) resolved = cmd.contextTransform(resolved);
+  }
+  return resolved;
+}
+
+/** Validate parse result — reject unmatched terms when the command doesn't accept positional args. */
+function validateParseResult(
+  parseResult: { command: AnyPadroneCommand; rawArgs: Record<string, unknown>; args: string[]; unmatchedTerms: string[] },
+  rootCommand: AnyPadroneCommand,
+): InterceptorParseResult {
+  const { command, rawArgs, args, unmatchedTerms } = parseResult;
+
+  if (unmatchedTerms.length > 0) {
+    const hasPositionalConfig = command.meta?.positional && command.meta.positional.length > 0;
+    if (!hasPositionalConfig) {
+      const isRootCommand = command === rootCommand;
+      const commandDisplayName = command.name || command.aliases?.[0] || command.path || '(default)';
+      const errorMsg = isRootCommand
+        ? `Unknown command: ${unmatchedTerms[0]}`
+        : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}`;
+
+      throw new RoutingError(errorMsg, { command: command.path || command.name });
+    }
+  }
+
+  return { command, rawArgs, positionalArgs: args };
+}
+
+/** Handle validation issues based on error mode: throw (hard) or return result with issues (soft). */
+function handleValidationIssues(argsResult: StandardSchemaV1.FailureResult, command: AnyPadroneCommand, errorMode: 'soft' | 'hard') {
+  if (errorMode === 'hard') {
+    const issueMessages = formatIssueMessages(argsResult.issues);
+    throw new ValidationError(`Validation error:\n${issueMessages}`, argsResult.issues as any, {
+      command: command.path || command.name,
+    });
+  }
+
+  return withDrain({
+    command: command as any,
+    args: undefined,
+    argsResult,
+    result: undefined,
+  });
 }
 
 /**
@@ -85,21 +141,6 @@ export function execCommand(
 
   const initialContext = evalOptions?.context;
 
-  /** Resolve context by walking the command chain and applying transforms. */
-  const resolveContext = (command: AnyPadroneCommand): unknown => {
-    const chain: AnyPadroneCommand[] = [];
-    let current: AnyPadroneCommand | undefined = command;
-    while (current) {
-      chain.unshift(current);
-      current = current.parent;
-    }
-    let resolved = initialContext;
-    for (const cmd of chain) {
-      if (cmd.contextTransform) resolved = cmd.contextTransform(resolved);
-    }
-    return resolved;
-  };
-
   // Factory resolution cache — ensures each factory is called at most once per execution,
   // so root interceptor closures are shared when they appear in both root and command chains.
   const factoryCache = new Map<RegisteredInterceptor, ResolvedInterceptor>();
@@ -118,25 +159,8 @@ export function execCommand(
       caller,
     };
 
-    const coreParse = (parseCtx: InterceptorParseContext): InterceptorParseResult => {
-      const { command, rawArgs, args, unmatchedTerms } = parseCommandFn(parseCtx.input);
-
-      // Reject unmatched terms when the matched command doesn't accept positional args
-      if (unmatchedTerms.length > 0) {
-        const hasPositionalConfig = command.meta?.positional && command.meta.positional.length > 0;
-        if (!hasPositionalConfig) {
-          const isRootCommand = command === rootCommand;
-          const commandDisplayName = command.name || command.aliases?.[0] || command.path || '(default)';
-          const errorMsg = isRootCommand
-            ? `Unknown command: ${unmatchedTerms[0]}`
-            : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}`;
-
-          throw new RoutingError(errorMsg, { command: command.path || command.name });
-        }
-      }
-
-      return { command, rawArgs, positionalArgs: args };
-    };
+    const coreParse = (parseCtx: InterceptorParseContext): InterceptorParseResult =>
+      validateParseResult(parseCommandFn(parseCtx.input), rootCommand);
 
     const parsedOrPromise = runInterceptorChain('parse', rootInterceptors, parseCtx, coreParse);
 
@@ -146,18 +170,15 @@ export function execCommand(
       pipelineState.rawArgs = parsed.rawArgs;
       pipelineState.positionalArgs = parsed.positionalArgs;
       const commandInterceptors = resolveRegisteredInterceptors(collectInterceptorsFn(command), factoryCache);
+      const context = resolveContext(command, initialContext);
 
       // ── Phase 2: Validate ───────────────────────────────────────────
       const validateCtx: InterceptorValidateContext = {
+        ...parseCtx,
         command,
-        input: resolvedInput,
         rawArgs: parsed.rawArgs,
         positionalArgs: parsed.positionalArgs,
-        signal,
-        context: resolveContext(command),
-        runtime,
-        program: ctx.builder,
-        caller,
+        context,
         evalInteractive: evalOptions?.interactive,
       };
 
@@ -172,33 +193,11 @@ export function execCommand(
       // ── Phase 3: Execute (or handle validation errors) ──────────────
       const continueAfterValidate = (v: InterceptorValidateResult) => {
         pipelineState.args = v.args;
-        if (v.argsResult?.issues) {
-          if (errorMode === 'hard') {
-            const issueMessages = formatIssueMessages(v.argsResult.issues);
-            throw new ValidationError(`Validation error:\n${issueMessages}`, v.argsResult.issues as any, {
-              command: command.path || command.name,
-            });
-          }
-
-          return withDrain({
-            command: command as any,
-            args: undefined,
-            argsResult: v.argsResult,
-            result: undefined,
-          });
-        }
+        if (v.argsResult?.issues) return handleValidationIssues(v.argsResult as StandardSchemaV1.FailureResult, command, errorMode);
 
         const executeCtx: InterceptorExecuteContext = {
-          command,
-          input: resolvedInput,
-          rawArgs: parsed.rawArgs,
-          positionalArgs: parsed.positionalArgs,
+          ...validateCtx,
           args: v.args,
-          signal,
-          context: resolveContext(command),
-          runtime,
-          program: ctx.builder,
-          caller,
         };
 
         const coreExecute = (executeCtx: InterceptorExecuteContext): InterceptorExecuteResult => {
@@ -228,10 +227,7 @@ export function execCommand(
               result,
             });
 
-          if (e.result instanceof Promise) {
-            return e.result.then(finalize);
-          }
-
+          if (e.result instanceof Promise) return e.result.then(finalize);
           return finalize(e.result);
         });
       };

@@ -45,7 +45,6 @@ The core library lives in `packages/padrone/`:
 - `src/exec.ts` — Core execution pipeline: parse → validate → execute phases. Contains `execCommand()`, `collectInterceptors()`. Signal handling and error help display are handled by extensions.
 - `src/validate.ts` — CLI input parsing (`parseCommand`), argument preprocessing (`buildCommandArgs`), schema validation (`validateCommandArgs`), unknown arg detection, stdin reading.
 - `src/program-methods.ts` — Program API methods: `cli()`, `eval()`, `run()`, `parse()`, `tool()`, `stringify()`, `help()`, `api()`, `repl()`, `mcp()`, `serve()`, `completion()`.
-- `src/builtins.ts` — `resolveInherited()` parent-chain walker for inheriting config values from ancestor commands.
 - `src/suggestions.ts` — "Did you mean?" formatting (`formatSuggestions`), issue enrichment with fuzzy suggestions.
 - `src/command-utils.ts` — Interceptor chain execution (`runInterceptorChain`, `wrapWithLifecycle`), command tree utilities, sync/async preservation helpers (`thenMaybe`).
 - `src/parse.ts` — CLI input tokenizer/parser. Handles flag stacking, `--key=value`, `--no-*` negation, positional args, nested keys.
