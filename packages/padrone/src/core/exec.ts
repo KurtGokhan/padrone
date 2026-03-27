@@ -12,12 +12,11 @@ import type {
   RegisteredInterceptor,
   ResolvedInterceptor,
 } from '../types/index.ts';
-import { getCommandRuntime, resolveCommand, suggestSimilar } from './commands.ts';
+import { getCommandRuntime } from './commands.ts';
 import { RoutingError, ValidationError } from './errors.ts';
 import { noopIndicator, resolveRegisteredInterceptors, runInterceptorChain, wrapWithLifecycle } from './interceptors.ts';
 import { errorResult, noop, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
-import { collectSuggestionsFromIssues, enrichIssuesWithSuggestions, formatSuggestions } from './suggestions.ts';
-import { buildCommandArgs, formatIssueMessages, getKnownOptionNames, validateCommandArgs } from './validate.ts';
+import { buildCommandArgs, formatIssueMessages, validateCommandArgs } from './validate.ts';
 
 export type ExecContext = {
   rootCommand: AnyPadroneCommand;
@@ -128,28 +127,11 @@ export function execCommand(
         if (!hasPositionalConfig) {
           const isRootCommand = command === rootCommand;
           const commandDisplayName = command.name || command.aliases?.[0] || command.path || '(default)';
-
-          const candidateNames: string[] = [];
-          const sourceCmd = isRootCommand ? rootCommand : command;
-          if (sourceCmd.commands) {
-            for (const cmd of sourceCmd.commands) {
-              resolveCommand(cmd);
-              if (!cmd.hidden) {
-                candidateNames.push(cmd.name);
-                if (cmd.aliases) candidateNames.push(...cmd.aliases);
-              }
-            }
-          }
-
-          const similarNames = suggestSimilar(unmatchedTerms[0]!, candidateNames);
-          const suggestionText = formatSuggestions(similarNames);
-          const suggestions = suggestionText ? [suggestionText] : [];
-          const baseMsg = isRootCommand
+          const errorMsg = isRootCommand
             ? `Unknown command: ${unmatchedTerms[0]}`
             : `Unexpected arguments for '${commandDisplayName}': ${unmatchedTerms.join(' ')}`;
-          const errorMsg = suggestionText ? `${baseMsg}\n\n  ${suggestionText}` : baseMsg;
 
-          throw new RoutingError(errorMsg, { suggestions, command: command.path || command.name });
+          throw new RoutingError(errorMsg, { command: command.path || command.name });
         }
       }
 
@@ -191,23 +173,17 @@ export function execCommand(
       const continueAfterValidate = (v: InterceptorValidateResult) => {
         pipelineState.args = v.args;
         if (v.argsResult?.issues) {
-          const getKnown = () => getKnownOptionNames(command);
-
           if (errorMode === 'hard') {
-            const allSuggestions = collectSuggestionsFromIssues(v.argsResult.issues, getKnown);
-            const issueMessages = formatIssueMessages(v.argsResult.issues, command);
+            const issueMessages = formatIssueMessages(v.argsResult.issues);
             throw new ValidationError(`Validation error:\n${issueMessages}`, v.argsResult.issues as any, {
-              suggestions: allSuggestions,
               command: command.path || command.name,
             });
           }
 
-          // Soft mode: enrich issues with suggestions and return
-          const enrichedIssues = enrichIssuesWithSuggestions(v.argsResult.issues, getKnown);
           return withDrain({
             command: command as any,
             args: undefined,
-            argsResult: { ...v.argsResult, issues: enrichedIssues },
+            argsResult: v.argsResult,
             result: undefined,
           });
         }

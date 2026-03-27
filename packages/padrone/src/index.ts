@@ -42,6 +42,7 @@ export {
   padroneServe,
   padroneSignalHandling,
   padroneStdin,
+  padroneSuggestions,
   padroneUpdateCheck,
   padroneVersion,
 } from './extension/index.ts';

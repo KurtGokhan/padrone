@@ -20,6 +20,7 @@ export type { WithServe } from './serve.ts';
 export { padroneServe } from './serve.ts';
 export { padroneSignalHandling } from './signal.ts';
 export { padroneStdin } from './stdin.ts';
+export { padroneSuggestions } from './suggestions.ts';
 export { padroneUpdateCheck } from './update-check.ts';
 export type { WithVersion } from './version.ts';
 export { padroneVersion } from './version.ts';

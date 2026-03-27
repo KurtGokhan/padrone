@@ -254,7 +254,7 @@ export function coerceArgs(data: Record<string, unknown>, schema: StandardJSONSc
 
 /**
  * Detect unknown keys in the args that don't match any schema property.
- * Returns an array of { key, suggestion? } for each unknown key.
+ * Returns an array of { key } for each unknown key.
  * Framework-reserved keys (--config, -c) are always allowed.
  */
 export function detectUnknownArgs(
@@ -262,8 +262,7 @@ export function detectUnknownArgs(
   schema: StandardJSONSchemaV1,
   flags: Record<string, string>,
   aliases: Record<string, string>,
-  suggestFn: (input: string, candidates: string[]) => string[],
-): { key: string; suggestions: string[] }[] {
+): { key: string }[] {
   let properties: Record<string, any>;
   let isLoose = false;
   try {
@@ -285,13 +284,11 @@ export function detectUnknownArgs(
     ...Object.keys(aliases),
     ...Object.values(aliases),
   ]);
-  const propertyNames = Object.keys(properties);
-  const unknowns: { key: string; suggestions: string[] }[] = [];
+  const unknowns: { key: string }[] = [];
 
   for (const key of Object.keys(data)) {
     if (!knownKeys.has(key)) {
-      const suggestions = suggestFn(key, propertyNames);
-      unknowns.push({ key, suggestions });
+      unknowns.push({ key });
     }
   }
 

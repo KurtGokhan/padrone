@@ -1,10 +1,9 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { AnyPadroneCommand, InterceptorValidateResult } from '../types/index.ts';
 import { coerceArgs, detectUnknownArgs, extractSchemaMetadata, getJsonSchema, parsePositionalConfig, preprocessArgs } from './args.ts';
-import { getCommandRuntime, suggestSimilar } from './commands.ts';
+import { getCommandRuntime } from './commands.ts';
 import { getNestedValue, parseCliInputToParts, setNestedValue } from './parse.ts';
 import { thenMaybe } from './results.ts';
-import { formatSuggestions } from './suggestions.ts';
 
 /**
  * Parses CLI input to find the command and extract raw arguments without validation.
@@ -171,14 +170,11 @@ export function buildCommandArgs(
  * Detects unknown options in args that aren't defined in the schema.
  * Returns unknown key info with suggestions, or empty array if schema is loose.
  */
-export function checkUnknownArgs(
-  command: AnyPadroneCommand,
-  preprocessedArgs: Record<string, unknown>,
-): { key: string; suggestions: string[] }[] {
+export function checkUnknownArgs(command: AnyPadroneCommand, preprocessedArgs: Record<string, unknown>): { key: string }[] {
   if (!command.argsSchema) {
-    const unknowns: { key: string; suggestions: string[] }[] = [];
+    const unknowns: { key: string }[] = [];
     for (const key of Object.keys(preprocessedArgs)) {
-      unknowns.push({ key, suggestions: [] });
+      unknowns.push({ key });
     }
     return unknowns;
   }
@@ -186,7 +182,7 @@ export function checkUnknownArgs(
   const argsMeta = command.meta?.fields;
   const { flags, aliases } = extractSchemaMetadata(command.argsSchema, argsMeta, command.meta?.autoAlias);
 
-  return detectUnknownArgs(preprocessedArgs, command.argsSchema, flags, aliases, suggestSimilar);
+  return detectUnknownArgs(preprocessedArgs, command.argsSchema, flags, aliases);
 }
 
 /**
@@ -197,10 +193,10 @@ export function checkUnknownArgs(
 export function validateCommandArgs(command: AnyPadroneCommand, preprocessedArgs: Record<string, unknown>) {
   const unknownArgs = checkUnknownArgs(command, preprocessedArgs);
   if (unknownArgs.length > 0) {
-    const issues: StandardSchemaV1.Issue[] = unknownArgs.map(({ key, suggestions }) => {
-      const hint = formatSuggestions(suggestions, '--');
-      return { path: [key], message: hint ? `Unknown option: "${key}". ${hint}` : `Unknown option: "${key}"` };
-    });
+    const issues: StandardSchemaV1.Issue[] = unknownArgs.map(({ key }) => ({
+      path: [key],
+      message: `Unknown option: "${key}"`,
+    }));
     return { args: undefined, argsResult: { issues } as any };
   }
 
@@ -229,31 +225,10 @@ export function getKnownOptionNames(command: AnyPadroneCommand): string[] {
 }
 
 /**
- * Formats validation issue messages with "Did you mean?" hints for unknown keys.
+ * Formats validation issue messages for display.
  */
-export function formatIssueMessages(issues: readonly StandardSchemaV1.Issue[], command: AnyPadroneCommand): string {
-  let knownOptions: string[] | undefined;
-  const getKnown = () => {
-    if (knownOptions) return knownOptions;
-    knownOptions = getKnownOptionNames(command);
-    return knownOptions;
-  };
-
-  return issues
-    .map((i: StandardSchemaV1.Issue) => {
-      const base = `  - ${i.path?.join('.') || 'root'}: ${i.message}`;
-      const issueAny = i as any;
-      const unrecognizedKeys: string[] | undefined = issueAny.keys ?? i.message?.match(/[Uu]nrecognized key(?:s)?[^"]*"([^"]+)"/)?.slice(1);
-      if (unrecognizedKeys?.length) {
-        const hints = unrecognizedKeys.flatMap((k: string) => {
-          const similar = suggestSimilar(k, getKnown());
-          return similar.length ? [formatSuggestions(similar, '--')] : [];
-        });
-        if (hints.length) return `${base}\n    ${hints.join('\n    ')}`;
-      }
-      return base;
-    })
-    .join('\n');
+export function formatIssueMessages(issues: readonly StandardSchemaV1.Issue[]): string {
+  return issues.map((i) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`).join('\n');
 }
 
 /**

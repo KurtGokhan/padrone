@@ -6,6 +6,7 @@ import { padroneInteractive } from '../extension/interactive.ts';
 import { padroneRepl } from '../extension/repl.ts';
 import { padroneSignalHandling } from '../extension/signal.ts';
 import { padroneStdin } from '../extension/stdin.ts';
+import { padroneSuggestions } from '../extension/suggestions.ts';
 import { padroneVersion } from '../extension/version.ts';
 import { createWrapHandler } from '../feature/wrap.ts';
 import type {
@@ -63,6 +64,7 @@ export function createPadrone<TProgramName extends string>(
   builder = builder.extend(padroneStdin());
   builder = builder.extend(padroneConfig());
   builder = builder.extend(padroneInteractive());
+  builder = builder.extend(padroneSuggestions());
 
   return builder as unknown as PadroneProgram<TProgramName, '', ''>;
 }

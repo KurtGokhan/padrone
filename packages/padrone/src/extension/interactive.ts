@@ -1,7 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { defineInterceptor } from '../core/interceptors.ts';
 import { hasInteractiveConfig, thenMaybe } from '../core/results.ts';
-import { formatSuggestions } from '../core/suggestions.ts';
 import { buildCommandArgs, checkUnknownArgs } from '../core/validate.ts';
 import { promptInteractiveFields } from '../feature/interactive.ts';
 import type { AnyPadroneBuilder, CommandTypesBase, InterceptorValidateContext, InterceptorValidateResult } from '../types/index.ts';
@@ -44,10 +43,10 @@ const interactiveInterceptor = defineInterceptor({ id: 'padrone:interactive', na
     // Check for unknown args before prompting
     const unknowns = checkUnknownArgs(command, preprocessedArgs);
     if (unknowns.length > 0) {
-      const issues: StandardSchemaV1.Issue[] = unknowns.map(({ key, suggestions }) => {
-        const hint = formatSuggestions(suggestions, '--');
-        return { path: [key], message: hint ? `Unknown option: "${key}". ${hint}` : `Unknown option: "${key}"` };
-      });
+      const issues: StandardSchemaV1.Issue[] = unknowns.map(({ key }) => ({
+        path: [key],
+        message: `Unknown option: "${key}"`,
+      }));
       return { args: undefined, argsResult: { issues } } as any;
     }
 

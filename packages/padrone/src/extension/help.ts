@@ -115,7 +115,7 @@ const helpInterceptor = defineInterceptor({ id: 'padrone:help', name: 'padrone:h
         if (er.error instanceof ValidationError) {
           const targetPath = er.error.command;
           const targetCommand = targetPath ? findCommandInTree(targetPath, rootCommand) : undefined;
-          const issueMessages = formatIssueMessages(er.error.issues, targetCommand ?? rootCommand);
+          const issueMessages = formatIssueMessages(er.error.issues);
 
           resolveAllCommands(rootCommand);
           const helpText = generateHelp(rootCommand, targetCommand ?? rootCommand, {
