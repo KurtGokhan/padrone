@@ -1,12 +1,14 @@
 import { padroneAutoOutput } from '../extension/auto-output.ts';
 import { padroneColor } from '../extension/color.ts';
 import { padroneConfig } from '../extension/config.ts';
+import type { HelpCommand } from '../extension/help.ts';
 import { padroneHelp } from '../extension/help.ts';
 import { padroneInteractive } from '../extension/interactive.ts';
 import { padroneRepl } from '../extension/repl.ts';
 import { padroneSignalHandling } from '../extension/signal.ts';
 import { padroneStdin } from '../extension/stdin.ts';
 import { padroneSuggestions } from '../extension/suggestions.ts';
+import type { VersionCommand } from '../extension/version.ts';
 import { padroneVersion } from '../extension/version.ts';
 import { createWrapHandler } from '../feature/wrap.ts';
 import type {
@@ -17,6 +19,7 @@ import type {
   PadroneCommand,
   PadroneInterceptorFn,
   PadroneProgram,
+  PadroneSchema,
   RegisteredInterceptor,
 } from '../types/index.ts';
 import { commandSymbol, findCommandByName, lazyResolver, mergeCommands, repathCommandTree, resolveCommand } from './commands.ts';
@@ -34,23 +37,40 @@ export { asyncSchema } from './results.ts';
 /**
  * Options for configuring which built-in extensions are applied by default.
  */
-export type PadroneOptions = {
-  builtins?: {
-    /** Enable `help` command, `--help` / `-h` flags, and default help display. Defaults to `true`. */
-    help?: boolean;
-    /** Enable `version` command and `--version` / `-v` / `-V` flags. Defaults to `true`. */
-    version?: boolean;
-    /** Enable `repl` command and `--repl` flag. Defaults to `true`. */
-    repl?: boolean;
-    /** Enable `--color` / `--no-color` flag support. Defaults to `true`. */
-    color?: boolean;
-  };
+export type PadroneBuiltins = {
+  /** Enable `help` command, `--help` / `-h` flags, and default help display. Defaults to `true`. */
+  help?: boolean;
+  /** Enable `version` command and `--version` / `-v` / `-V` flags. Defaults to `true`. */
+  version?: boolean;
+  /** Enable `repl` command and `--repl` flag. Defaults to `true`. */
+  repl?: boolean;
+  /** Enable `--color` / `--no-color` flag support. Defaults to `true`. */
+  color?: boolean;
+  /** Enable "Did you mean?" suggestions for unknown commands and options. Defaults to `true`. */
+  suggestions?: boolean;
+  /** Enable signal handling (SIGINT, SIGTERM, SIGHUP). Defaults to `true`. */
+  signal?: boolean;
+  /** Enable automatic result output for `cli()`. Defaults to `true`. */
+  autoOutput?: boolean;
+  /** Enable stdin piping support. Defaults to `true`. */
+  stdin?: boolean;
+  /** Enable config file loading. Defaults to `true`. */
+  config?: boolean;
+  /** Enable interactive prompting for missing arguments. Defaults to `true`. */
+  interactive?: boolean;
 };
 
-export function createPadrone<TProgramName extends string>(
+export type PadroneOptions = { builtins?: PadroneBuiltins };
+
+// biome-ignore lint/complexity/noBannedTypes: empty object signals "all defaults enabled"
+type DefaultBuiltins = {};
+
+type BuiltinCommands<B> = [...(B extends { help: false } ? [] : [HelpCommand]), ...(B extends { version: false } ? [] : [VersionCommand])];
+
+export function createPadrone<TProgramName extends string, const TBuiltins extends PadroneBuiltins = DefaultBuiltins>(
   name: TProgramName,
-  options?: PadroneOptions,
-): PadroneProgram<TProgramName, '', ''> {
+  options?: { builtins?: TBuiltins },
+): PadroneProgram<TProgramName, '', '', PadroneSchema<void>, void, BuiltinCommands<TBuiltins>> {
   let builder: any = createPadroneBuilder({ name, path: '', commands: [] } as any);
 
   const b = options?.builtins;
@@ -58,15 +78,14 @@ export function createPadrone<TProgramName extends string>(
   if (b?.version !== false) builder = builder.extend(padroneVersion());
   if (b?.repl !== false) builder = builder.extend(padroneRepl());
   if (b?.color !== false) builder = builder.extend(padroneColor());
-  // Framework extensions (always on by default)
-  builder = builder.extend(padroneSignalHandling());
-  builder = builder.extend(padroneAutoOutput());
-  builder = builder.extend(padroneStdin());
-  builder = builder.extend(padroneConfig());
-  builder = builder.extend(padroneInteractive());
-  builder = builder.extend(padroneSuggestions());
+  if (b?.suggestions !== false) builder = builder.extend(padroneSuggestions());
+  if (b?.signal !== false) builder = builder.extend(padroneSignalHandling());
+  if (b?.autoOutput !== false) builder = builder.extend(padroneAutoOutput());
+  if (b?.stdin !== false) builder = builder.extend(padroneStdin());
+  if (b?.config !== false) builder = builder.extend(padroneConfig());
+  if (b?.interactive !== false) builder = builder.extend(padroneInteractive());
 
-  return builder as unknown as PadroneProgram<TProgramName, '', ''>;
+  return builder as any;
 }
 
 export function createPadroneBuilder<TBuilder extends PadroneProgram = PadroneProgram>(

@@ -1824,7 +1824,7 @@ describe('CLI', () => {
       const stringified = program.stringify('test', original);
       const parsed = program.parse(stringified);
 
-      expect(parsed.args?.config).toEqual(original.config);
+      expect('config' in parsed.args! && parsed.args?.config).toEqual(original.config);
     });
 
     it('should handle nested args with quoted string values', () => {

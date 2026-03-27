@@ -21,11 +21,11 @@ describe('wrap', () => {
           }),
       );
 
-      const result = await program.run('echo', { message: 'Hello World' });
+      const result = await program.run('echo', { message: 'Hello World from echo wrapper' });
       const wrapResult = await result.result;
 
       expect(result.command?.path).toBe('echo');
-      expect(result.args?.message).toBe('Hello World');
+      expect(result.args?.message).toBe('Hello World from echo wrapper');
       expect(wrapResult?.success).toBe(true);
       expect(wrapResult?.exitCode).toBe(0);
     });

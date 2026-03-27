@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from 'bun:test';
+import { describe, expect, expectTypeOf, it, test } from 'bun:test';
 import { asyncSchema, createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 import { createConsoleMocker } from './console-mocker.ts';
@@ -368,7 +368,7 @@ describe('Thenable results', () => {
   });
 });
 
-describe.skip('Types - Thenable results', () => {
+test.skip('Types - Thenable results', () => {
   const program = createPadrone('app')
     .command('sync', (c) => c.arguments(z.object({ name: z.string() })).action((args) => args.name))
     .command('async-branded', (c) => c.arguments(asyncSchema(z.object({ name: z.string() }))).action((args) => args.name))
@@ -421,7 +421,7 @@ describe.skip('Types - Thenable results', () => {
   expectTypeOf(cliResult.finally).toBeFunction();
 });
 
-describe.skip('Types - Optional array enum positionals', () => {
+test.skip('Types - Optional array enum positionals', () => {
   // Optional array enum should allow both ...name and name in positional config
   const _program1 = createPadrone('app').command('deploy', (c) =>
     c

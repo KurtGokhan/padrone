@@ -17,8 +17,10 @@ export type {
 } from './core/runtime.ts';
 export { REPL_SIGINT } from './core/runtime.ts';
 export type {
+  HelpCommand,
   PadroneProgressConfig,
   PadroneProgressMessage,
+  VersionCommand,
   WithCompletion,
   WithHelp,
   WithMan,

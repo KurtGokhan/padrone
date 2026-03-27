@@ -139,40 +139,32 @@ type GetCommandPathsAndAliases<TCommand extends AnyPadroneCommand> = TCommand['~
 /**
  * Find a direct child command in a tuple by name.
  * Unlike PickCommandByName, this does NOT flatten — it only checks direct children by their `name` field.
+ * Uses indexed access (O(1) depth) instead of recursive tuple walking.
  */
-export type FindDirectChild<TCommands extends AnyPadroneCommand[], TName extends string> = TCommands extends [
-  infer First extends AnyPadroneCommand,
-  ...infer Rest extends AnyPadroneCommand[],
-]
-  ? First['~types']['name'] extends TName
-    ? First
-    : FindDirectChild<Rest, TName>
-  : never;
+export type FindDirectChild<TCommands extends AnyPadroneCommand[], TName extends string> = Extract<
+  TCommands[number],
+  { '~types': { name: TName } }
+>;
 
 /**
  * Replace a command in a tuple by name, or append if not found.
  * Used by `.command()` override semantics: re-registering a name replaces that entry.
+ * Uses mapped type (O(1) depth) instead of recursive tuple walking.
  */
 export type ReplaceOrAppendCommand<TCommands extends [...AnyPadroneCommand[]], TName extends string, TNew extends AnyPadroneCommand> =
   HasDirectChild<TCommands, TName> extends true ? ReplaceInTuple<TCommands, TName, TNew> : [...TCommands, TNew];
 
-type HasDirectChild<TCommands extends AnyPadroneCommand[], TName extends string> = TCommands extends [
-  infer First extends AnyPadroneCommand,
-  ...infer Rest extends AnyPadroneCommand[],
-]
-  ? First['~types']['name'] extends TName
-    ? true
-    : HasDirectChild<Rest, TName>
+type HasDirectChild<TCommands extends AnyPadroneCommand[], TName extends string> = TName extends TCommands[number]['~types']['name']
+  ? true
   : false;
 
-type ReplaceInTuple<TCommands extends AnyPadroneCommand[], TName extends string, TNew extends AnyPadroneCommand> = TCommands extends [
-  infer First extends AnyPadroneCommand,
-  ...infer Rest extends AnyPadroneCommand[],
-]
-  ? First['~types']['name'] extends TName
-    ? [TNew, ...Rest]
-    : [First, ...ReplaceInTuple<Rest, TName, TNew>]
-  : [];
+type ReplaceInTuple<TCommands extends AnyPadroneCommand[], TName extends string, TNew extends AnyPadroneCommand> = {
+  [K in keyof TCommands]: TCommands[K] extends AnyPadroneCommand
+    ? TCommands[K]['~types']['name'] extends TName
+      ? TNew
+      : TCommands[K]
+    : TCommands[K];
+};
 
 /**
  * Utility type for extensions that add a command to a builder/program.
@@ -210,13 +202,13 @@ export type PickCommandByName<
 
 export type FlattenCommands<TCommands extends AnyPadroneCommand[]> = TCommands extends []
   ? never
-  : TCommands extends [infer FirstCommand, ...infer RestCommands]
-    ?
-        | (RestCommands extends AnyPadroneCommand[] ? FlattenCommands<RestCommands> : never)
-        | (FirstCommand extends AnyPadroneCommand ? FlattenCommands<FirstCommand['~types']['commands']> | FirstCommand : never)
-    : IsAny<TCommands[number]> extends true
+  : number extends TCommands['length']
+    ? IsAny<TCommands[number]> extends true
       ? never
-      : TCommands[number];
+      : TCommands[number]
+    : TCommands[number] extends infer Cmd extends AnyPadroneCommand
+      ? Cmd | FlattenCommands<Cmd['~types']['commands']>
+      : never;
 
 /**
  * Get all command paths including alias paths for all commands.

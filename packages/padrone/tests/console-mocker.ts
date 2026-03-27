@@ -1,7 +1,9 @@
-import { afterEach, beforeEach, mock } from 'bun:test';
+import { afterEach, beforeEach, mock, onTestFinished } from 'bun:test';
 
-export function createConsoleMocker() {
+export function createConsoleMocker(initialize?: 'inside-test' | 'outside-test' | false) {
   const originalConsole = globalThis.console;
+  const originalStdoutWrite = process.stdout.write;
+  const originalStderrWrite = process.stderr.write;
 
   const mockConsole = {
     Console: originalConsole.Console,
@@ -31,6 +33,9 @@ export function createConsoleMocker() {
     [Symbol.asyncIterator]: mock(),
   } satisfies Console;
 
+  const mockStdout = mock() as ReturnType<typeof mock> & typeof process.stdout.write;
+  const mockStderr = mock() as ReturnType<typeof mock> & typeof process.stderr.write;
+
   function clearAllMocks() {
     for (const key of Object.keys(mockConsole)) {
       const val = (mockConsole as any)[key];
@@ -38,16 +43,40 @@ export function createConsoleMocker() {
         val.mockClear();
       }
     }
+    mockStdout.mockClear();
+    mockStderr.mockClear();
   }
 
-  beforeEach(() => {
+  function install() {
     clearAllMocks();
     globalThis.console = mockConsole;
-  });
+    process.stdout.write = mockStdout;
+    process.stderr.write = mockStderr;
+  }
 
-  afterEach(() => {
+  function restore() {
     globalThis.console = originalConsole;
-  });
+    process.stdout.write = originalStdoutWrite;
+    process.stderr.write = originalStderrWrite;
+  }
 
-  return { mockConsole, clearAllMocks };
+  if (initialize === 'outside-test') {
+    beforeEach(install);
+    afterEach(restore);
+  } else if (initialize === 'inside-test') {
+    install();
+    onTestFinished(restore);
+  }
+
+  return {
+    originalConsole,
+    originalStdoutWrite,
+    originalStderrWrite,
+    mockConsole,
+    mockStdout,
+    mockStderr,
+    clearAllMocks,
+    install,
+    restore,
+  };
 }

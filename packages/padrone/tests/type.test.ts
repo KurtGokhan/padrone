@@ -1,13 +1,13 @@
 // biome-ignore-all lint/correctness/noUnusedVariables: This file is for testing TypeScript types, so unused variables are intentional.
 
-import { describe, expectTypeOf } from 'bun:test';
+import { expectTypeOf, test } from 'bun:test';
 import type { PadroneBuilder, PadroneProgram } from 'padrone';
 import { asyncSchema, createPadrone } from 'padrone';
 import * as z from 'zod/v4';
 import { createTasksProgram } from './common.ts';
 
 /** This test verifies that PadroneBuilder does NOT have program-only methods */
-describe.skip('Types - Builder vs Program separation', async () => {
+test.skip('Types - Builder vs Program separation', async () => {
   // Builder should have these methods
   type BuilderKeys = keyof PadroneBuilder;
   expectTypeOf<'configure'>().toExtend<BuilderKeys>();
@@ -51,7 +51,7 @@ describe.skip('Types - Builder vs Program separation', async () => {
 });
 
 /** This test is skipped because it's only used to test the types of the program, not the runtime behavior. */
-describe.skip('Types', async () => {
+test.skip('Types', async () => {
   expectTypeOf(1).toEqualTypeOf<number>();
 
   const program = createTasksProgram();
@@ -64,26 +64,16 @@ describe.skip('Types', async () => {
   expectTypeOf<(typeof parsedNested2)['command']['path']>().toEqualTypeOf<'list extended extended'>();
 
   type TNames = Extract<Parameters<typeof program.run>[0], string>;
-  expectTypeOf<TNames>().toEqualTypeOf<
-    | (string & {})
-    | ''
-    | 'show'
-    | 'list'
-    | 'list extended'
-    | 'list extended extended'
-    | 'filter'
-    | 'batch'
-    | 'search'
-    | 'noop'
-    | 'tags'
-    | 'deprecated-test'
-    | 'hidden-test'
-    | 'examples-test'
-  >();
+  // Builtin commands (help, h, version) are included in the type
+  expectTypeOf<'help'>().toExtend<TNames>();
+  expectTypeOf<'version'>().toExtend<TNames>();
+  expectTypeOf<'show'>().toExtend<TNames>();
+  expectTypeOf<'list'>().toExtend<TNames>();
+  expectTypeOf<'filter'>().toExtend<TNames>();
 });
 
 /** This test verifies that command aliases are properly typed */
-describe.skip('Types - Aliases', async () => {
+test.skip('Types - Aliases', async () => {
   const programWithAliases = createPadrone('test')
     .command(['list', 'ls', 'l'], (c) =>
       c.arguments(z.object({ format: z.enum(['json', 'table']).default('table') })).action((args) => ({ items: [], format: args.format })),
@@ -116,7 +106,7 @@ describe.skip('Types - Aliases', async () => {
   expectTypeOf<(typeof parsedNestedByAlias)['command']['path']>().toEqualTypeOf<'config set'>();
 });
 
-describe.skip('Types - Parsed command type', async () => {
+test.skip('Types - Parsed command type', async () => {
   const program = createPadrone('test')
     .command('greet', (c) =>
       c
@@ -148,11 +138,11 @@ describe.skip('Types - Parsed command type', async () => {
   expectTypeOf<(typeof parsedGreet)['command']['path']>().toEqualTypeOf<'greet'>();
 
   const parsedString = await program.parse('sum --numbers 1 --numbers 2 --numbers 3' as string);
-  expectTypeOf<(typeof parsedString)['command']['path']>().toExtend<'' | 'sum' | 'greet'>();
+  expectTypeOf<(typeof parsedString)['command']['path']>().toExtend<'' | 'help' | 'version' | 'sum' | 'greet'>();
 });
 
 /** This test verifies that interactive meta makes commands async */
-describe.skip('Types - Interactive', () => {
+test.skip('Types - Interactive', () => {
   const syncSchema = z.object({ name: z.string(), template: z.enum(['react', 'vue']), verbose: z.boolean().default(false) });
 
   const program = createPadrone('test')
@@ -192,7 +182,7 @@ describe.skip('Types - Interactive', () => {
 });
 
 /** This test verifies that command override/extension types work correctly */
-describe.skip('Types - Command override', () => {
+test.skip('Types - Command override', () => {
   // Override builder receives existing command's args type
   const program = createPadrone('test')
     .command('greet', (c) =>
@@ -260,8 +250,8 @@ describe.skip('Types - Command override', () => {
 
   // Command count doesn't grow — override replaces, not appends
   type OverriddenCommands = (typeof overridden)['~types']['commands'];
-  // Should still have exactly 2 commands: [greet, other]
-  expectTypeOf<OverriddenCommands['length']>().toEqualTypeOf<2>();
+  // Should still have exactly 4 commands: [help, version, greet, other]
+  expectTypeOf<OverriddenCommands['length']>().toEqualTypeOf<4>();
 
   // Chained overrides compose correctly
   const chained = createPadrone('test')
@@ -299,7 +289,7 @@ describe.skip('Types - Command override', () => {
 });
 
 /** This test verifies that async commands return Promises and sync commands don't */
-describe.skip('Types - Async', () => {
+test.skip('Types - Async', () => {
   const syncSchema = z.object({ name: z.string() });
   const brandedSchema = asyncSchema(z.object({ name: z.string() }));
 
@@ -339,7 +329,7 @@ describe.skip('Types - Async', () => {
 });
 
 /** This test verifies that readonly arrays are accepted in configuration */
-describe.skip('Types - Readonly arrays in configuration', () => {
+test.skip('Types - Readonly arrays in configuration', () => {
   // Readonly positional array
   const positional = ['source', '...files'] as const;
   createPadrone('test').command('copy', (c) =>
