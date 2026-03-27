@@ -49,9 +49,9 @@ export function isAsyncStreamField(schema: StandardJSONSchemaV1 | undefined, fie
  */
 export function parsePositionalConfig(positional: readonly string[]): { name: string; variadic: boolean }[] {
   return positional.map((p) => {
-    const isVariadic = p.startsWith('...');
-    const name = isVariadic ? p.slice(3) : p;
-    return { name, variadic: isVariadic };
+    const variadic = p.startsWith('...');
+    const name = variadic ? p.slice(3) : p;
+    return { name, variadic };
   });
 }
 

@@ -44,14 +44,16 @@ type ParseParts = {
 
 type ParsePart = ParseParts[keyof ParseParts];
 
+type QuoteChar = '"' | "'" | '`';
+
 /**
- * Tokenizes input string respecting quoted strings and bracket arrays.
- * Supports single quotes, double quotes, backticks, and square brackets.
+ * Split a string by a delimiter, respecting quoted segments and optional bracket nesting.
+ * Handles escape sequences within quotes (\\" and \\\\).
  */
-function tokenizeInput(input: string): string[] {
-  const tokens: string[] = [];
+function splitQuoteAware(input: string, delimiter: ' ' | ',', opts?: { brackets?: boolean; trim?: boolean }): string[] {
+  const results: string[] = [];
   let current = '';
-  let inQuote: '"' | "'" | '`' | null = null;
+  let inQuote: QuoteChar | null = null;
   let bracketDepth = 0;
   let i = 0;
 
@@ -59,39 +61,32 @@ function tokenizeInput(input: string): string[] {
     const char = input[i];
 
     if (inQuote) {
-      // Check for escape sequences within quotes
       if (char === '\\' && i + 1 < input.length) {
         const nextChar = input[i + 1];
-        // Handle escape sequences
         if (nextChar === inQuote || nextChar === '\\') {
           current += nextChar;
           i += 2;
           continue;
         }
       }
-
       if (char === inQuote) {
-        // End of quoted string
         inQuote = null;
       } else {
         current += char;
       }
-    } else if (char === '[') {
+    } else if (opts?.brackets && char === '[') {
       bracketDepth++;
       current += char;
-    } else if (char === ']') {
+    } else if (opts?.brackets && char === ']') {
       bracketDepth = Math.max(0, bracketDepth - 1);
       current += char;
     } else if (bracketDepth > 0) {
-      // Inside brackets - include everything including spaces
       current += char;
     } else if (char === '"' || char === "'" || char === '`') {
-      // Start of quoted string
       inQuote = char;
-    } else if (char === ' ' || char === '\t') {
-      // Whitespace outside quotes and brackets - end current token
-      if (current) {
-        tokens.push(current);
+    } else if (char === delimiter || (delimiter === ' ' && char === '\t')) {
+      if (delimiter === ' ' ? current : true) {
+        results.push(opts?.trim ? current.trim() : current);
         current = '';
       }
     } else {
@@ -100,19 +95,20 @@ function tokenizeInput(input: string): string[] {
     i++;
   }
 
-  // Add the last token if any
-  if (current) {
-    tokens.push(current);
+  if (delimiter === ' ' ? current : current || results.length > 0) {
+    results.push(opts?.trim ? current.trim() : current);
   }
 
-  return tokens;
+  return results;
 }
 
 export function parseCliInputToParts(input: string): ParsePart[] {
-  const parts = tokenizeInput(input.trim());
+  const parts = splitQuoteAware(input.trim(), ' ', { brackets: true });
   const result: ParsePart[] = [];
 
-  let pendingValue: ParseParts['named'] | ParseParts['alias'] | undefined;
+  // Index into `result` of the last part that can accept a pending value (-1 = none)
+  let pendingIdx = -1;
+  // Once a non-term positional arg appears, all subsequent bare values become args
   let allowTerm = true;
   let afterDoubleDash = false;
 
@@ -121,7 +117,7 @@ export function parseCliInputToParts(input: string): ParsePart[] {
 
     // Bare `--` separator: everything after is a literal positional arg
     if (part === '--' && !afterDoubleDash) {
-      if (pendingValue) pendingValue = undefined;
+      pendingIdx = -1;
       afterDoubleDash = true;
       allowTerm = false;
       continue;
@@ -132,22 +128,18 @@ export function parseCliInputToParts(input: string): ParsePart[] {
       continue;
     }
 
-    const wasPending = pendingValue;
-    pendingValue = undefined;
+    const hadPending = pendingIdx;
+    pendingIdx = -1;
 
     if (part.startsWith('--no-') && part.length > 5) {
       // Negated boolean arg (--no-verbose or --no-config.debug)
-      const keyStr = part.slice(5);
-      const key = keyStr.split('.');
-      const p = { type: 'named' as const, key, value: undefined, negated: true };
-      result.push(p);
+      const key = part.slice(5).split('.');
+      result.push({ type: 'named', key, value: undefined, negated: true });
     } else if (part.startsWith('--')) {
       const [keyStr = '', value] = splitNamedArgValue(part.slice(2));
       const key = keyStr.split('.');
-
-      const p = { type: 'named' as const, key, value };
-      if (typeof value === 'undefined') pendingValue = p;
-      result.push(p);
+      result.push({ type: 'named', key, value });
+      if (typeof value === 'undefined') pendingIdx = result.length - 1;
     } else if (part.startsWith('-') && part.length > 1 && !/^-\d/.test(part)) {
       // Short flag(s) (but not negative numbers like -5)
       // Supports flag stacking: -abc → -a -b -c (last flag can take a value)
@@ -156,25 +148,23 @@ export function parseCliInputToParts(input: string): ParsePart[] {
       if (keyStr.length > 1 && typeof value === 'undefined') {
         // Flag stacking: -abc → -a, -b, -c (all set to true except last which can take next arg's value)
         for (let ci = 0; ci < keyStr.length - 1; ci++) {
-          result.push({ type: 'alias' as const, key: [keyStr[ci]!], value: undefined });
+          result.push({ type: 'alias', key: [keyStr[ci]!], value: undefined });
         }
-        const lastFlag = { type: 'alias' as const, key: [keyStr[keyStr.length - 1]!], value: undefined as string | string[] | undefined };
-        pendingValue = lastFlag;
-        result.push(lastFlag);
+        result.push({ type: 'alias', key: [keyStr[keyStr.length - 1]!], value: undefined });
+        pendingIdx = result.length - 1;
       } else if (keyStr.length > 1 && typeof value !== 'undefined') {
         // -abc=val → -a, -b, -c=val (stacked with value on last)
         for (let ci = 0; ci < keyStr.length - 1; ci++) {
-          result.push({ type: 'alias' as const, key: [keyStr[ci]!], value: undefined });
+          result.push({ type: 'alias', key: [keyStr[ci]!], value: undefined });
         }
-        result.push({ type: 'alias' as const, key: [keyStr[keyStr.length - 1]!], value });
+        result.push({ type: 'alias', key: [keyStr[keyStr.length - 1]!], value });
       } else {
         // Single char: -v or -v=value
-        const p = { type: 'alias' as const, key: [keyStr], value };
-        if (typeof value === 'undefined') pendingValue = p;
-        result.push(p);
+        result.push({ type: 'alias', key: [keyStr], value });
+        if (typeof value === 'undefined') pendingIdx = result.length - 1;
       }
-    } else if (wasPending) {
-      wasPending.value = part;
+    } else if (hadPending >= 0) {
+      result[hadPending]!.value = part;
     } else if (/^[a-zA-Z0-9_-]+$/.test(part) && allowTerm) {
       result.push({ type: 'term', value: part });
     } else {
@@ -209,8 +199,7 @@ function splitNamedArgValue(str: string): [string, string | string[] | undefined
   if (value.startsWith('[') && value.endsWith(']')) {
     const inner = value.slice(1, -1);
     if (inner === '') return [key, []];
-    const items = parseArrayItems(inner);
-    return [key, items];
+    return [key, splitQuoteAware(inner, ',', { trim: true })];
   }
 
   return [key, value];
@@ -251,46 +240,4 @@ export function getNestedValue(obj: Record<string, unknown>, path: string[]): un
   }
 
   return current;
-}
-
-/**
- * Parse comma-separated items, respecting quotes within items.
- */
-function parseArrayItems(input: string): string[] {
-  const items: string[] = [];
-  let current = '';
-  let inQuote: '"' | "'" | '`' | null = null;
-  let i = 0;
-
-  while (i < input.length) {
-    const char = input[i];
-
-    if (inQuote) {
-      if (char === '\\' && i + 1 < input.length && input[i + 1] === inQuote) {
-        current += input[i + 1];
-        i += 2;
-        continue;
-      }
-      if (char === inQuote) {
-        inQuote = null;
-      } else {
-        current += char;
-      }
-    } else if (char === '"' || char === "'" || char === '`') {
-      inQuote = char;
-    } else if (char === ',') {
-      items.push(current.trim());
-      current = '';
-    } else {
-      current += char;
-    }
-    i++;
-  }
-
-  // Add the last item
-  if (current || items.length > 0) {
-    items.push(current.trim());
-  }
-
-  return items;
 }
