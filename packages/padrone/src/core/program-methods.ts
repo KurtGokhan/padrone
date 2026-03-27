@@ -128,6 +128,7 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
           progress: noopIndicator,
           signal: inertSignal,
           context: executeCtx.context,
+          caller: 'run',
         };
         const result = commandObj.action!(executeCtx.args as any, actionCtx);
         return { result };
@@ -185,6 +186,7 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
         const errors: string[] = [];
         const result = await evalCommand(input.command, {
           autoOutput: false,
+          caller: 'tool',
           runtime: {
             output: (...args) => output.push(args.map(String).join(' ')),
             error: (text) => errors.push(text),
@@ -206,11 +208,11 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
       const runtime = getCommandRuntime(rootCommand);
       const resolvedInput = (runtime.argv().join(' ') || undefined) as string | undefined;
 
-      // Pass repl preferences to state so the repl extension can use them
+      // Pass repl preferences via initialState; exec.ts moves them to runtime for extension access
       const initialState: Record<string, unknown> = {};
       if (cliOptions && 'repl' in cliOptions) initialState._replPrefs = cliOptions.repl;
 
-      const result = execCommand(resolvedInput, ctx, cliOptions, 'hard', initialState);
+      const result = execCommand(resolvedInput, ctx, cliOptions, 'hard', 'cli', initialState);
 
       if (result instanceof Promise) return withPromiseDrain(result.catch((err: unknown) => errorResultWithSignal(err))) as any;
       return makeThenable(result);
@@ -225,49 +227,16 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
   };
 
   const parse: AnyPadroneProgram['parse'] = (input) => {
-    const state: Record<string, unknown> = {};
-    const parseRuntime = getCommandRuntime(rootCommand);
+    const { command, rawArgs, args } = ctx.parseCommandFn(input as string | undefined);
 
-    const parseCtx = {
-      input: input as string | undefined,
-      command: rootCommand,
-      state,
-      signal: inertSignal,
-      context: undefined,
-      runtime: parseRuntime,
-    };
-    const coreParse = (parseCtx: any) => {
-      const { command, rawArgs, args } = ctx.parseCommandFn(parseCtx.input);
-      return { command, rawArgs, positionalArgs: args };
-    };
+    const validatedOrPromise = coreValidateForParse(command, rawArgs, args, rootCommand);
 
-    const factoryCache = new Map();
-    const rootInterceptors = resolveRegisteredInterceptors(rootCommand.interceptors ?? [], factoryCache);
-    const parsedOrPromise = runInterceptorChain('parse', rootInterceptors, parseCtx, coreParse);
-
-    const continueAfterParse = (parsed: any) => {
-      const { command } = parsed;
-      const commandInterceptors = resolveRegisteredInterceptors(collectInterceptors(command, rootCommand), factoryCache);
-      const validateCtx = {
-        command,
-        rawArgs: parsed.rawArgs,
-        positionalArgs: parsed.positionalArgs,
-        state,
-        signal: inertSignal,
-        context: undefined,
-        runtime: parseRuntime,
-      };
-
-      const coreValidate = () => coreValidateForParse(command, validateCtx.rawArgs, validateCtx.positionalArgs, rootCommand);
-      const validatedOrPromise = runInterceptorChain('validate', commandInterceptors, validateCtx, coreValidate);
-
-      return warnIfUnexpectedAsync(
+    return makeThenable(
+      warnIfUnexpectedAsync(
         thenMaybe(validatedOrPromise, (v: any) => ({ command: command as any, args: v.args, argsResult: v.argsResult })),
         command,
-      );
-    };
-
-    return makeThenable(thenMaybe(parsedOrPromise, continueAfterParse)) as any;
+      ),
+    ) as any;
   };
 
   const help: AnyPadroneProgram['help'] = (command, prefs) => {

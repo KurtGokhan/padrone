@@ -3,10 +3,9 @@ import { defineInterceptor } from '../core/interceptors.ts';
 import { thenMaybe } from '../core/results.ts';
 import type { HelpDetail, HelpFormat } from '../output/formatter.ts';
 import { generateHelp } from '../output/help.ts';
-import type { PadroneBuilder, PadroneProgram } from '../types/builder.ts';
-import type { AnyPadroneBuilder, AnyPadroneCommand, CommandTypesBase, PadroneCommand } from '../types/index.ts';
+import type { AnyPadroneBuilder, CommandTypesBase, PadroneCommand } from '../types/index.ts';
 import type { PadroneSchema } from '../types/schema.ts';
-import type { ReplaceOrAppendCommand } from '../util/type-utils.ts';
+import type { WithCommand } from '../util/type-utils.ts';
 import { getRootCommand } from '../util/utils.ts';
 import { findCommandInTree, passthroughSchema } from './utils.ts';
 
@@ -20,86 +19,80 @@ type HelpCommand = PadroneCommand<
   PadroneSchema<HelpArgs>,
   string,
   [],
-  [],
+  ['h', ''],
   PadroneSchema<HelpArgs>,
   PadroneSchema<HelpArgs>,
   false
 >;
 
-export type WithHelp<T> = T extends {
-  '~types': {
-    programName: infer PN extends string;
-    name: infer N extends string;
-    parentName: infer PaN extends string;
-    argsSchema: infer A extends PadroneSchema;
-    result: infer R;
-    commands: infer C extends [...AnyPadroneCommand[]];
-    async: infer AS extends boolean;
-    context: infer CTX;
-  };
-}
-  ? T extends { run: any }
-    ? PadroneProgram<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, 'help', HelpCommand>, any, any, any, AS, CTX>
-    : PadroneBuilder<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, 'help', HelpCommand>, any, any, any, AS, CTX>
-  : T;
+export type WithHelp<T> = WithCommand<T, 'help', HelpCommand>;
 
 // ── Interceptor ─────────────────────────────────────────────────────────
 
-const helpInterceptor = defineInterceptor({ id: 'padrone:help', name: 'padrone:help', order: -1000 }, () => ({
-  parse(ctx, next) {
-    return thenMaybe(next(), (res) => {
-      if (!ctx.state._execMode) return res;
+const helpInterceptor = defineInterceptor({ id: 'padrone:help', name: 'padrone:help', order: -1000 }, () => {
+  let helpText: string | undefined;
+  let showDefaultHelp = false;
 
-      const hasHelpFlag = res.rawArgs.help || res.rawArgs.h;
-      const reverseHelp = !hasHelpFlag && res.positionalArgs?.length > 0 && res.positionalArgs[res.positionalArgs.length - 1] === 'help';
+  return {
+    parse(ctx, next) {
+      return thenMaybe(next(), (res) => {
+        const hasHelpFlag = res.rawArgs.help || res.rawArgs.h;
+        const reverseHelp = !hasHelpFlag && res.positionalArgs?.length > 0 && res.positionalArgs[res.positionalArgs.length - 1] === 'help';
 
-      if (hasHelpFlag || reverseHelp) {
-        delete res.rawArgs.help;
-        delete res.rawArgs.h;
+        if (hasHelpFlag || reverseHelp) {
+          delete res.rawArgs.help;
+          delete res.rawArgs.h;
 
-        const detail = res.rawArgs.detail as HelpDetail | undefined;
-        const format = res.rawArgs.format as HelpFormat | undefined;
-        const all = res.rawArgs.all as boolean | undefined;
-        delete res.rawArgs.detail;
-        delete res.rawArgs.format;
-        delete res.rawArgs.all;
-        delete res.rawArgs.d;
-        delete res.rawArgs.f;
+          const detail = res.rawArgs.detail as HelpDetail | undefined;
+          const format = res.rawArgs.format as HelpFormat | undefined;
+          const all = res.rawArgs.all as boolean | undefined;
+          delete res.rawArgs.detail;
+          delete res.rawArgs.format;
+          delete res.rawArgs.all;
+          delete res.rawArgs.d;
+          delete res.rawArgs.f;
 
-        const rootCommand = getRootCommand(res.command);
-        resolveAllCommands(rootCommand);
-
-        const helpText = generateHelp(rootCommand, res.command, {
-          detail,
-          format: format ?? ctx.runtime.format,
-          theme: ctx.runtime.theme,
-          all,
-        });
-        ctx.runtime.output(helpText);
-        ctx.state._drain = helpText;
-        return res;
-      }
-
-      // Default help: command with no action → show its help (only during exec, not parse-only calls)
-      if (ctx.state._execMode && !ctx.state._drain) {
-        const { command } = res;
-        const hasSubcommands = command.commands && command.commands.length > 0;
-        const hasSchema = command.argsSchema != null;
-        const hasUnmatchedTerms = res.positionalArgs?.length > 0 && !command.meta?.positional?.length;
-        if (!command.action && (hasSubcommands || !hasSchema) && !hasUnmatchedTerms) {
-          const rootCommand = getRootCommand(command);
+          const rootCommand = getRootCommand(res.command);
           resolveAllCommands(rootCommand);
-          const helpText = generateHelp(rootCommand, command, { format: ctx.runtime.format, theme: ctx.runtime.theme });
-          ctx.runtime.output(helpText);
-          ctx.state._drain = helpText;
+
+          helpText = generateHelp(rootCommand, res.command, {
+            detail,
+            format: format ?? ctx.runtime.format,
+            theme: ctx.runtime.theme,
+            all,
+          });
           return res;
         }
-      }
 
-      return res;
-    });
-  },
-}));
+        // Track whether the parsed command has no action (for default help in execute phase)
+        if (helpText === undefined) {
+          const { command } = res;
+          const hasSubcommands = command.commands && command.commands.length > 0;
+          const hasSchema = command.argsSchema != null;
+          const hasUnmatchedTerms = res.positionalArgs?.length > 0 && !command.meta?.positional?.length;
+          if (!command.action && (hasSubcommands || !hasSchema) && !hasUnmatchedTerms) {
+            showDefaultHelp = true;
+          }
+        }
+
+        return res;
+      });
+    },
+    validate(_ctx, next) {
+      if (helpText !== undefined) return { args: undefined as any, argsResult: { value: undefined } as any };
+      return next();
+    },
+    execute(ctx, next) {
+      if (helpText !== undefined) return { result: helpText };
+      if (showDefaultHelp) {
+        const rootCommand = getRootCommand(ctx.command);
+        resolveAllCommands(rootCommand);
+        return { result: generateHelp(rootCommand, ctx.command, { format: ctx.runtime.format, theme: ctx.runtime.theme }) };
+      }
+      return next();
+    },
+  };
+});
 
 // ── Extension ────────────────────────────────────────────────────────────
 
@@ -116,31 +109,26 @@ const helpInterceptor = defineInterceptor({ id: 'padrone:help', name: 'padrone:h
  * ```
  */
 export function padroneHelp(): <T extends CommandTypesBase>(builder: T) => WithHelp<T> {
-  return ((builder: AnyPadroneBuilder) => {
-    let result = builder as any;
-
-    result = result.command(['help', 'h'], (c: any) =>
-      c
-        .configure({ description: 'Display help for a command', hidden: true, autoOutput: true })
-        .arguments(passthroughSchema({ command: 'string[]', detail: 'string', format: 'string', all: 'boolean' }), {
-          positional: ['...command'],
-        })
-        .action((args: any, ctx: any) => {
-          const rootCommand = getRootCommand(ctx.command);
-          resolveAllCommands(rootCommand);
-          const commandName = args.command?.join(' ');
-          const targetCommand = commandName ? findCommandInTree(commandName, rootCommand) : rootCommand;
-          return generateHelp(rootCommand, targetCommand ?? rootCommand, {
-            detail: args.detail,
-            format: args.format ?? ctx.runtime.format,
-            theme: ctx.runtime.theme,
-            all: args.all,
-          });
-        }),
-    );
-
-    result = result.intercept(helpInterceptor);
-
-    return result;
-  }) as any;
+  return ((builder: AnyPadroneBuilder) =>
+    builder
+      .command(['help', 'h'], (c) =>
+        c
+          .configure({ description: 'Display help for a command', hidden: true, autoOutput: true })
+          .arguments(passthroughSchema({ command: 'string[]', detail: 'string', format: 'string', all: 'boolean' }), {
+            positional: ['...command'],
+          })
+          .action((args, ctx) => {
+            const rootCommand = getRootCommand(ctx.command);
+            resolveAllCommands(rootCommand);
+            const commandName = args.command?.join(' ');
+            const targetCommand = commandName ? findCommandInTree(commandName, rootCommand) : rootCommand;
+            return generateHelp(rootCommand, targetCommand ?? rootCommand, {
+              detail: args.detail as HelpDetail,
+              format: (args.format as HelpFormat) ?? ctx.runtime.format,
+              theme: ctx.runtime.theme,
+              all: args.all,
+            });
+          }),
+      )
+      .intercept(helpInterceptor)) as any;
 }

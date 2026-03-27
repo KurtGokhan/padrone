@@ -1,4 +1,5 @@
 import type { PadroneRuntime } from '../core/runtime.ts';
+import type { PadroneActionContext } from './command.ts';
 
 /**
  * Options for `repl()` to customize the REPL session.
@@ -90,6 +91,9 @@ export type PadroneEvalPreferences = {
    * The context flows through the command tree and can be transformed by subcommands via `.context(transform)`.
    */
   context?: unknown;
+
+  /** @internal Which API entry point triggered this execution. */
+  caller?: PadroneActionContext['caller'];
 };
 
 /**

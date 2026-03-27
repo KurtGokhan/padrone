@@ -159,6 +159,7 @@ export function createMcpHandler(
           const errors: string[] = [];
           const result = await evalCommand(input as any, {
             autoOutput: false,
+            caller: 'mcp',
             runtime: {
               output: (...outArgs: unknown[]) => output.push(outArgs.map(String).join(' ')),
               error: (text: string) => errors.push(text),

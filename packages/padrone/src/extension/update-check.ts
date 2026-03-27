@@ -7,52 +7,54 @@ import { getVersion } from '../util/utils.ts';
 // ── Interceptor ─────────────────────────────────────────────────────────
 
 function createUpdateCheckInterceptor(config: UpdateCheckConfig) {
-  return defineInterceptor({ id: 'padrone:update-check', name: 'padrone:update-check', order: 1000 }, () => ({
-    start(ctx, next) {
-      const rootCommand = ctx.command;
-      const currentVersion = getVersion(rootCommand.version);
-      const runtime = ctx.runtime;
+  return defineInterceptor({ id: 'padrone:update-check', name: 'padrone:update-check', order: 1000 }, () => {
+    let checkPromise: Promise<(() => void) | undefined> | undefined;
+    let suppressed = false;
 
-      ctx.state._updateCheckPromise = import('../feature/update-check.ts').then(({ createUpdateChecker }) =>
-        createUpdateChecker(rootCommand.name, currentVersion, config, runtime),
-      );
+    return {
+      start(ctx, next) {
+        const rootCommand = ctx.command;
+        const currentVersion = getVersion(rootCommand.version);
+        const runtime = ctx.runtime;
 
-      return next();
-    },
-    parse(ctx, next) {
-      return thenMaybe(next(), (res) => {
-        if ('update-check' in res.rawArgs) {
-          if (res.rawArgs['update-check'] === false) ctx.state._noUpdateCheck = true;
-          delete res.rawArgs['update-check'];
+        checkPromise = import('../feature/update-check.ts').then(({ createUpdateChecker }) =>
+          createUpdateChecker(rootCommand.name, currentVersion, config, runtime),
+        );
+
+        return next();
+      },
+      parse(_ctx, next) {
+        return thenMaybe(next(), (res) => {
+          if ('update-check' in res.rawArgs) {
+            if (res.rawArgs['update-check'] === false) suppressed = true;
+            delete res.rawArgs['update-check'];
+          }
+          return res;
+        });
+      },
+      shutdown(_ctx, next) {
+        const result = next();
+        if (suppressed || !checkPromise) return result;
+
+        // Try to show notification synchronously if the check already resolved
+        let resolved: (() => void) | undefined | null = null;
+        checkPromise.then(
+          (fn) => {
+            resolved = fn;
+          },
+          () => {
+            resolved = undefined;
+          },
+        );
+
+        if (resolved !== null) {
+          (resolved as (() => void) | undefined)?.();
         }
-        return res;
-      });
-    },
-    shutdown(ctx, next) {
-      const result = next();
-      if (ctx.state._noUpdateCheck) return result;
 
-      const showPromise = ctx.state._updateCheckPromise as Promise<(() => void) | undefined> | undefined;
-      if (!showPromise) return result;
-
-      // Try to show notification synchronously if the check already resolved
-      let resolved: (() => void) | undefined | null = null;
-      showPromise.then(
-        (fn) => {
-          resolved = fn;
-        },
-        () => {
-          resolved = undefined;
-        },
-      );
-
-      if (resolved !== null) {
-        (resolved as (() => void) | undefined)?.();
-      }
-
-      return result;
-    },
-  }));
+        return result;
+      },
+    };
+  });
 }
 
 // ── Extension ────────────────────────────────────────────────────────────

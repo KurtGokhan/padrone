@@ -1,17 +1,16 @@
 import { defineInterceptor } from '../core/interceptors.ts';
 import { parseCliInputToParts } from '../core/parse.ts';
 import { withDrain } from '../core/results.ts';
-import type { PadroneBuilder, PadroneProgram } from '../types/builder.ts';
 import type {
+  AnyPadroneBuilder,
   AnyPadroneCommand,
-  AnyPadroneProgram,
   CommandTypesBase,
   InterceptorStartContext,
   PadroneCommand,
   PadroneReplPreferences,
 } from '../types/index.ts';
 import type { PadroneSchema } from '../types/schema.ts';
-import type { ReplaceOrAppendCommand } from '../util/type-utils.ts';
+import type { WithCommand } from '../util/type-utils.ts';
 import { passthroughSchema } from './utils.ts';
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -30,22 +29,7 @@ type ReplCommand = PadroneCommand<
   true
 >;
 
-export type WithRepl<T> = T extends {
-  '~types': {
-    programName: infer PN extends string;
-    name: infer N extends string;
-    parentName: infer PaN extends string;
-    argsSchema: infer A extends PadroneSchema;
-    result: infer R;
-    commands: infer C extends [...AnyPadroneCommand[]];
-    async: infer AS extends boolean;
-    context: infer CTX;
-  };
-}
-  ? T extends { run: any }
-    ? PadroneProgram<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, 'repl', ReplCommand>, any, any, any, AS, CTX>
-    : PadroneBuilder<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, 'repl', ReplCommand>, any, any, any, AS, CTX>
-  : T;
+export type WithRepl<T> = WithCommand<T, 'repl', ReplCommand>;
 
 // ── Extension ────────────────────────────────────────────────────────────
 
@@ -60,43 +44,37 @@ export type WithRepl<T> = T extends {
  * ```
  */
 export function padroneRepl(defaults?: PadroneReplPreferences): <T extends CommandTypesBase>(builder: T) => WithRepl<T> {
-  return ((builder: any) => {
-    let result = builder;
-
-    result = result.command('repl', (c: any) =>
-      c
-        .configure({ description: 'Start an interactive REPL', hidden: true })
-        .arguments(passthroughSchema({ scope: 'string' }), { positional: ['scope'] })
-        .async()
-        .action(async (args: any, ctx: any) => {
-          const prefs: PadroneReplPreferences = { ...defaults, scope: args.scope ?? defaults?.scope };
-          const repl = ctx.program.repl(prefs);
-          const { value } = await repl.drain();
-          return value;
-        }),
-    );
-
-    // --repl flag interceptor: starts REPL directly, bypassing normal command routing
-    result = result.intercept(createReplInterceptor(defaults));
-
-    return result;
-  }) as any;
+  return ((builder: AnyPadroneBuilder) =>
+    builder
+      .command('repl', (c) =>
+        c
+          .configure({ description: 'Start an interactive REPL', hidden: true })
+          .arguments(passthroughSchema({ scope: 'string' }), { positional: ['scope'] })
+          .async()
+          .action(async (args, ctx) => {
+            const prefs: PadroneReplPreferences = { ...defaults, scope: args.scope ?? defaults?.scope };
+            const repl = ctx.program.repl(prefs);
+            const { value } = await repl.drain();
+            return value;
+          }),
+      )
+      .intercept(createReplInterceptor(defaults))) as any;
 }
 
 function createReplInterceptor(defaults?: PadroneReplPreferences) {
   return defineInterceptor({ id: 'padrone:repl', name: 'padrone:repl', order: -1000 }, () => ({
     start(ctx: InterceptorStartContext, next: () => unknown) {
-      // If repl is disabled via cli preferences, skip
-      if (ctx.state._replPrefs === false) return next();
+      // If repl is disabled via cli preferences (stored on runtime by exec.ts), skip
+      const replPrefsValue = (ctx.runtime as any)._replPrefs;
+      if (replPrefsValue === false) return next();
 
       const replInfo = checkReplFlag(ctx.input, ctx.command);
       if (!replInfo) return next();
 
-      // Start REPL directly using the program from exec state
-      const program = ctx.state._program as AnyPadroneProgram | undefined;
+      const program = ctx.program;
       if (!program?.repl) return next();
 
-      const cliPrefs = typeof ctx.state._replPrefs === 'object' ? (ctx.state._replPrefs as PadroneReplPreferences) : undefined;
+      const cliPrefs = typeof replPrefsValue === 'object' ? (replPrefsValue as PadroneReplPreferences) : undefined;
       const prefs: PadroneReplPreferences = { ...defaults, ...cliPrefs, scope: replInfo.scope ?? cliPrefs?.scope ?? defaults?.scope };
 
       // Return a Promise so the pipeline awaits the REPL result

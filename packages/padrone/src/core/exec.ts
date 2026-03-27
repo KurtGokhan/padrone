@@ -110,6 +110,7 @@ export function execCommand(
   ctx: ExecContext,
   evalOptions?: PadroneEvalPreferences,
   errorMode: 'soft' | 'hard' = 'soft',
+  caller: PadroneActionContext['caller'] = 'eval',
   initialState?: Record<string, unknown>,
 ) {
   const { rootCommand, parseCommandFn, collectInterceptorsFn } = ctx;
@@ -181,9 +182,11 @@ export function execCommand(
 
   // Shared interceptor state for this execution
   const state: Record<string, unknown> = { ...initialState };
-  // Internal keys are non-enumerable so they don't leak into user-facing state spreads
-  Object.defineProperty(state, '_execMode', { value: true, writable: true });
-  Object.defineProperty(state, '_program', { value: ctx.builder, writable: true });
+  // Move repl preferences from state to runtime for extension access (avoids state bag)
+  if (state._replPrefs !== undefined) {
+    (runtime as any)._replPrefs = state._replPrefs;
+    delete state._replPrefs;
+  }
 
   // Factory resolution cache — ensures each factory is called at most once per execution,
   // so root interceptor closures are shared when they appear in both root and command chains.
@@ -268,10 +271,6 @@ export function execCommand(
       const { command } = parsed;
       const commandInterceptors = resolveRegisteredInterceptors(collectInterceptorsFn(command), factoryCache);
 
-      if (state._drain !== undefined) {
-        return withDrain({ command, args: undefined, result: state._drain }) as any;
-      }
-
       // ── Auto-progress: start before validation ───────────────────────
       const progressConfig = command.progress;
       if (progressConfig && runtime.progress) {
@@ -318,8 +317,8 @@ export function execCommand(
       };
 
       const coreValidate = (validateCtx: InterceptorValidateContext): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
-        // Determine interactivity (flag may have been extracted by the interactive extension)
-        const flagInteractive = state._interactive as boolean | undefined;
+        // Determine interactivity (flag may have been set by the interactive extension via next() override)
+        const flagInteractive = validateCtx.interactive;
 
         const runtimeDefault: boolean | undefined =
           runtime.interactive === 'forced' ? true : runtime.interactive === 'disabled' ? false : undefined;
@@ -331,20 +330,15 @@ export function execCommand(
           runtime.interactive === 'unsupported' || effectiveInteractive === false || (stdinIsPiped && effectiveInteractive !== true);
         const forceInteractive = !interactivitySuppressed && effectiveInteractive === true;
 
-        // Config file path (may have been extracted by the config extension)
-        const configPath = state._configPath as string | undefined;
-
         const effectiveConfigFiles = resolveInherited(command, 'configFiles') as string[] | undefined;
         const configSchema = resolveInherited(command, 'configSchema');
         const envSchema = resolveInherited(command, 'envSchema');
 
-        // Determine config data
-        let configData: Record<string, unknown> | undefined;
-        if (configPath) {
-          configData = runtime.loadConfigFile(configPath);
-        } else if (effectiveConfigFiles?.length) {
+        // Config data: may have been pre-loaded by the config extension (--config flag), or auto-detected
+        let configData: Record<string, unknown> | undefined = validateCtx.configData;
+        if (!configData && effectiveConfigFiles?.length) {
           const foundConfigPath = runtime.findFile(effectiveConfigFiles);
-          if (foundConfigPath) configData = runtime.loadConfigFile(foundConfigPath) ?? configData;
+          if (foundConfigPath) configData = runtime.loadConfigFile(foundConfigPath);
         }
 
         // Step 1: Validate config data against schema
@@ -508,6 +502,7 @@ export function execCommand(
             progress: (state._progress as PadroneProgressIndicator) ?? createLazyIndicator(effectiveRuntime, state),
             signal: executeCtx.signal,
             context: executeCtx.context,
+            caller,
           };
           const result = handler(executeCtx.args as any, actionCtx);
           return { result };
@@ -563,6 +558,7 @@ export function execCommand(
       abortController.signal,
       initialContext,
       runtime,
+      ctx.builder,
     );
   } catch (err) {
     cleanupSignal();

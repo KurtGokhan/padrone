@@ -1,12 +1,22 @@
-import type { AnyPadroneCommand } from '../types/index.ts';
+import type { AnyPadroneCommand, PadroneSchema } from '../types/index.ts';
+
+type SchemaShape = Record<string, 'string' | 'string[]' | 'boolean'>;
+
+type InferPassthroughSchema<T extends SchemaShape> = {
+  [K in keyof T]: T[K] extends 'string' ? string : T[K] extends 'string[]' ? string[] : T[K] extends 'boolean' ? boolean : never;
+};
 
 /** Minimal Standard Schema that passes through known fields, ignoring unknown ones. */
-export function passthroughSchema(fields: Record<string, 'string' | 'string[]' | 'boolean'>) {
+export function passthroughSchema<TShape extends SchemaShape>(fields: TShape): PadroneSchema<InferPassthroughSchema<TShape>> {
   return {
     '~standard': {
       version: 1 as const,
       vendor: 'padrone' as const,
-      validate: (value: unknown) => {
+      jsonSchema: {
+        input: () => ({}),
+        output: () => ({}),
+      },
+      validate: (value) => {
         const input = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
         const result: Record<string, unknown> = {};
         for (const [name, type] of Object.entries(fields)) {
@@ -22,7 +32,7 @@ export function passthroughSchema(fields: Record<string, 'string' | 'string[]' |
             result[name] = v === true || v === 'true';
           }
         }
-        return { value: result };
+        return { value: result as InferPassthroughSchema<TShape> };
       },
     },
   };

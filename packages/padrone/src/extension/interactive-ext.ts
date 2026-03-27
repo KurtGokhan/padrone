@@ -1,6 +1,6 @@
 import { defineInterceptor } from '../core/interceptors.ts';
 import { hasInteractiveConfig } from '../core/results.ts';
-import type { CommandTypesBase, InterceptorValidateContext } from '../types/index.ts';
+import type { AnyPadroneBuilder, CommandTypesBase, InterceptorValidateContext } from '../types/index.ts';
 
 // ── Interceptor ─────────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ const interactiveInterceptor = defineInterceptor({ id: 'padrone:interactive', na
       }
 
       if (flagInteractive !== undefined) {
-        ctx.state._interactive = flagInteractive;
+        return next({ interactive: flagInteractive });
       }
     }
 
@@ -31,8 +31,8 @@ const interactiveInterceptor = defineInterceptor({ id: 'padrone:interactive', na
 
 /**
  * Extension that handles `--interactive` / `-i` flags.
- * Extracts the flag from rawArgs and stores the effective value in `state._interactive`.
- * The core validation pipeline reads `state._interactive` for the interactive override.
+ * Extracts the flag from rawArgs and passes the effective value to the core
+ * validation pipeline via `next()` context override.
  *
  * Note: This extension only handles flag extraction. The actual interactive prompting
  * logic remains in the core validation pipeline.
@@ -43,5 +43,5 @@ const interactiveInterceptor = defineInterceptor({ id: 'padrone:interactive', na
  * ```
  */
 export function padroneInteractive(): <T extends CommandTypesBase>(builder: T) => T {
-  return ((builder: any) => builder.intercept(interactiveInterceptor)) as any;
+  return ((builder: AnyPadroneBuilder) => builder.intercept(interactiveInterceptor)) as any;
 }

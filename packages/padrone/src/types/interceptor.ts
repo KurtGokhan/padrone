@@ -1,5 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { ResolvedPadroneRuntime } from '../core/runtime.ts';
+import type { AnyPadroneProgram } from './builder.ts';
 import type { AnyPadroneCommand } from './command.ts';
 
 // ---------------------------------------------------------------------------
@@ -39,6 +40,10 @@ export type InterceptorValidateContext = InterceptorBaseContext & {
   rawArgs: Record<string, unknown>;
   /** Positional argument strings extracted by the parser. */
   positionalArgs: string[];
+  /** Pre-loaded config data (set by the config extension when `--config` is used). */
+  configData?: Record<string, unknown>;
+  /** Interactive mode override (set by the interactive extension when `--interactive` is used). */
+  interactive?: boolean;
 };
 
 /** Result returned by the validate phase's `next()`. */
@@ -62,6 +67,8 @@ export type InterceptorExecuteResult<TResult = unknown> = {
 export type InterceptorStartContext = InterceptorBaseContext & {
   /** The raw CLI input string (undefined when invoked without input). */
   input: string | undefined;
+  /** The program instance. Available for extensions that need program-level methods (e.g., repl). */
+  program: AnyPadroneProgram;
 };
 
 /** Context for the error phase. Called when the pipeline throws. */

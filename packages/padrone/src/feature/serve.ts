@@ -230,6 +230,7 @@ export function createServeHandler(
     const errors: string[] = [];
     const result = await evalCommand(commandString || (undefined as any), {
       autoOutput: false,
+      caller: 'serve',
       runtime: {
         output: (...args: unknown[]) => output.push(args.map(String).join(' ')),
         error: (text: string) => errors.push(text),

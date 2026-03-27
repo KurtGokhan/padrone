@@ -1,9 +1,8 @@
 import { resolveAllCommands } from '../core/commands.ts';
 import type { PadroneMcpPreferences } from '../feature/mcp.ts';
-import type { PadroneBuilder, PadroneProgram } from '../types/builder.ts';
-import type { AnyPadroneCommand, CommandTypesBase, PadroneCommand } from '../types/index.ts';
+import type { AnyPadroneBuilder, CommandTypesBase, PadroneCommand } from '../types/index.ts';
 import type { PadroneSchema } from '../types/schema.ts';
-import type { ReplaceOrAppendCommand } from '../util/type-utils.ts';
+import type { WithCommand } from '../util/type-utils.ts';
 import { getRootCommand } from '../util/utils.ts';
 import { passthroughSchema } from './utils.ts';
 
@@ -13,22 +12,7 @@ type McpArgs = { transport?: string; port?: string; host?: string; basePath?: st
 
 type McpCommand = PadroneCommand<'mcp', '', PadroneSchema<McpArgs>, void, [], [], PadroneSchema<McpArgs>, PadroneSchema<McpArgs>, true>;
 
-export type WithMcp<T> = T extends {
-  '~types': {
-    programName: infer PN extends string;
-    name: infer N extends string;
-    parentName: infer PaN extends string;
-    argsSchema: infer A extends PadroneSchema;
-    result: infer R;
-    commands: infer C extends [...AnyPadroneCommand[]];
-    async: infer AS extends boolean;
-    context: infer CTX;
-  };
-}
-  ? T extends { run: any }
-    ? PadroneProgram<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, 'mcp', McpCommand>, any, any, any, AS, CTX>
-    : PadroneBuilder<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, 'mcp', McpCommand>, any, any, any, AS, CTX>
-  : T;
+export type WithMcp<T> = WithCommand<T, 'mcp', McpCommand>;
 
 // ── Extension ────────────────────────────────────────────────────────────
 
@@ -41,15 +25,15 @@ export type WithMcp<T> = T extends {
  * ```
  */
 export function padroneMcp(defaults?: PadroneMcpPreferences): <T extends CommandTypesBase>(builder: T) => WithMcp<T> {
-  return ((builder: any) =>
-    builder.command('mcp', (c: any) =>
+  return ((builder: AnyPadroneBuilder) =>
+    builder.command('mcp', (c) =>
       c
         .configure({ description: 'Start a Model Context Protocol server', hidden: true })
         .arguments(passthroughSchema({ transport: 'string', port: 'string', host: 'string', 'base-path': 'string' }), {
           positional: ['transport'],
         })
         .async()
-        .action(async (args: any, ctx: any) => {
+        .action(async (args, ctx) => {
           const rootCommand = getRootCommand(ctx.command);
           resolveAllCommands(rootCommand);
           const { startMcpServer } = await import('../feature/mcp.ts');

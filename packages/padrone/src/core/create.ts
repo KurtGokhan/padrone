@@ -88,7 +88,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
   const evalCommand: AnyPadroneProgram['eval'] = (input, evalOptions) => {
     try {
-      const result = execCommand(input as string, execCtx, evalOptions, 'soft');
+      const result = execCommand(input as string, execCtx, evalOptions, 'soft', evalOptions?.caller ?? 'eval');
       if (result instanceof Promise) return withPromiseDrain(result.catch((err: unknown) => errorResultWithSignal(err))) as any;
       return makeThenable(result);
     } catch (err) {

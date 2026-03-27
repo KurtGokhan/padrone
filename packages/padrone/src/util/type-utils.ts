@@ -1,4 +1,6 @@
+import type { PadroneBuilder, PadroneProgram } from '../types/builder.ts';
 import type { AnyPadroneCommand, PadroneCommand } from '../types/index.ts';
+import type { PadroneSchema } from '../types/schema.ts';
 
 /**
  * Use this type instead of `any` when you intend to fix it later
@@ -171,6 +173,27 @@ type ReplaceInTuple<TCommands extends AnyPadroneCommand[], TName extends string,
     ? [TNew, ...Rest]
     : [First, ...ReplaceInTuple<Rest, TName, TNew>]
   : [];
+
+/**
+ * Utility type for extensions that add a command to a builder/program.
+ * Replaces the boilerplate `With*<T>` pattern used across all extension files.
+ */
+export type WithCommand<T, TName extends string, TCmd extends AnyPadroneCommand> = T extends {
+  '~types': {
+    programName: infer PN extends string;
+    name: infer N extends string;
+    parentName: infer PaN extends string;
+    argsSchema: infer A extends PadroneSchema;
+    result: infer R;
+    commands: infer C extends [...AnyPadroneCommand[]];
+    async: infer AS extends boolean;
+    context: infer CTX;
+  };
+}
+  ? T extends { run: any }
+    ? PadroneProgram<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, TName, TCmd>, any, any, any, AS, CTX>
+    : PadroneBuilder<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, TName, TCmd>, any, any, any, AS, CTX>
+  : T;
 
 export type PickCommandByName<
   TCommands extends AnyPadroneCommand[],

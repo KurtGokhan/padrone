@@ -34,6 +34,8 @@ export type PadroneActionContext<TContext = unknown> = {
   signal: AbortSignal;
   /** User-defined context object. Set via `.context()` on the builder and provided at `cli()`/`eval()` time. */
   context: TContext;
+  /** Which API entry point triggered this execution. */
+  caller: 'cli' | 'eval' | 'run' | 'repl' | 'serve' | 'mcp' | 'tool';
 };
 
 /**

@@ -1,5 +1,6 @@
 import type {
   AnyPadroneCommand,
+  AnyPadroneProgram,
   InterceptorErrorContext,
   InterceptorErrorResult,
   InterceptorFactory,
@@ -239,6 +240,7 @@ export function wrapWithLifecycle<T>(
   signal?: AbortSignal,
   context?: unknown,
   runtime?: ResolvedPadroneRuntime,
+  program?: AnyPadroneProgram,
 ): T | Promise<T> {
   const hasStart = interceptors.some((p) => p.start);
   const hasError = interceptors.some((p) => p.error);
@@ -339,6 +341,7 @@ export function wrapWithLifecycle<T>(
     signal: effectiveSignal,
     context,
     runtime: runtime!,
+    program: program!,
     get input() {
       return (state._input as string | undefined) ?? input;
     },

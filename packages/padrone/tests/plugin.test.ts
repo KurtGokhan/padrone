@@ -350,7 +350,7 @@ describe('interceptors', () => {
   });
 
   describe('parse() integration', () => {
-    it('should apply parse and validate interceptors to parse()', () => {
+    it('should not run interceptors during parse()', () => {
       const log: string[] = [];
 
       const interceptor = defineInterceptor({ name: 'parse-spy' }, () => ({
@@ -367,7 +367,7 @@ describe('interceptors', () => {
       const program = makeProgram().intercept(interceptor);
       program.parse('greet World');
 
-      expect(log).toEqual(['parse:greet World', 'validate:greet']);
+      expect(log).toEqual([]);
     });
   });
 

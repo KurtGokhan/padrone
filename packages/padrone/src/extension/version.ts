@@ -1,39 +1,22 @@
 import { thenMaybe } from '#src/core/results.ts';
+import { resolveCommand } from '../core/commands.ts';
 import { defineInterceptor } from '../core/interceptors.ts';
-import type { PadroneBuilder, PadroneProgram } from '../types/builder.ts';
-import type { AnyPadroneBuilder, AnyPadroneCommand, CommandTypesBase, PadroneCommand } from '../types/index.ts';
+import type { AnyPadroneBuilder, CommandTypesBase, PadroneCommand } from '../types/index.ts';
 import type { PadroneSchema } from '../types/schema.ts';
-import type { ReplaceOrAppendCommand } from '../util/type-utils.ts';
+import type { WithCommand } from '../util/type-utils.ts';
 import { getRootCommand, getVersion } from '../util/utils.ts';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
 type VersionCommand = PadroneCommand<'version', '', PadroneSchema<void>, string, [], [], PadroneSchema<void>, PadroneSchema<void>, false>;
 
-export type WithVersion<T> = T extends {
-  '~types': {
-    programName: infer PN extends string;
-    name: infer N extends string;
-    parentName: infer PaN extends string;
-    argsSchema: infer A extends PadroneSchema;
-    result: infer R;
-    commands: infer C extends [...AnyPadroneCommand[]];
-    async: infer AS extends boolean;
-    context: infer CTX;
-  };
-}
-  ? T extends { run: any }
-    ? PadroneProgram<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, 'version', VersionCommand>, any, any, any, AS, CTX>
-    : PadroneBuilder<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, 'version', VersionCommand>, any, any, any, AS, CTX>
-  : T;
+export type WithVersion<T> = WithCommand<T, 'version', VersionCommand>;
 
 // ── Interceptor ─────────────────────────────────────────────────────────
 
 const versionInterceptor = defineInterceptor({ id: 'padrone:version', name: 'padrone:version', order: -1000 }, () => ({
-  parse(ctx, next) {
+  parse(_ctx, next) {
     return thenMaybe(next(), (res) => {
-      if (!ctx.state._execMode) return res;
-
       const hasVersionFlag = res.rawArgs.version || res.rawArgs.v || res.rawArgs.V;
 
       // Only show version for root command (no subcommand matched)
@@ -42,10 +25,12 @@ const versionInterceptor = defineInterceptor({ id: 'padrone:version', name: 'pad
         delete res.rawArgs.v;
         delete res.rawArgs.V;
 
-        const version = getVersion(res.command.version);
-        ctx.runtime.output(version);
-        ctx.state._drain = version;
-        return res;
+        // Route to the version command so its action handles the rest
+        const versionCmd = res.command.commands?.find((c) => c.name === 'version');
+        if (versionCmd) {
+          resolveCommand(versionCmd);
+          return { ...res, command: versionCmd, rawArgs: {}, positionalArgs: [] };
+        }
       }
 
       return res;
@@ -66,18 +51,13 @@ const versionInterceptor = defineInterceptor({ id: 'padrone:version', name: 'pad
  * ```
  */
 export function padroneVersion(): <T extends CommandTypesBase>(builder: T) => WithVersion<T> {
-  return ((builder: AnyPadroneBuilder) => {
-    let result = builder as any;
-
-    result = result.command('version', (c: any) =>
-      c.configure({ description: 'Display the version number', hidden: true, autoOutput: true }).action((_args: any, ctx: any) => {
-        const rootCommand = getRootCommand(ctx.command);
-        return getVersion(rootCommand.version);
-      }),
-    );
-
-    result = result.intercept(versionInterceptor);
-
-    return result;
-  }) as any;
+  return ((builder: AnyPadroneBuilder) =>
+    builder
+      .command('version', (c) =>
+        c.configure({ description: 'Display the version number', hidden: true, autoOutput: true }).action((_args, ctx) => {
+          const rootCommand = getRootCommand(ctx.command);
+          return getVersion(rootCommand.version);
+        }),
+      )
+      .intercept(versionInterceptor)) as any;
 }
