@@ -1701,6 +1701,99 @@ describe('CLI', () => {
     });
   });
 
+  describe('XDG config directory support', () => {
+    it('should load config from XDG directory when not found in cwd', () => {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const os = require('node:os');
+
+      // Create a fake XDG config dir
+      const xdgBase = fs.mkdtempSync(path.join(os.tmpdir(), 'padrone-xdg-'));
+      const appConfigDir = path.join(xdgBase, 'myapp');
+      fs.mkdirSync(appConfigDir);
+      fs.writeFileSync(path.join(appConfigDir, 'config.json'), JSON.stringify({ port: 4000 }));
+
+      const origXdg = process.env.XDG_CONFIG_HOME;
+      process.env.XDG_CONFIG_HOME = xdgBase;
+
+      try {
+        const program = createPadrone('myapp').command('serve', (c) =>
+          c
+            .arguments(z.object({ port: z.coerce.number().optional() }))
+            .extend(padroneConfig({ files: ['config.json'], xdg: 'myapp' }))
+            .action((args) => args?.port),
+        );
+
+        const result = program.eval('serve');
+        expect(result.result).toBe(4000);
+      } finally {
+        process.env.XDG_CONFIG_HOME = origXdg;
+        fs.unlinkSync(path.join(appConfigDir, 'config.json'));
+        fs.rmdirSync(appConfigDir);
+        fs.rmdirSync(xdgBase);
+      }
+    });
+
+    it('should not search XDG directory when xdg is false', () => {
+      const program = createPadrone('myapp').command('serve', (c) =>
+        c
+          .arguments(z.object({ port: z.coerce.number().optional() }))
+          .extend(padroneConfig({ files: ['nonexistent.json'], xdg: false }))
+          .action((args) => args?.port),
+      );
+
+      const result = program.eval('serve');
+      expect(result.result).toBeUndefined();
+    });
+
+    it('should pass xdgAppName to custom loadConfig', () => {
+      let receivedXdgName: string | undefined;
+
+      const program = createPadrone('myapp').command('serve', (c) =>
+        c
+          .arguments(z.object({ port: z.coerce.number().optional() }))
+          .extend(
+            padroneConfig({
+              files: ['config.json'],
+              xdg: 'my-cool-app',
+              loadConfig: (_files, xdgAppName) => {
+                receivedXdgName = xdgAppName;
+                return { port: 5000 };
+              },
+            }),
+          )
+          .action((args) => args?.port),
+      );
+
+      program.eval('serve');
+      expect(receivedXdgName).toBe('my-cool-app');
+    });
+
+    it('should derive app name from program name when xdg is true', () => {
+      let receivedXdgName: string | undefined;
+
+      const program = createPadrone('my-cli-tool').command('serve', (c) =>
+        c
+          .arguments(z.object({ port: z.coerce.number().optional() }))
+          .extend(
+            padroneConfig({
+              files: ['config.json'],
+              xdg: true,
+              loadConfig: (_files, xdgAppName) => {
+                receivedXdgName = xdgAppName;
+                return { port: 7000 };
+              },
+            }),
+          )
+          .action((args) => args?.port),
+      );
+
+      const result = program.eval('serve');
+      expect(receivedXdgName).toBe('my-cli-tool');
+      expect(result.result).toBe(7000);
+    });
+  });
+
   describe('nested object args (dot notation)', () => {
     it('should parse --key.nested=value as nested object', () => {
       const program = createPadrone('test-cli').command('test', (c) =>

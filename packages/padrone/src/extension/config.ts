@@ -4,6 +4,7 @@ import { ConfigError } from '../core/errors.ts';
 import { defineInterceptor } from '../core/interceptors.ts';
 import { thenMaybe } from '../core/results.ts';
 import type { AnyPadroneBuilder, CommandTypesBase, InterceptorValidateContext } from '../types/index.ts';
+import { getRootCommand } from '../util/utils.ts';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -19,10 +20,27 @@ export type PadroneConfigOptions = {
   /** Whether subcommands inherit this interceptor. Defaults to `true`. */
   inherit?: boolean;
   /**
+   * Search for config files in the user's platform-specific config directory.
+   * - `true` — use the program name as the subdirectory (e.g. program `'myapp'` → `~/.config/myapp/`).
+   * - `string` — use a custom app name as the subdirectory.
+   * - `false` — disable (default).
+   *
+   * Directories searched (after cwd):
+   * - **Linux**: `$XDG_CONFIG_HOME/<app>` or `~/.config/<app>`
+   * - **macOS**: `~/Library/Application Support/<app>` (or `$XDG_CONFIG_HOME/<app>` when set)
+   * - **Windows**: `%APPDATA%\<app>`
+   *
+   * Config files found in cwd always take precedence over XDG paths.
+   */
+  xdg?: string | boolean;
+  /**
    * Custom config loader. When provided, replaces the built-in file system loader.
    * Useful for testing or non-CLI environments.
    */
-  loadConfig?: (files: string | string[]) => Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined>;
+  loadConfig?: (
+    files: string | string[],
+    xdgAppName?: string,
+  ) => Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined>;
 };
 
 // ── File system config loader ───────────────────────────────────────────
@@ -44,7 +62,27 @@ try {
   // Non-CLI environments (browser, edge) — ignore
 }
 
-function resolveConfigPath(fs: any, path: any, cwd: string, files: string | string[]): string | undefined {
+function getUserConfigDir(path: typeof import('node:path'), appName: string): string | undefined {
+  const platform = process.platform;
+
+  // Respect XDG_CONFIG_HOME on all platforms when explicitly set
+  const xdgHome = process.env.XDG_CONFIG_HOME;
+  if (xdgHome) return path.join(xdgHome, appName);
+
+  const home = process.env.HOME || process.env.USERPROFILE;
+  if (!home) return undefined;
+
+  if (platform === 'win32') {
+    const appData = process.env.APPDATA;
+    return appData ? path.join(appData, appName) : path.join(home, 'AppData', 'Roaming', appName);
+  }
+  if (platform === 'darwin') return path.join(home, 'Library', 'Application Support', appName);
+
+  // Linux and other Unix — default XDG path
+  return path.join(home, '.config', appName);
+}
+
+function resolveConfigPath(fs: any, path: any, cwd: string, files: string | string[], xdgAppName?: string): string | undefined {
   if (typeof files === 'string') {
     const abs = path.isAbsolute(files) ? files : path.resolve(cwd, files);
     if (!fs.existsSync(abs)) {
@@ -53,10 +91,24 @@ function resolveConfigPath(fs: any, path: any, cwd: string, files: string | stri
     }
     return abs;
   }
+
+  // Search in cwd first
   for (const candidate of files) {
     const abs = path.isAbsolute(candidate) ? candidate : path.resolve(cwd, candidate);
     if (fs.existsSync(abs)) return abs;
   }
+
+  // Then search in the user config directory (XDG / platform-specific)
+  if (xdgAppName) {
+    const configDir = getUserConfigDir(path, xdgAppName);
+    if (configDir) {
+      for (const candidate of files) {
+        const abs = path.join(configDir, candidate);
+        if (fs.existsSync(abs)) return abs;
+      }
+    }
+  }
+
   return undefined;
 }
 
@@ -64,9 +116,10 @@ function loadConfigSync(
   fs: typeof import('node:fs'),
   path: typeof import('node:path'),
   files: string | string[],
+  xdgAppName?: string,
 ): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> {
   const cwd = process.cwd();
-  const absolutePath = resolveConfigPath(fs, path, cwd, files);
+  const absolutePath = resolveConfigPath(fs, path, cwd, files, xdgAppName);
   if (!absolutePath) return undefined;
 
   const getContent = () => fs.readFileSync(absolutePath, 'utf-8');
@@ -100,12 +153,15 @@ function loadConfigSync(
  * Built-in config file loader. Directly accesses the file system.
  * Returns `undefined` in non-CLI environments where `node:fs` is unavailable.
  */
-function loadConfig(files: string | string[]): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> {
+function loadConfig(
+  files: string | string[],
+  xdgAppName?: string,
+): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> {
   if (typeof process === 'undefined') return undefined;
 
   try {
-    if (_fs && _path) return loadConfigSync(_fs, _path, files);
-    return initNodeModules().then(() => loadConfigSync(_fs!, _path!, files));
+    if (_fs && _path) return loadConfigSync(_fs, _path, files, xdgAppName);
+    return initNodeModules().then(() => loadConfigSync(_fs!, _path!, files, xdgAppName));
   } catch {
     return undefined;
   }
@@ -143,6 +199,7 @@ export function padroneConfig(options?: PadroneConfigOptions): <T extends Comman
   const configSchema = options?.schema;
   const flagEnabled = options?.flag !== false;
   const inherit = options?.inherit;
+  const xdgOption = options?.xdg;
   const configLoader = options?.loadConfig ?? loadConfig;
 
   const interceptor = defineInterceptor(
@@ -162,8 +219,13 @@ export function padroneConfig(options?: PadroneConfigOptions): <T extends Comman
         // Skip entirely when there's nothing to load
         if (!explicitConfigPath && !configFiles) return next();
 
+        // Resolve XDG app name: true → derive from root command name, string → use as-is
+        let xdgAppName: string | undefined;
+        if (typeof xdgOption === 'string') xdgAppName = xdgOption;
+        else if (xdgOption === true) xdgAppName = getRootCommand(ctx.command).name;
+
         // Load config data: explicit --config flag takes priority, then auto-detect
-        const configDataOrPromise = configLoader(explicitConfigPath ?? configFiles ?? []);
+        const configDataOrPromise = configLoader(explicitConfigPath ?? configFiles ?? [], xdgAppName);
 
         const applyConfig = (configData: Record<string, unknown> | undefined) => {
           if (!configData) return next();
