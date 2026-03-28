@@ -1,5 +1,41 @@
 # padrone
 
+## 1.6.0
+
+### Minor Changes
+
+- [`75066f9`](https://github.com/KurtGokhan/padrone/commit/75066f9e12c33a1f64c502e248fce4d4e455d0da) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Improve "Did you mean?" suggestions for typos in commands and options. Return multiple matches (up to 3), add prefix/substring matching for inputs longer than 3 characters, and include `--` prefix in option suggestions. Suggestions are now included in soft-mode validation errors too.
+
+- [`93ab85c`](https://github.com/KurtGokhan/padrone/commit/93ab85c88441e9062b2402f7d97f3d337293f2e7) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add typed context support. Define context with `.context<T>()` or `.context(transform)`, provide it via `cli()`, `eval()`, `run()`, and access it in action handlers as `ctx.context` and in all plugin phase contexts. Subcommands inherit context from parents. `.mount()` accepts an optional `{ context }` transform. New `InferContext` type helper.
+
+- [`3b7fed0`](https://github.com/KurtGokhan/padrone/commit/3b7fed06d15cc2acad04df7d919ce0f6c9b66207) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add typed context injection for interceptors. Interceptors can declare provided context via `.provides<T>()` and required context via `.requires<T>()` on `defineInterceptor()`. Action handlers see the full merged context type. `.intercept()` rejects interceptors whose required context is not satisfied at compile time.
+
+- [`067b9f7`](https://github.com/KurtGokhan/padrone/commit/067b9f7d695a838f0c39204c563029f8a2527675) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add extension system with `.extend()` for build-time composition. Rename plugins to interceptors (`.use()` → `.intercept()`, `PadronePlugin` → `PadroneInterceptor`). Move built-in commands to composable extensions. Default builtins (help, version, repl, color, config, interactive) are applied automatically via `createPadrone()`. Advanced features (completion, man, mcp, serve, update-check) are opt-in extensions. Individual builtins can be disabled via `createPadrone('name', { builtins: { help: false } })`.
+
+- [`4e7f88b`](https://github.com/KurtGokhan/padrone/commit/4e7f88bdc68b7c97f36e3546142b6ebf5f87f76e) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Respect terminal width in help output. Default and choices metadata now appear inline with descriptions when space allows, and long descriptions wrap aligned to the description column.
+
+- [`aa0b568`](https://github.com/KurtGokhan/padrone/commit/aa0b568f35c2fcb97a78abf077561a914606de6f) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add support for Ink apps. The `ink` interceptor renders an Ink app as part of a command's execution, and waits for it to unmount before proceeding.
+
+- [`91fd814`](https://github.com/KurtGokhan/padrone/commit/91fd8146c0fff0eb8c4e5f46191d1a6bf8203ecf) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add `padroneLogger()` and `padroneTiming()` extensions for structured logging and command execution timing.
+
+- [`99c8cfa`](https://github.com/KurtGokhan/padrone/commit/99c8cfa298194d9632b9c784858c1695e7782acf) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add `program.info` for read-only access to program metadata (name, version, description, commands, etc.). Add XDG config directory support via `xdg` option on `padroneConfig()`.
+
+- [`88c45af`](https://github.com/KurtGokhan/padrone/commit/88c45afeef123d4a3e5d5e4d359e080ddf60a154) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add elapsed time (`time: true`) and ETA (`eta: true`) to progress indicators. ETA is calculated from numeric progress updates and counts down between updates. Move progress messages into a `message` field (string or `{ validation, progress, success, error }` object) with runtime-level defaults via context.
+
+- [`8691694`](https://github.com/KurtGokhan/padrone/commit/86916947b189109e6647684d30dc06992a3909b5) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Improve runtime agnosticism. Add `terminal` and `exit` fields to `PadroneRuntime`. Replace `Buffer` usage with `Uint8Array`/`TextEncoder`. Route scattered `process.*` reads through runtime abstraction. Replace all `require()` calls with dynamic `import()`. Use `runtime.onSignal` in serve/MCP instead of direct `process.on`.
+
+- [`4343f78`](https://github.com/KurtGokhan/padrone/commit/4343f7857b6685c8e1774b4d933846cd786fe828) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add signal handling support for graceful shutdown. Actions and plugins receive an `AbortSignal` via `ctx.signal` that aborts on SIGINT/SIGTERM/SIGHUP. Command results include `signal` and `exitCode` fields when interrupted. Double Ctrl+C within 2 seconds force-quits. Export new `SignalError` class and `PadroneSignal` type.
+
+- [`7464026`](https://github.com/KurtGokhan/padrone/commit/746402615e11262a0ff7257f41a4840c3a54143e) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Reject unknown options for commands without `.arguments()`. Previously, commands without a schema accepted all options silently. Now they infer an empty object and error on unknown options.
+
+- [`be62401`](https://github.com/KurtGokhan/padrone/commit/be624016ee6e4852ab043b15b4d525431319a168) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add experimental `padroneTracing()` extension for OpenTelemetry tracing. Logger automatically bridges log calls to span events when tracing is active.
+
+### Patch Changes
+
+- [`dbac7ec`](https://github.com/KurtGokhan/padrone/commit/dbac7ec56a9f0c320550eef2f6b188a3741d1d4e) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add `runtime` to interceptor contexts. Interceptors can now access and override the runtime via `ctx.runtime` instead of calling `getCommandRuntime()`. Support `next()` overrides for passing modified context to downstream interceptors.
+
+- [`0dfae77`](https://github.com/KurtGokhan/padrone/commit/0dfae774d264d4cab092b90bb779dd3da46abaef) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Collect repeated non-array options into an array for the validator. Enables schemas like `z.union([z.string(), z.array(z.string())])` to receive all values when an option is passed multiple times.
+
 ## 1.5.0
 
 ### Minor Changes
