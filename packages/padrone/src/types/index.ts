@@ -14,6 +14,7 @@ export type {
   PadroneActionContext,
   PadroneCommand,
   PadroneCommandConfig,
+  PadroneProgramMeta,
 } from './command.ts';
 export type {
   ExtractInterceptorContext,

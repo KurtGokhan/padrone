@@ -10,6 +10,27 @@ type UnknownRecord = Record<string, unknown>;
 type DefaultArgs = UnknownRecord | void;
 
 /**
+ * Read-only metadata about a Padrone program.
+ * Returned by `program.info` to expose program-level properties without leaking internal command internals.
+ */
+export type PadroneProgramMeta<TName extends string = string> = {
+  /** The program name (CLI binary name). */
+  name: TName;
+  /** Display title shown in help output. */
+  title?: string;
+  /** Program description. */
+  description?: string;
+  /** Program version string. */
+  version?: string;
+  /** Usage examples shown in help output. */
+  examples?: string[];
+  /** Whether the program is deprecated. */
+  deprecated?: boolean | string;
+  /** Names of registered subcommands. */
+  commands: string[];
+};
+
+/**
  * Context object passed as the second argument to command action handlers.
  * Contains the resolved runtime, the executing command, and the program instance.
  */

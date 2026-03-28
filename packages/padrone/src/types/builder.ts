@@ -26,6 +26,7 @@ import type {
   PadroneActionContext,
   PadroneCommand,
   PadroneCommandConfig,
+  PadroneProgramMeta,
 } from './command.ts';
 import type {
   ExtractInterceptorContext,
@@ -674,6 +675,9 @@ export type PadroneProgram<
 
   /** Start a REST HTTP server with OpenAPI docs. @category Server */
   serve: (prefs?: PadroneServePreferences) => Promise<void>;
+
+  /** Read-only metadata about the program (name, version, description, commands, etc.). @category Utility */
+  info: PadroneProgramMeta<TProgramName>;
 };
 
 export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any, [...AnyPadroneCommand[]]>;

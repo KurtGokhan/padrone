@@ -244,6 +244,18 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
 
     ...programMethods,
 
+    get info() {
+      return {
+        name: existingCommand.name,
+        title: existingCommand.title,
+        description: existingCommand.description,
+        version: existingCommand.version,
+        examples: existingCommand.examples,
+        deprecated: existingCommand.deprecated,
+        commands: (existingCommand.commands ?? []).map((c) => c.name),
+      };
+    },
+
     '~types': {} as any,
 
     [commandSymbol]: existingCommand,

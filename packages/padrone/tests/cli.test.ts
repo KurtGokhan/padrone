@@ -219,6 +219,62 @@ describe('CLI', () => {
     });
   });
 
+  describe('program.info', () => {
+    it('should expose program metadata', () => {
+      const info = program.info;
+
+      expect(info.name).toBe('padrone-test');
+      expect(info.commands).toContain('show');
+      expect(info.commands).toContain('list');
+      expect(info.commands).toContain('filter');
+      expect(info.commands).toContain('batch');
+      expect(info.commands).toContain('noop');
+    });
+
+    it('should expose name, version, and description', () => {
+      const p = createPadrone('my-cli').configure({ version: '1.2.3', description: 'A test CLI' });
+      const info = p.info;
+
+      expect(info.name).toBe('my-cli');
+      expect(info.version).toBe('1.2.3');
+      expect(info.description).toBe('A test CLI');
+    });
+
+    it('should list subcommand names including builtins', () => {
+      const p = createPadrone('my-cli')
+        .command('deploy', (c) => c.action(() => {}))
+        .command('rollback', (c) => c.action(() => {}));
+
+      expect(p.info.commands).toContain('deploy');
+      expect(p.info.commands).toContain('rollback');
+      // Builtins are also present
+      expect(p.info.commands).toContain('help');
+      expect(p.info.commands).toContain('version');
+    });
+
+    it('should expose title, examples, and deprecated', () => {
+      const p = createPadrone('my-cli').configure({
+        title: 'My CLI Tool',
+        examples: ['my-cli deploy --env=prod'],
+        deprecated: 'Use new-cli instead',
+      });
+
+      expect(p.info.title).toBe('My CLI Tool');
+      expect(p.info.examples).toEqual(['my-cli deploy --env=prod']);
+      expect(p.info.deprecated).toBe('Use new-cli instead');
+    });
+
+    it('should reflect changes after builder mutations', () => {
+      const p1 = createPadrone('my-cli').configure({ version: '1.0.0' });
+      const p2 = p1.configure({ version: '2.0.0' }).command('new-cmd', (c) => c.action(() => {}));
+
+      expect(p1.info.version).toBe('1.0.0');
+      expect(p1.info.commands).not.toContain('new-cmd');
+      expect(p2.info.version).toBe('2.0.0');
+      expect(p2.info.commands).toContain('new-cmd');
+    });
+  });
+
   describe('edge cases', () => {
     it('should handle command with no args schema', () => {
       const program = createPadrone('padrone-test').command('test', (c) => c.action(() => ({ message: 'success' })));

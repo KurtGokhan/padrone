@@ -115,6 +115,7 @@ export type {
   PadroneInterceptorFn,
   PadroneParseResult,
   PadroneProgram,
+  PadroneProgramMeta,
   PadroneSchema,
 } from './types/index.ts';
 export type { AsyncStreamMeta } from './util/stream.ts';
