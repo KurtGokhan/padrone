@@ -50,6 +50,46 @@ createPadrone('myapp')
   .cli();
 ```
 
+### Extension-First Architecture
+
+Padrone's core is minimal — most features are implemented as **extensions** composed via `.extend()`. When you call `createPadrone()`, ten built-in extensions are automatically applied: help, version, REPL, color, suggestions, signal handling, auto-output, stdin, config, and interactive prompting.
+
+This means:
+- Built-in features use the same APIs you use for custom code
+- Any built-in can be disabled or replaced
+- You can compose reusable bundles of commands, configuration, and interceptors
+
+```typescript
+// Extensions are functions that transform the builder
+const withMetrics = (builder) =>
+  builder.intercept(defineInterceptor({ name: 'metrics' }, () => ({
+    execute: (ctx, next) => {
+      const start = Date.now();
+      const result = next();
+      console.log(`${ctx.command.name}: ${Date.now() - start}ms`);
+      return result;
+    },
+  })));
+
+createPadrone('myapp')
+  .extend(withMetrics)
+  .extend(padroneEnv(envSchema))
+  .extend(padroneConfig({ files: 'config.json' }));
+```
+
+### Interceptor System
+
+Under the hood, extensions register **interceptors** — middleware that wraps the command lifecycle with an onion model. Six phases (start, parse, validate, execute, error, shutdown) give you full control:
+
+```typescript
+program.intercept(defineInterceptor({ name: 'auth' }, () => ({
+  execute: (ctx, next) => {
+    if (!isAuthenticated()) throw new Error('Not authenticated');
+    return next();
+  },
+})));
+```
+
 ### AI Integration
 
 Expose your CLI to AI assistants via Model Context Protocol or Vercel AI SDK:
@@ -91,33 +131,15 @@ for await (const result of program.repl()) {
 
 ### Progress Indicators
 
-Auto-managed spinners for long-running commands with dynamic messages:
+Auto-managed spinners for long-running commands, implemented as a context-providing extension:
 
 ```typescript
-.progress({
+.extend(padroneProgress({
   progress: 'Deploying...',
   success: (result) => `Deployed v${result.version}`,
   spinner: 'dots',
-})
+}))
 ```
-
-### Interceptor System
-
-Intercept and extend command execution with middleware-style interceptors:
-
-```typescript
-program.intercept({
-  name: 'logger',
-  execute: (ctx, next) => {
-    console.log(`Running: ${ctx.command.name}`);
-    return next();
-  },
-});
-```
-
-### Extension System
-
-Compose reusable bundles of configuration, commands, and interceptors with `.extend()` and `PadroneExtension`. Built-in features (help, version, repl, color, config, interactive) are included by default.
 
 ### Program Composition
 

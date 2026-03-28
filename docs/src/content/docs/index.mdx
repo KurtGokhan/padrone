@@ -35,8 +35,8 @@ import { Terminal } from '../../components/Terminal.tsx';
   <Card title="Interactive REPL" icon="laptop">
     Built-in REPL with command history, tab completion, scoped sessions, and customizable output.
   </Card>
-  <Card title="Interceptors & Extensions" icon="setting">
-    Middleware-style interceptors intercept parse, validate, and execute phases with an onion model. Extensions provide build-time composition.
+  <Card title="Extension-First Architecture" icon="setting">
+    Built-in features (help, version, REPL, signal handling, etc.) are extensions — composed via `.extend()` and powered by middleware-style interceptors with an onion model across 6 lifecycle phases.
   </Card>
   <Card title="AI-Ready" icon="rocket">
     Expose your CLI to AI assistants via Model Context Protocol (MCP) or Vercel AI SDK with a single method call. MCP and REST server are experimental.

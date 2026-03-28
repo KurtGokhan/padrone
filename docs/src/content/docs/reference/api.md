@@ -448,27 +448,52 @@ Requires a `progress` factory on the runtime — silently skipped if not availab
 Register an interceptor for middleware-style interception of command phases. See the [Interceptors & Extensions guide](/padrone/guides/plugins/) for full details.
 
 ```typescript
-import type { PadroneInterceptor } from 'padrone';
+import { defineInterceptor } from 'padrone';
 
-const logger: PadroneInterceptor = {
-  name: 'logger',
-  execute: (context, next) => {
-    console.log(`Running: ${context.command.name}`);
+const logger = defineInterceptor({ name: 'logger' }, () => ({
+  execute: (ctx, next) => {
+    console.log(`Running: ${ctx.command.name}`);
     const result = next();
-    console.log(`Done: ${context.command.name}`);
+    console.log(`Done: ${ctx.command.name}`);
     return result;
   },
-};
+}));
 
 program.intercept(logger);
 ```
 
 **Parameters:**
-- `interceptor`: A `PadroneInterceptor` object with `name`, optional `order`, and phase handlers (`start`, `parse`, `validate`, `execute`, `error`, `shutdown`)
+- `interceptor`: A `PadroneInterceptor` — either created with `defineInterceptor()` or a plain object with `name`, optional `order`/`id`/`disabled`, and phase handlers (`start`, `parse`, `validate`, `execute`, `error`, `shutdown`)
 
 **Returns:** New builder with the interceptor added (immutable)
 
 Available on both programs and subcommand builders. Program-level interceptors apply as outermost wrappers; subcommand interceptors compose as inner layers.
+
+---
+
+### .extend(extension)
+
+Apply a build-time extension. An extension is a function that receives the builder and returns a modified builder. Extensions can add commands, arguments, interceptors, and configuration.
+
+```typescript
+import { createPadrone, padroneEnv, padroneConfig, padroneProgress } from 'padrone';
+
+const program = createPadrone('myapp')
+  .extend(padroneEnv(envSchema))
+  .extend(padroneConfig({ files: 'config.json' }))
+  .command('deploy', (c) =>
+    c
+      .extend(padroneProgress('Deploying...'))
+      .action(async () => { /* ... */ })
+  );
+```
+
+**Parameters:**
+- `extension`: A function `(builder) => builder` — receives the current builder and returns a modified builder
+
+**Returns:** The modified builder returned by the extension
+
+Extensions compose naturally — chain multiple `.extend()` calls to layer functionality. Most of Padrone's built-in features are implemented as extensions applied automatically by `createPadrone()`. See the [Interceptors & Extensions guide](/padrone/guides/plugins/) for the full list.
 
 ---
 
@@ -1100,6 +1125,91 @@ This is automatically handled when using `stdin` in arguments meta. For custom r
 
 ---
 
+## defineInterceptor(meta, factory?)
+
+Create a reusable interceptor with metadata and a factory function. The factory is called fresh per execution, enabling cross-phase state sharing via closures.
+
+```typescript
+import { defineInterceptor } from 'padrone';
+
+// Two-arg form: metadata + factory
+const timer = defineInterceptor({ name: 'timer', order: 10 }, () => {
+  let startTime: number;
+  return {
+    start: (ctx, next) => {
+      startTime = Date.now();
+      return next();
+    },
+    shutdown: (ctx, next) => {
+      console.log(`Completed in ${Date.now() - startTime}ms`);
+      return next();
+    },
+  };
+});
+
+// Single-arg form with chaining (for typed context)
+const withDb = defineInterceptor({ name: 'with-db' })
+  .provides<{ db: Database }>()
+  .factory(() => ({
+    execute: (ctx, next) => {
+      return next({ context: { ...ctx.context, db: createDb() } });
+    },
+  }));
+```
+
+**Metadata:**
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | `string` | Display name |
+| `order` | `number` | Execution order — lower = outermost (default: `0`) |
+| `id` | `string` | Deduplication key — when multiple interceptors share an `id`, the last one wins |
+| `disabled` | `boolean` | Skip this interceptor during execution |
+
+**Chaining methods (single-arg form):**
+- `.provides<T>()` — Declare what this interceptor adds to the context (type-level only)
+- `.requires<T>()` — Declare what this interceptor expects on the context (type-level only)
+- `.factory(fn)` — Set the factory function
+
+**Returns:** A `PadroneInterceptor` — pass to `.intercept()` or use within an extension.
+
+---
+
+## Built-in Extension Exports
+
+These extensions are available as named exports from `'padrone'`:
+
+| Export | Purpose |
+|--------|---------|
+| `padroneEnv(schema)` | Parse environment variables into args |
+| `padroneConfig(options)` | Load args from config files |
+| `padroneProgress(config)` | Auto-managed progress indicators |
+| `padroneCompletion()` | Shell completion generation |
+| `padroneLogger(options)` | Structured logging with levels |
+| `padroneTiming()` | Execution timing |
+| `padroneMan()` | Man page generation |
+| `padroneUpdateCheck(config)` | Background version checking |
+| `padroneMcp()` | MCP server integration |
+| `padroneServe()` | REST server integration |
+| `padroneTracing(config)` | OpenTelemetry tracing |
+| `padroneInk()` | React (Ink) rendering support |
+
+The following extensions are applied automatically by `createPadrone()` and can be disabled via `builtins`:
+
+| Export | Builtin key | Purpose |
+|--------|-------------|---------|
+| `padroneHelp()` | `help` | Help command and `--help` flag |
+| `padroneVersion()` | `version` | Version command and `--version` flag |
+| `padroneRepl()` | `repl` | REPL command and `--repl` flag |
+| `padroneColor()` | `color` | `--color`/`--no-color` support |
+| `padroneSuggestions()` | `suggestions` | "Did you mean?" suggestions |
+| `padroneSignalHandling()` | `signal` | Signal handling and AbortSignal |
+| `padroneAutoOutput()` | `autoOutput` | Auto-print results |
+| `padroneStdin()` | `stdin` | Stdin piping support |
+| `padroneConfig()` | `config` | Config file loading (default, no-args form) |
+| `padroneInteractive()` | `interactive` | Interactive prompting |
+
+---
+
 ## Type Exports
 
 Padrone exports these TypeScript types:
@@ -1110,6 +1220,7 @@ import type {
   PadroneProgram,
   PadroneCommand,
   PadroneBuilder,
+  PadroneExtension,
   PadroneParseResult,
   PadroneCommandResult,
   PadroneAPI,

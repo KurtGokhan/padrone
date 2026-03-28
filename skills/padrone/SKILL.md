@@ -125,22 +125,47 @@ Six phases in onion/middleware pattern with `next()`:
 All phase contexts include `context` (user-provided context), `signal` (AbortSignal for cancellation), `caller` (invocation method: `'cli'`, `'eval'`, `'run'`, etc.), and `runtime`.
 
 ```ts
-const timer: PadroneInterceptor = {
-  name: 'timer',
-  order: -10,  // lower = outermost
-  execute: (ctx, next) => {
-    const start = Date.now();
-    const result = next();
-    console.log(`${ctx.command.path} took ${Date.now() - start}ms`);
-    return result;
-  },
-};
+import { defineInterceptor } from 'padrone';
+
+const timer = defineInterceptor({ name: 'timer', order: -10 }, () => {
+  let startTime: number;
+  return {
+    start: (ctx, next) => {
+      startTime = Date.now();
+      return next();
+    },
+    execute: (ctx, next) => {
+      const result = next();
+      console.log(`${ctx.command.path} took ${Date.now() - startTime}ms`);
+      return result;
+    },
+  };
+});
 program.intercept(timer);
 ```
 
-## Extension System
+`defineInterceptor()` returns a factory — each execution gets fresh closure state. Supports `.provides<T>()` and `.requires<T>()` for typed context (type-level only).
 
-Extensions provide build-time composition via `.extend()` and `PadroneExtension`. An extension is a reusable bundle that can add configuration, commands, and interceptors to a program. Built-in features (help, version, repl, color, signal handling, auto-output, config, interactive) are included by default. Advanced features (completion, man, mcp, serve, update-check) must be added explicitly.
+## Extension-First Architecture
+
+Padrone's core is minimal — most features are implemented as extensions composed via `.extend()`. When you call `createPadrone()`, ten built-in extensions are automatically applied:
+
+| Extension | Order | What it does |
+|-----------|-------|-------------|
+| `signal` | -2000 | SIGINT/SIGTERM handling, AbortSignal propagation |
+| `autoOutput` | -1100 | Auto-print results (strings, promises, iterators) |
+| `color` | -1001 | `--color`/`--no-color` flag support |
+| `stdin` | -1001 | Pipe stdin into argument fields |
+| `help` | -1000 | `--help` flag, `help` command, error-phase help display |
+| `version` | -1000 | `--version` flag |
+| `repl` | -1000 | `--repl` flag, `repl` command |
+| `config` | -999 | `--config` flag, config file loading |
+| `interactive` | -999 | `--interactive` flag, auto-prompting |
+| `suggestions` | -500 | "Did you mean?" for unknown commands/options |
+
+Each can be disabled: `createPadrone('myapp', { builtins: { help: false } })`.
+
+Advanced opt-in extensions: `padroneCompletion()`, `padroneLogger()`, `padroneTiming()`, `padroneProgress()`, `padroneMan()`, `padroneUpdateCheck()`, `padroneMcp()`, `padroneServe()`, `padroneTracing()`, `padroneInk()`.
 
 ## Testing
 

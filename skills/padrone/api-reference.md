@@ -470,18 +470,50 @@ Converts command and arguments back to a CLI string.
 
 ## Interceptor System
 
+### defineInterceptor(meta, factory?)
+
+Creates a reusable interceptor with metadata and a factory function. The factory is called fresh per execution, enabling cross-phase state sharing via closures.
+
+```ts
+import { defineInterceptor } from 'padrone';
+
+// Two-arg form: metadata + factory
+const timer = defineInterceptor({ name: 'timer', order: 10 }, () => {
+  let startTime: number;
+  return {
+    start: (ctx, next) => { startTime = Date.now(); return next(); },
+    shutdown: (ctx, next) => { console.log(`${Date.now() - startTime}ms`); return next(); },
+  };
+});
+
+// Single-arg form with chaining (for typed context)
+const withDb = defineInterceptor({ name: 'with-db' })
+  .provides<{ db: Database }>()
+  .factory(() => ({
+    execute: (ctx, next) => next({ context: { ...ctx.context, db: createDb() } }),
+  }));
+```
+
+**Metadata:** `name` (string), `order` (number, lower = outermost, default: 0), `id` (string, deduplication key — last wins), `disabled` (boolean).
+
+**Chaining:** `.provides<T>()` and `.requires<T>()` for typed context (type-level only), `.factory(fn)` to set the factory.
+
 ### PadroneInterceptor Type
+
+A `PadroneInterceptor` can be created with `defineInterceptor()` or as a plain object:
 
 ```ts
 type PadroneInterceptor = {
   name: string;
-  order?: number;  // lower = outermost (default: 0)
-  start?: (ctx: PluginStartContext, next: () => T) => T;
-  parse?: (ctx: PluginParseContext, next: () => PluginParseResult) => PluginParseResult;
-  validate?: (ctx: PluginValidateContext, next: () => PluginValidateResult) => PluginValidateResult;
-  execute?: (ctx: PluginExecuteContext, next: () => PluginExecuteResult) => PluginExecuteResult;
-  error?: (ctx: PluginErrorContext, next: () => PluginErrorResult) => PluginErrorResult;
-  shutdown?: (ctx: PluginShutdownContext, next: () => void) => void;
+  order?: number;
+  id?: string;
+  disabled?: boolean;
+  start?: (ctx: InterceptorStartContext, next: () => T) => T;
+  parse?: (ctx: InterceptorParseContext, next: () => InterceptorParseResult) => InterceptorParseResult;
+  validate?: (ctx: InterceptorValidateContext, next: () => InterceptorValidateResult) => InterceptorValidateResult;
+  execute?: (ctx: InterceptorExecuteContext, next: () => InterceptorExecuteResult) => InterceptorExecuteResult;
+  error?: (ctx: InterceptorErrorContext, next: () => InterceptorErrorResult) => InterceptorErrorResult;
+  shutdown?: (ctx: InterceptorShutdownContext, next: () => void) => void;
 };
 ```
 
@@ -500,12 +532,14 @@ All handlers can return Promises for async behavior.
 
 | Phase | Extra context fields | `next()` returns |
 |---|---|---|
-| start | `input` | Pipeline result |
+| start | `input`, `program` | Pipeline result |
 | parse | `input` | `{ command, rawArgs, positionalArgs }` |
 | validate | `rawArgs` (mutable), `positionalArgs` | `{ args, argsResult }` |
 | execute | `args` (mutable) | `{ result }` |
 | error | `error` | `{ error?, result? }` |
 | shutdown | `error?`, `result?` | `void` |
+
+`next()` accepts optional overrides: `next({ signal, context, runtime, ... })` to modify values for downstream interceptors.
 
 ### Phase Execution Rules
 
@@ -524,6 +558,8 @@ All handlers can return Promises for async behavior.
 - Lower `order` = outermost (runs first before `next()`, last after)
 - Same `order` preserves registration order
 - First-registered = outermost by default
+- Built-in extension orders: signal (-2000), autoOutput (-1100), color/stdin (-1001), help/version/repl (-1000), config/interactive (-999), suggestions (-500)
+- When multiple interceptors share the same `id`, last one wins (deduplication)
 
 ---
 

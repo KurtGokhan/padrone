@@ -209,17 +209,16 @@ const appWithCtx = createPadrone('myapp')
 ### Logging Interceptor
 
 ```ts
-import type { PadroneInterceptor } from 'padrone';
+import { defineInterceptor } from 'padrone';
 
-const logger: PadroneInterceptor = {
-  name: 'logger',
+const logger = defineInterceptor({ name: 'logger' }, () => ({
   execute: (ctx, next) => {
     console.log(`[${new Date().toISOString()}] Running: ${ctx.command.path}`);
     const result = next();
     console.log(`[${new Date().toISOString()}] Done: ${ctx.command.path}`);
     return result;
   },
-};
+}));
 
 program.intercept(logger);
 ```
@@ -227,22 +226,20 @@ program.intercept(logger);
 ### Auth Interceptor (Short-Circuit)
 
 ```ts
-const auth: PadroneInterceptor = {
-  name: 'auth',
+const auth = defineInterceptor({ name: 'auth' }, () => ({
   execute: (ctx, next) => {
     if (!process.env.API_TOKEN) {
       return { result: 'Error: Not authenticated' };  // short-circuit, skip handler
     }
     return next();
   },
-};
+}));
 ```
 
 ### Error Recovery Interceptor
 
 ```ts
-const errorRecovery: PadroneInterceptor = {
-  name: 'error-recovery',
+const errorRecovery = defineInterceptor({ name: 'error-recovery' }, () => ({
   error: (ctx, next) => {
     console.error(`Error in ${ctx.command.path}: ${(ctx.error as Error).message}`);
     // Suppress the error and return a fallback result
@@ -250,14 +247,13 @@ const errorRecovery: PadroneInterceptor = {
     // Or transform: return { error: new Error('wrapped') };
     // Or pass through: return next();
   },
-};
+}));
 ```
 
 ### Shutdown Cleanup Interceptor
 
 ```ts
-const cleanup: PadroneInterceptor = {
-  name: 'cleanup',
+const cleanup = defineInterceptor({ name: 'cleanup' }, () => ({
   shutdown: (ctx, next) => {
     if (ctx.error) {
       console.error('Pipeline failed:', (ctx.error as Error).message);
@@ -265,20 +261,18 @@ const cleanup: PadroneInterceptor = {
     // Close connections, flush logs, etc.
     next();
   },
-};
+}));
 ```
 
-### Full Lifecycle Interceptor
+### Full Lifecycle Interceptor (Cross-Phase State)
 
 ```ts
 const telemetry = defineInterceptor({ name: 'telemetry' }, () => {
+  // Closure state — fresh per execution, shared across phases
   let startTime: number;
   return {
     start: (_ctx, next) => {
       startTime = Date.now();
-      return next();
-    },
-    execute: (_ctx, next) => {
       return next();
     },
     shutdown: (ctx, next) => {
@@ -290,31 +284,49 @@ const telemetry = defineInterceptor({ name: 'telemetry' }, () => {
 });
 ```
 
+### Context-Providing Interceptor
+
+```ts
+// Declare what the interceptor adds to context (type-level only)
+const withDb = defineInterceptor({ name: 'with-db' })
+  .provides<{ db: Database }>()
+  .factory(() => ({
+    execute: (ctx, next) => {
+      const db = createDatabase();
+      return next({ context: { ...ctx.context, db } });
+    },
+  }));
+
+// ctx.context.db is now typed when this interceptor is registered
+```
+
 ### Subcommand-Scoped Interceptor
 
 ```ts
+const deployGuard = defineInterceptor({ name: 'deploy-guard' }, () => ({
+  execute: (ctx, next) => {
+    console.log('Deploy-specific middleware');
+    return next();
+  },
+}));
+
+const globalLogger = defineInterceptor({ name: 'global-logger' }, () => ({
+  execute: (ctx, next) => {
+    console.log(`Global: ${ctx.command.path}`);
+    return next();
+  },
+}));
+
 // Interceptors on subcommands only run for that command
 const program = createPadrone('app')
   .command('deploy', (c) =>
     c
       .action((args) => 'deployed')
-      .intercept({
-        name: 'deploy-guard',
-        execute: (ctx, next) => {
-          console.log('Deploy-specific middleware');
-          return next();
-        },
-      }),
+      .intercept(deployGuard),  // Only for 'deploy'
   )
-  .intercept({
-    name: 'global-logger',
-    execute: (ctx, next) => {
-      console.log(`Global: ${ctx.command.path}`);
-      return next();
-    },
-  });
+  .intercept(globalLogger);  // For all commands
 
-// Running 'deploy': global-logger (outermost) -> deploy-guard (innermost) -> handler
+// Running 'deploy': globalLogger (outermost) -> deployGuard (innermost) -> handler
 ```
 
 ## Context

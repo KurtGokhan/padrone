@@ -118,30 +118,28 @@ try {
 
 ## Error Handling with Interceptors
 
-Interceptors can intercept errors in the `error` phase to log, transform, or suppress them:
+Interceptors can intercept errors in the `error` phase to log, transform, or suppress them. The built-in help extension uses this same mechanism to display help text alongside routing/validation errors in CLI mode.
 
 ```typescript
-import type { PadroneInterceptor } from 'padrone';
+import { defineInterceptor } from 'padrone';
 
-const errorReporter: PadroneInterceptor = {
-  name: 'error-reporter',
-  error: (context, next) => {
-    reportToSentry(context.error);
+const errorReporter = defineInterceptor({ name: 'error-reporter' }, () => ({
+  error: (ctx, next) => {
+    reportToSentry(ctx.error);
     return next(); // Pass through
   },
-};
+}));
 
-const errorRecovery: PadroneInterceptor = {
-  name: 'error-recovery',
-  error: (context, next) => {
-    if (context.error instanceof NetworkError) {
+const errorRecovery = defineInterceptor({ name: 'error-recovery' }, () => ({
+  error: (ctx, next) => {
+    if (ctx.error instanceof NetworkError) {
       // Suppress error and return fallback result
       return { error: undefined, result: cachedValue };
     }
     // Transform the error
-    return { error: new ActionError('Something went wrong', { cause: context.error }) };
+    return { error: new ActionError('Something went wrong', { cause: ctx.error }) };
   },
-};
+}));
 ```
 
 The error phase only runs during `eval()` and `cli()`. See the [Interceptors & Extensions guide](/padrone/guides/plugins/#error-phase) for full details.

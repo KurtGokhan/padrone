@@ -107,9 +107,9 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 
 **Progress indicators** — auto-managed spinners with dynamic messages. `.progress({ progress: 'Deploying...', success: (r) => \`v${r.version}\` })`.
 
-**Interceptors** — middleware hooks for 6 phases (start, parse, validate, execute, error, shutdown). Onion model with `next()`.
+**Extension-first architecture** — most built-in features (help, version, REPL, color, signal handling, auto-output, stdin, config, interactive, suggestions) are implemented as extensions composed via `.extend()`. Any built-in can be disabled or replaced.
 
-**Extensions** — build-time composition with `.extend()` for reusable bundles of configuration, commands, and interceptors. Built-in features (help, version, repl, color, config, interactive) are included by default.
+**Interceptors** — middleware hooks for 6 phases (start, parse, validate, execute, error, shutdown). Onion model with `next()`. Extensions register interceptors under the hood. Create your own with `defineInterceptor()`.
 
 **Composition** — mount programs as subcommands with `.mount()`, override commands with merge semantics.
 
@@ -130,8 +130,8 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 | `.extend(padroneEnv(schema))` | Map env vars to args (composable extension) |
 | `.extend(padroneConfig({ files, schema }))` | Load args from config files (composable extension) |
 | `.wrap(config)` | Wrap an external CLI tool *(experimental)* |
-| `.progress(config?)` | Auto-managed spinner |
-| `.intercept(interceptor)` | Register middleware interceptor |
+| `.extend(padroneProgress(config?))` | Auto-managed progress indicator (extension) |
+| `.intercept(interceptor)` | Register middleware interceptor (use `defineInterceptor()`) |
 | `.extend(extension)` | Apply a build-time extension (bundle of config, commands, interceptors) |
 | `.runtime(runtime)` | Custom I/O (for non-terminal use) |
 | `.updateCheck(config?)` | Background version check |

@@ -229,9 +229,15 @@ When auto-progress is active, `runtime.output` and `runtime.error` are automatic
 
 Manual calls to `ctx.context.progress.pause()` and `ctx.context.progress.resume()` are available if you need explicit control.
 
-## Integration with Interceptors
+## How It Works Under the Hood
 
-Progress indicators interact naturally with the interceptor system. The indicator starts before validation interceptors run and is cleaned up after execution. Interceptor errors are caught and reflected in the progress indicator:
+`padroneProgress()` is an extension that registers a context-providing interceptor. It:
+
+1. **Registers an interceptor** that wraps the validate and execute phases with progress indicator management
+2. **Provides typed context** via `.provides<{ progress: PadroneProgressIndicator }>()` so `ctx.context.progress` is fully typed
+3. **Coordinates with the runtime** progress factory to create and manage the spinner
+
+This means progress indicators interact naturally with other interceptors. The indicator starts before validation interceptors run and is cleaned up after execution. Interceptor errors are caught and reflected in the progress indicator:
 
 ```typescript
 program
