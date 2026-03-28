@@ -1496,13 +1496,11 @@ describe('CLI', () => {
       expect(result.result as unknown as string).toBe('4.0.0');
     });
 
-    it('should auto-detect version from package.json when not explicitly set', () => {
+    it('should auto-detect version from package.json when not explicitly set', async () => {
       const program = createPadrone('test-cli').command('greet', (c) => c.action(() => 'hello'));
 
-      const result = program.eval('--version');
-
-      // Should auto-detect from package.json (0.0.1) or npm_package_version env var
-      // The actual value depends on the environment, so we just check it's not empty
+      // Without explicit version, getVersion falls back to async package.json discovery
+      const result = await program.eval('--version');
       expect(result.result as unknown as string).toMatch(/^\d+\.\d+\.\d+/);
     });
 

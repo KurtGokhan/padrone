@@ -1,4 +1,3 @@
-import { basename } from 'node:path';
 import * as z from 'zod/v4';
 import { detectShell, getCompletionInstallInstructions, setupCompletions } from '../feature/completion.ts';
 import type { PadroneActionContext } from '../types/index.ts';
@@ -11,9 +10,10 @@ export const completionsSchema = z.object({
 
 type CompletionsArgs = z.infer<typeof completionsSchema>;
 
-export function runCompletions(args: CompletionsArgs, _ctx: PadroneActionContext) {
+export async function runCompletions(args: CompletionsArgs, _ctx: PadroneActionContext) {
+  const { basename } = await import('node:path');
   const programName = args.appPath ? basename(args.appPath).replace(/\.[cm]?[jt]sx?$/, '') : 'padrone';
-  const shell = args.for ?? detectShell();
+  const shell = args.for ?? (await detectShell());
 
   if (!shell) {
     console.error('Could not detect shell. Use --for to specify one: bash, zsh, fish, powershell');
@@ -21,7 +21,7 @@ export function runCompletions(args: CompletionsArgs, _ctx: PadroneActionContext
   }
 
   if (args.setup) {
-    const result = setupCompletions(programName, shell);
+    const result = await setupCompletions(programName, shell);
     const verb = result.updated ? 'Updated' : 'Added';
     console.log(`${verb} ${programName} completions in ${result.file}`);
     return;

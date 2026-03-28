@@ -92,7 +92,7 @@ export type PadroneRuntime = {
   /** Color theme for ANSI/console help output. A theme name or partial color config. */
   theme?: ColorTheme | ColorConfig;
   /** Find and load a config file. Accepts a single path or a list of candidate names to search. */
-  loadConfig?: (files: string | string[]) => Record<string, unknown> | undefined;
+  loadConfig?: (files: string | string[]) => Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined>;
   /**
    * Standard input abstraction. Provides methods to read piped data from stdin.
    * When not provided, defaults to reading from `process.stdin`.
@@ -150,6 +150,24 @@ export type PadroneRuntime = {
    * When not provided, signal handling is disabled for this runtime.
    */
   onSignal?: (callback: (signal: PadroneSignal) => void) => () => void;
+
+  /**
+   * Terminal/output capabilities. Used for ANSI detection, text wrapping, and TTY checks.
+   * The default runtime auto-detects from `process.stdout`. Non-terminal runtimes
+   * (web UIs, tests) should provide explicit values.
+   */
+  terminal?: {
+    /** Number of columns in the terminal. Used for text wrapping. */
+    columns?: number;
+    /** Whether stdout is a TTY. Affects ANSI color output and interactive features. */
+    isTTY?: boolean;
+  };
+
+  /**
+   * Force-exit the process. The default runtime wires this to `process.exit()`.
+   * Non-Node runtimes can throw an error or no-op.
+   */
+  exit?: (code: number) => never;
 };
 
 /**
@@ -157,9 +175,9 @@ export type PadroneRuntime = {
  * The `prompt`, `interactive`, and `readLine` fields remain optional since not all runtimes provide them.
  */
 export type ResolvedPadroneRuntime = Required<
-  Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress' | 'theme' | 'onSignal'>
+  Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress' | 'theme' | 'onSignal' | 'terminal' | 'exit'>
 > &
-  Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress' | 'theme' | 'onSignal'>;
+  Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress' | 'theme' | 'onSignal' | 'terminal' | 'exit'>;
 
 /**
  * Sentinel value returned by the terminal REPL session when Ctrl+C is pressed.

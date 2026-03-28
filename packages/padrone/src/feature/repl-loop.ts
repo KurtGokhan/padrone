@@ -26,9 +26,8 @@ export function createReplIterator(deps: ReplDeps, options?: PadroneReplPreferen
   const runtime = getCommandRuntime(existingCommand);
 
   const programName = existingCommand.name || 'padrone';
-  const useAnsi =
-    runtime.format === 'ansi' ||
-    (runtime.format === 'auto' && typeof process !== 'undefined' && !process.env.NO_COLOR && !process.env.CI && process.stdout?.isTTY);
+  const env = runtime.env();
+  const useAnsi = runtime.format === 'ansi' || (runtime.format === 'auto' && !env.NO_COLOR && !env.CI && runtime.terminal?.isTTY === true);
 
   // Track command history for .history built-in
   const commandHistory: string[] = [];
@@ -61,7 +60,7 @@ export function createReplIterator(deps: ReplDeps, options?: PadroneReplPreferen
         runtime.output(options.greeting);
       } else {
         const displayName = existingCommand.title || programName;
-        const version = existingCommand.version ? getVersion(existingCommand.version) : undefined;
+        const version = existingCommand.version ? await getVersion(existingCommand.version) : undefined;
         const greeting = version ? `Welcome to ${displayName} v${version}` : `Welcome to ${displayName}`;
         runtime.output(greeting);
       }
@@ -265,10 +264,7 @@ export function createReplIterator(deps: ReplDeps, options?: PadroneReplPreferen
 
         const emitSpacingLine = (value: boolean | string) => {
           if (typeof value === 'string') {
-            const sep =
-              value.length === 1
-                ? value.repeat(typeof process !== 'undefined' && process.stdout?.columns ? process.stdout.columns : 80)
-                : value;
+            const sep = value.length === 1 ? value.repeat(runtime.terminal?.columns ?? 80) : value;
             runtime.output(sep);
           } else if (value) {
             runtime.output('');

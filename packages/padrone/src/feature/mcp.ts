@@ -1,6 +1,7 @@
 import { buildInputSchema, collectEndpoints, serializeArgsToFlags } from '../core/commands.ts';
 import { generateHelp } from '../output/help.ts';
 import type { AnyPadroneCommand, AnyPadroneProgram } from '../types/index.ts';
+import { readStreamAsText } from '../util/stream.ts';
 
 export type PadroneMcpPreferences = {
   /** Server name. Defaults to the program name. */
@@ -237,6 +238,7 @@ async function startHttpTransport(
   handleRequest: (req: JsonRpcRequest) => Promise<JsonRpcResponse | undefined>,
   prefs: PadroneMcpPreferences,
   log: (msg: string) => void,
+  onSignal?: (callback: () => void) => () => void,
 ): Promise<void> {
   const http = await import('node:http');
   const crypto = await import('node:crypto');
@@ -317,11 +319,7 @@ async function startHttpTransport(
     }
 
     // Read request body
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) {
-      chunks.push(chunk);
-    }
-    const body = Buffer.concat(chunks).toString('utf-8');
+    const body = await readStreamAsText(req as AsyncIterable<Uint8Array>);
 
     let rpcRequest: JsonRpcRequest;
     try {
@@ -363,11 +361,10 @@ async function startHttpTransport(
       log(`MCP server listening on http://${host}:${port}${endpoint}`);
     });
     server.on('error', reject);
-    const onSignal = () => {
+    const unsubscribe = onSignal?.(() => {
       server.close(() => resolve());
-    };
-    process.on('SIGINT', onSignal);
-    process.on('SIGTERM', onSignal);
+    });
+    server.on('close', () => unsubscribe?.());
   });
 }
 
@@ -386,5 +383,5 @@ export async function startMcpServer(
 
   const { getCommandRuntime } = await import('../core/commands.ts');
   const runtime = getCommandRuntime(existingCommand);
-  return startHttpTransport(handleRequest, prefs ?? {}, (msg) => runtime.error(msg));
+  return startHttpTransport(handleRequest, prefs ?? {}, (msg) => runtime.error(msg), runtime.onSignal);
 }

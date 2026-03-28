@@ -2,6 +2,7 @@ import { buildInputSchema, type CollectedEndpoint, collectEndpoints, serializeAr
 import { RoutingError, ValidationError } from '../core/errors.ts';
 import { generateHelp } from '../output/help.ts';
 import type { AnyPadroneCommand, AnyPadroneProgram } from '../types/index.ts';
+import { readStreamAsText } from '../util/stream.ts';
 
 export type PadroneServePreferences = {
   /** Port to listen on. Default: 3000 */
@@ -424,19 +425,14 @@ export async function startServeServer(
       if (builtins.docs) runtime.error(`API docs: http://${host}:${port}${basePath}_docs`);
     });
     server.on('error', reject);
-    const onSignal = () => {
+    const unsubscribe = runtime.onSignal?.(() => {
       server.close(() => resolve());
-    };
-    process.on('SIGINT', onSignal);
-    process.on('SIGTERM', onSignal);
+    });
+    server.on('close', () => unsubscribe?.());
   });
 }
 
 /** Read the full body from a Node.js IncomingMessage. */
 async function readBody(req: import('node:http').IncomingMessage): Promise<string> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) {
-    chunks.push(chunk as Buffer);
-  }
-  return Buffer.concat(chunks).toString('utf-8');
+  return readStreamAsText(req as AsyncIterable<Uint8Array>);
 }

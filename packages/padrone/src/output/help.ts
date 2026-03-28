@@ -20,8 +20,12 @@ export type HelpPreferences = {
   theme?: ColorTheme | ColorConfig;
   /** Show all global commands and flags in full detail */
   all?: boolean;
-  /** Terminal width for text wrapping. Defaults to `process.stdout.columns` or 80. */
+  /** Terminal width for text wrapping. Defaults to terminal columns or 80. */
   width?: number;
+  /** Terminal capabilities for auto-detection of ANSI and width. */
+  terminal?: { columns?: number; isTTY?: boolean };
+  /** Environment variables for auto-detection (e.g., NO_COLOR, CI). */
+  env?: Record<string, string | undefined>;
 };
 
 /**
@@ -368,6 +372,14 @@ export function getHelpInfo(cmd: AnyPadroneCommand, detail: HelpPreferences['det
 
 export function generateHelp(rootCommand: AnyPadroneCommand, commandObj: AnyPadroneCommand = rootCommand, prefs?: HelpPreferences): string {
   const helpInfo = getHelpInfo(commandObj, prefs?.detail, prefs?.all);
-  const formatter = createFormatter(prefs?.format ?? 'auto', prefs?.detail, prefs?.theme, prefs?.all, prefs?.width);
+  const formatter = createFormatter(
+    prefs?.format ?? 'auto',
+    prefs?.detail,
+    prefs?.theme,
+    prefs?.all,
+    prefs?.width,
+    prefs?.terminal,
+    prefs?.env,
+  );
   return formatter.format(helpInfo);
 }

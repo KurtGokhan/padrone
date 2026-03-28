@@ -92,9 +92,9 @@ export function isNewerVersion(current: string, latest: string): boolean {
 /**
  * Reads the update check cache file.
  */
-function readCache(cachePath: string): CacheData | undefined {
+async function readCache(cachePath: string): Promise<CacheData | undefined> {
   try {
-    const { existsSync, readFileSync } = require('node:fs') as typeof import('node:fs');
+    const { existsSync, readFileSync } = await import('node:fs');
     if (!existsSync(cachePath)) return undefined;
     const data = JSON.parse(readFileSync(cachePath, 'utf-8'));
     if (typeof data.lastCheck === 'number' && typeof data.latestVersion === 'string') {
@@ -109,10 +109,10 @@ function readCache(cachePath: string): CacheData | undefined {
 /**
  * Writes the update check cache file.
  */
-function writeCache(cachePath: string, data: CacheData): void {
+async function writeCache(cachePath: string, data: CacheData): Promise<void> {
   try {
-    const { existsSync, mkdirSync, writeFileSync } = require('node:fs') as typeof import('node:fs');
-    const { dirname } = require('node:path') as typeof import('node:path');
+    const { existsSync, mkdirSync, writeFileSync } = await import('node:fs');
+    const { dirname } = await import('node:path');
     const dir = dirname(cachePath);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
@@ -126,9 +126,9 @@ function writeCache(cachePath: string, data: CacheData): void {
 /**
  * Resolves the cache path, expanding `~` to the home directory.
  */
-function resolveCachePath(cachePath: string): string {
-  const { homedir } = require('node:os') as typeof import('node:os');
-  const { resolve } = require('node:path') as typeof import('node:path');
+async function resolveCachePath(cachePath: string): Promise<string> {
+  const { homedir } = await import('node:os');
+  const { resolve } = await import('node:path');
   if (cachePath.startsWith('~')) {
     return cachePath.replace('~', homedir());
   }
@@ -173,28 +173,28 @@ export function formatUpdateMessage(currentVersion: string, latestVersion: strin
  * This is designed to be non-blocking: the check starts immediately but the
  * result is only consumed after command execution completes.
  */
-export function createUpdateChecker(
+export async function createUpdateChecker(
   programName: string,
   currentVersion: string,
   config: UpdateCheckConfig,
   runtime: ResolvedPadroneRuntime,
-): () => void {
+): Promise<() => void> {
   const packageName = config.packageName ?? programName;
   const registry = config.registry ?? 'npm';
   const intervalMs = parseInterval(config.interval ?? '1d');
   const disableEnvVar = config.disableEnvVar ?? `${programName.toUpperCase().replace(/-/g, '_')}_NO_UPDATE_CHECK`;
 
   const defaultCachePath = `~/.config/${programName}-update-check.json`;
-  const cachePath = resolveCachePath(config.cache ?? defaultCachePath);
+  const cachePath = await resolveCachePath(config.cache ?? defaultCachePath);
 
   // Check if disabled
   const env = runtime.env();
   if (env.CI || env.CONTINUOUS_INTEGRATION) return noop;
   if (env[disableEnvVar]) return noop;
-  if (typeof process !== 'undefined' && !process.stdout?.isTTY) return noop;
+  if (runtime.terminal && !runtime.terminal.isTTY) return noop;
 
   // Check cache — if we checked recently, use cached result
-  const cached = readCache(cachePath);
+  const cached = await readCache(cachePath);
   if (cached && Date.now() - cached.lastCheck < intervalMs) {
     // Use cached version for display
     if (isNewerVersion(currentVersion, cached.latestVersion)) {
@@ -206,9 +206,9 @@ export function createUpdateChecker(
   }
 
   // Start background fetch
-  const fetchPromise = fetchLatestVersion(packageName, registry).then((latestVersion) => {
+  const fetchPromise = fetchLatestVersion(packageName, registry).then(async (latestVersion) => {
     if (latestVersion) {
-      writeCache(cachePath, { lastCheck: Date.now(), latestVersion });
+      await writeCache(cachePath, { lastCheck: Date.now(), latestVersion });
       if (isNewerVersion(currentVersion, latestVersion)) {
         return latestVersion;
       }

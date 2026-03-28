@@ -3,11 +3,6 @@ import { type ColorConfig, type ColorTheme, createColorizer } from './colorizer.
 
 const DEFAULT_TERMINAL_WIDTH = 80;
 
-function getTerminalWidth(): number {
-  if (typeof process !== 'undefined' && process.stdout?.columns) return process.stdout.columns;
-  return DEFAULT_TERMINAL_WIDTH;
-}
-
 function wrapText(text: string, maxWidth: number): string[] {
   if (maxWidth <= 0 || text.length <= maxWidth) return [text];
   const words = text.split(' ');
@@ -738,11 +733,10 @@ function createJsonFormatter(): Formatter {
 // Formatter Factory
 // ============================================================================
 
-function shouldUseAnsi(): boolean {
-  if (typeof process === 'undefined') return false;
-  if (process.env.NO_COLOR) return false;
-  if (process.env.CI) return false;
-  if (process.stdout && typeof process.stdout.isTTY === 'boolean') return process.stdout.isTTY;
+function shouldUseAnsi(env?: Record<string, string | undefined>, isTTY?: boolean): boolean {
+  if (env?.NO_COLOR) return false;
+  if (env?.CI) return false;
+  if (typeof isTTY === 'boolean') return isTTY;
   return false;
 }
 
@@ -776,11 +770,13 @@ export function createFormatter(
   theme?: ColorTheme | ColorConfig,
   all?: boolean,
   width?: number,
+  terminal?: { columns?: number; isTTY?: boolean },
+  env?: Record<string, string | undefined>,
 ): Formatter {
   if (detail === 'minimal') return createMinimalFormatter();
   if (format === 'json') return createJsonFormatter();
-  const tw = format === 'markdown' || format === 'html' ? undefined : (width ?? getTerminalWidth());
-  if (format === 'ansi' || (format === 'auto' && shouldUseAnsi()))
+  const tw = format === 'markdown' || format === 'html' ? undefined : (width ?? terminal?.columns ?? DEFAULT_TERMINAL_WIDTH);
+  if (format === 'ansi' || (format === 'auto' && shouldUseAnsi(env, terminal?.isTTY)))
     return createGenericFormatter(createAnsiStyler(theme), createTextLayout(), all, tw);
   if (format === 'console') return createGenericFormatter(createConsoleStyler(theme), createTextLayout(), all, tw);
   if (format === 'markdown') return createGenericFormatter(createMarkdownStyler(), createMarkdownLayout(), all);

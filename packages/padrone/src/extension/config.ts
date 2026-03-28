@@ -54,32 +54,39 @@ export function padroneConfig(options?: PadroneConfigOptions): <T extends Comman
         delete ctx.rawArgs.c;
       }
 
+      // Skip loadConfig entirely when there's nothing to load
+      if (!explicitConfigPath && !configFiles) return next();
+
       // Load config data: explicit --config flag takes priority, then auto-detect
-      const configData = ctx.runtime.loadConfig(explicitConfigPath ?? configFiles ?? []);
+      const configDataOrPromise = ctx.runtime.loadConfig(explicitConfigPath ?? configFiles ?? []);
 
-      if (!configData) return next();
+      const applyConfig = (configData: Record<string, unknown> | undefined) => {
+        if (!configData) return next();
 
-      // Validate against schema if provided
-      if (configSchema) {
-        const validated = configSchema['~standard'].validate(configData);
-        return thenMaybe(validated, (result) => {
-          if (result.issues) {
-            const issueMessages = result.issues
-              .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
-              .join('\n');
-            throw new ConfigError(`Invalid config file:\n${issueMessages}`, {
-              command: ctx.command.path || ctx.command.name,
-            });
-          }
-          const validatedData = result.value as Record<string, unknown>;
-          const mergedRawArgs = applyValues(ctx.rawArgs, validatedData);
-          return next({ rawArgs: mergedRawArgs });
-        });
-      }
+        // Validate against schema if provided
+        if (configSchema) {
+          const validated = configSchema['~standard'].validate(configData);
+          return thenMaybe(validated, (result) => {
+            if (result.issues) {
+              const issueMessages = result.issues
+                .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
+                .join('\n');
+              throw new ConfigError(`Invalid config file:\n${issueMessages}`, {
+                command: ctx.command.path || ctx.command.name,
+              });
+            }
+            const validatedData = result.value as Record<string, unknown>;
+            const mergedRawArgs = applyValues(ctx.rawArgs, validatedData);
+            return next({ rawArgs: mergedRawArgs });
+          });
+        }
 
-      // No schema — pass through as-is
-      const mergedRawArgs = applyValues(ctx.rawArgs, configData);
-      return next({ rawArgs: mergedRawArgs });
+        // No schema — pass through as-is
+        const mergedRawArgs = applyValues(ctx.rawArgs, configData);
+        return next({ rawArgs: mergedRawArgs });
+      };
+
+      return thenMaybe(configDataOrPromise, applyConfig);
     },
   }));
 

@@ -1,3 +1,4 @@
+import { readStreamAsText } from '../util/stream.ts';
 import type {
   InteractiveMode,
   InteractivePromptConfig,
@@ -124,11 +125,7 @@ function createDefaultStdin(): NonNullable<PadroneRuntime['stdin']> {
     },
     async text() {
       if (typeof process === 'undefined') return '';
-      const chunks: Buffer[] = [];
-      for await (const chunk of process.stdin) {
-        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-      }
-      return Buffer.concat(chunks).toString('utf-8');
+      return readStreamAsText(process.stdin);
     },
     async *lines() {
       if (typeof process === 'undefined') return;
@@ -310,49 +307,74 @@ function resolveConfigPath(fs: any, path: any, cwd: string, files: string | stri
   return undefined;
 }
 
+// Lazily resolved Node.js modules — cached after first import to keep loadConfig sync after initialization.
+let _fs: typeof import('node:fs') | undefined;
+let _path: typeof import('node:path') | undefined;
+
+/** Pre-warm the fs/path module cache. Called once; subsequent loadConfig calls are synchronous. */
+export async function initNodeModules(): Promise<void> {
+  if (_fs && _path) return;
+  _fs = await import('node:fs');
+  _path = await import('node:path');
+}
+
+// Eagerly start caching node modules so loadConfig is sync by the time it's called.
+// The import() promise resolves in the microtask queue, well before any user code executes.
+if (typeof process !== 'undefined') initNodeModules();
+
+function loadConfigSync(
+  fs: typeof import('node:fs'),
+  path: typeof import('node:path'),
+  files: string | string[],
+): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> {
+  const cwd = process.cwd();
+  const absolutePath = resolveConfigPath(fs, path, cwd, files);
+  if (!absolutePath) return undefined;
+
+  const getContent = () => fs.readFileSync(absolutePath, 'utf-8');
+  const ext = path.extname(absolutePath).toLowerCase();
+
+  if (ext === '.yaml' || ext === '.yml') return Bun.YAML.parse(getContent()) as any;
+  if (ext === '.toml') return Bun.TOML.parse(getContent()) as any;
+  if (ext === '.jsonc') return Bun.JSONC.parse(getContent()) as any;
+  if (ext === '.json') {
+    if (Bun.JSONC) return Bun.JSONC.parse(getContent()) as any;
+    try {
+      return JSON.parse(getContent());
+    } catch {
+      return Bun.JSONC.parse(getContent()) as any;
+    }
+  }
+  if (ext === '.js' || ext === '.cjs' || ext === '.mjs' || ext === '.ts' || ext === '.cts' || ext === '.mts') {
+    return import(absolutePath).then((mod) => mod.default ?? mod);
+  }
+
+  // Unknown extension — try JSON
+  try {
+    return JSON.parse(getContent());
+  } catch {
+    console.error(`Unable to parse config file: ${absolutePath}`);
+    return undefined;
+  }
+}
+
 /**
  * Find and load a config file. Accepts a single explicit path or a list of
  * candidate file names to search in the current working directory.
  * Supports JSON, JSONC, YAML, TOML, and JS/TS config files.
+ *
+ * Synchronous after the first call (node:fs/node:path are lazily cached).
+ * The first call returns a Promise if the modules aren't yet cached.
  */
-export function loadConfig(files: string | string[]): Record<string, unknown> | undefined {
+export function loadConfig(files: string | string[]): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> {
   if (typeof process === 'undefined') return undefined;
 
   try {
-    const fs = require('node:fs');
-    const path = require('node:path');
-    const cwd = process.cwd();
+    // Fast path: modules already cached — fully synchronous
+    if (_fs && _path) return loadConfigSync(_fs, _path, files);
 
-    // Resolve which file to load
-    const absolutePath = resolveConfigPath(fs, path, cwd, files);
-    if (!absolutePath) return undefined;
-
-    // Parse the file
-    const getContent = () => fs.readFileSync(absolutePath, 'utf-8');
-    const ext = path.extname(absolutePath).toLowerCase();
-
-    if (ext === '.yaml' || ext === '.yml') return Bun.YAML.parse(getContent()) as any;
-    if (ext === '.toml') return Bun.TOML.parse(getContent()) as any;
-    if (ext === '.jsonc') return Bun.JSONC.parse(getContent()) as any;
-    if (ext === '.json') {
-      if (Bun.JSONC) return Bun.JSONC.parse(getContent()) as any;
-      try {
-        return JSON.parse(getContent());
-      } catch {
-        return Bun.JSONC.parse(getContent()) as any;
-      }
-    }
-    if (ext === '.js' || ext === '.cjs' || ext === '.mjs' || ext === '.ts' || ext === '.cts' || ext === '.mts') {
-      return require(absolutePath);
-    }
-
-    // Unknown extension — try JSON
-    try {
-      return JSON.parse(getContent());
-    } catch {
-      console.error(`Unable to parse config file: ${absolutePath}`);
-      return undefined;
-    }
+    // Slow path: first call — async-import, cache, then load
+    return initNodeModules().then(() => loadConfigSync(_fs!, _path!, files));
   } catch (error) {
     console.error(`Error loading config file: ${error}`);
     return undefined;
@@ -362,6 +384,23 @@ export function loadConfig(files: string | string[]): Record<string, unknown> | 
 /**
  * Creates the default Node.js/Bun runtime.
  */
+function defaultExit(code: number): never {
+  if (typeof process !== 'undefined') process.exit(code);
+  throw new Error(`Exit with code ${code}`);
+}
+
+function getTerminalInfo(): PadroneRuntime['terminal'] {
+  if (typeof process === 'undefined') return undefined;
+  return {
+    get columns() {
+      return process.stdout?.columns;
+    },
+    get isTTY() {
+      return process.stdout?.isTTY === true;
+    },
+  };
+}
+
 export function createDefaultRuntime(): ResolvedPadroneRuntime {
   return {
     output: (...args) => console.log(...args),
@@ -374,6 +413,8 @@ export function createDefaultRuntime(): ResolvedPadroneRuntime {
     interactive: detectInteractiveMode(),
     progress: createTerminalSpinner,
     onSignal: defaultOnSignal,
+    terminal: getTerminalInfo(),
+    exit: defaultExit,
   };
 }
 
@@ -419,5 +460,7 @@ export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime
     stdin: partial.stdin,
     theme: partial.theme,
     onSignal: partial.onSignal ?? defaults.onSignal,
+    terminal: partial.terminal ?? defaults.terminal,
+    exit: partial.exit ?? defaults.exit,
   };
 }

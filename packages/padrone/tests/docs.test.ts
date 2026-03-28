@@ -217,8 +217,8 @@ describe('docs', () => {
       if (existsSync(testManDir)) rmSync(testManDir, { recursive: true });
     });
 
-    it('should install man pages to XDG_DATA_HOME', () => {
-      const result = setupManPages(program);
+    it('should install man pages to XDG_DATA_HOME', async () => {
+      const result = await setupManPages(program);
 
       expect(result.dir).toBe(join(testManDir, 'man', 'man1'));
       expect(result.written.length).toBeGreaterThan(0);
@@ -237,13 +237,13 @@ describe('docs', () => {
       }
     });
 
-    it('should report updated=true when reinstalling', () => {
-      const result = setupManPages(program);
+    it('should report updated=true when reinstalling', async () => {
+      const result = await setupManPages(program);
       expect(result.updated).toBe(true);
     });
 
-    it('should remove installed man pages', () => {
-      const result = removeManPages(program);
+    it('should remove installed man pages', async () => {
+      const result = await removeManPages(program);
 
       expect(result.removed.length).toBeGreaterThan(0);
       expect(result.removed).toContain('padrone-test.1');
@@ -254,8 +254,8 @@ describe('docs', () => {
       }
     });
 
-    it('should handle remove when no pages exist', () => {
-      const result = removeManPages(program);
+    it('should handle remove when no pages exist', async () => {
+      const result = await removeManPages(program);
       expect(result.removed).toHaveLength(0);
     });
   });

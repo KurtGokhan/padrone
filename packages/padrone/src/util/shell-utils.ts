@@ -13,7 +13,7 @@ export type ShellType = 'bash' | 'zsh' | 'fish' | 'powershell';
  * Detects the current shell from environment variables and process info.
  * @returns The detected shell type, or undefined if unknown
  */
-export function detectShell(): ShellType | undefined {
+export async function detectShell(): Promise<ShellType | undefined> {
   if (typeof process === 'undefined') return undefined;
 
   // Method 1: Check SHELL environment variable (most common)
@@ -31,7 +31,7 @@ export function detectShell(): ShellType | undefined {
   try {
     const ppid = process.ppid;
     if (ppid) {
-      const { execSync } = require('node:child_process') as typeof import('node:child_process');
+      const { execSync } = (await import('node:child_process')) as typeof import('node:child_process');
       const processName = execSync(`ps -p ${ppid} -o comm=`, {
         encoding: 'utf-8',
         stdio: ['pipe', 'pipe', 'ignore'],
@@ -48,9 +48,9 @@ export function detectShell(): ShellType | undefined {
   return undefined;
 }
 
-export function getRcFile(shell: ShellType, home?: string): string | null {
-  const { homedir } = require('node:os') as typeof import('node:os');
-  const { join } = require('node:path') as typeof import('node:path');
+export async function getRcFile(shell: ShellType, home?: string): Promise<string | null> {
+  const { homedir } = await import('node:os');
+  const { join } = await import('node:path');
   const h = home ?? homedir();
   switch (shell) {
     case 'bash':
@@ -60,7 +60,10 @@ export function getRcFile(shell: ShellType, home?: string): string | null {
     case 'fish':
       return join(h, '.config', 'fish', 'config.fish');
     case 'powershell':
-      return process.env.PROFILE || join(h, 'Documents', 'PowerShell', 'Microsoft.PowerShell_profile.ps1');
+      return (
+        (typeof process !== 'undefined' ? process.env.PROFILE : undefined) ||
+        join(h, 'Documents', 'PowerShell', 'Microsoft.PowerShell_profile.ps1')
+      );
     default:
       return null;
   }
@@ -74,9 +77,14 @@ export function escapeRegExp(str: string): string {
  * Writes a snippet to a shell config file using begin/end markers for idempotency.
  * If a block with the same begin marker exists, it is replaced. Otherwise the snippet is appended.
  */
-export function writeToRcFile(rcFile: string, snippet: string, beginMarker: string, endMarker: string): { file: string; updated: boolean } {
-  const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('node:fs') as typeof import('node:fs');
-  const { dirname } = require('node:path') as typeof import('node:path');
+export async function writeToRcFile(
+  rcFile: string,
+  snippet: string,
+  beginMarker: string,
+  endMarker: string,
+): Promise<{ file: string; updated: boolean }> {
+  const { existsSync, mkdirSync, readFileSync, writeFileSync } = await import('node:fs');
+  const { dirname } = await import('node:path');
   const existing = existsSync(rcFile) ? readFileSync(rcFile, 'utf-8') : '';
 
   if (existing.includes(beginMarker)) {

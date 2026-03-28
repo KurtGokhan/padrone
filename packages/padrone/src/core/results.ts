@@ -216,9 +216,9 @@ export function hasInteractiveConfig(meta: unknown): boolean {
 }
 
 export function warnIfUnexpectedAsync<T>(value: T, command: AnyPadroneCommand): T {
-  if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') return value;
+  const runtime = getCommandRuntime(command);
+  if (runtime.env().NODE_ENV === 'production') return value;
   if (value instanceof Promise && !command.isAsync) {
-    const runtime = getCommandRuntime(command);
     runtime.error(
       `[padrone] Command "${command.path || command.name}" returned a Promise from validation, ` +
         `but was not marked as async. Use \`.async()\` on the builder or \`asyncSchema()\` to brand your schema. ` +

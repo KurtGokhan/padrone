@@ -645,10 +645,9 @@ export type SetupManPagesResult = {
  * Returns the local man page directory for the given section.
  * Uses `~/.local/share/man/man<section>` (XDG convention).
  */
-function getManPageDir(section = 1): string {
-  const { homedir } = require('node:os') as typeof import('node:os');
-  const { join: joinPath } = require('node:path') as typeof import('node:path');
-  return joinPath(process.env.XDG_DATA_HOME || joinPath(homedir(), '.local', 'share'), 'man', `man${section}`);
+async function getManPageDir(section = 1): Promise<string> {
+  const { homedir } = await import('node:os');
+  return join(process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share'), 'man', `man${section}`);
 }
 
 /**
@@ -666,11 +665,11 @@ function manPageFilename(commandName: string, section = 1): string {
  * After installation, `man <program>` and `man <program>-<subcommand>` should work
  * (assuming `~/.local/share/man` is in `MANPATH` or `manpath` picks it up).
  */
-export function setupManPages(program: object): SetupManPagesResult {
+export async function setupManPages(program: object): Promise<SetupManPagesResult> {
   const cmd = getCommand(program);
   const allInfos = collectAllHelpInfo(cmd, false);
   const programName = cmd.name || 'program';
-  const manDir = getManPageDir(1);
+  const manDir = await getManPageDir(1);
 
   mkdirSync(manDir, { recursive: true });
 
@@ -697,12 +696,12 @@ export function setupManPages(program: object): SetupManPagesResult {
 /**
  * Removes installed man pages for a Padrone CLI program.
  */
-export function removeManPages(program: object): { dir: string; removed: string[] } {
-  const { unlinkSync } = require('node:fs') as typeof import('node:fs');
+export async function removeManPages(program: object): Promise<{ dir: string; removed: string[] }> {
+  const { unlinkSync } = await import('node:fs');
   const cmd = getCommand(program);
   const allInfos = collectAllHelpInfo(cmd, false);
   const programName = cmd.name || 'program';
-  const manDir = getManPageDir(1);
+  const manDir = await getManPageDir(1);
   const removed: string[] = [];
 
   for (let i = 0; i < allInfos.length; i++) {

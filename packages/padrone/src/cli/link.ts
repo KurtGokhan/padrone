@@ -147,8 +147,8 @@ function buildPathSnippet(shell: ShellType, binDir: string): string {
   }
 }
 
-function setupPath(shell: ShellType): { file: string; updated: boolean } {
-  const rcFile = getRcFile(shell);
+async function setupPath(shell: ShellType): Promise<{ file: string; updated: boolean }> {
+  const rcFile = await getRcFile(shell);
   if (!rcFile) {
     throw new Error(`Could not determine config file for ${shell}.`);
   }
@@ -272,13 +272,13 @@ export async function runLink(args: LinkArgs, ctx: PadroneActionContext) {
 
   if (!isInPath(BIN_DIR)) {
     if (args.setup) {
-      const shell = detectShell();
+      const shell = await detectShell();
       if (!shell) {
         error('Could not detect shell. Add the PATH manually:');
         error(`  export PATH="${BIN_DIR}:$PATH"`);
         return;
       }
-      const result = setupPath(shell);
+      const result = await setupPath(shell);
       const verb = result.updated ? 'Updated' : 'Added';
       output(`${verb} PATH in ${result.file}`);
       output('Restart your shell or run:');

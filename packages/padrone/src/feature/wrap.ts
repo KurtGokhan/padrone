@@ -1,6 +1,7 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { ValidationError } from '../core/errors.ts';
 import type { PadroneSchema } from '../types/index.ts';
+import { concatBytes } from '../util/stream.ts';
 
 /**
  * Configuration for wrapping an external CLI tool.
@@ -160,21 +161,22 @@ export function createWrapHandler<TCommandArgs extends PadroneSchema, TWrapArgs 
         stdio: inheritStdio ? 'inherit' : ['ignore', 'pipe', 'pipe'],
       });
 
-      const stdoutChunks: Buffer[] = [];
-      const stderrChunks: Buffer[] = [];
+      const stdoutChunks: Uint8Array[] = [];
+      const stderrChunks: Uint8Array[] = [];
 
       if (!inheritStdio) {
-        proc.stdout!.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
-        proc.stderr!.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
+        proc.stdout!.on('data', (chunk: Uint8Array) => stdoutChunks.push(chunk));
+        proc.stderr!.on('data', (chunk: Uint8Array) => stderrChunks.push(chunk));
       }
 
+      const decoder = new TextDecoder();
       proc.on('error', reject);
       proc.on('close', (code) => {
         const exitCode = code ?? 1;
         resolve({
           exitCode,
-          stdout: inheritStdio ? undefined : Buffer.concat(stdoutChunks).toString(),
-          stderr: inheritStdio ? undefined : Buffer.concat(stderrChunks).toString(),
+          stdout: inheritStdio ? undefined : decoder.decode(concatBytes(stdoutChunks)),
+          stderr: inheritStdio ? undefined : decoder.decode(concatBytes(stderrChunks)),
           success: exitCode === 0,
         });
       });

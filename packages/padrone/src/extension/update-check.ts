@@ -14,11 +14,12 @@ function createUpdateCheckInterceptor(config: UpdateCheckConfig) {
     return {
       start(ctx, next) {
         const rootCommand = ctx.command;
-        const currentVersion = getVersion(rootCommand.version);
         const runtime = ctx.runtime;
 
-        checkPromise = import('../feature/update-check.ts').then(({ createUpdateChecker }) =>
-          createUpdateChecker(rootCommand.name, currentVersion, config, runtime),
+        checkPromise = Promise.resolve(getVersion(rootCommand.version)).then((currentVersion) =>
+          import('../feature/update-check.ts').then(({ createUpdateChecker }) =>
+            createUpdateChecker(rootCommand.name, currentVersion, config, runtime),
+          ),
         );
 
         return next();

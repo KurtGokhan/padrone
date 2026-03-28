@@ -28,8 +28,7 @@ const interactiveInterceptor = defineInterceptor({ id: 'padrone:interactive', na
       runtime.interactive === 'forced' ? true : runtime.interactive === 'disabled' ? false : undefined;
     const effectiveInteractive: boolean | undefined = flagInteractive ?? ctx.evalInteractive ?? runtimeDefault;
     const commandUsesStdin = !!command.meta?.stdin;
-    const stdinIsPiped =
-      commandUsesStdin && (runtime.stdin ? !runtime.stdin.isTTY : typeof process !== 'undefined' && process.stdin?.isTTY !== true);
+    const stdinIsPiped = commandUsesStdin && (runtime.stdin ? !runtime.stdin.isTTY : runtime.terminal?.isTTY !== true);
     const interactivitySuppressed =
       runtime.interactive === 'unsupported' || effectiveInteractive === false || (stdinIsPiped && effectiveInteractive !== true);
     const forceInteractive = !interactivitySuppressed && effectiveInteractive === true;

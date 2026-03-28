@@ -439,7 +439,7 @@ ${programName} completion powershell >> $PROFILE`;
  * Generates the completion output with automatic shell detection.
  * If shell is not specified, detects the current shell and provides instructions.
  */
-export function generateCompletionOutput(program: AnyPadroneCommand, shell?: ShellType): string {
+export async function generateCompletionOutput(program: AnyPadroneCommand, shell?: ShellType): Promise<string> {
   const programName = program.name;
 
   if (shell) {
@@ -447,7 +447,7 @@ export function generateCompletionOutput(program: AnyPadroneCommand, shell?: She
   }
 
   // Auto-detect shell and provide instructions
-  const detectedShell = detectShell();
+  const detectedShell = await detectShell();
 
   if (detectedShell) {
     const instructions = getCompletionInstallInstructions(programName, detectedShell);
@@ -492,10 +492,10 @@ export interface SetupCompletionsResult {
  * Sets up shell completions by writing an eval snippet to the appropriate shell config file.
  * Uses marker comments for idempotency — re-running replaces the existing block.
  */
-export function setupCompletions(programName: string, shell: ShellType): SetupCompletionsResult {
-  const { existsSync, mkdirSync, writeFileSync } = require('node:fs') as typeof import('node:fs');
-  const { join } = require('node:path') as typeof import('node:path');
-  const { homedir } = require('node:os') as typeof import('node:os');
+export async function setupCompletions(programName: string, shell: ShellType): Promise<SetupCompletionsResult> {
+  const { existsSync, mkdirSync, writeFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const { homedir } = await import('node:os');
 
   const beginMarker = `###-begin-${programName}-completion-###`;
   const endMarker = `###-end-${programName}-completion-###`;
@@ -510,7 +510,7 @@ export function setupCompletions(programName: string, shell: ShellType): SetupCo
     return { file: filePath, updated: existed };
   }
 
-  const rcFile = getRcFile(shell);
+  const rcFile = await getRcFile(shell);
   if (!rcFile) {
     throw new Error(`Could not determine config file for ${shell}.`);
   }

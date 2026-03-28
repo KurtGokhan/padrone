@@ -73,3 +73,29 @@ export function createStdinStream(stdin: StdinSource | undefined, itemSchema?: S
 const emptyAsyncIterable: AsyncIterable<never> = {
   async *[Symbol.asyncIterator]() {},
 };
+
+const textEncoder = /* @__PURE__ */ new TextEncoder();
+const textDecoder = /* @__PURE__ */ new TextDecoder();
+
+/** Concatenate multiple `Uint8Array` chunks into a single array. */
+export function concatBytes(chunks: Uint8Array[]): Uint8Array {
+  if (chunks.length === 1) return chunks[0]!;
+  let totalLength = 0;
+  for (const chunk of chunks) totalLength += chunk.byteLength;
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
+}
+
+/** Read an async iterable of chunks into a UTF-8 string. */
+export async function readStreamAsText(stream: AsyncIterable<Uint8Array | string>): Promise<string> {
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of stream) {
+    chunks.push(typeof chunk === 'string' ? textEncoder.encode(chunk) : chunk);
+  }
+  return textDecoder.decode(concatBytes(chunks));
+}

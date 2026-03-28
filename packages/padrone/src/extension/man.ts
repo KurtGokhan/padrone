@@ -35,11 +35,11 @@ export function padroneMan(): <T extends CommandTypesBase>(builder: T) => WithMa
           resolveAllCommands(rootCommand);
           const { setupManPages, removeManPages, generateDocs } = await import('../docs/index.ts');
           if (args.setup) {
-            const setupResult = setupManPages(rootCommand);
+            const setupResult = await setupManPages(rootCommand);
             return `${setupResult.updated ? 'Updated' : 'Installed'} ${setupResult.written.length} man page(s) in ${setupResult.dir}`;
           }
           if (args.remove) {
-            const removeResult = removeManPages(rootCommand);
+            const removeResult = await removeManPages(rootCommand);
             return removeResult.removed.length > 0
               ? `Removed ${removeResult.removed.length} man page(s) from ${removeResult.dir}`
               : 'No man pages found to remove.';

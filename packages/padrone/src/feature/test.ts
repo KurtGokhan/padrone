@@ -227,13 +227,13 @@ function buildRuntime(
     runtime.prompt = async (config: InteractivePromptConfig) => opts.promptAnswers![config.name];
   }
 
-  if (opts.configFiles) {
-    runtime.loadConfig = (files: string | string[]) => {
-      if (typeof files === 'string') return opts.configFiles![files];
-      const found = (files as string[]).find((n) => n in opts.configFiles!);
-      return found ? opts.configFiles![found] : undefined;
-    };
-  }
+  runtime.loadConfig = opts.configFiles
+    ? (files: string | string[]) => {
+        if (typeof files === 'string') return opts.configFiles![files];
+        const found = (files as string[]).find((n) => n in opts.configFiles!);
+        return found ? opts.configFiles![found] : undefined;
+      }
+    : () => undefined;
 
   if (opts.readLine) {
     runtime.readLine = opts.readLine;

@@ -52,6 +52,8 @@ const helpInterceptor = defineInterceptor({ id: 'padrone:help', name: 'padrone:h
             format: format ?? ctx.runtime.format,
             theme: ctx.runtime.theme,
             all,
+            terminal: ctx.runtime.terminal,
+            env: ctx.runtime.env(),
           });
           return res;
         }
@@ -79,7 +81,14 @@ const helpInterceptor = defineInterceptor({ id: 'padrone:help', name: 'padrone:h
       if (showDefaultHelp) {
         const rootCommand = getRootCommand(ctx.command);
         resolveAllCommands(rootCommand);
-        return { result: generateHelp(rootCommand, ctx.command, { format: ctx.runtime.format, theme: ctx.runtime.theme }) };
+        return {
+          result: generateHelp(rootCommand, ctx.command, {
+            format: ctx.runtime.format,
+            theme: ctx.runtime.theme,
+            terminal: ctx.runtime.terminal,
+            env: ctx.runtime.env(),
+          }),
+        };
       }
       return next();
     },
@@ -105,7 +114,12 @@ const helpInterceptor = defineInterceptor({ id: 'padrone:help', name: 'padrone:h
             }
           } else {
             resolveAllCommands(rootCommand);
-            const helpText = generateHelp(rootCommand, sourceCmd, { format: ctx.runtime.format, theme: ctx.runtime.theme });
+            const helpText = generateHelp(rootCommand, sourceCmd, {
+              format: ctx.runtime.format,
+              theme: ctx.runtime.theme,
+              terminal: ctx.runtime.terminal,
+              env: ctx.runtime.env(),
+            });
             ctx.runtime.error(helpText);
           }
 
@@ -121,6 +135,8 @@ const helpInterceptor = defineInterceptor({ id: 'padrone:help', name: 'padrone:h
           const helpText = generateHelp(rootCommand, targetCommand ?? rootCommand, {
             format: ctx.runtime.format,
             theme: ctx.runtime.theme,
+            terminal: ctx.runtime.terminal,
+            env: ctx.runtime.env(),
           });
           ctx.runtime.error(`Validation error:\n${issueMessages}`);
           ctx.runtime.error(helpText);
@@ -167,6 +183,8 @@ export function padroneHelp(): <T extends CommandTypesBase>(builder: T) => WithH
               format: (args.format as HelpFormat) ?? ctx.runtime.format,
               theme: ctx.runtime.theme,
               all: args.all,
+              terminal: ctx.runtime.terminal,
+              env: ctx.runtime.env(),
             });
           }),
       )

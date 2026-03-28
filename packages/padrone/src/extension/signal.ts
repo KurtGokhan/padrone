@@ -30,12 +30,13 @@ const signalInterceptor = defineInterceptor(signalMeta, () => {
 
   return {
     start(ctx, next) {
+      const runtimeExit = ctx.runtime.exit;
       unsubscribe = ctx.runtime.onSignal?.((sig) => {
         if (abortController.signal.aborted) {
           if (sig === 'SIGINT') {
             const elapsed = Date.now() - lastSigintTime;
             if (elapsed > 0 && elapsed < DOUBLE_SIGINT_MS) {
-              if (typeof process !== 'undefined') process.exit(signalExitCode(sig));
+              runtimeExit?.(signalExitCode(sig));
             }
             lastSigintTime = Date.now();
           }
