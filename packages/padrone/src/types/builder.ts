@@ -208,10 +208,10 @@ export type PadroneBuilderMethods<
     ): InterceptorRequiresCheck<TInterceptor, TContext & TContextProvided> extends true
       ? BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>
       : InterceptorRequiresError;
-    /** Register an interceptor with static metadata and a factory function. */
+    /** Register an interceptor with static metadata and a factory function. Context is strongly typed. */
     (
       meta: InterceptorMeta,
-      factory: InterceptorFactory<StandardSchemaV1.InferOutput<TArgs>, TRes>,
+      factory: InterceptorFactory<StandardSchemaV1.InferOutput<TArgs>, TRes, TContext & TContextProvided>,
     ): BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>;
   };
 

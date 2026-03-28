@@ -19,6 +19,7 @@ export type {
   ExtractInterceptorContext,
   ExtractInterceptorRequires,
   InterceptorBaseContext,
+  InterceptorDefBuilder,
   InterceptorErrorContext,
   InterceptorErrorResult,
   InterceptorExecuteContext,

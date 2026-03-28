@@ -140,25 +140,26 @@ function createLogger(
 type ResolvedLoggerConfig = { level: PadroneLogLevel; prefix: string; timestamps: boolean };
 
 function loggerInterceptor(config: ResolvedLoggerConfig) {
-  return defineInterceptor({ id: 'padrone:logger', name: 'padrone:logger' }, () => {
-    let effectiveLevel: PadroneLogLevel = config.level;
+  return defineInterceptor({ id: 'padrone:logger', name: 'padrone:logger' })
+    .requires<{ tracing?: PadroneTracer }>()
+    .factory(() => {
+      let effectiveLevel: PadroneLogLevel = config.level;
 
-    return {
-      parse(_ctx, next) {
-        return thenMaybe(next(), (res) => {
-          const cliLevel = resolveCliLevel(res.rawArgs);
-          if (cliLevel !== undefined) effectiveLevel = cliLevel;
-          return res;
-        });
-      },
+      return {
+        parse(_ctx, next) {
+          return thenMaybe(next(), (res) => {
+            const cliLevel = resolveCliLevel(res.rawArgs);
+            if (cliLevel !== undefined) effectiveLevel = cliLevel;
+            return res;
+          });
+        },
 
-      execute(ctx, next) {
-        const tracing = (ctx.context as any)?.tracing as PadroneTracer | undefined;
-        const logger = createLogger(ctx.runtime, effectiveLevel, config, tracing);
-        return next({ context: { ...(ctx.context as any), logger } });
-      },
-    };
-  }).requires<{ tracing?: PadroneTracer }>();
+        execute(ctx, next) {
+          const logger = createLogger(ctx.runtime, effectiveLevel, config, ctx.context?.tracing);
+          return next({ context: { ...ctx.context, logger } });
+        },
+      };
+    });
 }
 
 // ---------------------------------------------------------------------------

@@ -8,7 +8,7 @@ import type { AnyPadroneCommand, PadroneActionContext } from './command.ts';
 // ---------------------------------------------------------------------------
 
 /** Base context shared across all interceptor phases within a single execution. */
-export type InterceptorBaseContext = {
+export type InterceptorBaseContext<TContext = unknown> = {
   /** The resolved command for this execution. In the parse phase, this is the root program. */
   command: AnyPadroneCommand;
   /** The raw CLI input string (undefined when invoked without input). */
@@ -16,7 +16,7 @@ export type InterceptorBaseContext = {
   /** Cancellation signal that fires when the process receives a termination signal. */
   signal: AbortSignal;
   /** User-defined context object, resolved through the command's parent chain. */
-  context: unknown;
+  context: TContext;
   /** The resolved runtime for this execution. Interceptors can override this before calling `next()`. */
   runtime: ResolvedPadroneRuntime;
   /** The program instance. Available for extensions that need program-level methods. */
@@ -26,7 +26,7 @@ export type InterceptorBaseContext = {
 };
 
 /** Context for the parse phase. */
-export type InterceptorParseContext = InterceptorBaseContext;
+export type InterceptorParseContext<TContext = unknown> = InterceptorBaseContext<TContext>;
 
 /** Result returned by the parse phase's `next()`. */
 export type InterceptorParseResult = {
@@ -36,7 +36,7 @@ export type InterceptorParseResult = {
 };
 
 /** Context for the validate phase. */
-export type InterceptorValidateContext = InterceptorBaseContext & {
+export type InterceptorValidateContext<TContext = unknown> = InterceptorBaseContext<TContext> & {
   /** Raw named arguments extracted by the parser. Mutable — modify before `next()` to inject/override values. */
   rawArgs: Record<string, unknown>;
   /** Positional argument strings extracted by the parser. */
@@ -54,7 +54,7 @@ export type InterceptorValidateResult<TArgs = unknown> = {
 };
 
 /** Context for the execute phase. Includes validate context fields (rawArgs, positionalArgs). */
-export type InterceptorExecuteContext<TArgs = unknown> = InterceptorValidateContext & {
+export type InterceptorExecuteContext<TArgs = unknown, TContext = unknown> = InterceptorValidateContext<TContext> & {
   /** Validated arguments that will be passed to the action. Mutable — modify before `next()` to override. */
   args: TArgs;
 };
@@ -65,10 +65,10 @@ export type InterceptorExecuteResult<TResult = unknown> = {
 };
 
 /** Context for the start phase. Runs before parsing, wraps the entire pipeline. */
-export type InterceptorStartContext = InterceptorBaseContext;
+export type InterceptorStartContext<TContext = unknown> = InterceptorBaseContext<TContext>;
 
 /** Context for the error phase. Called when the pipeline throws. Includes pipeline state accumulated before the error. */
-export type InterceptorErrorContext = InterceptorBaseContext & {
+export type InterceptorErrorContext<TContext = unknown> = InterceptorBaseContext<TContext> & {
   /** The error that was thrown. */
   error: unknown;
   /** Raw named arguments (available if parse completed). */
@@ -88,7 +88,7 @@ export type InterceptorErrorResult<TResult = unknown> = {
 };
 
 /** Context for the shutdown phase. Always runs after the pipeline (success or failure). Includes pipeline state accumulated before completion. */
-export type InterceptorShutdownContext<TResult = unknown> = InterceptorBaseContext & {
+export type InterceptorShutdownContext<TResult = unknown, TContext = unknown> = InterceptorBaseContext<TContext> & {
   /** The error, if the pipeline failed (after error phase processing). */
   error?: unknown;
   /** The pipeline result, if it succeeded. */
@@ -151,35 +151,39 @@ export type InterceptorMeta = {
  * - `TArgs` — the validated arguments type (output of the args schema).
  * - `TResult` — the command's return type.
  */
-export type InterceptorPhases<TArgs = unknown, TResult = unknown> = {
+export type InterceptorPhases<TArgs = unknown, TResult = unknown, TContext = unknown> = {
   /**
    * Runs before the pipeline (parse → validate → execute). `next()` proceeds to the pipeline.
    * Root interceptors only. Use for startup tasks like telemetry, update checks, or global config loading.
    */
-  start?: InterceptorPhaseHandler<InterceptorStartContext, unknown>;
+  start?: InterceptorPhaseHandler<InterceptorStartContext<TContext>, unknown>;
   /** Intercepts command routing and raw argument extraction. */
-  parse?: InterceptorPhaseHandler<InterceptorParseContext, InterceptorParseResult>;
+  parse?: InterceptorPhaseHandler<InterceptorParseContext<TContext>, InterceptorParseResult>;
   /** Intercepts argument preprocessing and schema validation. Interactive prompting is handled by the interactive extension. */
-  validate?: InterceptorPhaseHandler<InterceptorValidateContext, InterceptorValidateResult<TArgs>, InterceptorValidateResult>;
+  validate?: InterceptorPhaseHandler<InterceptorValidateContext<TContext>, InterceptorValidateResult<TArgs>, InterceptorValidateResult>;
   /** Intercepts handler execution. */
-  execute?: InterceptorPhaseHandler<InterceptorExecuteContext<TArgs>, InterceptorExecuteResult<TResult>, InterceptorExecuteResult>;
+  execute?: InterceptorPhaseHandler<
+    InterceptorExecuteContext<TArgs, TContext>,
+    InterceptorExecuteResult<TResult>,
+    InterceptorExecuteResult
+  >;
   /**
    * Called when the pipeline throws an error. `next()` passes to the next error handler
    * (innermost returns `{ error }` unchanged). Return `{ result }` without `error` to suppress.
    */
-  error?: InterceptorPhaseHandler<InterceptorErrorContext, InterceptorErrorResult<TResult>, InterceptorErrorResult>;
+  error?: InterceptorPhaseHandler<InterceptorErrorContext<TContext>, InterceptorErrorResult<TResult>, InterceptorErrorResult>;
   /**
    * Always runs after the pipeline completes (success or failure). `next()` calls the next shutdown handler.
    * Use for cleanup: closing connections, flushing logs, etc.
    */
-  shutdown?: InterceptorPhaseHandler<InterceptorShutdownContext<TResult>, void>;
+  shutdown?: InterceptorPhaseHandler<InterceptorShutdownContext<TResult, TContext>, void>;
 };
 
 /**
  * Factory function that creates phase handlers for an interceptor.
  * Called once per command execution — the closure provides typed, scoped cross-phase state across phases.
  */
-export type InterceptorFactory<TArgs = unknown, TResult = unknown> = () => InterceptorPhases<TArgs, TResult>;
+export type InterceptorFactory<TArgs = unknown, TResult = unknown, TContext = unknown> = () => InterceptorPhases<TArgs, TResult, TContext>;
 
 /**
  * A self-contained interceptor value: a factory function with static metadata as own properties.
@@ -189,17 +193,17 @@ export type InterceptorFactory<TArgs = unknown, TResult = unknown> = () => Inter
  * Also accepted directly by `.intercept()` as the single-argument form.
  * Call `.provides<T>()` to brand it as a context-providing interceptor.
  */
-export type PadroneInterceptorFn<TArgs = unknown, TResult = unknown> = InterceptorFactory<TArgs, TResult> &
+export type PadroneInterceptorFn<TArgs = unknown, TResult = unknown, TContext = unknown> = InterceptorFactory<TArgs, TResult, TContext> &
   InterceptorMeta & {
     /** Brand this interceptor as providing additional context of type `TProvides`. No-op at runtime; purely a type-level cast. */
-    provides: <TProvides>() => PadroneContextInterceptor<TProvides, TArgs, TResult>;
+    provides: <TProvides>() => PadroneContextInterceptor<TProvides, TArgs, TResult, TContext>;
     /**
      * Brand this interceptor as requiring context of type `TRequires` to be available.
      * `.intercept()` will produce a compile error if the required context is not satisfied.
      * Use optional properties for soft requirements: `.requires<{ db: DB; logger?: Logger }>()`.
      * No-op at runtime; purely a type-level cast.
      */
-    requires: <TRequires>() => PadroneInterceptorFn<TArgs, TResult> & InterceptorRequiresBrand<TRequires>;
+    requires: <TRequires>() => PadroneInterceptorFn<TArgs, TResult, TContext> & InterceptorRequiresBrand<TRequires>;
   };
 
 /**
@@ -208,7 +212,7 @@ export type PadroneInterceptorFn<TArgs = unknown, TResult = unknown> = Intercept
  *
  * Create with `defineInterceptor(meta, factory)` or pass `(meta, factory)` directly to `.intercept()`.
  */
-export type PadroneInterceptor<TArgs = unknown, TResult = unknown> = PadroneInterceptorFn<TArgs, TResult>;
+export type PadroneInterceptor<TArgs = unknown, TResult = unknown, TContext = unknown> = PadroneInterceptorFn<TArgs, TResult, TContext>;
 
 /**
  * A context-providing interceptor. Carries a phantom `'~context'` brand declaring what it adds
@@ -218,15 +222,15 @@ export type PadroneInterceptor<TArgs = unknown, TResult = unknown> = PadroneInte
  * Created by calling `.provides<T>()` on a `PadroneInterceptorFn`.
  * Chain `.requires<T>()` to also declare context dependencies.
  */
-export type PadroneContextInterceptor<TProvides = unknown, TArgs = unknown, TResult = unknown> = Omit<
-  PadroneInterceptorFn<TArgs, TResult>,
+export type PadroneContextInterceptor<TProvides = unknown, TArgs = unknown, TResult = unknown, TContext = unknown> = Omit<
+  PadroneInterceptorFn<TArgs, TResult, TContext>,
   'requires'
 > &
-  InterceptorFactory<TArgs, TResult> & {
+  InterceptorFactory<TArgs, TResult, TContext> & {
     /** Phantom brand — declares the context type this interceptor provides. */
     '~context': TProvides;
     /** Like `.requires()` on `PadroneInterceptorFn` but preserves the `'~context'` brand. */
-    requires: <TRequires>() => PadroneContextInterceptor<TProvides, TArgs, TResult> & InterceptorRequiresBrand<TRequires>;
+    requires: <TRequires>() => PadroneContextInterceptor<TProvides, TArgs, TResult, TContext> & InterceptorRequiresBrand<TRequires>;
   };
 
 /**
@@ -259,16 +263,29 @@ export type InterceptorRequiresError = {
 };
 
 /**
+ * Builder returned by `defineInterceptor(meta)` (single-arg form).
+ * Call `.requires<T>()` to declare (and type) the context dependency, then `.factory()` to provide the phase handlers.
+ */
+export type InterceptorDefBuilder<TContext = unknown, TBrand = unknown> = {
+  /** Declare the context type this interceptor requires. Sets `TContext` for phase handler typing. */
+  requires: <TRequires>() => InterceptorDefBuilder<TRequires, InterceptorRequiresBrand<TRequires>>;
+  /** Provide the interceptor factory. Phase handlers receive the typed `TContext` from `.requires()`. */
+  factory: <TArgs = unknown, TResult = unknown>(
+    factory: InterceptorFactory<TArgs, TResult, TContext>,
+  ) => PadroneInterceptorFn<TArgs, TResult, TContext> & TBrand;
+};
+
+/**
  * Internal stored form on command objects. Separates static metadata from the factory
  * so that deduplication and sorting can happen without calling the factory.
  */
 export type RegisteredInterceptor = {
   meta: InterceptorMeta;
-  factory: InterceptorFactory<any, any>;
+  factory: InterceptorFactory<any, any, any>;
 };
 
 /**
  * Resolved interceptor: metadata merged with phase handlers after the factory has been called.
  * Used internally by the runtime chain runner.
  */
-export type ResolvedInterceptor = InterceptorMeta & InterceptorPhases<any, any>;
+export type ResolvedInterceptor = InterceptorMeta & InterceptorPhases<any, any, any>;

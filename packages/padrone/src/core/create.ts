@@ -238,7 +238,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       return createPadroneBuilder({ ...existingCommand, commands: updatedCommands }) as any;
     },
 
-    intercept(metaOrFn: InterceptorMeta | PadroneInterceptorFn<any, any>, factory?: InterceptorFactory<any, any>) {
+    intercept(metaOrFn: InterceptorMeta | PadroneInterceptorFn<any, any, any>, factory?: InterceptorFactory<any, any, any>) {
       const registered: RegisteredInterceptor = toRegisteredInterceptor(metaOrFn, factory);
       return createPadroneBuilder({
         ...existingCommand,

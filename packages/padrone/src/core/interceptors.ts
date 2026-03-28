@@ -1,6 +1,7 @@
 import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
+  InterceptorDefBuilder,
   InterceptorErrorContext,
   InterceptorErrorResult,
   InterceptorFactory,
@@ -18,10 +19,21 @@ import type { ResolvedPadroneRuntime } from './runtime.ts';
 // defineInterceptor — creates a single-value distributable interceptor
 // ---------------------------------------------------------------------------
 
+function buildInterceptorFn(meta: InterceptorMeta, factory: InterceptorFactory<any, any, any>): PadroneInterceptorFn<any, any, any> {
+  Object.defineProperty(factory, 'name', { value: meta.name, configurable: true });
+  if (meta.id !== undefined) (factory as any).id = meta.id;
+  if (meta.order !== undefined) (factory as any).order = meta.order;
+  if (meta.disabled !== undefined) (factory as any).disabled = meta.disabled;
+  (factory as any).provides = () => factory;
+  (factory as any).requires = () => factory;
+  return factory as PadroneInterceptorFn<any, any, any>;
+}
+
 /**
  * Creates a self-contained interceptor value by attaching static metadata to the factory function.
  * The returned value can be passed directly to `.intercept()` or exported from a package.
  *
+ * Two-arg form — define metadata and factory in one call:
  * ```ts
  * export const myInterceptor = defineInterceptor(
  *   { name: 'my-interceptor', order: 10 },
@@ -30,20 +42,34 @@ import type { ResolvedPadroneRuntime } from './runtime.ts';
  *   }),
  * );
  * ```
+ *
+ * Single-arg form — chain `.requires<T>()` for typed context, then `.factory()`:
+ * ```ts
+ * export const myInterceptor = defineInterceptor({ name: 'with-db' })
+ *   .requires<{ db: DB }>()
+ *   .factory(() => ({
+ *     execute(ctx, next) {
+ *       ctx.context.db; // typed!
+ *       return next();
+ *     },
+ *   }));
+ * ```
  */
 export function defineInterceptor<TArgs = unknown, TResult = unknown>(
   meta: InterceptorMeta,
   factory: InterceptorFactory<TArgs, TResult>,
-): PadroneInterceptorFn<TArgs, TResult> {
-  // Function.name is readonly, so we need Object.defineProperty to override it
-  Object.defineProperty(factory, 'name', { value: meta.name, configurable: true });
-  if (meta.id !== undefined) (factory as any).id = meta.id;
-  if (meta.order !== undefined) (factory as any).order = meta.order;
-  if (meta.disabled !== undefined) (factory as any).disabled = meta.disabled;
-  // No-ops at runtime — purely type-level casts for context-providing/requiring interceptors.
-  (factory as any).provides = () => factory;
-  (factory as any).requires = () => factory;
-  return factory as PadroneInterceptorFn<TArgs, TResult>;
+): PadroneInterceptorFn<TArgs, TResult>;
+export function defineInterceptor(meta: InterceptorMeta): InterceptorDefBuilder;
+export function defineInterceptor(
+  meta: InterceptorMeta,
+  factory?: InterceptorFactory<any, any, any>,
+): PadroneInterceptorFn<any, any, any> | InterceptorDefBuilder {
+  if (factory) return buildInterceptorFn(meta, factory);
+  const builder: InterceptorDefBuilder = {
+    requires: () => builder as any,
+    factory: (f) => buildInterceptorFn(meta, f) as any,
+  };
+  return builder;
 }
 
 // ---------------------------------------------------------------------------
@@ -55,8 +81,8 @@ export function defineInterceptor<TArgs = unknown, TResult = unknown>(
  * `RegisteredInterceptor` storage format.
  */
 export function toRegisteredInterceptor(
-  metaOrFn: InterceptorMeta | PadroneInterceptorFn<any, any>,
-  factory?: InterceptorFactory<any, any>,
+  metaOrFn: InterceptorMeta | PadroneInterceptorFn<any, any, any>,
+  factory?: InterceptorFactory<any, any, any>,
 ): RegisteredInterceptor {
   if (typeof metaOrFn === 'function') {
     // Single-value form: PadroneInterceptorFn (factory with meta as own properties)

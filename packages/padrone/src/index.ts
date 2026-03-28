@@ -81,6 +81,7 @@ export type {
   ExtractInterceptorRequires,
   GetArgsMeta,
   InterceptorBaseContext,
+  InterceptorDefBuilder,
   InterceptorErrorContext,
   InterceptorErrorResult,
   InterceptorExecuteContext,
