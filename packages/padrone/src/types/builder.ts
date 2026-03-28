@@ -176,6 +176,7 @@ export type PadroneBuilderMethods<
   /** The return type for builder methods - either PadroneBuilder or PadroneProgram */
   TReturn extends 'builder' | 'program',
 > = {
+  /** Apply a build-time extension that transforms this builder/program. @category Builder */
   extend: <TResult extends CommandTypesBase>(
     extension: PadroneExtension<
       BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>,
@@ -183,9 +184,10 @@ export type PadroneBuilderMethods<
     >,
   ) => TResult;
 
+  /** Register a runtime interceptor for lifecycle phases (parse, validate, execute, etc.). @category Builder */
   intercept: {
     /** Context-providing interceptor — extends context type. Rejects if required context is not satisfied. */
-    <TInterceptor extends PadroneContextInterceptor<any, StandardSchemaV1.InferOutput<TArgs>, TRes>>(
+    <TInterceptor extends PadroneContextInterceptor<any, StandardSchemaV1.InferOutput<TArgs>, TRes, any>>(
       interceptor: TInterceptor,
     ): InterceptorRequiresCheck<TInterceptor, TContext & TContextProvided> extends true
       ? BuilderOrProgram<
@@ -203,7 +205,7 @@ export type PadroneBuilderMethods<
         >
       : InterceptorRequiresError;
     /** Plain interceptor — no context change. Rejects if required context is not satisfied. */
-    <TInterceptor extends PadroneInterceptorFn<StandardSchemaV1.InferOutput<TArgs>, TRes>>(
+    <TInterceptor extends PadroneInterceptorFn<StandardSchemaV1.InferOutput<TArgs>, TRes, any>>(
       interceptor: TInterceptor,
     ): InterceptorRequiresCheck<TInterceptor, TContext & TContextProvided> extends true
       ? BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>
@@ -215,14 +217,17 @@ export type PadroneBuilderMethods<
     ): BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>;
   };
 
+  /** Set command metadata like title, description, version, hidden, deprecated, etc. @category Builder */
   configure: (
     config: PadroneCommandConfig,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>;
 
+  /** Override the runtime adapter (process, IO, environment). @category Builder */
   runtime: (
     runtime: PadroneRuntime,
   ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>;
 
+  /** Mark this command as async, forcing all return types to be `Promise`-wrapped. @category Builder */
   async: () => BuilderOrProgram<
     TReturn,
     TProgramName,
@@ -244,6 +249,7 @@ export type PadroneBuilderMethods<
    * - With a callback: transforms the parent/current context into a new type. Chainable — multiple calls compose.
    *
    * Interceptor-provided context (`TContextProvided`) is preserved across `.context()` calls.
+   * @category Builder
    */
   context: {
     <TNewContext>(): BuilderOrProgram<
@@ -276,6 +282,7 @@ export type PadroneBuilderMethods<
     >;
   };
 
+  /** Define the argument/option schema for this command. Accepts a Standard Schema or a function that extends the parent schema. @category Builder */
   arguments: <TNewArgs extends PadroneSchema = PadroneSchema<void>, TMeta extends GetArgsMeta<TNewArgs> = GetArgsMeta<TNewArgs>>(
     schema?: TNewArgs | ((parentSchema: TParentArgs) => TNewArgs),
     meta?: TMeta,
@@ -293,6 +300,7 @@ export type PadroneBuilderMethods<
     TContextProvided
   >;
 
+  /** Set the handler function that runs when this command is executed. @category Builder */
   action: <TNewRes>(
     handler?: (
       args: StandardSchemaV1.InferOutput<TArgs>,
@@ -313,6 +321,7 @@ export type PadroneBuilderMethods<
     TContextProvided
   >;
 
+  /** Wrap an external CLI tool, delegating execution to a shell command. @category Builder */
   wrap: <TWrapArgs extends PadroneSchema = TArgs>(
     config: WrapConfig<TArgs, TWrapArgs>,
   ) => BuilderOrProgram<
@@ -329,6 +338,7 @@ export type PadroneBuilderMethods<
     TContextProvided
   >;
 
+  /** Add or override a subcommand. Pass a builder function to define its schema, action, and nested commands. @category Builder */
   command: <
     TNameNested extends string,
     TAliases extends string[] = [],
@@ -374,6 +384,7 @@ export type PadroneBuilderMethods<
     TContextProvided
   >;
 
+  /** Mount an existing program as a subcommand, optionally transforming the context. @category Builder */
   mount: {
     <TNameNested extends string, TAliases extends string[] = [], TProgram extends CommandTypesBase = CommandTypesBase>(
       name: TNameNested | readonly [TNameNested, ...TAliases],
@@ -596,12 +607,14 @@ export type PadroneProgram<
   TContextProvided,
   'program'
 > & {
+  /** Execute a command by name with pre-validated args (skips parsing and validation). @category Execution */
   run: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, true>>(
     name: TCommand | SafeString,
     args: NoInfer<GetArguments<'in', PickCommandByName<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>>,
     prefs?: ContextParam<TContext>,
   ) => PadroneCommandResult<PickCommandByName<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>;
 
+  /** Parse and execute a string input through the full interceptor pipeline. @category Execution */
   eval: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, true>>(
     input: TCommand | SafeString,
     prefs?: PadroneEvalPreferences & ContextParam<TContext>,
@@ -610,10 +623,12 @@ export type PadroneProgram<
     PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>['~types']['async']
   >;
 
+  /** Parse and execute from `process.argv` through the full interceptor pipeline. @category Execution */
   cli: (
     prefs?: PadroneCliPreferences & ContextParam<TContext>,
   ) => MaybePromiseCommandResult<FlattenCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>, TAsync>;
 
+  /** Parse and validate input without executing the action. @category Execution */
   parse: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, false>>(
     input?: TCommand | SafeString,
   ) => MaybePromise<
@@ -621,34 +636,43 @@ export type PadroneProgram<
     PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>['~types']['async']
   >;
 
+  /** Serialize args back into a CLI string. @category Utility */
   stringify: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], false, true>>(
     command?: TCommand | SafeString,
     args?: GetArguments<'out', PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>,
   ) => string;
 
+  /** Look up a command definition by name. @category Utility */
   find: <const TFind extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], false, true>>(
     command: TFind | SafeString,
   ) => PickCommandByPossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TFind> | undefined;
 
+  /** Get a structured API representation of all commands. @category Utility */
   api: () => PadroneAPI<PadroneCommand<'', '', TArgs, TRes, TCommands>>;
 
+  /** Start an interactive REPL session. @category Execution */
   repl: (options?: PadroneReplPreferences<PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>>) => AsyncIterable<
     PadroneCommandResult<FlattenCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>>
   > & {
     drain: () => Promise<PadroneDrainResult<PadroneCommandResult<FlattenCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>]>>[]>>;
   };
 
+  /** Export as an AI SDK tool. @category Utility */
   tool: () => Tool<{ command: string }>;
 
+  /** Generate help text for a command. @category Utility */
   help: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], false, true>>(
     command?: TCommand,
     prefs?: HelpPreferences,
   ) => string;
 
+  /** Generate shell completion script. @category Utility */
   completion: (shell?: 'bash' | 'zsh' | 'fish' | 'powershell') => Promise<string>;
 
+  /** Start a Model Context Protocol server. @category Server */
   mcp: (prefs?: PadroneMcpPreferences) => Promise<void>;
 
+  /** Start a REST HTTP server with OpenAPI docs. @category Server */
   serve: (prefs?: PadroneServePreferences) => Promise<void>;
 };
 
