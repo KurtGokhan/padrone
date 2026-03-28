@@ -18,6 +18,7 @@ export type {
 export { REPL_SIGINT } from './core/runtime.ts';
 export type {
   HelpCommand,
+  InkOptions,
   PadroneProgressConfig,
   PadroneProgressMessage,
   VersionCommand,
@@ -30,12 +31,14 @@ export type {
   WithVersion,
 } from './extension/index.ts';
 export {
+  isReactElement,
   padroneAutoOutput,
   padroneColor,
   padroneCompletion,
   padroneConfig,
   padroneEnv,
   padroneHelp,
+  padroneInk,
   padroneInteractive,
   padroneMan,
   padroneMcp,
@@ -59,6 +62,7 @@ export type {
   AnyPadroneCommand,
   AnyPadroneProgram,
   AsyncPadroneSchema,
+  CommandTypesBase,
   GetArgsMeta,
   InterceptorBaseContext,
   InterceptorErrorContext,

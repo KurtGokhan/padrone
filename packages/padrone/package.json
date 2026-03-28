@@ -105,16 +105,27 @@
     "enquirer": "^2.4.1"
   },
   "devDependencies": {
-    "ai": "^6.0.116",
-    "tsdown": "^0.21.4",
+    "@types/react": "^19.2.14",
+    "ai": "^6.0.141",
+    "ink": "^6.8.0",
+    "react": "^19.2.4",
+    "tsdown": "^0.21.6",
     "zod": "^4.3.6"
   },
   "peerDependencies": {
     "ai": "5 || 6",
+    "ink": "^6.0.0",
+    "react": ">=18.0.0",
     "zod": "^3.25.0 || ^4.0.0"
   },
   "peerDependenciesMeta": {
     "ai": {
+      "optional": true
+    },
+    "ink": {
+      "optional": true
+    },
+    "react": {
       "optional": true
     },
     "zod": {

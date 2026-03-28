@@ -9,6 +9,7 @@
 
     "types": ["bun"],
 
+    "jsx": "react-jsx",
     "moduleResolution": "nodenext",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,

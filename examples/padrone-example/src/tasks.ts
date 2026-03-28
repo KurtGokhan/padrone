@@ -1,4 +1,4 @@
-import { createPadrone, defineInterceptor, padroneProgress } from 'padrone';
+import { createPadrone, defineInterceptor, padroneInk, padroneProgress } from 'padrone';
 import { zodAsyncStream } from 'padrone/zod';
 import * as z from 'zod/v4';
 import { addTask, getTask, getTasks, removeTask, setTaskStatus, updateTask } from './tasks-store.ts';
@@ -328,6 +328,16 @@ export const tasksProgram = createPadrone('tasks')
           success: (res) => res as string,
         }),
       ),
+  )
+  .command('board', (c) =>
+    c
+      .configure({ title: 'Interactive task board (TUI)' })
+      .extend(padroneInk())
+      .action(async () => {
+        const React = await import('react');
+        const { TaskBoard } = await import('./tasks-board.tsx');
+        return React.createElement(TaskBoard);
+      }),
   )
   .command('advanced', (c) =>
     c

@@ -7,6 +7,8 @@ export { padroneConfig } from './config.ts';
 export { padroneEnv } from './env.ts';
 export type { HelpCommand, WithHelp } from './help.ts';
 export { padroneHelp } from './help.ts';
+export type { InkOptions } from './ink.ts';
+export { isReactElement, padroneInk } from './ink.ts';
 export { padroneInteractive } from './interactive.ts';
 export type { WithMan } from './man.ts';
 export { padroneMan } from './man.ts';
