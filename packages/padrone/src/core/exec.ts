@@ -39,10 +39,16 @@ export function collectInterceptors(cmd: AnyPadroneCommand, rootCommand: AnyPadr
   const chain: RegisteredInterceptor[][] = [];
   let current: AnyPadroneCommand | undefined = cmd;
   while (current) {
+    const isTarget = current === cmd;
     if (!current.parent) {
-      if (rootCommand.interceptors?.length) chain.unshift(rootCommand.interceptors);
+      if (rootCommand.interceptors?.length) {
+        const isRootTarget = cmd === rootCommand || !cmd.parent;
+        chain.unshift(isRootTarget ? rootCommand.interceptors : rootCommand.interceptors.filter((i) => i.meta.inherit !== false));
+      }
     } else {
-      if (current.interceptors?.length) chain.unshift(current.interceptors);
+      if (current.interceptors?.length) {
+        chain.unshift(isTarget ? current.interceptors : current.interceptors.filter((i) => i.meta.inherit !== false));
+      }
     }
     current = current.parent;
   }

@@ -141,6 +141,11 @@ export type InterceptorMeta = {
    * this lets downstream code disable an interceptor by re-registering it with `disabled: true`.
    */
   disabled?: boolean;
+  /**
+   * When `false`, the interceptor applies only to the command it was registered on
+   * and is not inherited by subcommands. Defaults to `true`.
+   */
+  inherit?: boolean;
 };
 
 /**

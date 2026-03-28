@@ -912,6 +912,58 @@ describe('interceptors', () => {
       expect(log).toEqual(['root:before', 'sub:before', 'sub:after', 'root:after']);
     });
 
+    it('should not inherit interceptor with inherit: false to subcommands', () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test')
+        .command('greet', (c) =>
+          c.arguments(z.object({ name: z.string() }), { positional: ['name'] }).action((args) => `Hello, ${args.name}!`),
+        )
+        .intercept({ name: 'local-only', inherit: false }, () => ({
+          execute: (_ctx, next) => {
+            log.push('local-only');
+            return next();
+          },
+        }))
+        .action(() => 'root');
+
+      // Root command — interceptor should run
+      program.eval('');
+      expect(log).toEqual(['local-only']);
+
+      // Subcommand — interceptor should NOT run
+      log.length = 0;
+      program.eval('greet World');
+      expect(log).toEqual([]);
+    });
+
+    it('should still run inherit: false interceptor on the command it was registered on', () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test')
+        .command('greet', (c) =>
+          c
+            .arguments(z.object({ name: z.string() }), { positional: ['name'] })
+            .action((args) => `Hello, ${args.name}!`)
+            .intercept({ name: 'sub-local', inherit: false }, () => ({
+              execute: (_ctx, next) => {
+                log.push('sub-local');
+                return next();
+              },
+            })),
+        )
+        .intercept({ name: 'root-interceptor' }, () => ({
+          execute: (_ctx, next) => {
+            log.push('root');
+            return next();
+          },
+        }));
+
+      program.eval('greet World');
+      // Both should run — root inherits normally, sub-local is on the target command
+      expect(log).toEqual(['root', 'sub-local']);
+    });
+
     it('should apply subcommand validate interceptor', () => {
       let intercepted = false;
 
