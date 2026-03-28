@@ -70,7 +70,7 @@ program.cli();
 | `.extend(padroneConfig({ files, schema? }))` | Load args from config files (import `padroneConfig` from `'padrone'`) |
 | `.wrap(config)` | Wrap an external CLI tool *(experimental)* |
 | `.extend(padroneProgress(config?))` | Auto-managed progress indicator (import `padroneProgress` from `'padrone'`) |
-| `.runtime(runtime)` | Custom I/O adapter (output, error, env, prompt, progress) |
+| `.runtime(runtime)` | Custom I/O adapter (output, error, env, prompt) |
 | `.updateCheck(config?)` | Enable background update notifications |
 | `.async()` | Mark command as using async validation |
 
@@ -192,13 +192,19 @@ Auto-managed spinners for long-running commands via `padroneProgress()` context-
 .command('deploy', (c) =>
   c
     .async()
-    .intercept(padroneProgress({
-      progress: 'Deploying...',
-      success: (result) => `Deployed v${result.version}`,
-      error: 'Deploy failed',
+    .extend(padroneProgress({
+      message: {
+        progress: 'Deploying...',
+        success: (result) => `Deployed v${result.version}`,
+        error: 'Deploy failed',
+      },
+      bar: true,
+      time: true,
+      eta: true,
     }))
     .action(async (_args, ctx) => {
       await deploy();
+      ctx.context.progress.update(0.5);
       ctx.context.progress.update('Finalizing...');
       return { version: '2.0' };
     }),
@@ -206,11 +212,14 @@ Auto-managed spinners for long-running commands via `padroneProgress()` context-
 ```
 
 - **Auto-managed**: `padroneProgress()` starts before execution, calls `succeed`/`fail` automatically
-- **Manual control**: Use `ctx.context.progress` in action handlers — `update(string | number | { message?, progress?, indeterminate? })`, `succeed`, `fail`, `stop`, `pause`, `resume`
+- **Messages**: `message` accepts a string (progress message) or `{ validation?, progress?, success?, error? }`. Can also be provided from context via `progressConfig.message` — command-level fields take precedence
+- **Manual control**: Use `ctx.context.progress` in action handlers — `update(string | number | { message?, progress?, indeterminate?, time? })`, `succeed`, `fail`, `stop`, `pause`, `resume`
 - **Typed context**: `padroneProgress()` uses `.provides<{ progress: PadroneProgressIndicator }>()` — `ctx.context.progress` is fully typed
 - **Dynamic messages**: `success`/`error` can be callbacks returning `string | null | { message, indicator }`
 - **Spinner config**: `spinner` accepts preset name (`'dots'`, `'line'`, etc.), `true` (always show), `false` (disable), or `{ frames, interval, show }` object
 - **Progress bar**: `bar: true` or `bar: { width, filled, empty, animation, show }` — renders percentage + bar. Indeterminate animations: `'bounce'`, `'slide'`, `'pulse'`
+- **Elapsed time**: `time: true` shows `⏱ M:SS` counter. Can be toggled via `update({ time: true/false })`
+- **ETA**: `eta: true` shows `ETA M:SS` based on progress rate. Requires numeric `update()` calls. Counts down between updates
 - **Custom renderer**: `renderer: (message, options?) => PadroneProgressIndicator` to replace the built-in terminal renderer
 
 ## Error Classes

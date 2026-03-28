@@ -38,27 +38,62 @@ c.extend(padroneProgress('Deploying...'))
 
 ```typescript
 c.extend(padroneProgress({
-  validation: 'Validating inputs...',  // Shown during async validation
-  progress: 'Deploying...',            // Shown during execution
-  success: 'Deployed successfully!',   // Shown on success
-  error: 'Deploy failed',             // Shown on failure
-  spinner: 'line',                     // Spinner preset
-  bar: true,                           // Enable progress bar
+  message: {
+    validation: 'Validating inputs...',  // Shown during async validation
+    progress: 'Deploying...',            // Shown during execution
+    success: 'Deployed successfully!',   // Shown on success
+    error: 'Deploy failed',             // Shown on failure
+  },
+  spinner: 'line',                       // Spinner preset
+  bar: true,                             // Enable progress bar
+  time: true,                            // Show elapsed time
+  eta: true,                             // Show estimated time remaining
 }))
 ```
 
-The `validation` message is shown first (during schema validation), then replaced by the `progress` message when execution begins.
+The `message` field accepts a string (shorthand for the `progress` message) or an object with per-phase messages. The `validation` message is shown first (during schema validation), then replaced by the `progress` message when execution begins.
 
-## Dynamic Success/Error Messages
+## Messages
+
+### String Shorthand
+
+A string sets the `progress` message — used during execution and as fallback for other phases:
+
+```typescript
+padroneProgress('Deploying...')
+// Equivalent to:
+padroneProgress({ message: 'Deploying...' })
+// Equivalent to:
+padroneProgress({ message: { progress: 'Deploying...' } })
+```
+
+### Per-Phase Messages
+
+Use an object to configure messages for each phase:
+
+```typescript
+padroneProgress({
+  message: {
+    validation: 'Validating...',
+    progress: 'Deploying...',
+    success: 'Done!',
+    error: 'Failed',
+  },
+})
+```
+
+### Dynamic Success/Error Messages
 
 The `success` and `error` fields accept callbacks that receive the actual result or error:
 
 ```typescript
-c.extend(padroneProgress({
-  progress: 'Deploying...',
-  success: (result) => `Deployed v${result.version}`,
-  error: (err) => `Deploy failed: ${err.message}`,
-}))
+padroneProgress({
+  message: {
+    progress: 'Deploying...',
+    success: (result) => `Deployed v${result.version}`,
+    error: (err) => `Deploy failed: ${err.message}`,
+  },
+})
 ```
 
 ### Custom Indicator Icons
@@ -66,26 +101,30 @@ c.extend(padroneProgress({
 Callbacks can return an object with `message` and `indicator` to override the success/error icon per-call:
 
 ```typescript
-c.extend(padroneProgress({
-  progress: 'Running checks...',
-  success: (result) => ({
-    message: `All ${result.count} checks passed`,
-    indicator: '🎉',
-  }),
-  error: () => ({
-    message: 'Checks failed',
-    indicator: '💥',
-  }),
-}))
+padroneProgress({
+  message: {
+    progress: 'Running checks...',
+    success: (result) => ({
+      message: `All ${result.count} checks passed`,
+      indicator: '🎉',
+    }),
+    error: () => ({
+      message: 'Checks failed',
+      indicator: '💥',
+    }),
+  },
+})
 ```
 
 Static values also support the object form:
 
 ```typescript
-c.extend(padroneProgress({
-  progress: 'Building...',
-  success: { message: 'Build complete', indicator: '🏗️' },
-}))
+padroneProgress({
+  message: {
+    progress: 'Building...',
+    success: { message: 'Build complete', indicator: '🏗️' },
+  },
+})
 ```
 
 ### Suppressing Messages
@@ -93,16 +132,40 @@ c.extend(padroneProgress({
 Pass `null` to suppress the success or error message entirely (the spinner just clears):
 
 ```typescript
-c.extend(padroneProgress({
-  progress: 'Working...',
-  success: null,  // No success message
-}))
+padroneProgress({
+  message: {
+    progress: 'Working...',
+    success: null,  // No success message
+  },
+})
 ```
 
 Callbacks can also return `null`:
 
 ```typescript
 success: (result) => result.silent ? null : `Done: ${result.count} items`
+```
+
+### Messages from Context
+
+Messages can be provided at the runtime level via `progressConfig.message` in the context. Command-level message fields take precedence per-field, so you can set shared defaults and override specific phases per command:
+
+```typescript
+const program = createPadrone('app')
+  .context<{ progressConfig: PadroneProgressDefaults }>()
+  .command('sync', (c) =>
+    c.extend(padroneProgress({
+      message: { progress: 'Syncing...' },  // overrides context progress
+    })).action(() => 'synced')
+  );
+
+program.cli({
+  context: {
+    progressConfig: {
+      message: { success: 'Done!' },  // shared default for success
+    },
+  },
+});
 ```
 
 ## Manual Progress via `ctx.context.progress`
@@ -150,7 +213,48 @@ ctx.context.progress.update({ indeterminate: true });
 
 // Back to determinate
 ctx.context.progress.update(0.9);
+
+// Start elapsed timer on demand (when time wasn't set in config)
+ctx.context.progress.update({ time: true });
+
+// Stop elapsed timer
+ctx.context.progress.update({ time: false });
 ```
+
+## Elapsed Time and ETA
+
+Show elapsed time and estimated time remaining alongside the indicator:
+
+```typescript
+c.extend(padroneProgress({
+  message: 'Syncing...',
+  bar: true,
+  time: true,   // Show elapsed time (⏱ 0:05)
+  eta: true,    // Show ETA based on progress rate (ETA 0:30)
+}))
+```
+
+This renders as: ` 40% ████████░░░░░░░░░░░░ ⏱ 0:10 | ETA 0:06 ⠹ Syncing...`
+
+When both `time` and `eta` are shown, they are separated by ` | `.
+
+### Elapsed Time
+
+The `time` option shows a running `⏱ M:SS` (or `H:MM:SS`) counter. When set in the config, it starts automatically when the indicator is created. It can also be toggled on demand:
+
+```typescript
+// Start timer explicitly mid-action
+ctx.context.progress.update({ time: true });
+
+// Stop timer display
+ctx.context.progress.update({ time: false });
+```
+
+### ETA
+
+The `eta` option shows `ETA M:SS` — an estimated time remaining based on the rate of numeric progress updates. It requires at least two `update(number)` calls to calculate a rate.
+
+The displayed ETA counts down every second between progress updates, then recalculates when the next numeric update arrives.
 
 ## Progress Bar
 
@@ -158,7 +262,7 @@ Enable a progress bar with the `bar` option:
 
 ```typescript
 c.extend(padroneProgress({
-  progress: 'Downloading...',
+  message: 'Downloading...',
   bar: true,
 }))
 ```
@@ -173,7 +277,7 @@ Pass an object for full control:
 
 ```typescript
 c.extend(padroneProgress({
-  progress: 'Downloading...',
+  message: 'Downloading...',
   bar: {
     width: 30,           // Bar width in characters (default: 20)
     filled: '▓',         // Filled character (default: '█')
@@ -217,14 +321,14 @@ Padrone includes four built-in spinner presets:
 | `bounce` | `⠁ ⠂ ⠄ ⡀ ⢀ ⠠ ⠐ ⠈` |
 
 ```typescript
-c.extend(padroneProgress({ progress: 'Loading...', spinner: 'line' }))
+c.extend(padroneProgress({ message: 'Loading...', spinner: 'line' }))
 ```
 
 ### Custom Frames
 
 ```typescript
 c.extend(padroneProgress({
-  progress: 'Loading...',
+  message: 'Loading...',
   spinner: { frames: ['🌑', '🌒', '🌓', '🌔', '🌕'], interval: 150 },
 }))
 ```
@@ -234,7 +338,7 @@ c.extend(padroneProgress({
 Set `spinner: false` to show static text without animation:
 
 ```typescript
-c.extend(padroneProgress({ progress: 'Processing...', spinner: false }))
+c.extend(padroneProgress({ message: 'Processing...', spinner: false }))
 ```
 
 ### Showing Both Spinner and Bar
@@ -243,7 +347,7 @@ By default, the spinner hides when the bar is visible. Use `spinner: true` to al
 
 ```typescript
 c.extend(padroneProgress({
-  progress: 'Installing...',
+  message: 'Installing...',
   bar: true,
   spinner: true,  // Always show spinner, even with bar
 }))
@@ -257,7 +361,7 @@ The default renderer outputs to stderr with ANSI escape codes. For non-terminal 
 
 ```typescript
 c.extend(padroneProgress({
-  progress: 'Working...',
+  message: 'Working...',
   renderer: (message, options) => ({
     update(value) { /* ... */ },
     succeed(msg) { /* ... */ },
@@ -297,7 +401,7 @@ function createMockProgress() {
 const { factory, indicators } = createMockProgress();
 const program = createPadrone('app')
   .command('cmd', (c) =>
-    c.extend(padroneProgress({ progress: 'Working...', renderer: factory }))
+    c.extend(padroneProgress({ message: 'Working...', renderer: factory }))
       .action(() => 'done')
   );
 

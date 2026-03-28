@@ -105,7 +105,7 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 
 **Interactive prompts** — auto-prompt for missing fields. Booleans become confirm, enums become select, arrays become multi-select.
 
-**Progress indicators** — auto-managed spinners and progress bars with dynamic messages. `.extend(padroneProgress({ progress: 'Deploying...', bar: true, success: (r) => \`v${r.version}\` }))`.
+**Progress indicators** — auto-managed spinners and progress bars with elapsed time and ETA. `.extend(padroneProgress({ message: 'Deploying...', bar: true, time: true, eta: true }))`.
 
 **Extension-first architecture** — most built-in features (help, version, REPL, color, signal handling, auto-output, stdin, config, interactive, suggestions) are implemented as extensions composed via `.extend()`. Any built-in can be disabled or replaced.
 

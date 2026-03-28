@@ -135,9 +135,12 @@ Auto-managed spinners and progress bars for long-running commands, implemented a
 
 ```typescript
 .extend(padroneProgress({
-  progress: 'Deploying...',
-  success: (result) => `Deployed v${result.version}`,
+  message: {
+    progress: 'Deploying...',
+    success: (result) => `Deployed v${result.version}`,
+  },
   bar: true,
+  time: true,
 }))
 ```
 

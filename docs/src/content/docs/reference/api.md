@@ -403,43 +403,45 @@ Configure an auto-managed progress indicator for the command. The indicator star
 // Simple message
 .progress('Deploying...')
 
-// Boolean shorthand (uses "Running <command>...")
-.progress(true)
-
 // Full config
 .progress({
-  validation: 'Validating...',
-  progress: 'Deploying...',
-  success: (result) => `Deployed v${result.version}`,
-  error: 'Deploy failed',
+  message: {
+    validation: 'Validating...',
+    progress: 'Deploying...',
+    success: (result) => `Deployed v${result.version}`,
+    error: 'Deploy failed',
+  },
   spinner: 'line',
+  bar: true,
+  time: true,
+  eta: true,
 })
 
 // Dynamic indicator icons
 .progress({
-  progress: 'Running...',
-  success: (result) => ({ message: 'All passed', indicator: '🎉' }),
+  message: {
+    progress: 'Running...',
+    success: (result) => ({ message: 'All passed', indicator: '🎉' }),
+  },
 })
 ```
 
 **Parameters:**
-- `config` (optional): `boolean | string | PadroneProgressConfig`
-  - `true` — generic message based on command name
-  - `string` — custom message for all states
-  - Object — full control with per-state messages, callbacks, and spinner config
+- `config` (optional): `string | PadroneProgressConfig`
+  - `string` — custom progress message for all states
+  - Object — full control with messages, visual options, and renderer
 
 **Object fields:**
 | Property | Type | Description |
 |----------|------|-------------|
-| `validation` | `string` | Message during async validation |
-| `progress` | `string` | Message during execution |
-| `success` | `string \| null \| (result) => PadroneProgressMessage` | Success message or callback |
-| `error` | `string \| null \| (error) => PadroneProgressMessage` | Error message or callback |
+| `message` | `string \| PadroneProgressMessages` | Per-phase messages. String sets the `progress` message. Object has `validation`, `progress`, `success`, `error` |
 | `spinner` | `PadroneSpinnerConfig` | Spinner preset, `true` (always show), `false` (disable), or `{ frames, interval, show }` |
 | `bar` | `boolean \| PadroneBarConfig` | `true` for defaults, or `{ width, filled, empty, animation, show }` for customization |
+| `time` | `boolean` | Show elapsed time (`⏱ M:SS`). Can also be toggled via `update({ time: true/false })` |
+| `eta` | `boolean` | Show estimated time remaining (`ETA M:SS`). Requires numeric `update()` calls |
 | `renderer` | `PadroneProgressRenderer` | Custom renderer factory (defaults to built-in terminal renderer) |
 
-Callbacks can return a string, `null` (suppress), or `{ message, indicator }` for per-call icon customization.
+`PadroneProgressMessages` fields: `validation` (string), `progress` (string), `success` (string/null/callback), `error` (string/null/callback). Callbacks can return a string, `null` (suppress), or `{ message, indicator }` for per-call icon customization. Messages can also be provided from context via `progressConfig.message` — command-level fields take precedence.
 
 **Returns:** The program builder (chainable)
 

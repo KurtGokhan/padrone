@@ -102,10 +102,32 @@ function formatBar(progress: number | undefined, cfg: ResolvedBarConfig, frame: 
 // Helpers
 // ---------------------------------------------------------------------------
 
-function parseUpdate(value: PadroneProgressUpdate): { message?: string; progress?: number; indeterminate?: boolean } {
+function parseUpdate(value: PadroneProgressUpdate): { message?: string; progress?: number; indeterminate?: boolean; time?: boolean } {
   if (typeof value === 'string') return { message: value };
   if (typeof value === 'number') return { progress: value };
   return value;
+}
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function estimateEta(samples: { time: number; progress: number }[]): number | undefined {
+  if (samples.length < 2) return undefined;
+  const first = samples[0]!;
+  const last = samples[samples.length - 1]!;
+  const progressDelta = last.progress - first.progress;
+  if (progressDelta <= 0) return undefined;
+  const timeDelta = last.time - first.time;
+  const rate = progressDelta / timeDelta;
+  const remaining = 1 - last.progress;
+  if (remaining <= 0) return 0;
+  return remaining / rate;
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +176,9 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
     return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
   }
 
+  const showTime = options?.time ?? false;
+  const showEta = options?.eta ?? false;
+
   let spinnerFrame = 0;
   let barFrame = 0;
   let text = message;
@@ -161,6 +186,11 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
   let indeterminate = false;
   let stopped = false;
   let paused = false;
+  let timeEnabled = showTime;
+  let startTime = showTime ? Date.now() : 0;
+  const etaSamples: { time: number; progress: number }[] = [];
+  let etaMs: number | undefined;
+  let etaCalculatedAt = 0;
 
   const writeStderr = process.stderr.write.bind(process.stderr);
   const writeStdout = process.stdout.write.bind(process.stdout);
@@ -174,6 +204,17 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
 
     let line = '';
     if (barVisible) line += formatBar(progress, barCfg!, barFrame);
+    const hasEta = showEta && progress !== undefined && progress < 1 && etaMs !== undefined;
+    if (timeEnabled || hasEta) {
+      const parts: string[] = [];
+      if (timeEnabled) parts.push(`⏱ ${formatDuration(Date.now() - startTime)}`);
+      if (hasEta) {
+        const elapsed = Date.now() - etaCalculatedAt;
+        parts.push(`ETA ${formatDuration(Math.max(0, etaMs! - elapsed))}`);
+      }
+      if (line) line += ' ';
+      line += parts.join(' | ');
+    }
     if (spinnerVisible) {
       if (line) line += ' ';
       line += frames[spinnerFrame] ?? '';
@@ -214,10 +255,29 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
       if (stopped) return;
       const parsed = parseUpdate(value);
       if (parsed.message !== undefined) text = parsed.message;
-      if (parsed.progress !== undefined) progress = parsed.progress;
+      if (parsed.progress !== undefined) {
+        progress = parsed.progress;
+        if (showEta) {
+          const now = Date.now();
+          etaSamples.push({ time: now, progress: parsed.progress });
+          const estimated = estimateEta(etaSamples);
+          if (estimated !== undefined) {
+            etaMs = estimated;
+            etaCalculatedAt = now;
+          }
+        }
+      }
       if (parsed.indeterminate !== undefined) {
         indeterminate = parsed.indeterminate;
         if (indeterminate) progress = undefined;
+      }
+      if (parsed.time !== undefined) {
+        if (parsed.time && !timeEnabled) {
+          timeEnabled = true;
+          startTime = Date.now();
+        } else if (!parsed.time) {
+          timeEnabled = false;
+        }
       }
       render();
     },

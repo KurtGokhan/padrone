@@ -33,6 +33,7 @@ export type {
   PadroneProgressConfig,
   PadroneProgressDefaults,
   PadroneProgressMessage,
+  PadroneProgressMessages,
   PadroneProgressRenderer,
   PadroneTracer,
   PadroneTracingConfig,

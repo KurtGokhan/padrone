@@ -5,7 +5,7 @@ import type { HelpFormat } from '../output/formatter.ts';
 export type PadroneSignal = 'SIGINT' | 'SIGTERM' | 'SIGHUP';
 
 /** Value accepted by `PadroneProgressIndicator.update()`. */
-export type PadroneProgressUpdate = string | number | { message?: string; progress?: number; indeterminate?: boolean };
+export type PadroneProgressUpdate = string | number | { message?: string; progress?: number; indeterminate?: boolean; time?: boolean };
 
 /**
  * A progress indicator instance (spinner, progress bar, etc).
@@ -22,6 +22,9 @@ export type PadroneProgressIndicator = {
    * This makes the bar visible even in `show: 'auto'` mode without providing a number.
    * Omitting `progress` (or passing a string) leaves the bar in its current state.
    * Setting `progress` when bar mode is not enabled is a no-op for the bar portion.
+   *
+   * Set `time: true` to start the elapsed timer on demand (useful when `time` was not set in options).
+   * Set `time: false` to hide the elapsed timer.
    */
   update: (value: PadroneProgressUpdate) => void;
   /** Mark as succeeded and stop. Pass `null` to stop without rendering a final message. */
@@ -92,6 +95,10 @@ export type PadroneProgressOptions = {
   spinner?: PadroneSpinnerConfig;
   /** Enable a progress bar. `true` for defaults (`show: 'always'`), or a `PadroneBarConfig` object. `false` to disable entirely. When omitted, bar defaults to `show: 'auto'` (appears when a number is provided). */
   bar?: boolean | PadroneBarConfig;
+  /** Show elapsed time since the indicator started. Defaults to `false`. */
+  time?: boolean;
+  /** Show estimated time remaining based on progress rate. Requires numeric `update()` calls. Defaults to `false`. */
+  eta?: boolean;
   /** Character/string shown before the success message. Defaults to `'✔'`. */
   successIndicator?: string;
   /** Character/string shown before the error message. Defaults to `'✖'`. */

@@ -285,14 +285,18 @@ export const tasksProgram = createPadrone('tasks')
       )
       .extend(
         padroneProgress({
-          validation: 'Validating before sync...',
-          progress: 'Syncing tasks to remote...',
-          success: (res) => ({
-            message: `${(res as any).count} tasks synced successfully!`,
-            indicator: (res as any).count > 3 ? '🚀' : '✅',
-          }),
-          error: 'Failed to sync tasks.',
+          message: {
+            validation: 'Validating before sync...',
+            progress: 'Syncing tasks to remote...',
+            success: (res: any) => ({
+              message: `${res.count} tasks synced successfully!`,
+              indicator: res.count > 3 ? '🚀' : '✅',
+            }),
+            error: 'Failed to sync tasks.',
+          },
           spinner: true,
+          time: true,
+          eta: true,
         }),
       )
       .action(async (_args, ctx) => {
@@ -301,7 +305,7 @@ export const tasksProgram = createPadrone('tasks')
         ctx.context.progress.update({ indeterminate: true });
         await new Promise((resolve) => setTimeout(resolve, 1000));
         for (let i = 1; i <= 5; i++) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 2000 * Math.sqrt(i)));
           ctx.context.progress.update(0.2 * i);
         }
         ctx.context.logger.info('Sync operation is taking longer than expected...');
@@ -327,8 +331,7 @@ export const tasksProgram = createPadrone('tasks')
       )
       .extend(
         padroneProgress({
-          progress: 'Importing tasks...',
-          success: (res) => res as string,
+          message: { progress: 'Importing tasks...', success: (res: any) => res as string },
         }),
       )
       .action((args, ctx) => {

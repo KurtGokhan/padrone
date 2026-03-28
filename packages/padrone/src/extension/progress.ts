@@ -12,10 +12,8 @@ import { createTerminalProgress } from './progress-renderer.ts';
 /** A progress message value: a plain string, `null` to suppress, or an object with a message and custom indicator icon. */
 export type PadroneProgressMessage = string | null | { message?: string | null; indicator?: string };
 
-/**
- * Progress indicator configuration with per-state messages and optional dynamic callbacks.
- */
-export type PadroneProgressConfig<TRes = unknown> = {
+/** Per-phase message configuration for progress indicators. */
+export type PadroneProgressMessages<TRes = unknown> = {
   /** Message shown during async validation. Defaults to `''` (spinner only). */
   validation?: string;
   /** Message shown while the command's action is running. */
@@ -24,10 +22,22 @@ export type PadroneProgressConfig<TRes = unknown> = {
   success?: PadroneProgressMessage | ((result: TRes) => PadroneProgressMessage);
   /** Message shown when the command fails. `null` to suppress. Defaults to the error message. */
   error?: PadroneProgressMessage | ((error: unknown) => PadroneProgressMessage);
+};
+
+/**
+ * Progress indicator configuration with messages, visual options, and renderer.
+ */
+export type PadroneProgressConfig<TRes = unknown> = {
+  /** Per-phase messages. A string sets the `progress` message; an object configures individual phases. */
+  message?: string | PadroneProgressMessages<TRes>;
   /** Spinner configuration. Default `show` is `'auto'` (visible when bar is not shown). `true` forces spinner to always show (even alongside a bar). */
   spinner?: PadroneSpinnerConfig;
   /** Enable a progress bar. `true` for defaults (`show: 'always'`), or a `PadroneBarConfig` object. `false` to disable entirely. When omitted, bar defaults to `show: 'auto'`. */
   bar?: boolean | PadroneBarConfig;
+  /** Show elapsed time since the indicator started. Can also be started on demand via `update({ time: true })`. */
+  time?: boolean;
+  /** Show estimated time remaining based on progress rate. Requires numeric `update()` calls. */
+  eta?: boolean;
   /**
    * Custom renderer factory. Called to create the progress indicator.
    * Defaults to the built-in terminal renderer (`createTerminalProgress`).
@@ -42,7 +52,7 @@ export type PadroneProgressConfig<TRes = unknown> = {
  *
  * Provide via context as `{ progressConfig: PadroneProgressDefaults }`.
  */
-export type PadroneProgressDefaults = Pick<PadroneProgressConfig, 'spinner' | 'bar' | 'renderer'>;
+export type PadroneProgressDefaults = Pick<PadroneProgressConfig, 'message' | 'spinner' | 'bar' | 'time' | 'eta' | 'renderer'>;
 
 /** Builder/program type after applying `padroneProgress()`. Adds `{ progress: PadroneProgressIndicator }` to the command context. */
 export type WithProgress<T> = WithInterceptor<T, { progress: PadroneProgressIndicator }>;
@@ -93,17 +103,49 @@ function cleanup(
 // Interceptor
 // ---------------------------------------------------------------------------
 
+function resolveMessages(raw: string | PadroneProgressMessages | undefined): {
+  progress: string;
+  validation: string;
+  success: unknown;
+  error: unknown;
+} {
+  if (!raw || typeof raw === 'string') {
+    return { progress: raw || 'Working...', validation: '', success: undefined, error: undefined };
+  }
+  return {
+    progress: raw.progress ?? 'Working...',
+    validation: raw.validation ?? '',
+    success: raw.success,
+    error: raw.error,
+  };
+}
+
+function mergeMessages(
+  cmd: ReturnType<typeof resolveMessages>,
+  ctx: ReturnType<typeof resolveMessages>,
+  cmdRaw: string | PadroneProgressMessages | undefined,
+): ReturnType<typeof resolveMessages> {
+  // String shorthand: all fields come from the string, no context fallback for individual fields
+  if (typeof cmdRaw === 'string') return cmd;
+  // Object: per-field fallback to context
+  const obj = (typeof cmdRaw === 'object' ? cmdRaw : undefined) as PadroneProgressMessages | undefined;
+  return {
+    progress: obj?.progress !== undefined ? cmd.progress : (ctx.progress ?? cmd.progress),
+    validation: obj?.validation !== undefined ? cmd.validation : ctx.validation || cmd.validation,
+    success: obj?.success !== undefined ? cmd.success : (ctx.success ?? cmd.success),
+    error: obj?.error !== undefined ? cmd.error : (ctx.error ?? cmd.error),
+  };
+}
+
 function progressInterceptor(config: string | PadroneProgressConfig) {
   const isObj = typeof config === 'object';
-  const defaultMsg = typeof config === 'string' ? config : (config.progress ?? 'Working...');
-  const progressMsg = isObj ? (config.progress ?? defaultMsg) : defaultMsg;
-  const validationMsg = isObj ? (config.validation ?? '') : '';
-  const successConfig = isObj ? config.success : undefined;
-  const errorConfig = isObj ? config.error : undefined;
+  const rawMessage = typeof config === 'string' ? config : isObj ? config.message : undefined;
   // Raw constructor values — undefined means "not set by caller"
   const rawSpinner = isObj ? config.spinner : undefined;
   const rawBar = isObj ? config.bar : undefined;
   const rawRenderer = isObj ? config.renderer : undefined;
+  const rawTime = isObj ? config.time : undefined;
+  const rawEta = isObj ? config.eta : undefined;
 
   return defineInterceptor({ id: 'padrone:progress', name: 'padrone:progress' })
     .requires<{ progressConfig?: PadroneProgressDefaults }>()
@@ -113,14 +155,19 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
       // Lazily resolved from context + constructor args
       let resolvedRenderer: PadroneProgressRenderer | undefined;
       let resolvedOptions: PadroneProgressOptions | undefined;
+      let msgs: ReturnType<typeof resolveMessages> | undefined;
 
       function resolve(ctx: { context?: { progressConfig?: PadroneProgressDefaults } }) {
         if (resolvedRenderer) return;
         const ctxCfg = (ctx.context as Record<string, unknown> | undefined)?.progressConfig as PadroneProgressDefaults | undefined;
         const spinner = rawSpinner ?? ctxCfg?.spinner;
         const bar = rawBar ?? ctxCfg?.bar;
+        const time = rawTime ?? ctxCfg?.time;
+        const eta = rawEta ?? ctxCfg?.eta;
         resolvedRenderer = rawRenderer ?? ctxCfg?.renderer ?? createTerminalProgress;
-        resolvedOptions = spinner !== undefined || bar !== undefined ? { spinner, bar } : undefined;
+        resolvedOptions =
+          spinner !== undefined || bar !== undefined || time !== undefined || eta !== undefined ? { spinner, bar, time, eta } : undefined;
+        msgs = mergeMessages(resolveMessages(rawMessage), resolveMessages(ctxCfg?.message), rawMessage);
       }
 
       const teardown = () => {
@@ -132,7 +179,7 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
       return {
         validate(ctx, next) {
           resolve(ctx);
-          indicator = resolvedRenderer!(validationMsg || progressMsg, resolvedOptions);
+          indicator = resolvedRenderer!(msgs!.validation || msgs!.progress, resolvedOptions);
 
           const originalOutput = ctx.runtime.output;
           const originalError = ctx.runtime.error;
@@ -156,17 +203,17 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
 
         execute(ctx, next) {
           // Transition from validation message to progress message
-          if (indicator && validationMsg) indicator.update(progressMsg);
+          if (indicator && msgs!.validation) indicator.update(msgs!.progress);
 
           const effectiveIndicator = indicator ?? noopIndicator;
 
           const onSuccess = (value: unknown) => {
-            cleanup(effectiveIndicator, successConfig, errorConfig, undefined, value, false);
+            cleanup(effectiveIndicator, msgs!.success, msgs!.error, undefined, value, false);
             teardown();
           };
           const onError = (err: unknown) => {
             if (indicator) {
-              cleanup(indicator, successConfig, errorConfig, err, undefined, true);
+              cleanup(indicator, msgs!.success, msgs!.error, err, undefined, true);
               teardown();
             }
             throw err;

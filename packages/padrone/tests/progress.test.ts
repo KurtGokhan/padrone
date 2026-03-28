@@ -53,7 +53,7 @@ describe('progress', () => {
     it('should start and succeed progress for a sync command', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('deploy', (c) =>
-        c.extend(padroneProgress({ progress: 'Deploying...', renderer: factory })).action(() => 'deployed'),
+        c.extend(padroneProgress({ message: 'Deploying...', renderer: factory })).action(() => 'deployed'),
       );
 
       const result = program.eval('deploy');
@@ -68,7 +68,7 @@ describe('progress', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('deploy', (c) =>
         c
-          .extend(padroneProgress({ progress: 'Deploying...', renderer: factory }))
+          .extend(padroneProgress({ message: 'Deploying...', renderer: factory }))
           .async()
           .action(async () => {
             return 'deployed';
@@ -85,7 +85,7 @@ describe('progress', () => {
     it('should fail progress when command throws', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('fail', (c) =>
-        c.extend(padroneProgress({ progress: 'Working...', renderer: factory })).action(() => {
+        c.extend(padroneProgress({ message: 'Working...', renderer: factory })).action(() => {
           throw new Error('boom');
         }),
       );
@@ -99,7 +99,7 @@ describe('progress', () => {
     it('should fail progress when async command rejects', async () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('fail', (c) =>
-        c.extend(padroneProgress({ progress: 'Working...', renderer: factory })).action(async () => {
+        c.extend(padroneProgress({ message: 'Working...', renderer: factory })).action(async () => {
           throw new Error('async boom');
         }),
       );
@@ -114,7 +114,12 @@ describe('progress', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('deploy', (c) =>
         c
-          .extend(padroneProgress({ progress: 'Deploying...', success: 'Deployed!', error: 'Deploy failed', renderer: factory }))
+          .extend(
+            padroneProgress({
+              message: { progress: 'Deploying...', success: 'Deployed!', error: 'Deploy failed' },
+              renderer: factory,
+            }),
+          )
           .action(() => 'ok'),
       );
 
@@ -126,7 +131,7 @@ describe('progress', () => {
     it('should use error message from progress config on failure', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('deploy', (c) =>
-        c.extend(padroneProgress({ progress: 'Deploying...', error: 'Deploy failed', renderer: factory })).action(() => {
+        c.extend(padroneProgress({ message: { progress: 'Deploying...', error: 'Deploy failed' }, renderer: factory })).action(() => {
           throw new Error('boom');
         }),
       );
@@ -156,7 +161,7 @@ describe('progress', () => {
     it('should expose auto-managed indicator on action context', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('cmd', (c) =>
-        c.extend(padroneProgress({ progress: 'Working...', renderer: factory })).action((_args, ctx) => {
+        c.extend(padroneProgress({ message: 'Working...', renderer: factory })).action((_args, ctx) => {
           ctx.context.progress.update('halfway');
           return 'done';
         }),
@@ -174,7 +179,7 @@ describe('progress', () => {
         .intercept({ name: 'test-interceptor' }, () => ({
           execute: (_ctx, next) => next(),
         }))
-        .command('cmd', (c) => c.extend(padroneProgress({ progress: 'Working...', renderer: factory })).action(() => 'done'));
+        .command('cmd', (c) => c.extend(padroneProgress({ message: 'Working...', renderer: factory })).action(() => 'done'));
 
       const result = program.eval('cmd');
       expect(result.result).toBe('done');
@@ -189,7 +194,7 @@ describe('progress', () => {
             throw new Error('interceptor error');
           },
         }))
-        .command('cmd', (c) => c.extend(padroneProgress({ progress: 'Working...', renderer: factory })).action(() => 'done'));
+        .command('cmd', (c) => c.extend(padroneProgress({ message: 'Working...', renderer: factory })).action(() => 'done'));
 
       const result = program.eval('cmd');
       expect(result.error).toBeDefined();
@@ -210,8 +215,7 @@ describe('progress', () => {
           .action(() => ({ version: '2.0' }))
           .extend(
             padroneProgress({
-              progress: 'Deploying...',
-              success: (result) => `Deployed v${(result as any).version}`,
+              message: { progress: 'Deploying...', success: (result) => `Deployed v${(result as any).version}` },
               renderer: factory,
             }),
           ),
@@ -230,8 +234,7 @@ describe('progress', () => {
           })
           .extend(
             padroneProgress({
-              progress: 'Deploying...',
-              error: () => 'Custom fail message',
+              message: { progress: 'Deploying...', error: () => 'Custom fail message' },
               renderer: factory,
             }),
           ),
@@ -248,8 +251,7 @@ describe('progress', () => {
           .action(() => 'ok')
           .extend(
             padroneProgress({
-              progress: 'Working...',
-              success: () => null,
+              message: { progress: 'Working...', success: () => null },
               renderer: factory,
             }),
           ),
@@ -266,9 +268,7 @@ describe('progress', () => {
           .action(() => 42)
           .extend(
             padroneProgress({
-              progress: 'Working...',
-              success: (result) => `Result: ${result}`,
-              error: 'Static error',
+              message: { progress: 'Working...', success: (result) => `Result: ${result}`, error: 'Static error' },
               renderer: factory,
             }),
           ),
@@ -287,8 +287,10 @@ describe('progress', () => {
           .action(() => ({ version: '2.0' }))
           .extend(
             padroneProgress({
-              progress: 'Deploying...',
-              success: (result) => ({ message: `Deployed v${(result as any).version}`, indicator: '🚀' }),
+              message: {
+                progress: 'Deploying...',
+                success: (result) => ({ message: `Deployed v${(result as any).version}`, indicator: '🚀' }),
+              },
               renderer: factory,
             }),
           ),
@@ -307,8 +309,7 @@ describe('progress', () => {
           })
           .extend(
             padroneProgress({
-              progress: 'Deploying...',
-              error: () => ({ message: 'Deploy crashed', indicator: '💥' }),
+              message: { progress: 'Deploying...', error: () => ({ message: 'Deploy crashed', indicator: '💥' }) },
               renderer: factory,
             }),
           ),
@@ -325,8 +326,7 @@ describe('progress', () => {
           .action(() => 'ok')
           .extend(
             padroneProgress({
-              progress: 'Working...',
-              success: { message: 'All good', indicator: '👍' },
+              message: { progress: 'Working...', success: { message: 'All good', indicator: '👍' } },
               renderer: factory,
             }),
           ),
@@ -343,8 +343,7 @@ describe('progress', () => {
           .action(() => 'ok')
           .extend(
             padroneProgress({
-              progress: 'Working...',
-              success: () => ({ message: null }),
+              message: { progress: 'Working...', success: () => ({ message: null }) },
               renderer: factory,
             }),
           ),
@@ -361,8 +360,7 @@ describe('progress', () => {
           .action(() => 'ok')
           .extend(
             padroneProgress({
-              progress: 'Working...',
-              success: { message: 'Done', indicator: '' },
+              message: { progress: 'Working...', success: { message: 'Done', indicator: '' } },
               renderer: factory,
             }),
           ),
@@ -378,7 +376,7 @@ describe('progress', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('cmd', (c) =>
         c
-          .extend(padroneProgress({ validation: 'Validating...', progress: 'Running...', renderer: factory }))
+          .extend(padroneProgress({ message: { validation: 'Validating...', progress: 'Running...' }, renderer: factory }))
           .async()
           .action(async () => 'done'),
       );
@@ -393,7 +391,7 @@ describe('progress', () => {
     it('should default validation message to empty string (uses progress message)', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('cmd', (c) =>
-        c.extend(padroneProgress({ progress: 'Running...', renderer: factory })).action(() => 'done'),
+        c.extend(padroneProgress({ message: 'Running...', renderer: factory })).action(() => 'done'),
       );
 
       program.eval('cmd');
@@ -407,7 +405,7 @@ describe('progress', () => {
     it('should suppress succeed message when success is null', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('cmd', (c) =>
-        c.extend(padroneProgress({ progress: 'Working...', success: null, renderer: factory })).action(() => 'ok'),
+        c.extend(padroneProgress({ message: { progress: 'Working...', success: null }, renderer: factory })).action(() => 'ok'),
       );
 
       program.eval('cmd');
@@ -417,7 +415,7 @@ describe('progress', () => {
     it('should suppress error message when error is null', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('cmd', (c) =>
-        c.extend(padroneProgress({ progress: 'Working...', error: null, renderer: factory })).action(() => {
+        c.extend(padroneProgress({ message: { progress: 'Working...', error: null }, renderer: factory })).action(() => {
           throw new Error('boom');
         }),
       );
@@ -447,7 +445,7 @@ describe('progress', () => {
       const program = createPadrone('app')
         .context<{ progressConfig: PadroneProgressDefaults }>()
         .command('build', (c) =>
-          c.extend(padroneProgress({ progress: 'Building...', renderer: ctorFactory.factory })).action(() => 'built'),
+          c.extend(padroneProgress({ message: 'Building...', renderer: ctorFactory.factory })).action(() => 'built'),
         );
 
       program.eval('build', { context: { progressConfig: { renderer: ctxFactory.factory } } });
@@ -491,6 +489,33 @@ describe('progress', () => {
       expect(result.error).toBeUndefined();
       expect(result.result).toBe('ok');
     });
+
+    it('should fall back to context messages when command has no message config', () => {
+      const { factory, indicators } = createMockProgress();
+      const program = createPadrone('app')
+        .context<{ progressConfig: PadroneProgressDefaults }>()
+        .command('cmd', (c) => c.extend(padroneProgress({ renderer: factory })).action(() => 'ok'));
+
+      program.eval('cmd', {
+        context: { progressConfig: { renderer: factory, message: { progress: 'Context msg', success: 'Context done' } } },
+      });
+      expect(indicators[0]!.message).toBe('Context msg');
+      expect(indicators[0]!.indicator.calls).toEqual(['succeed:Context done']);
+    });
+
+    it('should let command message fields override context message fields', () => {
+      const { factory, indicators } = createMockProgress();
+      const program = createPadrone('app')
+        .context<{ progressConfig: PadroneProgressDefaults }>()
+        .command('cmd', (c) => c.extend(padroneProgress({ message: { progress: 'Command msg' }, renderer: factory })).action(() => 'ok'));
+
+      program.eval('cmd', {
+        context: { progressConfig: { renderer: factory, message: { progress: 'Context msg', success: 'Context done' } } },
+      });
+      expect(indicators[0]!.message).toBe('Command msg');
+      // success not set on command → falls back to context
+      expect(indicators[0]!.indicator.calls).toEqual(['succeed:Context done']);
+    });
   });
 
   describe('spinner options', () => {
@@ -502,7 +527,7 @@ describe('progress', () => {
       };
 
       const program = createPadrone('app').command('cmd', (c) =>
-        c.extend(padroneProgress({ progress: 'Working...', spinner: 'line', renderer })).action(() => 'ok'),
+        c.extend(padroneProgress({ message: 'Working...', spinner: 'line', renderer })).action(() => 'ok'),
       );
 
       program.eval('cmd');
@@ -517,7 +542,7 @@ describe('progress', () => {
       };
 
       const program = createPadrone('app').command('cmd', (c) =>
-        c.extend(padroneProgress({ progress: 'Working...', renderer })).action(() => 'ok'),
+        c.extend(padroneProgress({ message: 'Working...', renderer })).action(() => 'ok'),
       );
 
       program.eval('cmd');
@@ -532,7 +557,7 @@ describe('progress', () => {
       };
 
       const program = createPadrone('app').command('cmd', (c) =>
-        c.extend(padroneProgress({ progress: 'Working...', spinner: false, renderer })).action(() => 'ok'),
+        c.extend(padroneProgress({ message: 'Working...', spinner: false, renderer })).action(() => 'ok'),
       );
 
       program.eval('cmd');
@@ -549,7 +574,7 @@ describe('progress', () => {
       };
 
       const program = createPadrone('app').command('cmd', (c) =>
-        c.extend(padroneProgress({ progress: 'Downloading...', bar: true, renderer })).action(() => 'ok'),
+        c.extend(padroneProgress({ message: 'Downloading...', bar: true, renderer })).action(() => 'ok'),
       );
 
       program.eval('cmd');
@@ -564,7 +589,7 @@ describe('progress', () => {
       };
 
       const program = createPadrone('app').command('cmd', (c) =>
-        c.extend(padroneProgress({ progress: 'Downloading...', bar: { width: 30, filled: '#', empty: '-' }, renderer })).action(() => 'ok'),
+        c.extend(padroneProgress({ message: 'Downloading...', bar: { width: 30, filled: '#', empty: '-' }, renderer })).action(() => 'ok'),
       );
 
       program.eval('cmd');
@@ -574,7 +599,7 @@ describe('progress', () => {
     it('should track progress via update(number) in action', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('cmd', (c) =>
-        c.extend(padroneProgress({ progress: 'Downloading...', bar: true, renderer: factory })).action((_args, ctx) => {
+        c.extend(padroneProgress({ message: 'Downloading...', bar: true, renderer: factory })).action((_args, ctx) => {
           ctx.context.progress.update(0.5);
           return 'done';
         }),
@@ -587,7 +612,7 @@ describe('progress', () => {
     it('should track progress via update({ message, progress })', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('cmd', (c) =>
-        c.extend(padroneProgress({ progress: 'Downloading...', bar: true, renderer: factory })).action((_args, ctx) => {
+        c.extend(padroneProgress({ message: 'Downloading...', bar: true, renderer: factory })).action((_args, ctx) => {
           ctx.context.progress.update({ message: 'Step 1', progress: 0.25 });
           ctx.context.progress.update({ message: 'Step 2', progress: 0.75 });
           return 'done';
@@ -601,7 +626,7 @@ describe('progress', () => {
     it('should support indeterminate progress (no number)', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app').command('cmd', (c) =>
-        c.extend(padroneProgress({ progress: 'Working...', bar: true, renderer: factory })).action((_args, ctx) => {
+        c.extend(padroneProgress({ message: 'Working...', bar: true, renderer: factory })).action((_args, ctx) => {
           ctx.context.progress.update('Still working...');
           return 'done';
         }),
@@ -610,6 +635,83 @@ describe('progress', () => {
       program.eval('cmd');
       // Only message updates, no progress numbers — stays indeterminate
       expect(indicators[0]!.indicator.calls).toEqual(['update:Still working...', 'succeed:']);
+    });
+  });
+
+  describe('time and eta', () => {
+    it('should pass time option to renderer', () => {
+      let receivedOptions: any;
+      const renderer: PadroneProgressRenderer = (_message, options) => {
+        receivedOptions = options;
+        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+      };
+
+      const program = createPadrone('app').command('cmd', (c) =>
+        c.extend(padroneProgress({ message: 'Working...', time: true, renderer })).action(() => 'ok'),
+      );
+
+      program.eval('cmd');
+      expect(receivedOptions?.time).toBe(true);
+    });
+
+    it('should pass eta option to renderer', () => {
+      let receivedOptions: any;
+      const renderer: PadroneProgressRenderer = (_message, options) => {
+        receivedOptions = options;
+        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+      };
+
+      const program = createPadrone('app').command('cmd', (c) =>
+        c.extend(padroneProgress({ message: 'Working...', eta: true, renderer })).action(() => 'ok'),
+      );
+
+      program.eval('cmd');
+      expect(receivedOptions?.eta).toBe(true);
+    });
+
+    it('should pass both time and eta with bar', () => {
+      let receivedOptions: any;
+      const renderer: PadroneProgressRenderer = (_message, options) => {
+        receivedOptions = options;
+        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+      };
+
+      const program = createPadrone('app').command('cmd', (c) =>
+        c.extend(padroneProgress({ message: 'Working...', bar: true, time: true, eta: true, renderer })).action(() => 'ok'),
+      );
+
+      program.eval('cmd');
+      expect(receivedOptions).toEqual({ spinner: undefined, bar: true, time: true, eta: true });
+    });
+
+    it('should read time config from context', () => {
+      let receivedOptions: any;
+      const renderer: PadroneProgressRenderer = (_message, options) => {
+        receivedOptions = options;
+        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+      };
+
+      const program = createPadrone('app')
+        .context<{ progressConfig: PadroneProgressDefaults }>()
+        .command('cmd', (c) => c.extend(padroneProgress('Working...')).action(() => 'ok'));
+
+      program.eval('cmd', { context: { progressConfig: { renderer, time: true, eta: true } } });
+      expect(receivedOptions?.time).toBe(true);
+      expect(receivedOptions?.eta).toBe(true);
+    });
+
+    it('should allow starting timer via update({ time: true })', () => {
+      const { factory, indicators } = createMockProgress();
+      const program = createPadrone('app').command('cmd', (c) =>
+        c.extend(padroneProgress({ message: 'Working...', renderer: factory })).action((_args, ctx) => {
+          ctx.context.progress.update({ time: true });
+          return 'done';
+        }),
+      );
+
+      program.eval('cmd');
+      // The mock doesn't track time specifically, but the update call should succeed
+      expect(indicators[0]!.indicator.calls).toEqual(['succeed:']);
     });
   });
 });

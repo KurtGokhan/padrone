@@ -17,7 +17,13 @@ export type { WithMan } from './man.ts';
 export { padroneMan } from './man.ts';
 export type { WithMcp } from './mcp.ts';
 export { padroneMcp } from './mcp.ts';
-export type { PadroneProgressConfig, PadroneProgressDefaults, PadroneProgressMessage, WithProgress } from './progress.ts';
+export type {
+  PadroneProgressConfig,
+  PadroneProgressDefaults,
+  PadroneProgressMessage,
+  PadroneProgressMessages,
+  WithProgress,
+} from './progress.ts';
 export { padroneProgress } from './progress.ts';
 export type { PadroneProgressRenderer } from './progress-renderer.ts';
 export { createTerminalProgress } from './progress-renderer.ts';
