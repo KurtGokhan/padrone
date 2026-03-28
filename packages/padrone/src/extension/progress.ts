@@ -35,6 +35,15 @@ export type PadroneProgressConfig<TRes = unknown> = {
   renderer?: PadroneProgressRenderer;
 };
 
+/**
+ * Shared progress defaults that can be provided via context instead of repeating
+ * at each call site. Per-instance message fields are excluded — those always come
+ * from the constructor argument.
+ *
+ * Provide via context as `{ progressConfig: PadroneProgressDefaults }`.
+ */
+export type PadroneProgressDefaults = Pick<PadroneProgressConfig, 'spinner' | 'bar' | 'renderer'>;
+
 /** Builder/program type after applying `padroneProgress()`. Adds `{ progress: PadroneProgressIndicator }` to the command context. */
 export type WithProgress<T> = WithInterceptor<T, { progress: PadroneProgressIndicator }>;
 
@@ -91,106 +100,121 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
   const validationMsg = isObj ? (config.validation ?? '') : '';
   const successConfig = isObj ? config.success : undefined;
   const errorConfig = isObj ? config.error : undefined;
-  const spinnerConfig = isObj ? config.spinner : undefined;
-  const barConfig = isObj ? config.bar : undefined;
-  const renderer = (isObj ? config.renderer : undefined) ?? createTerminalProgress;
-  const progressOptions: PadroneProgressOptions | undefined =
-    spinnerConfig !== undefined || barConfig !== undefined ? { spinner: spinnerConfig, bar: barConfig } : undefined;
+  // Raw constructor values — undefined means "not set by caller"
+  const rawSpinner = isObj ? config.spinner : undefined;
+  const rawBar = isObj ? config.bar : undefined;
+  const rawRenderer = isObj ? config.renderer : undefined;
 
-  return defineInterceptor({ id: 'padrone:progress', name: 'padrone:progress' }, () => {
-    let indicator: PadroneProgressIndicator | undefined;
-    let restoreOutput: (() => void) | undefined;
+  return defineInterceptor({ id: 'padrone:progress', name: 'padrone:progress' })
+    .requires<{ progressConfig?: PadroneProgressDefaults }>()
+    .factory(() => {
+      let indicator: PadroneProgressIndicator | undefined;
+      let restoreOutput: (() => void) | undefined;
+      // Lazily resolved from context + constructor args
+      let resolvedRenderer: PadroneProgressRenderer | undefined;
+      let resolvedOptions: PadroneProgressOptions | undefined;
 
-    const teardown = () => {
-      restoreOutput?.();
-      indicator = undefined;
-      restoreOutput = undefined;
-    };
+      function resolve(ctx: { context?: { progressConfig?: PadroneProgressDefaults } }) {
+        if (resolvedRenderer) return;
+        const ctxCfg = (ctx.context as Record<string, unknown> | undefined)?.progressConfig as PadroneProgressDefaults | undefined;
+        const spinner = rawSpinner ?? ctxCfg?.spinner;
+        const bar = rawBar ?? ctxCfg?.bar;
+        resolvedRenderer = rawRenderer ?? ctxCfg?.renderer ?? createTerminalProgress;
+        resolvedOptions = spinner !== undefined || bar !== undefined ? { spinner, bar } : undefined;
+      }
 
-    return {
-      validate(ctx, next) {
-        indicator = renderer(validationMsg || progressMsg, progressOptions);
+      const teardown = () => {
+        restoreOutput?.();
+        indicator = undefined;
+        restoreOutput = undefined;
+      };
 
-        const originalOutput = ctx.runtime.output;
-        const originalError = ctx.runtime.error;
-        ctx.runtime.output = (...args: unknown[]) => {
-          indicator!.pause();
-          originalOutput(...args);
-          indicator!.resume();
-        };
-        ctx.runtime.error = (text: string) => {
-          indicator!.pause();
-          originalError(text);
-          indicator!.resume();
-        };
-        restoreOutput = () => {
-          ctx.runtime.output = originalOutput;
-          ctx.runtime.error = originalError;
-        };
+      return {
+        validate(ctx, next) {
+          resolve(ctx);
+          indicator = resolvedRenderer!(validationMsg || progressMsg, resolvedOptions);
 
-        return next();
-      },
+          const originalOutput = ctx.runtime.output;
+          const originalError = ctx.runtime.error;
+          ctx.runtime.output = (...args: unknown[]) => {
+            indicator!.pause();
+            originalOutput(...args);
+            indicator!.resume();
+          };
+          ctx.runtime.error = (text: string) => {
+            indicator!.pause();
+            originalError(text);
+            indicator!.resume();
+          };
+          restoreOutput = () => {
+            ctx.runtime.output = originalOutput;
+            ctx.runtime.error = originalError;
+          };
 
-      execute(ctx, next) {
-        // Transition from validation message to progress message
-        if (indicator && validationMsg) indicator.update(progressMsg);
+          return next();
+        },
 
-        const effectiveIndicator = indicator ?? noopIndicator;
+        execute(ctx, next) {
+          // Transition from validation message to progress message
+          if (indicator && validationMsg) indicator.update(progressMsg);
 
-        const onSuccess = (value: unknown) => {
-          cleanup(effectiveIndicator, successConfig, errorConfig, undefined, value, false);
-          teardown();
-        };
-        const onError = (err: unknown) => {
-          if (indicator) {
-            cleanup(indicator, successConfig, errorConfig, err, undefined, true);
+          const effectiveIndicator = indicator ?? noopIndicator;
+
+          const onSuccess = (value: unknown) => {
+            cleanup(effectiveIndicator, successConfig, errorConfig, undefined, value, false);
             teardown();
-          }
-          throw err;
-        };
+          };
+          const onError = (err: unknown) => {
+            if (indicator) {
+              cleanup(indicator, successConfig, errorConfig, err, undefined, true);
+              teardown();
+            }
+            throw err;
+          };
 
-        let result: any;
-        try {
-          result = next({ context: { ...(ctx.context as any), progress: effectiveIndicator } });
-        } catch (err) {
-          onError(err);
-        }
-        if (result instanceof Promise) {
-          return result.then(
-            (r) => {
-              if (r.result instanceof Promise) {
-                return {
-                  result: r.result.then(
-                    (value: unknown) => {
-                      onSuccess(value);
-                      return value;
-                    },
-                    (err: unknown) => onError(err),
-                  ),
-                };
-              }
-              onSuccess(r.result);
-              return r;
-            },
-            (err: unknown) => onError(err),
-          );
-        }
-        if (result!.result instanceof Promise) {
-          return {
-            result: result!.result.then(
-              (value: unknown) => {
-                onSuccess(value);
-                return value;
+          let result: any;
+          try {
+            result = next({ context: { ...(ctx.context as any), progress: effectiveIndicator } });
+          } catch (err) {
+            onError(err);
+          }
+          if (result instanceof Promise) {
+            return result.then(
+              (r) => {
+                if (r.result instanceof Promise) {
+                  return {
+                    result: r.result.then(
+                      (value: unknown) => {
+                        onSuccess(value);
+                        return value;
+                      },
+                      (err: unknown) => onError(err),
+                    ),
+                  };
+                }
+                onSuccess(r.result);
+                return r;
               },
               (err: unknown) => onError(err),
-            ),
-          };
-        }
-        onSuccess(result!.result);
-        return result;
-      },
-    };
-  }).provides<{ progress: PadroneProgressIndicator }>();
+            );
+          }
+          if (result!.result instanceof Promise) {
+            return {
+              result: result!.result.then(
+                (value: unknown) => {
+                  onSuccess(value);
+                  return value;
+                },
+                (err: unknown) => onError(err),
+              ),
+            };
+          }
+          onSuccess(result!.result);
+          return result;
+        },
+      };
+    })
+    .provides<{ progress: PadroneProgressIndicator }>();
 }
 
 // ---------------------------------------------------------------------------

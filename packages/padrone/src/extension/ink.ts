@@ -27,40 +27,44 @@ export type InkOptions = {
 
 const inkMeta = { id: 'padrone:ink', name: 'padrone:ink', order: -1050 } as const;
 
-function createInkInterceptor(options: InkOptions = {}) {
-  const { waitUntilExit = true } = options;
+function createInkInterceptor(rawOptions?: InkOptions) {
+  return defineInterceptor(inkMeta)
+    .requires<{ inkConfig?: InkOptions }>()
+    .factory(() => ({
+      execute(ctx, next) {
+        const ctxCfg = (ctx.context as Record<string, unknown> | undefined)?.inkConfig as InkOptions | undefined;
+        const options: InkOptions = { ...ctxCfg, ...rawOptions };
+        const { waitUntilExit = true } = options;
 
-  return defineInterceptor(inkMeta, () => ({
-    execute(ctx, next) {
-      const handleResult = async (e: InterceptorExecuteResult): Promise<InterceptorExecuteResult> => {
-        let value = e.result;
-        if (value instanceof Promise) value = await value;
-        if (!isReactElement(value)) return e;
+        const handleResult = async (e: InterceptorExecuteResult): Promise<InterceptorExecuteResult> => {
+          let value = e.result;
+          if (value instanceof Promise) value = await value;
+          if (!isReactElement(value)) return e;
 
-        const { render } = await import('ink');
-        const instance = render(value as import('react').ReactElement, options.render);
+          const { render } = await import('ink');
+          const instance = render(value as import('react').ReactElement, options.render);
 
-        // Unmount on abort so Ink cleans up stdin/stdout
-        const onAbort = () => instance.unmount();
-        ctx.signal.addEventListener('abort', onAbort, { once: true });
+          // Unmount on abort so Ink cleans up stdin/stdout
+          const onAbort = () => instance.unmount();
+          ctx.signal.addEventListener('abort', onAbort, { once: true });
 
-        if (waitUntilExit) {
-          try {
-            await instance.waitUntilExit();
-          } finally {
-            ctx.signal.removeEventListener('abort', onAbort);
+          if (waitUntilExit) {
+            try {
+              await instance.waitUntilExit();
+            } finally {
+              ctx.signal.removeEventListener('abort', onAbort);
+            }
           }
-        }
 
-        // Return undefined so auto-output skips this result
-        return { result: undefined };
-      };
+          // Return undefined so auto-output skips this result
+          return { result: undefined };
+        };
 
-      const executedOrPromise = next();
-      if (executedOrPromise instanceof Promise) return executedOrPromise.then(handleResult);
-      return handleResult(executedOrPromise);
-    },
-  }));
+        const executedOrPromise = next();
+        if (executedOrPromise instanceof Promise) return executedOrPromise.then(handleResult);
+        return handleResult(executedOrPromise);
+      },
+    }));
 }
 
 // ── Extension ───────────────────────────────────────────────────────────

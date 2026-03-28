@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import {
   createPadrone,
+  type PadroneProgressDefaults,
   type PadroneProgressIndicator,
   type PadroneProgressRenderer,
   type PadroneProgressUpdate,
@@ -423,6 +424,72 @@ describe('progress', () => {
 
       program.eval('cmd');
       expect(indicators[0]!.indicator.calls).toEqual(['fail:null']);
+    });
+  });
+
+  describe('context-based config', () => {
+    it('should read renderer from context', () => {
+      const { factory, indicators } = createMockProgress();
+      const program = createPadrone('app')
+        .context<{ progressConfig: PadroneProgressDefaults }>()
+        .command('build', (c) => c.extend(padroneProgress('Building...')).action(() => 'built'));
+
+      const result = program.eval('build', { context: { progressConfig: { renderer: factory } } });
+      expect(result.error).toBeUndefined();
+      expect(result.result).toBe('built');
+      expect(indicators).toHaveLength(1);
+      expect(indicators[0]!.message).toBe('Building...');
+    });
+
+    it('should let constructor args override context config', () => {
+      const ctxFactory = createMockProgress();
+      const ctorFactory = createMockProgress();
+      const program = createPadrone('app')
+        .context<{ progressConfig: PadroneProgressDefaults }>()
+        .command('build', (c) =>
+          c.extend(padroneProgress({ progress: 'Building...', renderer: ctorFactory.factory })).action(() => 'built'),
+        );
+
+      program.eval('build', { context: { progressConfig: { renderer: ctxFactory.factory } } });
+      expect(ctorFactory.indicators).toHaveLength(1);
+      expect(ctxFactory.indicators).toHaveLength(0);
+    });
+
+    it('should read spinner config from context', () => {
+      let receivedOptions: any;
+      const renderer: PadroneProgressRenderer = (_message, options) => {
+        receivedOptions = options;
+        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+      };
+
+      const program = createPadrone('app')
+        .context<{ progressConfig: PadroneProgressDefaults }>()
+        .command('cmd', (c) => c.extend(padroneProgress('Working...')).action(() => 'ok'));
+
+      program.eval('cmd', { context: { progressConfig: { renderer, spinner: 'line' } } });
+      expect(receivedOptions).toEqual({ spinner: 'line' });
+    });
+
+    it('should share context config across multiple commands', () => {
+      const { factory, indicators } = createMockProgress();
+      const program = createPadrone('app')
+        .context<{ progressConfig: PadroneProgressDefaults }>()
+        .command('sync', (c) => c.extend(padroneProgress('Syncing...')).action(() => 'synced'))
+        .command('build', (c) => c.extend(padroneProgress('Building...')).action(() => 'built'));
+
+      program.eval('sync', { context: { progressConfig: { renderer: factory } } });
+      program.eval('build', { context: { progressConfig: { renderer: factory } } });
+      expect(indicators).toHaveLength(2);
+      expect(indicators[0]!.message).toBe('Syncing...');
+      expect(indicators[1]!.message).toBe('Building...');
+    });
+
+    it('should work without context config (backwards compat)', () => {
+      const program = createPadrone('app').command('cmd', (c) => c.extend(padroneProgress('Working...')).action(() => 'ok'));
+
+      const result = program.eval('cmd');
+      expect(result.error).toBeUndefined();
+      expect(result.result).toBe('ok');
     });
   });
 

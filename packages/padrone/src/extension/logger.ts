@@ -139,23 +139,28 @@ function createLogger(
 
 type ResolvedLoggerConfig = { level: PadroneLogLevel; prefix: string; timestamps: boolean };
 
-function loggerInterceptor(config: ResolvedLoggerConfig) {
+function loggerInterceptor(rawConfig?: PadroneLoggerConfig) {
   return defineInterceptor({ id: 'padrone:logger', name: 'padrone:logger' })
-    .requires<{ tracing?: PadroneTracer }>()
+    .requires<{ tracing?: PadroneTracer; loggerConfig?: PadroneLoggerConfig }>()
     .factory(() => {
-      let effectiveLevel: PadroneLogLevel = config.level;
+      let cliLevel: PadroneLogLevel | undefined;
 
       return {
         parse(_ctx, next) {
           return thenMaybe(next(), (res) => {
-            const cliLevel = resolveCliLevel(res.rawArgs);
-            if (cliLevel !== undefined) effectiveLevel = cliLevel;
+            cliLevel = resolveCliLevel(res.rawArgs);
             return res;
           });
         },
 
         execute(ctx, next) {
-          const logger = createLogger(ctx.runtime, effectiveLevel, config, ctx.context?.tracing);
+          const ctxCfg = (ctx.context as Record<string, unknown> | undefined)?.loggerConfig as PadroneLoggerConfig | undefined;
+          const resolved: ResolvedLoggerConfig = {
+            level: cliLevel ?? rawConfig?.level ?? ctxCfg?.level ?? 'info',
+            prefix: rawConfig?.prefix ?? '',
+            timestamps: rawConfig?.timestamps ?? ctxCfg?.timestamps ?? false,
+          };
+          const logger = createLogger(ctx.runtime, resolved.level, resolved, ctx.context?.tracing);
           return next({ context: { ...ctx.context, logger } });
         },
       };
@@ -205,10 +210,5 @@ function loggerInterceptor(config: ResolvedLoggerConfig) {
  * ```
  */
 export function padroneLogger<T extends CommandTypesBase>(config?: PadroneLoggerConfig): (builder: T) => WithLogger<T> {
-  const resolved: ResolvedLoggerConfig = {
-    level: config?.level ?? 'info',
-    prefix: config?.prefix ?? '',
-    timestamps: config?.timestamps ?? false,
-  };
-  return ((builder: AnyPadroneBuilder) => builder.intercept(loggerInterceptor(resolved))) as any;
+  return ((builder: AnyPadroneBuilder) => builder.intercept(loggerInterceptor(config))) as any;
 }

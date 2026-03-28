@@ -259,6 +259,78 @@ describe('logger', () => {
     expect(output).toEqual(['[DEBUG] shown']);
   });
 
+  describe('context-based config', () => {
+    it('should read log level from context', () => {
+      const { output, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .context<{ loggerConfig: { level: 'debug' } }>()
+        .extend(padroneLogger())
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.debug('debug msg');
+            ctx.context.logger.info('info msg');
+          }),
+        );
+
+      program.eval('test', { context: { loggerConfig: { level: 'debug' } } });
+      expect(output).toEqual(['[DEBUG] debug msg', '[INFO] info msg']);
+    });
+
+    it('should let constructor config override context config', () => {
+      const { output, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .context<{ loggerConfig: { level: 'debug' } }>()
+        .extend(padroneLogger({ level: 'warn' }))
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.debug('hidden');
+            ctx.context.logger.info('hidden');
+            ctx.context.logger.warn('shown');
+          }),
+        );
+
+      program.eval('test', { context: { loggerConfig: { level: 'debug' } } });
+      expect(output).toEqual([]);
+    });
+
+    it('should read timestamps from context', () => {
+      const { output, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .context<{ loggerConfig: { timestamps: boolean } }>()
+        .extend(padroneLogger())
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.info('hello');
+          }),
+        );
+
+      program.eval('test', { context: { loggerConfig: { timestamps: true } } });
+      expect(output).toHaveLength(1);
+      expect(output[0]).toMatch(/^\d{4}-\d{2}-\d{2}T.*\[INFO\] hello$/);
+    });
+
+    it('should let CLI flags override context config', () => {
+      const { output, errors, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .context<{ loggerConfig: { level: 'debug' } }>()
+        .extend(padroneLogger())
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.debug('nope');
+            ctx.context.logger.error('nope');
+          }),
+        );
+
+      program.eval('test --silent', { context: { loggerConfig: { level: 'debug' } } });
+      expect(output).toEqual([]);
+      expect(errors).toEqual([]);
+    });
+  });
+
   describe('CLI flag overrides', () => {
     it('should set trace level with --trace', () => {
       const { output, runtime } = createCapture();
