@@ -15,7 +15,7 @@ import type {
 } from '../types/index.ts';
 import { getCommandRuntime } from './commands.ts';
 import { RoutingError, SignalError, ValidationError } from './errors.ts';
-import { noopIndicator, resolveRegisteredInterceptors, runInterceptorChain, wrapWithLifecycle } from './interceptors.ts';
+import { resolveRegisteredInterceptors, runInterceptorChain, wrapWithLifecycle } from './interceptors.ts';
 import { errorResult, noop, thenMaybe, warnIfUnexpectedAsync, withDrain } from './results.ts';
 import { buildCommandArgs, formatIssueMessages, validateCommandArgs } from './validate.ts';
 
@@ -207,7 +207,6 @@ export function execCommand(
             runtime: effectiveRuntime,
             command: executeCtx.command,
             program: ctx.builder as any,
-            progress: executeCtx.progress ?? noopIndicator,
             signal: executeCtx.signal,
             context: executeCtx.context,
             caller,

@@ -12,7 +12,7 @@ import type {
   ResolvedInterceptor,
 } from '../types/index.ts';
 import { thenMaybe } from './results.ts';
-import type { PadroneProgressIndicator, ResolvedPadroneRuntime } from './runtime.ts';
+import type { ResolvedPadroneRuntime } from './runtime.ts';
 
 // ---------------------------------------------------------------------------
 // defineInterceptor — creates a single-value distributable interceptor
@@ -150,16 +150,6 @@ export function runInterceptorChain<TCtx extends object, TResult>(
 
   return next(ctx);
 }
-
-/** No-op progress indicator returned when no progress extension is active. */
-export const noopIndicator: PadroneProgressIndicator = {
-  update() {},
-  succeed() {},
-  fail() {},
-  stop() {},
-  pause() {},
-  resume() {},
-};
 
 /**
  * Wraps a pipeline with start → error → shutdown lifecycle hooks.

@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type { PadroneProgressIndicator, PadroneRuntime, ResolvedPadroneRuntime } from '../core/runtime.ts';
+import type { PadroneRuntime, ResolvedPadroneRuntime } from '../core/runtime.ts';
 import type { FullCommandName } from '../util/type-utils.ts';
 import type { PadroneArgsSchemaMeta } from './args-meta.ts';
 import type { AnyPadroneProgram } from './builder.ts';
@@ -20,11 +20,6 @@ export type PadroneActionContext<TContext = unknown> = {
   command: AnyPadroneCommand;
   /** The root program instance. */
   program: AnyPadroneProgram;
-  /**
-   * The active auto-managed progress indicator, or a no-op if none is configured.
-   * Use `.update()` to change the in-progress message mid-execution.
-   */
-  progress: PadroneProgressIndicator;
   /**
    * Cancellation signal that fires when the process receives SIGINT, SIGTERM, or SIGHUP.
    * Use with `fetch()`, child processes, or any API that accepts `AbortSignal`.

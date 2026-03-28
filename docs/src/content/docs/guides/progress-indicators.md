@@ -8,13 +8,13 @@ Padrone provides a built-in progress indicator system for commands that take tim
 ## Quick Example
 
 ```typescript
-import { createPadrone } from 'padrone';
+import { createPadrone, padroneProgress } from 'padrone';
 
 const program = createPadrone('app')
   .command('deploy', (c) =>
     c
       .async()
-      .progress('Deploying...')
+      .extend(padroneProgress('Deploying...'))
       .action(async () => {
         await deploy();
         return { version: '2.0' };
@@ -26,31 +26,24 @@ Running `app deploy` shows a spinner with "Deploying..." that auto-succeeds when
 
 ## Auto-Managed Progress
 
-Use the `.progress()` builder method to configure automatic progress indicators. The indicator starts before validation and is automatically stopped on success or failure.
+Use `padroneProgress()` to configure automatic progress indicators. Register it with `.intercept()` on a command. The indicator starts before validation and is automatically stopped on success or failure.
 
 ### Simple Message
 
 ```typescript
-.progress('Deploying...')
-```
-
-### Boolean Shorthand
-
-```typescript
-.progress(true)
-// Shows "Running <command-name>..."
+c.extend(padroneProgress('Deploying...'))
 ```
 
 ### Full Configuration
 
 ```typescript
-.progress({
+c.extend(padroneProgress({
   validation: 'Validating inputs...',  // Shown during async validation
   progress: 'Deploying...',            // Shown during execution
   success: 'Deployed successfully!',   // Shown on success
   error: 'Deploy failed',             // Shown on failure
   spinner: 'line',                     // Spinner preset
-})
+}))
 ```
 
 The `validation` message is shown first (during schema validation), then replaced by the `progress` message when execution begins.
@@ -60,11 +53,11 @@ The `validation` message is shown first (during schema validation), then replace
 The `success` and `error` fields accept callbacks that receive the actual result or error:
 
 ```typescript
-.progress({
+c.extend(padroneProgress({
   progress: 'Deploying...',
   success: (result) => `Deployed v${result.version}`,
   error: (err) => `Deploy failed: ${err.message}`,
-})
+}))
 ```
 
 ### Custom Indicator Icons
@@ -72,7 +65,7 @@ The `success` and `error` fields accept callbacks that receive the actual result
 Callbacks can return an object with `message` and `indicator` to override the success/error icon per-call:
 
 ```typescript
-.progress({
+c.extend(padroneProgress({
   progress: 'Running checks...',
   success: (result) => ({
     message: `All ${result.count} checks passed`,
@@ -82,16 +75,16 @@ Callbacks can return an object with `message` and `indicator` to override the su
     message: 'Checks failed',
     indicator: '💥',
   }),
-})
+}))
 ```
 
 Static values also support the object form:
 
 ```typescript
-.progress({
+c.extend(padroneProgress({
   progress: 'Building...',
   success: { message: 'Build complete', indicator: '🏗️' },
-})
+}))
 ```
 
 ### Suppressing Messages
@@ -99,10 +92,10 @@ Static values also support the object form:
 Pass `null` to suppress the success or error message entirely (the spinner just clears):
 
 ```typescript
-.progress({
+c.extend(padroneProgress({
   progress: 'Working...',
   success: null,  // No success message
-})
+}))
 ```
 
 Callbacks can also return `null`:
@@ -111,36 +104,22 @@ Callbacks can also return `null`:
 success: (result) => result.silent ? null : `Done: ${result.count} items`
 ```
 
-## Manual Progress via `ctx.progress`
+## Manual Progress via `ctx.context.progress`
 
-The action context provides a `progress` property for manual control:
-
-```typescript
-.progress('Importing...')
-.action((args, ctx) => {
-  for (const item of items) {
-    process(item);
-    ctx.progress.update(`Importing ${item.name}...`);
-  }
-  return `Imported ${items.length} items`;
-})
-```
-
-### Without `.progress()` Config
-
-`ctx.progress` works even without calling `.progress()` on the builder. It lazily creates a real indicator on first use:
+When `padroneProgress()` is registered, the action context provides a typed `progress` property on `ctx.context`:
 
 ```typescript
-.action((_args, ctx) => {
-  ctx.progress.update('Starting work...');
-  // A real spinner appears now
-  doWork();
-  ctx.progress.update('Almost done...');
-  return 'done';
-})
+c.extend(padroneProgress('Importing...'))
+  .action((args, ctx) => {
+    for (const item of items) {
+      process(item);
+      ctx.context.progress.update(`Importing ${item.name}...`);
+    }
+    return `Imported ${items.length} items`;
+  })
 ```
 
-Lazily-created indicators are automatically stopped (not succeeded/failed) when execution finishes. When the runtime has no progress factory, `ctx.progress` is a silent no-op.
+`padroneProgress()` uses the [context-providing interceptor](/guides/interceptors#context-providing-interceptors) mechanism — it declares `.provides<{ progress: PadroneProgressIndicator }>()`, so `ctx.context.progress` is fully typed when the interceptor is registered on the command.
 
 ### `PadroneProgressIndicator` Methods
 
@@ -167,16 +146,16 @@ Padrone includes four built-in spinner presets:
 | `bounce` | `⠁ ⠂ ⠄ ⡀ ⢀ ⠠ ⠐ ⠈` |
 
 ```typescript
-.progress({ progress: 'Loading...', spinner: 'line' })
+c.extend(padroneProgress({ progress: 'Loading...', spinner: 'line' }))
 ```
 
 ### Custom Frames
 
 ```typescript
-.progress({
+c.extend(padroneProgress({
   progress: 'Loading...',
   spinner: { frames: ['🌑', '🌒', '🌓', '🌔', '🌕'], interval: 150 },
-})
+}))
 ```
 
 ### Disabling the Spinner
@@ -184,7 +163,7 @@ Padrone includes four built-in spinner presets:
 Set `spinner: false` to show static text without animation:
 
 ```typescript
-.progress({ progress: 'Processing...', spinner: false })
+c.extend(padroneProgress({ progress: 'Processing...', spinner: false }))
 ```
 
 ## Runtime Progress Factory
@@ -237,7 +216,7 @@ const { factory, indicators } = createMockProgress();
 const program = createPadrone('app')
   .runtime({ progress: factory })
   .command('cmd', (c) =>
-    c.progress('Working...').action(() => 'done')
+    c.extend(padroneProgress('Working...')).action(() => 'done')
   );
 
 program.eval('cmd');
@@ -248,23 +227,22 @@ program.eval('cmd');
 
 When auto-progress is active, `runtime.output` and `runtime.error` are automatically wrapped to pause/resume the spinner. This prevents garbled output when writing to the terminal while a spinner is animating.
 
-Manual calls to `ctx.progress.pause()` and `ctx.progress.resume()` are available if you need explicit control.
+Manual calls to `ctx.context.progress.pause()` and `ctx.context.progress.resume()` are available if you need explicit control.
 
 ## Integration with Interceptors
 
-Progress indicators interact naturally with the interceptor system. The indicator starts before validation interceptors run and is cleaned up in the lifecycle shutdown. Interceptor errors are caught and reflected in the progress indicator:
+Progress indicators interact naturally with the interceptor system. The indicator starts before validation interceptors run and is cleaned up after execution. Interceptor errors are caught and reflected in the progress indicator:
 
 ```typescript
 program
-  .intercept({
-    name: 'auth',
+  .intercept(defineInterceptor({ name: 'auth' }, () => ({
     execute: (ctx, next) => {
       // If this throws, the progress indicator shows the error
       checkAuth();
       return next();
     },
-  })
+  })))
   .command('deploy', (c) =>
-    c.progress('Deploying...').action(handler)
+    c.extend(padroneProgress('Deploying...')).action(handler)
   );
 ```

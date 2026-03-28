@@ -16,7 +16,7 @@ import { findCommandByName, getCommandRuntime, resolveAllCommands } from './comm
 import { RoutingError } from './errors.ts';
 import type { ExecContext } from './exec.ts';
 import { collectInterceptors, errorResultWithSignal, execCommand } from './exec.ts';
-import { noopIndicator, resolveRegisteredInterceptors, runInterceptorChain } from './interceptors.ts';
+import { resolveRegisteredInterceptors, runInterceptorChain } from './interceptors.ts';
 import { errorResult, makeThenable, thenMaybe, warnIfUnexpectedAsync, withDrain, withPromiseDrain } from './results.ts';
 import { coreValidateForParse } from './validate.ts';
 
@@ -128,7 +128,6 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
           runtime: executeCtx.runtime,
           command: executeCtx.command,
           program: ctx.builder as any,
-          progress: noopIndicator,
           signal: inertSignal,
           context: executeCtx.context,
           caller: 'run',

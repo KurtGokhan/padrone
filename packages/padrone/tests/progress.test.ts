@@ -37,7 +37,7 @@ function createMockProgress() {
 }
 
 describe('progress', () => {
-  describe('auto-progress via padroneProgress extension', () => {
+  describe('auto-progress via padroneProgress interceptor', () => {
     it('should start and succeed progress for a sync command', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app')
@@ -150,38 +150,20 @@ describe('progress', () => {
     });
   });
 
-  describe('ctx.progress', () => {
+  describe('ctx.context.progress', () => {
     it('should expose auto-managed indicator on action context', () => {
       const { factory, indicators } = createMockProgress();
       const program = createPadrone('app')
         .runtime({ progress: factory })
         .command('cmd', (c) =>
           c.extend(padroneProgress('Working...')).action((_args, ctx) => {
-            ctx.progress.update('halfway');
+            ctx.context.progress.update('halfway');
             return 'done';
           }),
         );
 
       program.eval('cmd');
       expect(indicators[0]!.indicator.calls).toEqual(['update:halfway', 'succeed:']);
-    });
-
-    it('should be no-op when no progress extension', () => {
-      let called = false;
-      const program = createPadrone('app').command('cmd', (c) =>
-        c.action((_args, ctx) => {
-          ctx.progress.update('msg');
-          ctx.progress.succeed();
-          ctx.progress.fail();
-          ctx.progress.stop();
-          called = true;
-          return 'ok';
-        }),
-      );
-
-      const result = program.eval('cmd');
-      expect(result.result).toBe('ok');
-      expect(called).toBe(true);
     });
   });
 

@@ -188,6 +188,28 @@ export type WithCommand<T, TName extends string, TCmd extends AnyPadroneCommand>
     : PadroneBuilder<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, TName, TCmd>, any, AS, CTX, CTXP>
   : T;
 
+/**
+ * Utility type for extensions that register a context-providing interceptor.
+ * Extends `TContextProvided` with `TProvides` while preserving all other builder/program type params.
+ */
+export type WithInterceptor<T, TProvides> = T extends {
+  '~types': {
+    programName: infer PN extends string;
+    name: infer N extends string;
+    parentName: infer PaN extends string;
+    argsSchema: infer A extends PadroneSchema;
+    result: infer R;
+    commands: infer C extends [...AnyPadroneCommand[]];
+    async: infer AS extends boolean;
+    context: infer CTX;
+    contextProvided: infer CTXP;
+  };
+}
+  ? T extends { run: any }
+    ? PadroneProgram<PN, N, PaN, A, R, C, any, AS, CTX, CTXP & TProvides>
+    : PadroneBuilder<PN, N, PaN, A, R, C, any, AS, CTX, CTXP & TProvides>
+  : T;
+
 export type PickCommandByName<
   TCommands extends AnyPadroneCommand[],
   TName extends string | AnyPadroneCommand,

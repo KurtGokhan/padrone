@@ -26,6 +26,7 @@ export type {
   WithHelp,
   WithMan,
   WithMcp,
+  WithProgress,
   WithRepl,
   WithServe,
   WithVersion,

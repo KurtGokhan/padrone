@@ -69,7 +69,7 @@ program.cli();
 | `.extend(padroneEnv(schema))` | Parse environment variables into args (import `padroneEnv` from `'padrone'`) |
 | `.extend(padroneConfig({ files, schema? }))` | Load args from config files (import `padroneConfig` from `'padrone'`) |
 | `.wrap(config)` | Wrap an external CLI tool *(experimental)* |
-| `.progress(config?)` | Configure auto-managed progress indicator |
+| `.extend(padroneProgress(config?))` | Auto-managed progress indicator (import `padroneProgress` from `'padrone'`) |
 | `.runtime(runtime)` | Custom I/O adapter (output, error, env, prompt, progress) |
 | `.updateCheck(config?)` | Enable background update notifications |
 | `.async()` | Mark command as using async validation |
@@ -163,30 +163,31 @@ const { results } = await testCli(program).repl(['greet Alice', 'greet Bob']);
 
 ## Progress Indicators
 
-Auto-managed spinners for long-running commands:
+Auto-managed spinners for long-running commands via `padroneProgress()` context-providing interceptor:
 
 ```ts
 .command('deploy', (c) =>
   c
     .async()
-    .progress({
+    .intercept(padroneProgress({
       progress: 'Deploying...',
       success: (result) => `Deployed v${result.version}`,
       error: 'Deploy failed',
-    })
-    .action(async () => {
+    }))
+    .action(async (_args, ctx) => {
       await deploy();
+      ctx.context.progress.update('Finalizing...');
       return { version: '2.0' };
     }),
 )
 ```
 
-- **Auto-managed**: `.progress()` starts a spinner before execution, calls `succeed`/`fail` automatically
-- **Manual control**: Use `ctx.progress` in action handlers for on-demand updates (`update`, `succeed`, `fail`, `stop`, `pause`, `resume`)
+- **Auto-managed**: `padroneProgress()` starts a spinner before execution, calls `succeed`/`fail` automatically
+- **Manual control**: Use `ctx.context.progress` in action handlers for on-demand updates (`update`, `succeed`, `fail`, `stop`, `pause`, `resume`)
+- **Typed context**: `padroneProgress()` uses `.provides<{ progress: PadroneProgressIndicator }>()` — `ctx.context.progress` is fully typed
 - **Dynamic messages**: `success`/`error` can be callbacks returning `string | null | { message, indicator }`
 - **Spinner config**: `spinner` field accepts preset name (`'dots'`, `'line'`, etc.), `false` to disable, or `{ frames, interval }` object
 - **Runtime factory**: `runtime({ progress: (message, options?) => indicator })` to provide a custom spinner implementation
-- **Lazy creation**: `ctx.progress` defers real indicator creation until first `update()` call; auto-stops on cleanup
 
 ## Error Classes
 

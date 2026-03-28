@@ -281,17 +281,6 @@ export const tasksProgram = createPadrone('tasks')
             .meta({ flags: 't' }),
         }),
       )
-      .action(async (_args, ctx) => {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        ctx.progress.update('Finalizing sync...');
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        const tasks = getTasks();
-        return {
-          count: tasks.length,
-          message: `Synced ${tasks.length} task(s) to remote.`,
-        };
-      })
       .extend(
         padroneProgress({
           validation: 'Validating before sync...',
@@ -302,7 +291,18 @@ export const tasksProgram = createPadrone('tasks')
           }),
           error: 'Failed to sync tasks.',
         }),
-      ),
+      )
+      .action(async (_args, ctx) => {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        ctx.context.progress.update('Finalizing sync...');
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        const tasks = getTasks();
+        return {
+          count: tasks.length,
+          message: `Synced ${tasks.length} task(s) to remote.`,
+        };
+      }),
   )
   .command('import', (c) =>
     c
@@ -313,21 +313,21 @@ export const tasksProgram = createPadrone('tasks')
         }),
         { positional: ['file'] },
       )
-      .action((args, ctx) => {
-        // Simulate reading and importing
-        const count = 3;
-        for (let i = 1; i <= count; i++) {
-          addTask({ title: `Imported task ${i} from ${args.file}`, priority: 'medium', tags: ['imported'] });
-          ctx.progress.update(`Imported ${i}/${count} tasks...`);
-        }
-        return `Successfully imported ${count} task(s) from ${args.file}`;
-      })
       .extend(
         padroneProgress({
           progress: 'Importing tasks...',
           success: (res) => res as string,
         }),
-      ),
+      )
+      .action((args, ctx) => {
+        // Simulate reading and importing
+        const count = 3;
+        for (let i = 1; i <= count; i++) {
+          addTask({ title: `Imported task ${i} from ${args.file}`, priority: 'medium', tags: ['imported'] });
+          ctx.context.progress.update(`Imported ${i}/${count} tasks...`);
+        }
+        return `Successfully imported ${count} task(s) from ${args.file}`;
+      }),
   )
   .command('board', (c) =>
     c

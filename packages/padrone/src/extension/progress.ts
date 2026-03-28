@@ -1,6 +1,7 @@
 import { defineInterceptor } from '../core/interceptors.ts';
 import type { PadroneProgressIndicator, PadroneProgressOptions, PadroneSpinnerConfig, ResolvedPadroneRuntime } from '../core/runtime.ts';
 import type { AnyPadroneBuilder, CommandTypesBase } from '../types/index.ts';
+import type { WithInterceptor } from '../util/type-utils.ts';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,6 +25,9 @@ export type PadroneProgressConfig<TRes = unknown> = {
   /** Spinner configuration: a preset name, custom frames/interval, or `false` to disable. */
   spinner?: PadroneSpinnerConfig;
 };
+
+/** Builder/program type after applying `padroneProgress()`. Adds `{ progress: PadroneProgressIndicator }` to the command context. */
+export type WithProgress<T> = WithInterceptor<T, { progress: PadroneProgressIndicator }>;
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -121,12 +125,14 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
         return next();
       },
 
-      execute(_ctx, next) {
+      execute(ctx, next) {
         // Transition from validation message to progress message
         if (indicator && validationMsg) indicator.update(progressMsg);
 
+        const effectiveIndicator = indicator ?? noopIndicator;
+
         const onSuccess = (value: unknown) => {
-          cleanup(indicator!, successConfig, errorConfig, undefined, value, false);
+          cleanup(effectiveIndicator, successConfig, errorConfig, undefined, value, false);
           teardown();
         };
         const onError = (err: unknown) => {
@@ -139,7 +145,7 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
 
         let result: any;
         try {
-          result = next({ progress: indicator ?? noopIndicator });
+          result = next({ context: { ...(ctx.context as any), progress: effectiveIndicator } });
         } catch (err) {
           onError(err);
         }
@@ -194,6 +200,9 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
  * The indicator is automatically started before validation, updated at each phase transition,
  * and stopped on success (`.succeed()`) or failure (`.fail()`).
  *
+ * Provides `{ progress: PadroneProgressIndicator }` on the command context.
+ * Access it in action handlers as `ctx.context.progress`.
+ *
  * Requires a `progress` factory on the runtime — silently degrades to a no-op if not available.
  *
  * Usage:
@@ -201,10 +210,12 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
  * createPadrone('my-cli')
  *   .command('sync', (c) =>
  *     c.extend(padroneProgress('Syncing...'))
- *       .action(async () => { ... })
+ *       .action((_args, ctx) => {
+ *         ctx.context.progress.update('halfway');
+ *       })
  *   )
  * ```
  */
-export function padroneProgress(config: string | PadroneProgressConfig = 'Working...'): <T extends CommandTypesBase>(builder: T) => T {
-  return ((builder: AnyPadroneBuilder) => builder.intercept(progressInterceptor(config))) as any;
+export function padroneProgress<T extends CommandTypesBase>(config?: string | PadroneProgressConfig): (builder: T) => WithProgress<T> {
+  return ((builder: AnyPadroneBuilder) => builder.intercept(progressInterceptor(config ?? 'Working...'))) as any;
 }

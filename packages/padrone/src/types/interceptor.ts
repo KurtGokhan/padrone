@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type { PadroneProgressIndicator, ResolvedPadroneRuntime } from '../core/runtime.ts';
+import type { ResolvedPadroneRuntime } from '../core/runtime.ts';
 import type { AnyPadroneProgram } from './builder.ts';
 import type { AnyPadroneCommand, PadroneActionContext } from './command.ts';
 
@@ -57,8 +57,6 @@ export type InterceptorValidateResult<TArgs = unknown> = {
 export type InterceptorExecuteContext<TArgs = unknown> = InterceptorValidateContext & {
   /** Validated arguments that will be passed to the action. Mutable — modify before `next()` to override. */
   args: TArgs;
-  /** Progress indicator injected by an interceptor. Action handlers receive this as `ctx.progress`. Defaults to a no-op. */
-  progress?: PadroneProgressIndicator;
 };
 
 /** Result returned by the execute phase's `next()`. */
