@@ -80,33 +80,29 @@ describe('runtime', () => {
     });
 
     it('should use custom loadConfig with explicit --config flag', () => {
-      const loadConfig = mock(() => ({ port: 8080 }));
-      const program = createPadrone('app')
-        .runtime({ loadConfig })
-        .command('serve', (c) =>
-          c
-            .arguments(z.object({ port: z.coerce.number().default(3000) }))
-            .extend(padroneConfig({ files: ['config.json'] }))
-            .action((args) => args.port),
-        );
+      const mockLoadConfig = mock(() => ({ port: 8080 }));
+      const program = createPadrone('app').command('serve', (c) =>
+        c
+          .arguments(z.object({ port: z.coerce.number().default(3000) }))
+          .extend(padroneConfig({ files: ['config.json'], loadConfig: mockLoadConfig }))
+          .action((args) => args.port),
+      );
 
       program.eval('serve --config=my.json');
-      expect(loadConfig).toHaveBeenCalledWith('my.json');
+      expect(mockLoadConfig).toHaveBeenCalledWith('my.json');
     });
 
     it('should use custom loadConfig with auto-detection', () => {
-      const loadConfig = mock(() => ({ port: 9090 }));
-      const program = createPadrone('app')
-        .runtime({ loadConfig })
-        .command('serve', (c) =>
-          c
-            .arguments(z.object({ port: z.coerce.number().default(3000) }))
-            .extend(padroneConfig({ files: ['config.json', 'config.yaml'] }))
-            .action((args) => args.port),
-        );
+      const mockLoadConfig = mock(() => ({ port: 9090 }));
+      const program = createPadrone('app').command('serve', (c) =>
+        c
+          .arguments(z.object({ port: z.coerce.number().default(3000) }))
+          .extend(padroneConfig({ files: ['config.json', 'config.yaml'], loadConfig: mockLoadConfig }))
+          .action((args) => args.port),
+      );
 
       const result = program.eval('serve');
-      expect(loadConfig).toHaveBeenCalledWith(['config.json', 'config.yaml']);
+      expect(mockLoadConfig).toHaveBeenCalledWith(['config.json', 'config.yaml']);
       expect(result.result).toBe(9090);
     });
   });

@@ -445,9 +445,19 @@ it('should mock interactive prompts', async () => {
 });
 
 it('should mock config files', async () => {
-  const result = await testCli(program)
-    .config({ 'build.config.json': { outDir: './build', minify: true } })
-    .run('build');
+  // Use padroneConfig with a custom loadConfig for testing
+  const programWithConfig = createPadrone('myapp')
+    .extend(padroneConfig({
+      files: 'build.config.json',
+      loadConfig: () => ({ outDir: './build', minify: true }),
+    }))
+    .command('build', (c) =>
+      c
+        .arguments(z.object({ outDir: z.string(), minify: z.boolean() }))
+        .action((args) => `Building to ${args.outDir}`)
+    );
+
+  const result = await testCli(programWithConfig).run('build');
 
   expect(result.result).toBe('Building to ./build');
 });

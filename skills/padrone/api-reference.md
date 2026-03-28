@@ -255,7 +255,7 @@ import { createPadrone, padroneEnv } from 'padrone';
 
 #### `padroneConfig(options)` extension
 
-Loads arguments from config files. Replaces the former `.configFile()` builder method.
+Loads arguments from config files. Not included by default — must be explicitly applied via `.extend(padroneConfig(...))`.
 
 ```ts
 import { createPadrone, padroneConfig } from 'padrone';
@@ -263,6 +263,9 @@ import { createPadrone, padroneConfig } from 'padrone';
 .extend(padroneConfig({ files: 'app.config.json' }))
 .extend(padroneConfig({ files: ['app.config.json', 'app.config.yaml'], schema: configSchema }))
 .extend(padroneConfig({ files: 'app.config.json', disabled: true }))
+.extend(padroneConfig({ files: 'app.config.json', flag: false })) // disable --config/-c flag
+.extend(padroneConfig({ files: 'app.config.json', inherit: false })) // don't inherit to subcommands
+.extend(padroneConfig({ files: 'app.config.json', loadConfig: myLoader })) // custom config loader
 ```
 
 ### `.wrap(config)` *(experimental)*
@@ -295,7 +298,6 @@ Custom I/O adapter for non-terminal environments.
   interactive?: 'supported' | 'unsupported' | 'forced' | 'disabled',
   prompt?: (config) => Promise<unknown>,
   readLine?: (prompt: string) => Promise<string | null>,
-  loadConfig?: (files: string | string[]) => Record<string, unknown> | undefined,
 })
 ```
 
@@ -558,7 +560,7 @@ All handlers can return Promises for async behavior.
 - Lower `order` = outermost (runs first before `next()`, last after)
 - Same `order` preserves registration order
 - First-registered = outermost by default
-- Built-in extension orders: signal (-2000), autoOutput (-1100), color/stdin (-1001), help/version/repl (-1000), config/interactive (-999), suggestions (-500)
+- Built-in extension orders: signal (-2000), autoOutput (-1100), color/stdin (-1001), help/version/repl (-1000), interactive (-999), suggestions (-500)
 - When multiple interceptors share the same `id`, last one wins (deduplication)
 
 ---
@@ -582,7 +584,6 @@ const builder = testCli(program);
 | `.args(input)` | Set CLI input string |
 | `.env(vars)` | Set environment variables |
 | `.prompt(answers)` | Mock interactive prompt answers |
-| `.config(files)` | Mock config file contents |
 | `.run(input?)` | Execute and return `TestCliResult` |
 | `.repl(inputs)` | Run REPL session with array of inputs |
 

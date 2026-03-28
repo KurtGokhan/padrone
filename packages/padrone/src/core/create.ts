@@ -1,6 +1,5 @@
 import { padroneAutoOutput } from '../extension/auto-output.ts';
 import { padroneColor } from '../extension/color.ts';
-import { padroneConfig } from '../extension/config.ts';
 import type { HelpCommand } from '../extension/help.ts';
 import { padroneHelp } from '../extension/help.ts';
 import { padroneInteractive } from '../extension/interactive.ts';
@@ -54,8 +53,6 @@ export type PadroneBuiltins = {
   autoOutput?: boolean;
   /** Enable stdin piping support. Defaults to `true`. */
   stdin?: boolean;
-  /** Enable config file loading. Defaults to `true`. */
-  config?: boolean;
   /** Enable interactive prompting for missing arguments. Defaults to `true`. */
   interactive?: boolean;
 };
@@ -82,7 +79,6 @@ export function createPadrone<TProgramName extends string, const TBuiltins exten
   if (b?.signal !== false) builder = builder.extend(padroneSignalHandling());
   if (b?.autoOutput !== false) builder = builder.extend(padroneAutoOutput());
   if (b?.stdin !== false) builder = builder.extend(padroneStdin());
-  if (b?.config !== false) builder = builder.extend(padroneConfig());
   if (b?.interactive !== false) builder = builder.extend(padroneInteractive());
 
   return builder as any;

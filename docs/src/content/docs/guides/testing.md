@@ -107,15 +107,24 @@ test('prompts for missing fields', async () => {
 
 ## Testing Config Files
 
-Provide mock config file contents as a record of file paths to objects:
+To test config file loading, use `padroneConfig()` with a custom `loadConfig` function that returns mock data:
 
 ```typescript
+import { padroneConfig } from 'padrone';
+
+const program = createPadrone('myapp')
+  .extend(padroneConfig({
+    files: 'app.config.json',
+    loadConfig: () => ({ port: 9090, host: 'example.com' }),
+  }))
+  .command('serve', (c) =>
+    c
+      .arguments(z.object({ port: z.number(), host: z.string() }))
+      .action((args) => args)
+  );
+
 test('loads config file values', async () => {
-  const result = await testCli(program)
-    .config({
-      'app.config.json': { port: 9090, host: 'example.com' },
-    })
-    .run('serve');
+  const result = await testCli(program).run('serve');
 
   expect(result.args).toMatchObject({ port: 9090 });
 });
@@ -226,7 +235,6 @@ test('full integration', async () => {
   const result = await testCli(program)
     .args('deploy --env staging')
     .env({ API_KEY: 'test-key', CI: 'true' })
-    .config({ '.deployrc': { region: 'us-east-1' } })
     .run();
 
   expect(result.result).toEqual({ deployed: true, region: 'us-east-1' });

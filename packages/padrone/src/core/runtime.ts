@@ -91,8 +91,6 @@ export type PadroneRuntime = {
   format?: HelpFormat | 'auto';
   /** Color theme for ANSI/console help output. A theme name or partial color config. */
   theme?: ColorTheme | ColorConfig;
-  /** Find and load a config file. Accepts a single path or a list of candidate names to search. */
-  loadConfig?: (files: string | string[]) => Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined>;
   /**
    * Standard input abstraction. Provides methods to read piped data from stdin.
    * When not provided, defaults to reading from `process.stdin`.

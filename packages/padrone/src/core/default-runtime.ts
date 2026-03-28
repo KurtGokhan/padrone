@@ -291,96 +291,6 @@ function defaultOnSignal(callback: (signal: PadroneSignal) => void): () => void 
   };
 }
 
-function resolveConfigPath(fs: any, path: any, cwd: string, files: string | string[]): string | undefined {
-  if (typeof files === 'string') {
-    const abs = path.isAbsolute(files) ? files : path.resolve(cwd, files);
-    if (!fs.existsSync(abs)) {
-      console.error(`Config file not found: ${abs}`);
-      return undefined;
-    }
-    return abs;
-  }
-  for (const candidate of files) {
-    const abs = path.isAbsolute(candidate) ? candidate : path.resolve(cwd, candidate);
-    if (fs.existsSync(abs)) return abs;
-  }
-  return undefined;
-}
-
-// Lazily resolved Node.js modules — cached after first import to keep loadConfig sync after initialization.
-let _fs: typeof import('node:fs') | undefined;
-let _path: typeof import('node:path') | undefined;
-
-/** Pre-warm the fs/path module cache. Called once; subsequent loadConfig calls are synchronous. */
-export async function initNodeModules(): Promise<void> {
-  if (_fs && _path) return;
-  _fs = await import('node:fs');
-  _path = await import('node:path');
-}
-
-// Eagerly start caching node modules so loadConfig is sync by the time it's called.
-// The import() promise resolves in the microtask queue, well before any user code executes.
-if (typeof process !== 'undefined') initNodeModules();
-
-function loadConfigSync(
-  fs: typeof import('node:fs'),
-  path: typeof import('node:path'),
-  files: string | string[],
-): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> {
-  const cwd = process.cwd();
-  const absolutePath = resolveConfigPath(fs, path, cwd, files);
-  if (!absolutePath) return undefined;
-
-  const getContent = () => fs.readFileSync(absolutePath, 'utf-8');
-  const ext = path.extname(absolutePath).toLowerCase();
-
-  if (ext === '.yaml' || ext === '.yml') return Bun.YAML.parse(getContent()) as any;
-  if (ext === '.toml') return Bun.TOML.parse(getContent()) as any;
-  if (ext === '.jsonc') return Bun.JSONC.parse(getContent()) as any;
-  if (ext === '.json') {
-    if (Bun.JSONC) return Bun.JSONC.parse(getContent()) as any;
-    try {
-      return JSON.parse(getContent());
-    } catch {
-      return Bun.JSONC.parse(getContent()) as any;
-    }
-  }
-  if (ext === '.js' || ext === '.cjs' || ext === '.mjs' || ext === '.ts' || ext === '.cts' || ext === '.mts') {
-    return import(absolutePath).then((mod) => mod.default ?? mod);
-  }
-
-  // Unknown extension — try JSON
-  try {
-    return JSON.parse(getContent());
-  } catch {
-    console.error(`Unable to parse config file: ${absolutePath}`);
-    return undefined;
-  }
-}
-
-/**
- * Find and load a config file. Accepts a single explicit path or a list of
- * candidate file names to search in the current working directory.
- * Supports JSON, JSONC, YAML, TOML, and JS/TS config files.
- *
- * Synchronous after the first call (node:fs/node:path are lazily cached).
- * The first call returns a Promise if the modules aren't yet cached.
- */
-export function loadConfig(files: string | string[]): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> {
-  if (typeof process === 'undefined') return undefined;
-
-  try {
-    // Fast path: modules already cached — fully synchronous
-    if (_fs && _path) return loadConfigSync(_fs, _path, files);
-
-    // Slow path: first call — async-import, cache, then load
-    return initNodeModules().then(() => loadConfigSync(_fs!, _path!, files));
-  } catch (error) {
-    console.error(`Error loading config file: ${error}`);
-    return undefined;
-  }
-}
-
 /**
  * Creates the default Node.js/Bun runtime.
  */
@@ -408,7 +318,6 @@ export function createDefaultRuntime(): ResolvedPadroneRuntime {
     argv: () => (typeof process !== 'undefined' ? process.argv.slice(2) : []),
     env: () => (typeof process !== 'undefined' ? (process.env as Record<string, string | undefined>) : {}),
     format: 'auto',
-    loadConfig,
     prompt: defaultTerminalPrompt,
     interactive: detectInteractiveMode(),
     progress: createTerminalSpinner,
@@ -452,7 +361,6 @@ export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime
     argv: partial.argv ?? defaults.argv,
     env: partial.env ?? defaults.env,
     format: partial.format ?? defaults.format,
-    loadConfig: partial.loadConfig ?? defaults.loadConfig,
     interactive: partial.interactive ?? defaults.interactive,
     prompt: partial.prompt ?? defaults.prompt,
     readLine: partial.readLine ?? defaults.readLine,

@@ -5,14 +5,14 @@ description: Intercept command execution and extend programs with composable mid
 
 Padrone's architecture is built on two complementary systems:
 
-- **Extensions**: Build-time composition — reusable bundles of commands, configuration, and interceptors applied via `.extend()`. Most of Padrone's built-in features (help, version, REPL, color, signal handling, auto-output, stdin, config, interactive, suggestions) are implemented as extensions.
+- **Extensions**: Build-time composition — reusable bundles of commands, configuration, and interceptors applied via `.extend()`. Most of Padrone's built-in features (help, version, REPL, color, signal handling, auto-output, stdin, interactive, suggestions) are implemented as extensions.
 - **Interceptors**: Runtime phase interception — middleware that wraps the command lifecycle (parse, validate, execute, etc.) with an onion model. Extensions typically register interceptors under the hood.
 
 This extension-first architecture means the core is minimal — features are layered on via the same `.extend()` and `.intercept()` APIs you use for your own code.
 
 ## Architecture Overview
 
-When you call `createPadrone('myapp')`, ten built-in extensions are automatically applied:
+When you call `createPadrone('myapp')`, built-in extensions are automatically applied:
 
 | Extension | What it does | Interceptor Order |
 |-----------|-------------|-------------------|
@@ -24,7 +24,6 @@ When you call `createPadrone('myapp')`, ten built-in extensions are automaticall
 | **signal** | SIGINT/SIGTERM handling, double-tap force-exit, AbortSignal propagation | -2000 |
 | **autoOutput** | Auto-print results (strings, promises, iterators) | -1100 |
 | **stdin** | Pipe stdin into argument fields (text, lines, or stream) | -1001 |
-| **config** | `--config`/`-c` flag, config file loading/merging | -999 |
 | **interactive** | `--interactive`/`-i` flag, auto-prompting for missing fields | -999 |
 
 Each can be disabled individually:
@@ -435,7 +434,7 @@ Built-in extensions use negative orders to ensure they wrap user interceptors:
 -1100  autoOutput
 -1001  color, stdin
 -1000  help, version, repl
--999   config, interactive
+-999   interactive
 -500   suggestions
   0    user interceptors (default)
 ```
@@ -572,7 +571,7 @@ Understanding how built-in features are implemented helps illustrate the interce
 
 **Help** (`padroneHelp`, order: -1000) — Adds a `help` command and registers an interceptor with parse, execute, and error phases. The parse phase detects `--help` flags and reroutes to the help command. The error phase formats routing/validation errors with help text in CLI mode.
 
-**Config file loading** (`padroneConfig`, order: -999) — In the validate phase, loads the config file via `runtime.loadConfig()` and merges values into `rawArgs` before schema validation.
+**Config file loading** (`padroneConfig`, order: -999) — Not included by default; must be explicitly applied via `.extend(padroneConfig(...))`. In the validate phase, loads the config file from the file system (or via a custom `loadConfig` function) and merges values into `rawArgs` before schema validation.
 
 **Interactive prompting** (`padroneInteractive`, order: -999) — In the validate phase, prompts for missing field values via `runtime.prompt()` and injects responses into `rawArgs` before validation.
 
@@ -593,7 +592,6 @@ const program = createPadrone('myapp', {
     signal: false,
     autoOutput: false,
     stdin: false,
-    config: false,
     interactive: false,
   },
 });

@@ -44,8 +44,6 @@ export type TestCliBuilder = {
   env(vars: Record<string, string | undefined>): TestCliBuilder;
   /** Provide mock answers for interactive prompts. Keys are field names. */
   prompt(answers: Record<string, unknown>): TestCliBuilder;
-  /** Provide mock config files. Keys are file paths, values are parsed config objects. */
-  config(files: Record<string, Record<string, unknown>>): TestCliBuilder;
   /** Provide mock stdin data (simulates piped input). */
   stdin(data: string): TestCliBuilder;
   /**
@@ -121,7 +119,6 @@ export function testCli(program: TestableProgram): TestCliBuilder {
   let input: string | undefined;
   let envVars: Record<string, string | undefined> | undefined;
   let promptAnswers: Record<string, unknown> | undefined;
-  let configFiles: Record<string, Record<string, unknown>> | undefined;
   let stdinData: string | undefined;
 
   const builder: TestCliBuilder = {
@@ -137,10 +134,6 @@ export function testCli(program: TestableProgram): TestCliBuilder {
       promptAnswers = answers;
       return builder;
     },
-    config(files) {
-      configFiles = files;
-      return builder;
-    },
     stdin(data: string) {
       stdinData = data;
       return builder;
@@ -150,7 +143,7 @@ export function testCli(program: TestableProgram): TestCliBuilder {
       const stdout: unknown[] = [];
       const stderr: string[] = [];
 
-      const runtime = buildRuntime(stdout, stderr, { envVars, promptAnswers, configFiles, stdinData });
+      const runtime = buildRuntime(stdout, stderr, { envVars, promptAnswers, stdinData });
       const testProgram = program.runtime(runtime);
 
       const evalResult = await testProgram.eval(runInput ?? input ?? '', {});
@@ -167,7 +160,6 @@ export function testCli(program: TestableProgram): TestCliBuilder {
       const runtime = buildRuntime(stdout, stderr, {
         envVars,
         promptAnswers,
-        configFiles,
         readLine: createMockReadLine(inputs),
       });
 
@@ -208,7 +200,6 @@ function buildRuntime(
   opts: {
     envVars?: Record<string, string | undefined>;
     promptAnswers?: Record<string, unknown>;
-    configFiles?: Record<string, Record<string, unknown>>;
     readLine?: (prompt: string) => Promise<string | null>;
     stdinData?: string;
   },
@@ -226,14 +217,6 @@ function buildRuntime(
     runtime.interactive = 'supported';
     runtime.prompt = async (config: InteractivePromptConfig) => opts.promptAnswers![config.name];
   }
-
-  runtime.loadConfig = opts.configFiles
-    ? (files: string | string[]) => {
-        if (typeof files === 'string') return opts.configFiles![files];
-        const found = (files as string[]).find((n) => n in opts.configFiles!);
-        return found ? opts.configFiles![found] : undefined;
-      }
-    : () => undefined;
 
   if (opts.readLine) {
     runtime.readLine = opts.readLine;

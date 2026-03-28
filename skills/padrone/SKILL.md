@@ -148,7 +148,7 @@ program.intercept(timer);
 
 ## Extension-First Architecture
 
-Padrone's core is minimal — most features are implemented as extensions composed via `.extend()`. When you call `createPadrone()`, ten built-in extensions are automatically applied:
+Padrone's core is minimal — most features are implemented as extensions composed via `.extend()`. When you call `createPadrone()`, built-in extensions are automatically applied:
 
 | Extension | Order | What it does |
 |-----------|-------|-------------|
@@ -159,13 +159,12 @@ Padrone's core is minimal — most features are implemented as extensions compos
 | `help` | -1000 | `--help` flag, `help` command, error-phase help display |
 | `version` | -1000 | `--version` flag |
 | `repl` | -1000 | `--repl` flag, `repl` command |
-| `config` | -999 | `--config` flag, config file loading |
 | `interactive` | -999 | `--interactive` flag, auto-prompting |
 | `suggestions` | -500 | "Did you mean?" for unknown commands/options |
 
 Each can be disabled: `createPadrone('myapp', { builtins: { help: false } })`.
 
-Advanced opt-in extensions: `padroneCompletion()`, `padroneLogger()`, `padroneTiming()`, `padroneProgress()`, `padroneMan()`, `padroneUpdateCheck()`, `padroneMcp()`, `padroneServe()`, `padroneTracing()`, `padroneInk()`.
+Advanced opt-in extensions: `padroneCompletion()`, `padroneLogger()`, `padroneTiming()`, `padroneProgress()`, `padroneMan()`, `padroneUpdateCheck()`, `padroneMcp()`, `padroneServe()`, `padroneTracing()`, `padroneInk()`, `padroneConfig()`.
 
 ## Testing
 
@@ -179,7 +178,6 @@ const result = await testCli(program).run('greet World');
 await testCli(program)
   .env({ API_KEY: 'xxx' })
   .prompt({ name: 'myapp' })
-  .config({ 'app.json': { port: 8080 } })
   .run('deploy --env staging');
 
 // REPL testing

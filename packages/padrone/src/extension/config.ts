@@ -14,7 +14,102 @@ export type PadroneConfigOptions = {
   schema?: StandardSchemaV1;
   /** Disable this extension. */
   disabled?: boolean;
+  /** Whether to add `--config` / `-c` flag support. Defaults to `true`. */
+  flag?: boolean;
+  /** Whether subcommands inherit this interceptor. Defaults to `true`. */
+  inherit?: boolean;
+  /**
+   * Custom config loader. When provided, replaces the built-in file system loader.
+   * Useful for testing or non-CLI environments.
+   */
+  loadConfig?: (files: string | string[]) => Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined>;
 };
+
+// ── File system config loader ───────────────────────────────────────────
+
+// Lazily resolved Node.js modules — cached after first import to keep loadConfig sync after initialization.
+let _fs: typeof import('node:fs') | undefined;
+let _path: typeof import('node:path') | undefined;
+
+async function initNodeModules(): Promise<void> {
+  if (_fs && _path) return;
+  _fs = await import('node:fs');
+  _path = await import('node:path');
+}
+
+// Eagerly start caching node modules so loadConfig is sync by the time it's called.
+try {
+  if (typeof process !== 'undefined') initNodeModules();
+} catch {
+  // Non-CLI environments (browser, edge) — ignore
+}
+
+function resolveConfigPath(fs: any, path: any, cwd: string, files: string | string[]): string | undefined {
+  if (typeof files === 'string') {
+    const abs = path.isAbsolute(files) ? files : path.resolve(cwd, files);
+    if (!fs.existsSync(abs)) {
+      console.error(`Config file not found: ${abs}`);
+      return undefined;
+    }
+    return abs;
+  }
+  for (const candidate of files) {
+    const abs = path.isAbsolute(candidate) ? candidate : path.resolve(cwd, candidate);
+    if (fs.existsSync(abs)) return abs;
+  }
+  return undefined;
+}
+
+function loadConfigSync(
+  fs: typeof import('node:fs'),
+  path: typeof import('node:path'),
+  files: string | string[],
+): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> {
+  const cwd = process.cwd();
+  const absolutePath = resolveConfigPath(fs, path, cwd, files);
+  if (!absolutePath) return undefined;
+
+  const getContent = () => fs.readFileSync(absolutePath, 'utf-8');
+  const ext = path.extname(absolutePath).toLowerCase();
+
+  if (ext === '.yaml' || ext === '.yml') return Bun.YAML.parse(getContent()) as any;
+  if (ext === '.toml') return Bun.TOML.parse(getContent()) as any;
+  if (ext === '.jsonc') return Bun.JSONC.parse(getContent()) as any;
+  if (ext === '.json') {
+    if (Bun.JSONC) return Bun.JSONC.parse(getContent()) as any;
+    try {
+      return JSON.parse(getContent());
+    } catch {
+      return Bun.JSONC.parse(getContent()) as any;
+    }
+  }
+  if (ext === '.js' || ext === '.cjs' || ext === '.mjs' || ext === '.ts' || ext === '.cts' || ext === '.mts') {
+    return import(absolutePath).then((mod) => mod.default ?? mod);
+  }
+
+  // Unknown extension — try JSON
+  try {
+    return JSON.parse(getContent());
+  } catch {
+    console.error(`Unable to parse config file: ${absolutePath}`);
+    return undefined;
+  }
+}
+
+/**
+ * Built-in config file loader. Directly accesses the file system.
+ * Returns `undefined` in non-CLI environments where `node:fs` is unavailable.
+ */
+function loadConfig(files: string | string[]): Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined> {
+  if (typeof process === 'undefined') return undefined;
+
+  try {
+    if (_fs && _path) return loadConfigSync(_fs, _path, files);
+    return initNodeModules().then(() => loadConfigSync(_fs!, _path!, files));
+  } catch {
+    return undefined;
+  }
+}
 
 // ── Extension ────────────────────────────────────────────────────────────
 
@@ -22,12 +117,14 @@ export type PadroneConfigOptions = {
  * Extension that handles config file loading, validation, and merging into command arguments.
  *
  * Features:
- * - `--config` / `-c` flag for explicit config file path
+ * - `--config` / `-c` flag for explicit config file path (can be disabled via `flag: false`)
  * - Auto-detection of config files from a list of candidate names
  * - Optional schema validation and transformation of config data
+ * - Directly accesses the file system (gracefully no-ops in non-CLI environments)
  *
  * Config values have the lowest precedence (CLI > stdin > env > config).
  *
+ * Not included in the default built-in extensions — must be explicitly added:
  * ```ts
  * createPadrone('my-cli')
  *   .extend(padroneConfig({
@@ -44,51 +141,60 @@ export function padroneConfig(options?: PadroneConfigOptions): <T extends Comman
 
   const configFiles = options?.files ? (Array.isArray(options.files) ? options.files : [options.files]) : undefined;
   const configSchema = options?.schema;
+  const flagEnabled = options?.flag !== false;
+  const inherit = options?.inherit;
+  const configLoader = options?.loadConfig ?? loadConfig;
 
-  const interceptor = defineInterceptor({ id: 'padrone:config', name: 'padrone:config', order: -999 }, () => ({
-    validate(ctx: InterceptorValidateContext, next) {
-      // Extract --config / -c from rawArgs
-      const explicitConfigPath = (ctx.rawArgs.config ?? ctx.rawArgs.c) as string | undefined;
-      if (typeof explicitConfigPath === 'string') {
-        delete ctx.rawArgs.config;
-        delete ctx.rawArgs.c;
-      }
-
-      // Skip loadConfig entirely when there's nothing to load
-      if (!explicitConfigPath && !configFiles) return next();
-
-      // Load config data: explicit --config flag takes priority, then auto-detect
-      const configDataOrPromise = ctx.runtime.loadConfig(explicitConfigPath ?? configFiles ?? []);
-
-      const applyConfig = (configData: Record<string, unknown> | undefined) => {
-        if (!configData) return next();
-
-        // Validate against schema if provided
-        if (configSchema) {
-          const validated = configSchema['~standard'].validate(configData);
-          return thenMaybe(validated, (result) => {
-            if (result.issues) {
-              const issueMessages = result.issues
-                .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
-                .join('\n');
-              throw new ConfigError(`Invalid config file:\n${issueMessages}`, {
-                command: ctx.command.path || ctx.command.name,
-              });
-            }
-            const validatedData = result.value as Record<string, unknown>;
-            const mergedRawArgs = applyValues(ctx.rawArgs, validatedData);
-            return next({ rawArgs: mergedRawArgs });
-          });
+  const interceptor = defineInterceptor(
+    { id: 'padrone:config', name: 'padrone:config', order: -999, ...(inherit === false && { inherit: false }) },
+    () => ({
+      validate(ctx: InterceptorValidateContext, next) {
+        // Extract --config / -c from rawArgs
+        let explicitConfigPath: string | undefined;
+        if (flagEnabled) {
+          explicitConfigPath = (ctx.rawArgs.config ?? ctx.rawArgs.c) as string | undefined;
+          if (typeof explicitConfigPath === 'string') {
+            delete ctx.rawArgs.config;
+            delete ctx.rawArgs.c;
+          }
         }
 
-        // No schema — pass through as-is
-        const mergedRawArgs = applyValues(ctx.rawArgs, configData);
-        return next({ rawArgs: mergedRawArgs });
-      };
+        // Skip entirely when there's nothing to load
+        if (!explicitConfigPath && !configFiles) return next();
 
-      return thenMaybe(configDataOrPromise, applyConfig);
-    },
-  }));
+        // Load config data: explicit --config flag takes priority, then auto-detect
+        const configDataOrPromise = configLoader(explicitConfigPath ?? configFiles ?? []);
+
+        const applyConfig = (configData: Record<string, unknown> | undefined) => {
+          if (!configData) return next();
+
+          // Validate against schema if provided
+          if (configSchema) {
+            const validated = configSchema['~standard'].validate(configData);
+            return thenMaybe(validated, (result) => {
+              if (result.issues) {
+                const issueMessages = result.issues
+                  .map((i: StandardSchemaV1.Issue) => `  - ${i.path?.join('.') || 'root'}: ${i.message}`)
+                  .join('\n');
+                throw new ConfigError(`Invalid config file:\n${issueMessages}`, {
+                  command: ctx.command.path || ctx.command.name,
+                });
+              }
+              const validatedData = result.value as Record<string, unknown>;
+              const mergedRawArgs = applyValues(ctx.rawArgs, validatedData);
+              return next({ rawArgs: mergedRawArgs });
+            });
+          }
+
+          // No schema — pass through as-is
+          const mergedRawArgs = applyValues(ctx.rawArgs, configData);
+          return next({ rawArgs: mergedRawArgs });
+        };
+
+        return thenMaybe(configDataOrPromise, applyConfig);
+      },
+    }),
+  );
 
   return ((builder: AnyPadroneBuilder) => builder.intercept(interceptor)) as any;
 }

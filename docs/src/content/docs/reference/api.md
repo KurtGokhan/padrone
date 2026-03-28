@@ -69,7 +69,6 @@ program.runtime({
 | `argv` | `() => string[]` | `process.argv.slice(2)` | Return raw CLI arguments |
 | `env` | `() => Record<string, string \| undefined>` | `process.env` | Return environment variables |
 | `format` | `string` | `'auto'` | Default help output format |
-| `loadConfig` | `(files: string \| string[]) => Record<string, unknown> \| undefined` | Built-in JSON/YAML/TOML loader | Find and load a config file. Single path or list of candidates |
 | `interactive` | `boolean` | `false` | Whether the runtime supports interactive prompts |
 | `prompt` | `(config: InteractivePromptConfig) => Promise<unknown>` | Enquirer (when `interactive: true`) | Custom prompt implementation |
 | `progress` | `(message: string, options?: PadroneProgressOptions) => PadroneProgressIndicator` | Built-in terminal spinner | Progress indicator factory. See [Progress Indicators](/padrone/guides/progress-indicators/) |
@@ -194,7 +193,7 @@ Env values are applied after CLI args and stdin, but before config file values. 
 
 ### padroneConfig(options)
 
-Extension for loading arguments from configuration files. Imported from `'padrone'`.
+Extension for loading arguments from configuration files. Not included by default — must be explicitly applied via `.extend(padroneConfig(...))`. Imported from `'padrone'`.
 
 ```typescript
 import { createPadrone, padroneConfig } from 'padrone';
@@ -226,8 +225,11 @@ program.extend(padroneConfig({ files: 'app.config.json', disabled: true }));
 | `files` | `string \| string[]` | Config file path(s). When multiple paths are provided, the first existing file is used |
 | `schema` | `StandardSchema` | Optional schema to validate/transform config values |
 | `disabled` | `boolean` | Disable config file loading |
+| `flag` | `boolean` | Enable/disable the `--config`/`-c` flag (default: `true`) |
+| `inherit` | `boolean` | Whether the config interceptor inherits to subcommands (default: `true`) |
+| `loadConfig` | `(files: string \| string[]) => Record<string, unknown> \| undefined \| Promise<...>` | Custom config loader function. Replaces the built-in JSON/YAML/TOML loader |
 
-Config values have the lowest precedence: CLI > stdin > env > config. Can be applied at the program level (inherited by all commands) or at the command level.
+Config values have the lowest precedence: CLI > stdin > env > config. Not included by default — must be explicitly applied via `.extend(padroneConfig(...))`. Can be applied at the program level (inherited by all commands) or at the command level.
 
 ---
 
@@ -1205,7 +1207,6 @@ The following extensions are applied automatically by `createPadrone()` and can 
 | `padroneSignalHandling()` | `signal` | Signal handling and AbortSignal |
 | `padroneAutoOutput()` | `autoOutput` | Auto-print results |
 | `padroneStdin()` | `stdin` | Stdin piping support |
-| `padroneConfig()` | `config` | Config file loading (default, no-args form) |
 | `padroneInteractive()` | `interactive` | Interactive prompting |
 
 ---

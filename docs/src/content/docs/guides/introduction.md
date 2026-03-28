@@ -52,7 +52,7 @@ createPadrone('myapp')
 
 ### Extension-First Architecture
 
-Padrone's core is minimal — most features are implemented as **extensions** composed via `.extend()`. When you call `createPadrone()`, ten built-in extensions are automatically applied: help, version, REPL, color, suggestions, signal handling, auto-output, stdin, config, and interactive prompting.
+Padrone's core is minimal — most features are implemented as **extensions** composed via `.extend()`. When you call `createPadrone()`, built-in extensions are automatically applied: help, version, REPL, color, suggestions, signal handling, auto-output, stdin, and interactive prompting.
 
 This means:
 - Built-in features use the same APIs you use for custom code

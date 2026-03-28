@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { createPadrone, type InteractivePromptConfig, RoutingError, ValidationError } from 'padrone';
+import { createPadrone, type InteractivePromptConfig, padroneConfig, RoutingError, ValidationError } from 'padrone';
 import * as z from 'zod/v4';
 
 describe('CLI validation improvements', () => {
@@ -194,12 +194,15 @@ describe('CLI validation improvements', () => {
       expect(result.error).toBeInstanceOf(ValidationError);
     });
 
-    it('should not flag framework keys like --config', () => {
+    it('should not flag framework keys like --config when config extension is used', () => {
       const program = createPadrone('app').command('connect', (c) =>
-        c.arguments(z.object({ host: z.string().optional() })).action((args) => args),
+        c
+          .arguments(z.object({ host: z.string().optional() }))
+          .extend(padroneConfig({ files: ['config.json'], loadConfig: () => undefined }))
+          .action((args) => args),
       );
 
-      // --config is a framework-level flag, should not be flagged as unknown
+      // --config is consumed by the config extension, should not be flagged as unknown
       const result = program.eval('connect --config some-config.json --host localhost');
       expect(result.argsResult?.issues).toBeUndefined();
       expect(result.args?.host).toBe('localhost');

@@ -89,7 +89,7 @@ describe('stdin', () => {
       c
         .arguments(z.object({ name: z.string() }), { stdin: 'name' })
         .extend(padroneEnv(z.object({ GREET_NAME: z.string().optional() }).transform((e) => ({ name: e.GREET_NAME! }))))
-        .extend(padroneConfig({ files: ['config.json'] }))
+        .extend(padroneConfig({ files: ['config.json'], loadConfig: () => ({ name: 'config-name' }) }))
         .action((args) => `Hello, ${args.name}!`),
     );
 
@@ -100,10 +100,7 @@ describe('stdin', () => {
     });
 
     it('stdin should take precedence over config', async () => {
-      const result = await testCli(program)
-        .stdin('stdin-name')
-        .config({ 'config.json': { name: 'config-name' } })
-        .run('greet');
+      const result = await testCli(program).stdin('stdin-name').run('greet');
 
       expect(result.result).toBe('Hello, stdin-name!');
     });

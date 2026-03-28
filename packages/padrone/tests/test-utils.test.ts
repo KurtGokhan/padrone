@@ -114,17 +114,15 @@ describe('testCli', () => {
   });
 
   describe('config files', () => {
-    it('should mock config file loading via .config()', async () => {
+    it('should load config via padroneConfig loadConfig option', async () => {
       const program = createPadrone('test').command('serve', (c) =>
         c
           .arguments(z.object({ port: z.number().default(3000) }))
-          .extend(padroneConfig({ files: ['app.config.json'] }))
+          .extend(padroneConfig({ files: ['app.config.json'], loadConfig: () => ({ port: 8080 }) }))
           .action((args) => `serving on ${args.port}`),
       );
 
-      const result = await testCli(program)
-        .config({ 'app.config.json': { port: 8080 } })
-        .run('serve');
+      const result = await testCli(program).run('serve');
 
       expect(result.result).toBe('serving on 8080');
     });
