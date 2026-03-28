@@ -1,5 +1,5 @@
 import { Box, Text, useApp, useInput } from 'ink';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { getTasks, setTaskStatus } from './tasks-store.ts';
 import type { Task } from './tasks-types.ts';
 
