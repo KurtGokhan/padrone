@@ -1,4 +1,4 @@
-import { createPadrone, defineInterceptor, padroneInk, padroneProgress } from 'padrone';
+import { createPadrone, defineInterceptor, padroneInk, padroneLogger, padroneProgress, padroneTiming } from 'padrone';
 import { zodAsyncStream } from 'padrone/zod';
 import * as z from 'zod/v4';
 import { addTask, getTask, getTasks, removeTask, setTaskStatus, updateTask } from './tasks-store.ts';
@@ -55,6 +55,8 @@ export const tasksProgram = createPadrone('tasks')
     version: '1.0.0',
   })
   .intercept(telemetry)
+  .extend(padroneLogger())
+  .extend(padroneTiming({ enabled: true }))
   .runtime({ interactive: 'supported' })
   .command(['repl', ''], (c) =>
     c.configure({ title: 'Start interactive REPL' }).action(async (_args, { program }) => {
@@ -295,7 +297,10 @@ export const tasksProgram = createPadrone('tasks')
       .action(async (_args, ctx) => {
         await new Promise((resolve) => setTimeout(resolve, 1500));
         ctx.context.progress.update('Finalizing sync...');
+        ctx.context.logger.info('Sync operation is taking longer than expected...');
         await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        ctx.context.logger.debug('Sync is done.');
 
         const tasks = getTasks();
         return {
