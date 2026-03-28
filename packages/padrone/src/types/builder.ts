@@ -27,7 +27,15 @@ import type {
   PadroneCommand,
   PadroneCommandConfig,
 } from './command.ts';
-import type { InterceptorFactory, InterceptorMeta, PadroneInterceptorFn } from './interceptor.ts';
+import type {
+  ExtractInterceptorContext,
+  InterceptorFactory,
+  InterceptorMeta,
+  InterceptorRequiresCheck,
+  InterceptorRequiresError,
+  PadroneContextInterceptor,
+  PadroneInterceptorFn,
+} from './interceptor.ts';
 import type { PadroneCliPreferences, PadroneEvalPreferences, PadroneReplPreferences } from './preferences.ts';
 import type {
   GetArguments,
@@ -95,7 +103,8 @@ type InitialCommandBuilder<
         E['~types']['commands'],
         TParentArgs,
         E['~types']['async'],
-        E['~types']['context']
+        E['~types']['context'],
+        E['~types']['contextProvided']
       >
     : PadroneBuilder<TProgramName, TNameNested, TParentPath, PadroneSchema<void>, void, [], TParentArgs, false, TParentContext>;
 
@@ -124,7 +133,8 @@ type DefaultCommandBuilder<
         E['~types']['commands'],
         TParentArgs,
         E['~types']['async'],
-        E['~types']['context']
+        E['~types']['context'],
+        E['~types']['contextProvided']
       >
     : PadroneBuilder<TProgramName, TNameNested, TParentPath, any, void, [], TParentArgs, false, TParentContext>;
 
@@ -143,9 +153,10 @@ type BuilderOrProgram<
   TParentArgs extends PadroneSchema,
   TAsync extends boolean,
   TContext,
+  TContextProvided = unknown,
 > = TReturn extends 'builder'
-  ? PadroneBuilder<TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext>
-  : PadroneProgram<TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext>;
+  ? PadroneBuilder<TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>
+  : PadroneProgram<TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>;
 
 /**
  * Base builder methods shared between PadroneBuilder and PadroneProgram.
@@ -161,49 +172,108 @@ export type PadroneBuilderMethods<
   TParentArgs extends PadroneSchema,
   TAsync extends boolean,
   TContext,
+  TContextProvided,
   /** The return type for builder methods - either PadroneBuilder or PadroneProgram */
   TReturn extends 'builder' | 'program',
 > = {
   extend: <TResult extends CommandTypesBase>(
     extension: PadroneExtension<
-      BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext>,
+      BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>,
       TResult
     >,
   ) => TResult;
 
   intercept: {
-    /** Register an interceptor from a single-value form (created via `defineInterceptor`). */
-    (
-      interceptor: PadroneInterceptorFn<StandardSchemaV1.InferOutput<TArgs>, TRes>,
-    ): BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext>;
+    /** Context-providing interceptor — extends context type. Rejects if required context is not satisfied. */
+    <TInterceptor extends PadroneContextInterceptor<any, StandardSchemaV1.InferOutput<TArgs>, TRes>>(
+      interceptor: TInterceptor,
+    ): InterceptorRequiresCheck<TInterceptor, TContext & TContextProvided> extends true
+      ? BuilderOrProgram<
+          TReturn,
+          TProgramName,
+          TName,
+          TParentName,
+          TArgs,
+          TRes,
+          TCommands,
+          TParentArgs,
+          TAsync,
+          TContext,
+          TContextProvided & ExtractInterceptorContext<TInterceptor>
+        >
+      : InterceptorRequiresError;
+    /** Plain interceptor — no context change. Rejects if required context is not satisfied. */
+    <TInterceptor extends PadroneInterceptorFn<StandardSchemaV1.InferOutput<TArgs>, TRes>>(
+      interceptor: TInterceptor,
+    ): InterceptorRequiresCheck<TInterceptor, TContext & TContextProvided> extends true
+      ? BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>
+      : InterceptorRequiresError;
     /** Register an interceptor with static metadata and a factory function. */
     (
       meta: InterceptorMeta,
       factory: InterceptorFactory<StandardSchemaV1.InferOutput<TArgs>, TRes>,
-    ): BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext>;
+    ): BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>;
   };
 
   configure: (
     config: PadroneCommandConfig,
-  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext>;
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>;
 
   runtime: (
     runtime: PadroneRuntime,
-  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext>;
+  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, TContextProvided>;
 
-  async: () => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, true, TContext>;
+  async: () => BuilderOrProgram<
+    TReturn,
+    TProgramName,
+    TName,
+    TParentName,
+    TArgs,
+    TRes,
+    TCommands,
+    TParentArgs,
+    true,
+    TContext,
+    TContextProvided
+  >;
 
   /**
    * Declare or transform the user-defined context type for this command.
    *
    * - Without a callback: narrows the context type (type-only, no runtime transform).
    * - With a callback: transforms the parent/current context into a new type. Chainable — multiple calls compose.
+   *
+   * Interceptor-provided context (`TContextProvided`) is preserved across `.context()` calls.
    */
   context: {
-    <TNewContext>(): BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TNewContext>;
+    <TNewContext>(): BuilderOrProgram<
+      TReturn,
+      TProgramName,
+      TName,
+      TParentName,
+      TArgs,
+      TRes,
+      TCommands,
+      TParentArgs,
+      TAsync,
+      TNewContext,
+      TContextProvided
+    >;
     <TNewContext>(
       transform: (ctx: TContext) => TNewContext,
-    ): BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TNewContext>;
+    ): BuilderOrProgram<
+      TReturn,
+      TProgramName,
+      TName,
+      TParentName,
+      TArgs,
+      TRes,
+      TCommands,
+      TParentArgs,
+      TAsync,
+      TNewContext,
+      TContextProvided
+    >;
   };
 
   arguments: <TNewArgs extends PadroneSchema = PadroneSchema<void>, TMeta extends GetArgsMeta<TNewArgs> = GetArgsMeta<TNewArgs>>(
@@ -219,20 +289,45 @@ export type PadroneBuilderMethods<
     TCommands,
     TParentArgs,
     OrAsyncMeta<OrAsync<TAsync, TNewArgs>, TMeta>,
-    TContext
+    TContext,
+    TContextProvided
   >;
 
   action: <TNewRes>(
     handler?: (
       args: StandardSchemaV1.InferOutput<TArgs>,
-      ctx: PadroneActionContext<TContext>,
-      base: (args: StandardSchemaV1.InferOutput<TArgs>, ctx: PadroneActionContext<TContext>) => TRes,
+      ctx: PadroneActionContext<TContext & TContextProvided>,
+      base: (args: StandardSchemaV1.InferOutput<TArgs>, ctx: PadroneActionContext<TContext & TContextProvided>) => TRes,
     ) => TNewRes,
-  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, TNewRes, TCommands, TParentArgs, TAsync, TContext>;
+  ) => BuilderOrProgram<
+    TReturn,
+    TProgramName,
+    TName,
+    TParentName,
+    TArgs,
+    TNewRes,
+    TCommands,
+    TParentArgs,
+    TAsync,
+    TContext,
+    TContextProvided
+  >;
 
   wrap: <TWrapArgs extends PadroneSchema = TArgs>(
     config: WrapConfig<TArgs, TWrapArgs>,
-  ) => BuilderOrProgram<TReturn, TProgramName, TName, TParentName, TArgs, Promise<WrapResult>, TCommands, TParentArgs, TAsync, TContext>;
+  ) => BuilderOrProgram<
+    TReturn,
+    TProgramName,
+    TName,
+    TParentName,
+    TArgs,
+    Promise<WrapResult>,
+    TCommands,
+    TParentArgs,
+    TAsync,
+    TContext,
+    TContextProvided
+  >;
 
   command: <
     TNameNested extends string,
@@ -243,12 +338,19 @@ export type PadroneBuilderMethods<
       FullCommandName<TName, TParentName>,
       TArgs,
       TCommands,
-      TContext
+      TContext & TContextProvided
     >,
   >(
     name: TNameNested | readonly [TNameNested, ...TAliases],
     builderFn?: (
-      builder: InitialCommandBuilder<TProgramName, TNameNested, FullCommandName<TName, TParentName>, TArgs, TCommands, TContext>,
+      builder: InitialCommandBuilder<
+        TProgramName,
+        TNameNested,
+        FullCommandName<TName, TParentName>,
+        TArgs,
+        TCommands,
+        TContext & TContextProvided
+      >,
     ) => TBuilder,
   ) => BuilderOrProgram<
     TReturn,
@@ -268,7 +370,8 @@ export type PadroneBuilderMethods<
           >,
     TParentArgs,
     TAsync,
-    TContext
+    TContext,
+    TContextProvided
   >;
 
   mount: {
@@ -296,7 +399,7 @@ export type PadroneBuilderMethods<
                 >,
                 [],
                 TProgram['~types']['command']['~types']['async'],
-                TContext
+                TContext & TContextProvided
               >,
               TAliases
             >,
@@ -315,7 +418,7 @@ export type PadroneBuilderMethods<
                   >,
                   [],
                   TProgram['~types']['command']['~types']['async'],
-                  TContext
+                  TContext & TContextProvided
                 >,
                 TAliases
               >,
@@ -335,14 +438,15 @@ export type PadroneBuilderMethods<
                   >,
                   [],
                   TProgram['~types']['command']['~types']['async'],
-                  TContext
+                  TContext & TContextProvided
                 >,
                 ResolvedAliases<TCommands, TNameNested, TAliases>
               >
             >,
       TParentArgs,
       TAsync,
-      TContext
+      TContext,
+      TContextProvided
     >;
 
     <
@@ -353,7 +457,7 @@ export type PadroneBuilderMethods<
     >(
       name: TNameNested | readonly [TNameNested, ...TAliases],
       program: TProgram,
-      options: MountOptions<TContext, TNewContext>,
+      options: MountOptions<TContext & TContextProvided, TNewContext>,
     ): BuilderOrProgram<
       TReturn,
       TProgramName,
@@ -421,7 +525,8 @@ export type PadroneBuilderMethods<
             >,
       TParentArgs,
       TAsync,
-      TContext
+      TContext,
+      TContextProvided
     >;
   };
 
@@ -437,7 +542,8 @@ export type PadroneBuilderMethods<
     commands: TCommands;
     async: TAsync;
     context: TContext;
-    command: PadroneCommand<TName, TParentName, TArgs, TRes, TCommands, [], TAsync, TContext>;
+    contextProvided: TContextProvided;
+    command: PadroneCommand<TName, TParentName, TArgs, TRes, TCommands, [], TAsync, TContext, TContextProvided>;
   };
 };
 
@@ -451,7 +557,20 @@ export type PadroneBuilder<
   TParentArgs extends PadroneSchema = PadroneSchema<void>,
   TAsync extends boolean = false,
   TContext = unknown,
-> = PadroneBuilderMethods<TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, 'builder'>;
+  TContextProvided = unknown,
+> = PadroneBuilderMethods<
+  TProgramName,
+  TName,
+  TParentName,
+  TArgs,
+  TRes,
+  TCommands,
+  TParentArgs,
+  TAsync,
+  TContext,
+  TContextProvided,
+  'builder'
+>;
 
 export type PadroneProgram<
   TProgramName extends string = '',
@@ -463,7 +582,20 @@ export type PadroneProgram<
   TParentArgs extends PadroneSchema = PadroneSchema<void>,
   TAsync extends boolean = false,
   TContext = unknown,
-> = PadroneBuilderMethods<TProgramName, TName, TParentName, TArgs, TRes, TCommands, TParentArgs, TAsync, TContext, 'program'> & {
+  TContextProvided = unknown,
+> = PadroneBuilderMethods<
+  TProgramName,
+  TName,
+  TParentName,
+  TArgs,
+  TRes,
+  TCommands,
+  TParentArgs,
+  TAsync,
+  TContext,
+  TContextProvided,
+  'program'
+> & {
   run: <const TCommand extends PossibleCommands<[PadroneCommand<'', '', TArgs, TRes, TCommands>], true, true>>(
     name: TCommand | SafeString,
     args: NoInfer<GetArguments<'in', PickCommandByName<[PadroneCommand<'', '', TArgs, TRes, TCommands>], TCommand>>>,

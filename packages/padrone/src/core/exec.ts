@@ -147,13 +147,13 @@ export function execCommand(
   const rootRegistered = rootCommand.interceptors ?? [];
   const rootInterceptors = resolveRegisteredInterceptors(rootRegistered, factoryCache);
 
-  const runPipeline = (signal: AbortSignal) => {
+  const runPipeline = (signal: AbortSignal, pipelineContext: unknown) => {
     // ── Phase 1: Parse ──────────────────────────────────────────────────
     const parseCtx: InterceptorParseContext = {
       input: resolvedInput,
       command: rootCommand,
       signal,
-      context: initialContext,
+      context: pipelineContext,
       runtime,
       program: ctx.builder,
       caller,
@@ -170,7 +170,7 @@ export function execCommand(
       pipelineState.rawArgs = parsed.rawArgs;
       pipelineState.positionalArgs = parsed.positionalArgs;
       const commandInterceptors = resolveRegisteredInterceptors(collectInterceptorsFn(command), factoryCache);
-      const context = resolveContext(command, initialContext);
+      const context = resolveContext(command, pipelineContext);
 
       // ── Phase 2: Validate ───────────────────────────────────────────
       const validateCtx: InterceptorValidateContext = {

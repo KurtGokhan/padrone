@@ -189,8 +189,20 @@ export type InterceptorFactory<TArgs = unknown, TResult = unknown> = () => Inter
  * importable value that packages can export.
  *
  * Also accepted directly by `.intercept()` as the single-argument form.
+ * Call `.provides<T>()` to brand it as a context-providing interceptor.
  */
-export type PadroneInterceptorFn<TArgs = unknown, TResult = unknown> = InterceptorFactory<TArgs, TResult> & InterceptorMeta;
+export type PadroneInterceptorFn<TArgs = unknown, TResult = unknown> = InterceptorFactory<TArgs, TResult> &
+  InterceptorMeta & {
+    /** Brand this interceptor as providing additional context of type `TProvides`. No-op at runtime; purely a type-level cast. */
+    provides: <TProvides>() => PadroneContextInterceptor<TProvides, TArgs, TResult>;
+    /**
+     * Brand this interceptor as requiring context of type `TRequires` to be available.
+     * `.intercept()` will produce a compile error if the required context is not satisfied.
+     * Use optional properties for soft requirements: `.requires<{ db: DB; logger?: Logger }>()`.
+     * No-op at runtime; purely a type-level cast.
+     */
+    requires: <TRequires>() => PadroneInterceptorFn<TArgs, TResult> & InterceptorRequiresBrand<TRequires>;
+  };
 
 /**
  * A Padrone interceptor in its single-value distributable form.
@@ -199,6 +211,54 @@ export type PadroneInterceptorFn<TArgs = unknown, TResult = unknown> = Intercept
  * Create with `defineInterceptor(meta, factory)` or pass `(meta, factory)` directly to `.intercept()`.
  */
 export type PadroneInterceptor<TArgs = unknown, TResult = unknown> = PadroneInterceptorFn<TArgs, TResult>;
+
+/**
+ * A context-providing interceptor. Carries a phantom `'~context'` brand declaring what it adds
+ * to the command context. When registered via `.intercept()`, the builder's context type is
+ * intersected with `TProvides`.
+ *
+ * Created by calling `.provides<T>()` on a `PadroneInterceptorFn`.
+ * Chain `.requires<T>()` to also declare context dependencies.
+ */
+export type PadroneContextInterceptor<TProvides = unknown, TArgs = unknown, TResult = unknown> = Omit<
+  PadroneInterceptorFn<TArgs, TResult>,
+  'requires'
+> &
+  InterceptorFactory<TArgs, TResult> & {
+    /** Phantom brand — declares the context type this interceptor provides. */
+    '~context': TProvides;
+    /** Like `.requires()` on `PadroneInterceptorFn` but preserves the `'~context'` brand. */
+    requires: <TRequires>() => PadroneContextInterceptor<TProvides, TArgs, TResult> & InterceptorRequiresBrand<TRequires>;
+  };
+
+/**
+ * Phantom brand for context requirements. Uses a contravariant function type so that
+ * `.intercept()` overloads can check `TAvailableContext extends TRequires` via assignability.
+ */
+type InterceptorRequiresBrand<TRequires> = { '~contextRequires': (ctx: TRequires) => void };
+
+/** Extracts the provided context type from a context-providing interceptor, or `unknown` if not branded. */
+export type ExtractInterceptorContext<T> = T extends { '~context': infer C } ? C : unknown;
+
+/** Extracts the required context type from an interceptor, or `unknown` if no requirements. */
+export type ExtractInterceptorRequires<T> = T extends { '~contextRequires': (ctx: infer R) => void } ? R : unknown;
+
+/**
+ * Checks whether an interceptor's context requirements are satisfied by the available context.
+ * Returns `true` if the interceptor has no requirements or if the available context extends the requirements.
+ */
+export type InterceptorRequiresCheck<TInterceptor, TAvailableContext> = TInterceptor extends {
+  '~contextRequires': (ctx: infer TReq) => void;
+}
+  ? TAvailableContext extends TReq
+    ? true
+    : false
+  : true;
+
+/** Error brand returned by `.intercept()` when the interceptor's required context is not satisfied. */
+export type InterceptorRequiresError = {
+  readonly '~error': 'Required context not satisfied. Ensure required interceptors are registered before this one.';
+};
 
 /**
  * Internal stored form on command objects. Separates static metadata from the factory

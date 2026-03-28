@@ -16,6 +16,8 @@ export type {
   PadroneCommandConfig,
 } from './command.ts';
 export type {
+  ExtractInterceptorContext,
+  ExtractInterceptorRequires,
   InterceptorBaseContext,
   InterceptorErrorContext,
   InterceptorErrorResult,
@@ -31,6 +33,7 @@ export type {
   InterceptorStartContext,
   InterceptorValidateContext,
   InterceptorValidateResult,
+  PadroneContextInterceptor,
   PadroneInterceptor,
   PadroneInterceptorFn,
   RegisteredInterceptor,

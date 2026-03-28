@@ -180,11 +180,12 @@ export type WithCommand<T, TName extends string, TCmd extends AnyPadroneCommand>
     commands: infer C extends [...AnyPadroneCommand[]];
     async: infer AS extends boolean;
     context: infer CTX;
+    contextProvided: infer CTXP;
   };
 }
   ? T extends { run: any }
-    ? PadroneProgram<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, TName, TCmd>, any, AS, CTX>
-    : PadroneBuilder<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, TName, TCmd>, any, AS, CTX>
+    ? PadroneProgram<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, TName, TCmd>, any, AS, CTX, CTXP>
+    : PadroneBuilder<PN, N, PaN, A, R, ReplaceOrAppendCommand<C, TName, TCmd>, any, AS, CTX, CTXP>
   : T;
 
 export type PickCommandByName<
@@ -274,7 +275,8 @@ type RepathCommand<TCommand extends AnyPadroneCommand, TNewParentName extends st
   RepathCommands<TCommand['~types']['commands'], FullCommandName<TCommand['~types']['name'], TNewParentName>>,
   TCommand['~types']['aliases'],
   TCommand['~types']['async'],
-  TCommand['~types']['context']
+  TCommand['~types']['context'],
+  TCommand['~types']['contextProvided']
 >;
 
 export type PickCommandByPossibleCommands<

@@ -63,6 +63,8 @@ export type {
   AnyPadroneProgram,
   AsyncPadroneSchema,
   CommandTypesBase,
+  ExtractInterceptorContext,
+  ExtractInterceptorRequires,
   GetArgsMeta,
   InterceptorBaseContext,
   InterceptorErrorContext,
@@ -82,6 +84,7 @@ export type {
   PadroneBuilder,
   PadroneCommand,
   PadroneCommandResult,
+  PadroneContextInterceptor,
   PadroneDrainResult,
   PadroneExtension,
   PadroneInterceptor,
@@ -92,5 +95,13 @@ export type {
 } from './types/index.ts';
 export type { AsyncStreamMeta } from './util/stream.ts';
 export { asyncStream } from './util/stream.ts';
-export type { InferArgsInput, InferArgsOutput, InferCommand, InferContext } from './util/type-helpers.ts';
+export type {
+  InferArgsInput,
+  InferArgsOutput,
+  InferCommand,
+  InferContext,
+  InferContextProvided,
+  InferInterceptorContext,
+  InferInterceptorRequires,
+} from './util/type-helpers.ts';
 export type { Drained } from './util/type-utils.ts';

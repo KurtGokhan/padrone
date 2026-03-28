@@ -74,6 +74,7 @@ export type PadroneCommand<
   TAliases extends string[] = string[],
   TAsync extends boolean = false,
   TContext = unknown,
+  TContextProvided = unknown,
 > = {
   name: TName;
   path: FullCommandName<TName, TParentName>;
@@ -93,7 +94,7 @@ export type PadroneCommand<
   examples?: string[];
   argsSchema?: TArgs;
   meta?: GetArgsMeta<TArgs>;
-  action?: (args: StandardSchemaV1.InferOutput<TArgs>, ctx: PadroneActionContext<TContext>) => TRes;
+  action?: (args: StandardSchemaV1.InferOutput<TArgs>, ctx: PadroneActionContext<TContext & TContextProvided>) => TRes;
   /** Runtime flag indicating this command uses async validation. Set by `.async()` or `asyncSchema()`. */
   isAsync?: boolean;
   /** Runtime configuration for I/O abstraction. */
@@ -121,10 +122,11 @@ export type PadroneCommand<
     commands: TCommands;
     async: TAsync;
     context: TContext;
+    contextProvided: TContextProvided;
   };
 };
 
-export type AnyPadroneCommand = PadroneCommand<string, any, any, any, [...AnyPadroneCommand[]], string[], any, any>;
+export type AnyPadroneCommand = PadroneCommand<string, any, any, any, [...AnyPadroneCommand[]], string[], any, any, any>;
 
 /**
  * Base type for extracting command information from builder or program.
