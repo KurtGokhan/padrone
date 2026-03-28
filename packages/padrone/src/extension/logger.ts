@@ -3,6 +3,7 @@ import { thenMaybe } from '#src/core/results.ts';
 import type { ResolvedPadroneRuntime } from '#src/core/runtime.ts';
 import type { AnyPadroneBuilder, CommandTypesBase } from '#src/types/index.ts';
 import type { WithInterceptor } from '#src/util/type-utils.ts';
+import type { PadroneTracer } from './tracing.ts';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -89,7 +90,12 @@ function resolveCliLevel(rawArgs: Record<string, unknown>): PadroneLogLevel | un
   return undefined;
 }
 
-function createLogger(runtime: ResolvedPadroneRuntime, level: PadroneLogLevel, config: ResolvedLoggerConfig): PadroneLogger {
+function createLogger(
+  runtime: ResolvedPadroneRuntime,
+  level: PadroneLogLevel,
+  config: ResolvedLoggerConfig,
+  tracing?: PadroneTracer,
+): PadroneLogger {
   const threshold = LEVEL_ORDER[level];
 
   function format(lvl: Exclude<PadroneLogLevel, 'silent'>, prefix: string, args: unknown[]): string {
@@ -105,6 +111,10 @@ function createLogger(runtime: ResolvedPadroneRuntime, level: PadroneLogLevel, c
     const emit = (lvl: Exclude<PadroneLogLevel, 'silent'>, args: unknown[]) => {
       if (LEVEL_ORDER[lvl] < threshold) return;
       const message = format(lvl, prefix, args);
+      tracing?.rootSpan.addEvent('log', {
+        'log.level': lvl,
+        'log.message': args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '),
+      });
       if (lvl === 'error' || lvl === 'warn') runtime.error(message);
       else runtime.output(message);
     };
@@ -143,11 +153,12 @@ function loggerInterceptor(config: ResolvedLoggerConfig) {
       },
 
       execute(ctx, next) {
-        const logger = createLogger(ctx.runtime, effectiveLevel, config);
+        const tracing = (ctx.context as any)?.tracing as PadroneTracer | undefined;
+        const logger = createLogger(ctx.runtime, effectiveLevel, config, tracing);
         return next({ context: { ...(ctx.context as any), logger } });
       },
     };
-  });
+  }).requires<{ tracing?: PadroneTracer }>();
 }
 
 // ---------------------------------------------------------------------------

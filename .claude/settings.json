@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun fix"
+            "command": "bun format --write"
           }
         ]
       }

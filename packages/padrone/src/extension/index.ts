@@ -27,6 +27,8 @@ export { padroneStdin } from './stdin.ts';
 export { padroneSuggestions } from './suggestions.ts';
 export type { PadroneTimingOptions } from './timing.ts';
 export { padroneTiming } from './timing.ts';
+export type { OtelSpan, OtelTracer, OtelTracerProvider, PadroneTracer, PadroneTracingConfig, WithTracing } from './tracing.ts';
+export { padroneTracing } from './tracing.ts';
 export { padroneUpdateCheck } from './update-check.ts';
 export type { VersionCommand, WithVersion } from './version.ts';
 export { padroneVersion } from './version.ts';

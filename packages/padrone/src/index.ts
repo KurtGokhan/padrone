@@ -19,11 +19,16 @@ export { REPL_SIGINT } from './core/runtime.ts';
 export type {
   HelpCommand,
   InkOptions,
+  OtelSpan,
+  OtelTracer,
+  OtelTracerProvider,
   PadroneLogger,
   PadroneLoggerConfig,
   PadroneLogLevel,
   PadroneProgressConfig,
   PadroneProgressMessage,
+  PadroneTracer,
+  PadroneTracingConfig,
   VersionCommand,
   WithCompletion,
   WithHelp,
@@ -33,6 +38,7 @@ export type {
   WithProgress,
   WithRepl,
   WithServe,
+  WithTracing,
   WithVersion,
 } from './extension/index.ts';
 export {
@@ -55,6 +61,7 @@ export {
   padroneStdin,
   padroneSuggestions,
   padroneTiming,
+  padroneTracing,
   padroneUpdateCheck,
   padroneVersion,
 } from './extension/index.ts';
