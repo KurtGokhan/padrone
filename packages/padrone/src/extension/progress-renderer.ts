@@ -172,6 +172,9 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
     };
   }
 
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape stripping requires matching ESC
+  const ansiPattern = /\x1b\[[0-9;]*m/g;
+
   if (spinnerCfg.show === 'never' && (!barCfg || barCfg.show === 'never') && !message) {
     return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
   }
@@ -194,7 +197,24 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
 
   const writeStderr = process.stderr.write.bind(process.stderr);
   const writeStdout = process.stdout.write.bind(process.stdout);
-  const clearLine = () => writeStderr('\x1b[2K\r');
+  let prevLineCount = 0;
+
+  const clearLines = () => {
+    if (prevLineCount > 1) {
+      // Move cursor up and clear each wrapped line above the current one
+      for (let i = 1; i < prevLineCount; i++) writeStderr('\x1b[1A\x1b[2K');
+    }
+    writeStderr('\x1b[2K\r');
+    prevLineCount = 0;
+  };
+
+  /** Count how many terminal rows `str` occupies, accounting for line wrapping. */
+  const lineCount = (str: string): number => {
+    const cols = process.stderr.columns || 80;
+    // Strip ANSI escape sequences for accurate width measurement
+    const visible = str.replace(ansiPattern, '');
+    return Math.max(1, Math.ceil(visible.length / cols));
+  };
 
   const render = () => {
     if (paused || stopped) return;
@@ -224,8 +244,13 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
       line += text;
     }
 
-    if (line) writeStderr(`\x1b[2K\r${line}`);
-    else clearLine();
+    if (line) {
+      clearLines();
+      writeStderr(line);
+      prevLineCount = lineCount(line);
+    } else {
+      clearLines();
+    }
   };
 
   const { frames } = spinnerCfg;
@@ -247,7 +272,7 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
     stopped = true;
     paused = false;
     if (timer) clearInterval(timer);
-    clearLine();
+    clearLines();
   };
 
   return {
@@ -301,7 +326,7 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
     pause() {
       if (stopped || paused) return;
       paused = true;
-      clearLine();
+      clearLines();
       writeStdout('\x1b[2K\r');
     },
     resume() {
