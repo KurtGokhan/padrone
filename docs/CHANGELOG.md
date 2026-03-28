@@ -1,5 +1,13 @@
 # @padrone/docs
 
+## 1.6.0
+
+### Patch Changes
+
+- Updated dependencies [[`75066f9`](https://github.com/KurtGokhan/padrone/commit/75066f9e12c33a1f64c502e248fce4d4e455d0da), [`93ab85c`](https://github.com/KurtGokhan/padrone/commit/93ab85c88441e9062b2402f7d97f3d337293f2e7), [`3b7fed0`](https://github.com/KurtGokhan/padrone/commit/3b7fed06d15cc2acad04df7d919ce0f6c9b66207), [`067b9f7`](https://github.com/KurtGokhan/padrone/commit/067b9f7d695a838f0c39204c563029f8a2527675), [`4e7f88b`](https://github.com/KurtGokhan/padrone/commit/4e7f88bdc68b7c97f36e3546142b6ebf5f87f76e), [`aa0b568`](https://github.com/KurtGokhan/padrone/commit/aa0b568f35c2fcb97a78abf077561a914606de6f), [`dbac7ec`](https://github.com/KurtGokhan/padrone/commit/dbac7ec56a9f0c320550eef2f6b188a3741d1d4e), [`91fd814`](https://github.com/KurtGokhan/padrone/commit/91fd8146c0fff0eb8c4e5f46191d1a6bf8203ecf), [`99c8cfa`](https://github.com/KurtGokhan/padrone/commit/99c8cfa298194d9632b9c784858c1695e7782acf), [`88c45af`](https://github.com/KurtGokhan/padrone/commit/88c45afeef123d4a3e5d5e4d359e080ddf60a154), [`0dfae77`](https://github.com/KurtGokhan/padrone/commit/0dfae774d264d4cab092b90bb779dd3da46abaef), [`8691694`](https://github.com/KurtGokhan/padrone/commit/86916947b189109e6647684d30dc06992a3909b5), [`4343f78`](https://github.com/KurtGokhan/padrone/commit/4343f7857b6685c8e1774b4d933846cd786fe828), [`7464026`](https://github.com/KurtGokhan/padrone/commit/746402615e11262a0ff7257f41a4840c3a54143e), [`be62401`](https://github.com/KurtGokhan/padrone/commit/be624016ee6e4852ab043b15b4d525431319a168)]:
+  - padrone@1.6.0
+  - @padrone/tasks-example@1.6.0
+
 ## 1.5.0
 
 ### Patch Changes
