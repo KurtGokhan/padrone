@@ -4,6 +4,7 @@ export type { WithCompletion } from './completion.ts';
 export { padroneCompletion } from './completion.ts';
 export type { PadroneConfigOptions } from './config.ts';
 export { padroneConfig } from './config.ts';
+export type { PadroneEnvOptions } from './env.ts';
 export { padroneEnv } from './env.ts';
 export type { HelpCommand, WithHelp } from './help.ts';
 export { padroneHelp } from './help.ts';
