@@ -4,13 +4,26 @@ import type { HelpFormat } from '../output/formatter.ts';
 /** Process signals that Padrone can handle for graceful shutdown. */
 export type PadroneSignal = 'SIGINT' | 'SIGTERM' | 'SIGHUP';
 
+/** Value accepted by `PadroneProgressIndicator.update()`. */
+export type PadroneProgressUpdate = string | number | { message?: string; progress?: number; indeterminate?: boolean };
+
 /**
  * A progress indicator instance (spinner, progress bar, etc).
  * Created by the runtime's `progress` factory and used to show loading state during command execution.
  */
 export type PadroneProgressIndicator = {
-  /** Update the displayed message. */
-  update: (message: string) => void;
+  /**
+   * Update the indicator.
+   * - `string` — update the displayed message.
+   * - `number` — set progress ratio (0–1). Values outside this range are clamped.
+   * - `{ message?, progress?, indeterminate? }` — update message, progress, or both.
+   *
+   * Set `indeterminate: true` to force the bar into indeterminate mode (shows animation, no percentage).
+   * This makes the bar visible even in `show: 'auto'` mode without providing a number.
+   * Omitting `progress` (or passing a string) leaves the bar in its current state.
+   * Setting `progress` when bar mode is not enabled is a no-op for the bar portion.
+   */
+  update: (value: PadroneProgressUpdate) => void;
   /** Mark as succeeded and stop. Pass `null` to stop without rendering a final message. */
   succeed: (message?: string | null, options?: { indicator?: string }) => void;
   /** Mark as failed and stop. Pass `null` to stop without rendering a final message. */
@@ -23,22 +36,62 @@ export type PadroneProgressIndicator = {
   resume: () => void;
 };
 
+/** Controls when a progress element (spinner or bar) is visible. */
+export type PadroneProgressShow = 'auto' | 'always' | 'never';
+
 /** Built-in spinner presets. */
 export type PadroneSpinnerPreset = 'dots' | 'line' | 'arc' | 'bounce';
 
 /**
  * Spinner configuration for progress indicators.
  * - A preset name (e.g., `'dots'`) to use built-in frames.
- * - An object with custom `frames` and/or `interval`.
- * - `false` to disable the spinner animation (static text only).
+ * - `true` — default spinner with `show: 'always'` (visible even alongside a bar).
+ * - An object with custom `frames`, `interval`, and/or `show`.
+ * - `false` to disable the spinner (`show: 'never'`).
+ *
+ * Default `show` is `'auto'`: visible when the bar is not shown.
  */
-export type PadroneSpinnerConfig = PadroneSpinnerPreset | { frames?: string[]; interval?: number } | false;
+export type PadroneSpinnerConfig = PadroneSpinnerPreset | boolean | { frames?: string[]; interval?: number; show?: PadroneProgressShow };
 
 /**
  * Options passed to the runtime's `progress` factory.
  */
+/** Common fill/empty character pairs for progress bars. */
+export type PadroneBarChar = '█' | '░' | '▓' | '▒' | '─' | '━' | '■' | '□' | '#' | '-' | '=' | '·' | '▰' | '▱' | (string & {});
+
+/**
+ * Built-in indeterminate bar animation presets.
+ * - `'bounce'` — a filled segment slides back and forth (default).
+ * - `'slide'` — a filled segment slides left-to-right and wraps around.
+ * - `'pulse'` — the entire bar fades in and out using gradient characters (`░▒▓█▓▒░`).
+ */
+export type PadroneBarAnimation = 'bounce' | 'slide' | 'pulse';
+
+/**
+ * Progress bar configuration.
+ */
+export type PadroneBarConfig = {
+  /** Total width of the bar in characters. Defaults to `20`. */
+  width?: number;
+  /** Character used for the filled portion of the bar. Defaults to `'█'`. */
+  filled?: PadroneBarChar;
+  /** Character used for the empty portion of the bar. Defaults to `'░'`. */
+  empty?: PadroneBarChar;
+  /** Indeterminate animation style. Defaults to `'bounce'`. */
+  animation?: PadroneBarAnimation;
+  /**
+   * When the bar is visible. Defaults to `'always'` when bar is enabled, `'auto'` when bar is not explicitly configured.
+   * - `'always'` — bar is always shown (indeterminate until a number is provided).
+   * - `'auto'` — bar is shown only after `update()` is called with a number.
+   * - `'never'` — bar is never shown.
+   */
+  show?: PadroneProgressShow;
+};
+
 export type PadroneProgressOptions = {
   spinner?: PadroneSpinnerConfig;
+  /** Enable a progress bar. `true` for defaults (`show: 'always'`), or a `PadroneBarConfig` object. `false` to disable entirely. When omitted, bar defaults to `show: 'auto'` (appears when a number is provided). */
+  bar?: boolean | PadroneBarConfig;
   /** Character/string shown before the success message. Defaults to `'✔'`. */
   successIndicator?: string;
   /** Character/string shown before the error message. Defaults to `'✖'`. */
@@ -124,12 +177,6 @@ export type PadroneRuntime = {
    */
   prompt?: (config: InteractivePromptConfig) => Promise<unknown>;
   /**
-   * Create a progress indicator (spinner, progress bar, etc).
-   * Used by the `padroneProgress()` extension and available to interceptors via the runtime.
-   * When not provided, progress extensions silently degrade to no-ops.
-   */
-  progress?: (message: string, options?: PadroneProgressOptions) => PadroneProgressIndicator;
-  /**
    * Read a line of input from the user. Used by `repl()` for custom runtimes
    * (web UIs, chat interfaces, testing).
    * Returns the input string, `null` on EOF (e.g. Ctrl+D, closed connection),
@@ -173,9 +220,9 @@ export type PadroneRuntime = {
  * The `prompt`, `interactive`, and `readLine` fields remain optional since not all runtimes provide them.
  */
 export type ResolvedPadroneRuntime = Required<
-  Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress' | 'theme' | 'onSignal' | 'terminal' | 'exit'>
+  Omit<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'theme' | 'onSignal' | 'terminal' | 'exit'>
 > &
-  Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'progress' | 'theme' | 'onSignal' | 'terminal' | 'exit'>;
+  Pick<PadroneRuntime, 'prompt' | 'interactive' | 'readLine' | 'stdin' | 'theme' | 'onSignal' | 'terminal' | 'exit'>;
 
 /**
  * Sentinel value returned by the terminal REPL session when Ctrl+C is pressed.

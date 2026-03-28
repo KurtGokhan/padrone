@@ -8,8 +8,13 @@ export { asyncSchema } from './core/results.ts';
 export type {
   InteractiveMode,
   InteractivePromptConfig,
+  PadroneBarAnimation,
+  PadroneBarChar,
+  PadroneBarConfig,
   PadroneProgressIndicator,
   PadroneProgressOptions,
+  PadroneProgressShow,
+  PadroneProgressUpdate,
   PadroneRuntime,
   PadroneSignal,
   PadroneSpinnerConfig,
@@ -27,6 +32,7 @@ export type {
   PadroneLogLevel,
   PadroneProgressConfig,
   PadroneProgressMessage,
+  PadroneProgressRenderer,
   PadroneTracer,
   PadroneTracingConfig,
   VersionCommand,
@@ -42,6 +48,7 @@ export type {
   WithVersion,
 } from './extension/index.ts';
 export {
+  createTerminalProgress,
   isReactElement,
   padroneAutoOutput,
   padroneColor,

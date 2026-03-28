@@ -292,11 +292,18 @@ export const tasksProgram = createPadrone('tasks')
             indicator: (res as any).count > 3 ? '🚀' : '✅',
           }),
           error: 'Failed to sync tasks.',
+          spinner: true,
         }),
       )
       .action(async (_args, ctx) => {
         await new Promise((resolve) => setTimeout(resolve, 1500));
         ctx.context.progress.update('Finalizing sync...');
+        ctx.context.progress.update({ indeterminate: true });
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        for (let i = 1; i <= 5; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          ctx.context.progress.update(0.2 * i);
+        }
         ctx.context.logger.info('Sync operation is taking longer than expected...');
         await new Promise((resolve) => setTimeout(resolve, 1000));
 

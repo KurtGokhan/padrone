@@ -1,7 +1,9 @@
 import { defineInterceptor } from '../core/interceptors.ts';
-import type { PadroneProgressIndicator, PadroneProgressOptions, PadroneSpinnerConfig, ResolvedPadroneRuntime } from '../core/runtime.ts';
+import type { PadroneBarConfig, PadroneProgressIndicator, PadroneProgressOptions, PadroneSpinnerConfig } from '../core/runtime.ts';
 import type { AnyPadroneBuilder, CommandTypesBase } from '../types/index.ts';
 import type { WithInterceptor } from '../util/type-utils.ts';
+import type { PadroneProgressRenderer } from './progress-renderer.ts';
+import { createTerminalProgress } from './progress-renderer.ts';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,8 +24,15 @@ export type PadroneProgressConfig<TRes = unknown> = {
   success?: PadroneProgressMessage | ((result: TRes) => PadroneProgressMessage);
   /** Message shown when the command fails. `null` to suppress. Defaults to the error message. */
   error?: PadroneProgressMessage | ((error: unknown) => PadroneProgressMessage);
-  /** Spinner configuration: a preset name, custom frames/interval, or `false` to disable. */
+  /** Spinner configuration. Default `show` is `'auto'` (visible when bar is not shown). `true` forces spinner to always show (even alongside a bar). */
   spinner?: PadroneSpinnerConfig;
+  /** Enable a progress bar. `true` for defaults (`show: 'always'`), or a `PadroneBarConfig` object. `false` to disable entirely. When omitted, bar defaults to `show: 'auto'`. */
+  bar?: boolean | PadroneBarConfig;
+  /**
+   * Custom renderer factory. Called to create the progress indicator.
+   * Defaults to the built-in terminal renderer (`createTerminalProgress`).
+   */
+  renderer?: PadroneProgressRenderer;
 };
 
 /** Builder/program type after applying `padroneProgress()`. Adds `{ progress: PadroneProgressIndicator }` to the command context. */
@@ -41,10 +50,6 @@ const noopIndicator: PadroneProgressIndicator = {
   pause() {},
   resume() {},
 };
-
-function createIndicator(runtime: ResolvedPadroneRuntime, message: string, options?: PadroneProgressOptions): PadroneProgressIndicator {
-  return runtime.progress?.(message, options) ?? noopIndicator;
-}
 
 function resolveMessage(field: unknown, value: unknown, fallback?: string): { message: string | null | undefined; indicator?: string } {
   const raw = typeof field === 'function' ? (field as (v: unknown) => unknown)(value) : field;
@@ -87,7 +92,10 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
   const successConfig = isObj ? config.success : undefined;
   const errorConfig = isObj ? config.error : undefined;
   const spinnerConfig = isObj ? config.spinner : undefined;
-  const progressOptions = spinnerConfig !== undefined ? { spinner: spinnerConfig } : undefined;
+  const barConfig = isObj ? config.bar : undefined;
+  const renderer = (isObj ? config.renderer : undefined) ?? createTerminalProgress;
+  const progressOptions: PadroneProgressOptions | undefined =
+    spinnerConfig !== undefined || barConfig !== undefined ? { spinner: spinnerConfig, bar: barConfig } : undefined;
 
   return defineInterceptor({ id: 'padrone:progress', name: 'padrone:progress' }, () => {
     let indicator: PadroneProgressIndicator | undefined;
@@ -99,29 +107,27 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
       restoreOutput = undefined;
     };
 
-    const wrapOutput = (runtime: ResolvedPadroneRuntime) => {
-      const originalOutput = runtime.output;
-      const originalError = runtime.error;
-      runtime.output = (...args: unknown[]) => {
-        indicator!.pause();
-        originalOutput(...args);
-        indicator!.resume();
-      };
-      runtime.error = (text: string) => {
-        indicator!.pause();
-        originalError(text);
-        indicator!.resume();
-      };
-      restoreOutput = () => {
-        runtime.output = originalOutput;
-        runtime.error = originalError;
-      };
-    };
-
     return {
       validate(ctx, next) {
-        indicator = createIndicator(ctx.runtime, validationMsg || progressMsg, progressOptions);
-        wrapOutput(ctx.runtime);
+        indicator = renderer(validationMsg || progressMsg, progressOptions);
+
+        const originalOutput = ctx.runtime.output;
+        const originalError = ctx.runtime.error;
+        ctx.runtime.output = (...args: unknown[]) => {
+          indicator!.pause();
+          originalOutput(...args);
+          indicator!.resume();
+        };
+        ctx.runtime.error = (text: string) => {
+          indicator!.pause();
+          originalError(text);
+          indicator!.resume();
+        };
+        restoreOutput = () => {
+          ctx.runtime.output = originalOutput;
+          ctx.runtime.error = originalError;
+        };
+
         return next();
       },
 
@@ -184,7 +190,7 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
         return result;
       },
     };
-  });
+  }).provides<{ progress: PadroneProgressIndicator }>();
 }
 
 // ---------------------------------------------------------------------------
@@ -192,7 +198,7 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
 // ---------------------------------------------------------------------------
 
 /**
- * Extension that adds an auto-managed progress spinner to the command pipeline.
+ * Extension that adds an auto-managed progress indicator to the command pipeline.
  *
  * - `string` — a single message used for all states.
  * - `PadroneProgressConfig` — separate messages for validation, progress, success, and error.
@@ -203,7 +209,8 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
  * Provides `{ progress: PadroneProgressIndicator }` on the command context.
  * Access it in action handlers as `ctx.context.progress`.
  *
- * Requires a `progress` factory on the runtime — silently degrades to a no-op if not available.
+ * Uses the built-in terminal renderer by default. Pass a custom `renderer` for non-terminal
+ * environments (web UIs, testing, etc).
  *
  * Usage:
  * ```ts

@@ -205,12 +205,13 @@ Auto-managed spinners for long-running commands via `padroneProgress()` context-
 )
 ```
 
-- **Auto-managed**: `padroneProgress()` starts a spinner before execution, calls `succeed`/`fail` automatically
-- **Manual control**: Use `ctx.context.progress` in action handlers for on-demand updates (`update`, `succeed`, `fail`, `stop`, `pause`, `resume`)
+- **Auto-managed**: `padroneProgress()` starts before execution, calls `succeed`/`fail` automatically
+- **Manual control**: Use `ctx.context.progress` in action handlers — `update(string | number | { message?, progress?, indeterminate? })`, `succeed`, `fail`, `stop`, `pause`, `resume`
 - **Typed context**: `padroneProgress()` uses `.provides<{ progress: PadroneProgressIndicator }>()` — `ctx.context.progress` is fully typed
 - **Dynamic messages**: `success`/`error` can be callbacks returning `string | null | { message, indicator }`
-- **Spinner config**: `spinner` field accepts preset name (`'dots'`, `'line'`, etc.), `false` to disable, or `{ frames, interval }` object
-- **Runtime factory**: `runtime({ progress: (message, options?) => indicator })` to provide a custom spinner implementation
+- **Spinner config**: `spinner` accepts preset name (`'dots'`, `'line'`, etc.), `true` (always show), `false` (disable), or `{ frames, interval, show }` object
+- **Progress bar**: `bar: true` or `bar: { width, filled, empty, animation, show }` — renders percentage + bar. Indeterminate animations: `'bounce'`, `'slide'`, `'pulse'`
+- **Custom renderer**: `renderer: (message, options?) => PadroneProgressIndicator` to replace the built-in terminal renderer
 
 ## Error Classes
 

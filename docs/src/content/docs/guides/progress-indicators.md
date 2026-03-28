@@ -1,6 +1,6 @@
 ---
 title: Progress Indicators
-description: Show spinners and status messages during long-running commands
+description: Show spinners, progress bars, and status messages during long-running commands
 ---
 
 Padrone provides a built-in progress indicator system for commands that take time — async operations, network calls, file processing, etc. Progress indicators are auto-managed by default (start before validation, succeed/fail after execution) but can also be driven manually from within an action handler.
@@ -26,7 +26,7 @@ Running `app deploy` shows a spinner with "Deploying..." that auto-succeeds when
 
 ## Auto-Managed Progress
 
-Use `padroneProgress()` to configure automatic progress indicators. Register it with `.intercept()` on a command. The indicator starts before validation and is automatically stopped on success or failure.
+Use `padroneProgress()` to configure automatic progress indicators. Register it with `.extend()` on a command. The indicator starts before validation and is automatically stopped on success or failure.
 
 ### Simple Message
 
@@ -43,6 +43,7 @@ c.extend(padroneProgress({
   success: 'Deployed successfully!',   // Shown on success
   error: 'Deploy failed',             // Shown on failure
   spinner: 'line',                     // Spinner preset
+  bar: true,                           // Enable progress bar
 }))
 ```
 
@@ -125,12 +126,82 @@ c.extend(padroneProgress('Importing...'))
 
 | Method | Description |
 |--------|-------------|
-| `update(message)` | Change the displayed message |
+| `update(value)` | Update message, progress, or both (see below) |
 | `succeed(message?, options?)` | Mark as succeeded and stop |
 | `fail(message?, options?)` | Mark as failed and stop |
 | `stop()` | Stop without success/fail status |
 | `pause()` | Temporarily hide (for clean output) |
 | `resume()` | Redraw after `pause()` |
+
+The `update()` method accepts several forms:
+
+```typescript
+// Update message only
+ctx.context.progress.update('Step 2...');
+
+// Set progress ratio (0–1) — shows the bar
+ctx.context.progress.update(0.5);
+
+// Update both at once
+ctx.context.progress.update({ message: 'Downloading...', progress: 0.75 });
+
+// Switch to indeterminate bar (no percentage, shows animation)
+ctx.context.progress.update({ indeterminate: true });
+
+// Back to determinate
+ctx.context.progress.update(0.9);
+```
+
+## Progress Bar
+
+Enable a progress bar with the `bar` option:
+
+```typescript
+c.extend(padroneProgress({
+  progress: 'Downloading...',
+  bar: true,
+}))
+```
+
+The bar renders as: `  40% ████████░░░░░░░░░░░░ Downloading...`
+
+When no progress number has been set, the bar shows an indeterminate animation. Once `update(number)` is called, it switches to a determinate bar with a percentage.
+
+### Bar Configuration
+
+Pass an object for full control:
+
+```typescript
+c.extend(padroneProgress({
+  progress: 'Downloading...',
+  bar: {
+    width: 30,           // Bar width in characters (default: 20)
+    filled: '▓',         // Filled character (default: '█')
+    empty: '░',          // Empty character (default: '░')
+    animation: 'pulse',  // Indeterminate animation style (default: 'bounce')
+  },
+}))
+```
+
+### Indeterminate Animations
+
+Three built-in animation presets for indeterminate state:
+
+| Animation | Description |
+|-----------|-------------|
+| `bounce` | A filled segment slides back and forth (default) |
+| `slide` | A filled segment slides left-to-right and wraps around |
+| `pulse` | The entire bar fades through gradient characters (`░▒▓█▓▒░`) |
+
+### Explicit Indeterminate Mode
+
+You can switch a bar to indeterminate mode at any time via `update()`:
+
+```typescript
+ctx.context.progress.update({ indeterminate: true, message: 'Waiting for server...' });
+// ... later, back to determinate:
+ctx.context.progress.update(0.5);
+```
 
 ## Spinner Configuration
 
@@ -166,40 +237,51 @@ Set `spinner: false` to show static text without animation:
 c.extend(padroneProgress({ progress: 'Processing...', spinner: false }))
 ```
 
-## Runtime Progress Factory
+### Showing Both Spinner and Bar
 
-The progress system requires a `progress` factory on the runtime. Padrone provides a built-in terminal spinner by default. You can replace it with your own implementation (e.g., for web UIs or testing):
+By default, the spinner hides when the bar is visible. Use `spinner: true` to always show the spinner alongside the bar:
 
 ```typescript
-program.runtime({
-  progress: (message, options) => ({
-    update(msg) { /* ... */ },
+c.extend(padroneProgress({
+  progress: 'Installing...',
+  bar: true,
+  spinner: true,  // Always show spinner, even with bar
+}))
+```
+
+This renders as: `  40% ████████░░░░░░░░░░░░ ⠋ Installing...`
+
+## Custom Renderer
+
+The default renderer outputs to stderr with ANSI escape codes. For non-terminal environments (web UIs, testing), pass a custom `renderer`:
+
+```typescript
+c.extend(padroneProgress({
+  progress: 'Working...',
+  renderer: (message, options) => ({
+    update(value) { /* ... */ },
     succeed(msg) { /* ... */ },
     fail(msg) { /* ... */ },
     stop() { /* ... */ },
     pause() { /* ... */ },
     resume() { /* ... */ },
   }),
-});
+}))
 ```
 
-The factory receives optional `PadroneProgressOptions`:
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `spinner` | `PadroneSpinnerConfig` | Spinner preset, custom config, or `false` |
-| `successIndicator` | `string` | Default success icon (default: `'✔'`) |
-| `errorIndicator` | `string` | Default error icon (default: `'✖'`) |
+The built-in terminal renderer is also exported as `createTerminalProgress` for cases where you want to wrap or extend the default behavior.
 
 ### Testing with Mock Progress
 
 ```typescript
+import { type PadroneProgressRenderer } from 'padrone';
+
 function createMockProgress() {
   const indicators = [];
-  const factory = (message) => {
+  const factory: PadroneProgressRenderer = (message) => {
     const calls = [];
     const indicator = {
-      update: (msg) => calls.push(`update:${msg}`),
+      update: (value) => calls.push(`update:${JSON.stringify(value)}`),
       succeed: (msg) => calls.push(`succeed:${msg}`),
       fail: (msg) => calls.push(`fail:${msg}`),
       stop: () => calls.push('stop'),
@@ -214,9 +296,9 @@ function createMockProgress() {
 
 const { factory, indicators } = createMockProgress();
 const program = createPadrone('app')
-  .runtime({ progress: factory })
   .command('cmd', (c) =>
-    c.extend(padroneProgress('Working...')).action(() => 'done')
+    c.extend(padroneProgress({ progress: 'Working...', renderer: factory }))
+      .action(() => 'done')
   );
 
 program.eval('cmd');
@@ -225,7 +307,7 @@ program.eval('cmd');
 
 ## Output Coordination
 
-When auto-progress is active, `runtime.output` and `runtime.error` are automatically wrapped to pause/resume the spinner. This prevents garbled output when writing to the terminal while a spinner is animating.
+When auto-progress is active, `runtime.output` and `runtime.error` are automatically wrapped to pause/resume the indicator. This prevents garbled output when writing to the terminal while a spinner or bar is animating.
 
 Manual calls to `ctx.context.progress.pause()` and `ctx.context.progress.resume()` are available if you need explicit control.
 
@@ -235,7 +317,7 @@ Manual calls to `ctx.context.progress.pause()` and `ctx.context.progress.resume(
 
 1. **Registers an interceptor** that wraps the validate and execute phases with progress indicator management
 2. **Provides typed context** via `.provides<{ progress: PadroneProgressIndicator }>()` so `ctx.context.progress` is fully typed
-3. **Coordinates with the runtime** progress factory to create and manage the spinner
+3. **Creates the indicator** using the configured renderer (defaults to the built-in terminal renderer)
 
 This means progress indicators interact naturally with other interceptors. The indicator starts before validation interceptors run and is cleaned up after execution. Interceptor errors are caught and reflected in the progress indicator:
 

@@ -435,11 +435,11 @@ Configure an auto-managed progress indicator for the command. The indicator star
 | `progress` | `string` | Message during execution |
 | `success` | `string \| null \| (result) => PadroneProgressMessage` | Success message or callback |
 | `error` | `string \| null \| (error) => PadroneProgressMessage` | Error message or callback |
-| `spinner` | `PadroneSpinnerConfig` | Spinner preset, custom config, or `false` to disable |
+| `spinner` | `PadroneSpinnerConfig` | Spinner preset, `true` (always show), `false` (disable), or `{ frames, interval, show }` |
+| `bar` | `boolean \| PadroneBarConfig` | `true` for defaults, or `{ width, filled, empty, animation, show }` for customization |
+| `renderer` | `PadroneProgressRenderer` | Custom renderer factory (defaults to built-in terminal renderer) |
 
 Callbacks can return a string, `null` (suppress), or `{ message, indicator }` for per-call icon customization.
-
-Requires a `progress` factory on the runtime — silently skipped if not available.
 
 **Returns:** The program builder (chainable)
 

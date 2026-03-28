@@ -131,13 +131,13 @@ for await (const result of program.repl()) {
 
 ### Progress Indicators
 
-Auto-managed spinners for long-running commands, implemented as a context-providing extension:
+Auto-managed spinners and progress bars for long-running commands, implemented as a context-providing extension:
 
 ```typescript
 .extend(padroneProgress({
   progress: 'Deploying...',
   success: (result) => `Deployed v${result.version}`,
-  spinner: 'dots',
+  bar: true,
 }))
 ```
 

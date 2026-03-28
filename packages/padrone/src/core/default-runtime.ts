@@ -2,12 +2,8 @@ import { readStreamAsText } from '../util/stream.ts';
 import type {
   InteractiveMode,
   InteractivePromptConfig,
-  PadroneProgressIndicator,
-  PadroneProgressOptions,
   PadroneRuntime,
   PadroneSignal,
-  PadroneSpinnerConfig,
-  PadroneSpinnerPreset,
   ReplSessionConfig,
   ResolvedPadroneRuntime,
 } from './runtime.ts';
@@ -142,135 +138,6 @@ function createDefaultStdin(): NonNullable<PadroneRuntime['stdin']> {
   };
 }
 
-const spinnerPresets: Record<PadroneSpinnerPreset, string[]> = {
-  dots: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
-  line: ['-', '\\', '|', '/'],
-  arc: ['◜', '◠', '◝', '◞', '◡', '◟'],
-  bounce: ['⠁', '⠂', '⠄', '⡀', '⢀', '⠠', '⠐', '⠈'],
-};
-
-function resolveSpinnerConfig(config?: PadroneSpinnerConfig): { frames: string[]; interval: number; disabled: boolean } {
-  if (config === false) return { frames: [], interval: 80, disabled: true };
-  if (typeof config === 'string') return { frames: spinnerPresets[config], interval: 80, disabled: false };
-  if (typeof config === 'object') {
-    return {
-      frames: config.frames ?? spinnerPresets.dots,
-      interval: config.interval ?? 80,
-      disabled: false,
-    };
-  }
-  return { frames: spinnerPresets.dots, interval: 80, disabled: false };
-}
-
-/**
- * Creates a built-in terminal spinner. Returns a no-op indicator in non-TTY/CI environments.
- */
-function createTerminalSpinner(message: string, options?: PadroneProgressOptions): PadroneProgressIndicator {
-  const { frames, interval, disabled: spinnerDisabled } = resolveSpinnerConfig(options?.spinner);
-  const successIcon = options?.successIndicator ?? '✔';
-  const errorIcon = options?.errorIndicator ?? '✖';
-
-  const formatFinal = (icon: string, msg: string) => (icon ? `${icon} ${msg}\n` : `${msg}\n`);
-
-  if (typeof process === 'undefined' || !process.stderr?.isTTY) {
-    // Non-TTY: just log start/end, no animation
-    return {
-      update() {},
-      succeed(msg, opts) {
-        if (msg === null) return;
-        const icon = opts?.indicator ?? successIcon;
-        if (msg || message) process?.stderr?.write?.(formatFinal(icon, msg || message));
-      },
-      fail(msg, opts) {
-        if (msg === null) return;
-        const icon = opts?.indicator ?? errorIcon;
-        if (msg || message) process?.stderr?.write?.(formatFinal(icon, msg || message));
-      },
-      stop() {},
-      pause() {},
-      resume() {},
-    };
-  }
-
-  // If spinner is disabled and there's no message, nothing to render
-  if (spinnerDisabled && !message) {
-    return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
-  }
-
-  let frame = 0;
-  let text = message;
-  let stopped = false;
-  let paused = false;
-
-  const writeStderr = process.stderr.write.bind(process.stderr);
-  const writeStdout = process.stdout.write.bind(process.stdout);
-  const clearLine = () => writeStderr('\x1b[2K\r');
-
-  const render = () => {
-    if (paused || stopped) return;
-    if (spinnerDisabled) {
-      // Static text only, no spinner frames
-      if (text) writeStderr(`\x1b[2K\r${text}`);
-    } else {
-      const prefix = frames[frame] ?? '';
-      writeStderr(`\x1b[2K\r${text ? `${prefix} ${text}` : prefix}`);
-    }
-  };
-
-  const timer = spinnerDisabled
-    ? undefined
-    : setInterval(() => {
-        frame = (frame + 1) % frames.length;
-        render();
-      }, interval);
-
-  render();
-
-  const clear = () => {
-    if (stopped) return;
-    stopped = true;
-    paused = false;
-    if (timer) clearInterval(timer);
-    clearLine();
-  };
-
-  return {
-    update(msg) {
-      if (stopped) return;
-      text = msg;
-      render();
-    },
-    succeed(msg, opts) {
-      clear();
-      if (msg === null) return;
-      const finalMsg = msg ?? text;
-      const icon = opts?.indicator ?? successIcon;
-      if (finalMsg) writeStderr(formatFinal(icon, finalMsg));
-    },
-    fail(msg, opts) {
-      clear();
-      if (msg === null) return;
-      const finalMsg = msg ?? text;
-      const icon = opts?.indicator ?? errorIcon;
-      if (finalMsg) writeStderr(formatFinal(icon, finalMsg));
-    },
-    stop() {
-      clear();
-    },
-    pause() {
-      if (stopped || paused) return;
-      paused = true;
-      clearLine();
-      writeStdout('\x1b[2K\r');
-    },
-    resume() {
-      if (stopped || !paused) return;
-      paused = false;
-      render();
-    },
-  };
-}
-
 /**
  * Default signal listener that wires to `process.on(signal)`.
  * Returns an unsubscribe function that removes all listeners.
@@ -320,7 +187,6 @@ export function createDefaultRuntime(): ResolvedPadroneRuntime {
     format: 'auto',
     prompt: defaultTerminalPrompt,
     interactive: detectInteractiveMode(),
-    progress: createTerminalSpinner,
     onSignal: defaultOnSignal,
     terminal: getTerminalInfo(),
     exit: defaultExit,
@@ -364,7 +230,6 @@ export function resolveRuntime(partial?: PadroneRuntime): ResolvedPadroneRuntime
     interactive: partial.interactive ?? defaults.interactive,
     prompt: partial.prompt ?? defaults.prompt,
     readLine: partial.readLine ?? defaults.readLine,
-    progress: partial.progress ?? defaults.progress,
     stdin: partial.stdin,
     theme: partial.theme,
     onSignal: partial.onSignal ?? defaults.onSignal,
