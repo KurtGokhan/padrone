@@ -1,24 +1,20 @@
 import { camelToKebab } from '../util/shell-utils.ts';
-import { type ColorConfig, type ColorTheme, createColorizer } from './colorizer.ts';
-
-const DEFAULT_TERMINAL_WIDTH = 80;
-
-function wrapText(text: string, maxWidth: number): string[] {
-  if (maxWidth <= 0 || text.length <= maxWidth) return [text];
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let current = '';
-  for (const word of words) {
-    if (current && current.length + 1 + word.length > maxWidth) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = current ? `${current} ${word}` : word;
-    }
-  }
-  if (current) lines.push(current);
-  return lines.length > 0 ? lines : [text];
-}
+import type { ColorConfig, ColorTheme } from './colorizer.ts';
+import {
+  createAnsiStyler,
+  createConsoleStyler,
+  createHtmlLayout,
+  createHtmlStyler,
+  createMarkdownLayout,
+  createMarkdownStyler,
+  createTextLayout,
+  createTextStyler,
+  DEFAULT_TERMINAL_WIDTH,
+  type LayoutConfig,
+  type Styler,
+  shouldUseAnsi,
+  wrapText,
+} from './styling.ts';
 
 export type HelpFormat = 'text' | 'ansi' | 'console' | 'markdown' | 'html' | 'json';
 export type HelpDetail = 'minimal' | 'standard' | 'full';
@@ -143,143 +139,6 @@ export type Formatter = {
   /** Format the entire help info structure into a string */
   format: (info: HelpInfo) => string;
 };
-
-// ============================================================================
-// Internal Styling Types
-// ============================================================================
-
-/**
- * Internal styling functions used by formatters.
- * These handle the visual styling of individual text elements.
- */
-type Styler = {
-  command: (text: string) => string;
-  arg: (text: string) => string;
-  type: (text: string) => string;
-  description: (text: string) => string;
-  label: (text: string) => string;
-  section: (text: string) => string;
-  meta: (text: string) => string;
-  example: (text: string) => string;
-  exampleValue: (text: string) => string;
-  deprecated: (text: string) => string;
-};
-
-/**
- * Layout configuration for formatters.
- */
-type LayoutConfig = {
-  newline: string;
-  indent: (level: number) => string;
-  join: (parts: string[]) => string;
-  wrapDocument?: (content: string) => string;
-};
-
-// ============================================================================
-// Styler Factories
-// ============================================================================
-
-function createTextStyler(): Styler {
-  return {
-    command: (text) => text,
-    arg: (text) => text,
-    type: (text) => text,
-    description: (text) => text,
-    label: (text) => text,
-    section: (text) => text,
-    meta: (text) => text,
-    example: (text) => text,
-    exampleValue: (text) => text,
-    deprecated: (text) => text,
-  };
-}
-
-function createAnsiStyler(theme?: ColorTheme | ColorConfig): Styler {
-  const colorizer = createColorizer(theme);
-  return {
-    command: colorizer.command,
-    arg: colorizer.arg,
-    type: colorizer.type,
-    description: colorizer.description,
-    label: colorizer.label,
-    section: colorizer.label,
-    meta: colorizer.meta,
-    example: colorizer.example,
-    exampleValue: colorizer.exampleValue,
-    deprecated: colorizer.deprecated,
-  };
-}
-
-function createConsoleStyler(theme?: ColorTheme | ColorConfig): Styler {
-  return createAnsiStyler(theme);
-}
-
-function createMarkdownStyler(): Styler {
-  return {
-    command: (text) => `**${text}**`,
-    arg: (text) => `\`${text}\``,
-    type: (text) => `\`${text}\``,
-    description: (text) => text,
-    label: (text) => `**${text}**`,
-    section: (text) => `### ${text}`,
-    meta: (text) => `*${text}*`,
-    example: (text) => `**${text}**`,
-    exampleValue: (text) => `\`${text}\``,
-    deprecated: (text) => `~~${text}~~`,
-  };
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-}
-
-function createHtmlStyler(): Styler {
-  return {
-    command: (text) => `<strong style="color: #00bcd4;">${escapeHtml(text)}</strong>`,
-    arg: (text) => `<code style="color: #4caf50;">${escapeHtml(text)}</code>`,
-    type: (text) => `<code style="color: #ff9800;">${escapeHtml(text)}</code>`,
-    description: (text) => `<span style="color: #666;">${escapeHtml(text)}</span>`,
-    label: (text) => `<strong>${escapeHtml(text)}</strong>`,
-    section: (text) => `<h3>${escapeHtml(text)}</h3>`,
-    meta: (text) => `<span style="color: #999;">${escapeHtml(text)}</span>`,
-    example: (text) => `<strong style="text-decoration: underline;">${escapeHtml(text)}</strong>`,
-    exampleValue: (text) => `<em>${escapeHtml(text)}</em>`,
-    deprecated: (text) => `<del style="color: #999;">${escapeHtml(text)}</del>`,
-  };
-}
-
-// ============================================================================
-// Layout Configurations
-// ============================================================================
-
-function createTextLayout(): LayoutConfig {
-  return {
-    newline: '\n',
-    indent: (level) => '  '.repeat(level),
-    join: (parts) => parts.filter(Boolean).join(' '),
-  };
-}
-
-function createMarkdownLayout(): LayoutConfig {
-  return {
-    newline: '\n\n',
-    indent: (level) => {
-      if (level === 0) return '';
-      if (level === 1) return '  ';
-      return '    ';
-    },
-    join: (parts) => parts.filter(Boolean).join(' '),
-  };
-}
-
-function createHtmlLayout(): LayoutConfig {
-  return {
-    newline: '<br>',
-    indent: (level) => '&nbsp;&nbsp;'.repeat(level),
-    join: (parts) => parts.filter(Boolean).join(' '),
-    wrapDocument: (content) => `<div style="font-family: monospace; line-height: 1.6;">${content}</div>`,
-  };
-}
 
 // ============================================================================
 // Generic Formatter Implementation
@@ -727,17 +586,6 @@ function createJsonFormatter(): Formatter {
       return JSON.stringify(info, null, 2);
     },
   };
-}
-
-// ============================================================================
-// Formatter Factory
-// ============================================================================
-
-function shouldUseAnsi(env?: Record<string, string | undefined>, isTTY?: boolean): boolean {
-  if (env?.NO_COLOR) return false;
-  if (env?.CI) return false;
-  if (typeof isTTY === 'boolean') return isTTY;
-  return false;
 }
 
 // ============================================================================

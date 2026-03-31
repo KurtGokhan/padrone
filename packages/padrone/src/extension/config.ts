@@ -137,7 +137,7 @@ function loadConfigSync(
     }
   }
   if (ext === '.js' || ext === '.cjs' || ext === '.mjs' || ext === '.ts' || ext === '.cts' || ext === '.mts') {
-    return import(absolutePath).then((mod) => mod.default ?? mod);
+    return import(/* @vite-ignore */ absolutePath).then((mod) => mod.default ?? mod);
   }
 
   // Unknown extension — try JSON

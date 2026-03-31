@@ -80,6 +80,9 @@ export type { WrapConfig, WrapResult } from './feature/wrap.ts';
 export type { AnsiStyle, ColorConfig, ColorTheme } from './output/colorizer.ts';
 export { colorThemes } from './output/colorizer.ts';
 export type { HelpInfo } from './output/formatter.ts';
+export type { PadroneOutputIndicator } from './output/output-indicator.ts';
+export type { KeyValueOptions, ListItem, ListOptions, TableOptions, TreeNode, TreeOptions } from './output/primitives.ts';
+export type { OutputContext, OutputFormat } from './output/styling.ts';
 export type {
   AnyPadroneBuilder,
   AnyPadroneCommand,

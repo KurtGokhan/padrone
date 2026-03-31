@@ -1,6 +1,9 @@
 import { defineInterceptor } from '../core/interceptors.ts';
 import { isAsyncIterator, isIterator } from '../core/results.ts';
-import type { AnyPadroneBuilder, CommandTypesBase, InterceptorExecuteResult } from '../types/index.ts';
+import type { OutputConfig } from '../output/output-indicator.ts';
+import { createOutputIndicator, formatDeclarativeOutput } from '../output/output-indicator.ts';
+import { resolveOutputFormat } from '../output/styling.ts';
+import type { AnyPadroneBuilder, CommandTypesBase, InterceptorExecuteContext, InterceptorExecuteResult } from '../types/index.ts';
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -51,25 +54,68 @@ function outputAndCollect(value: unknown, output: (...args: unknown[]) => void):
 
 const autoOutputMeta = { id: 'padrone:auto-output', name: 'padrone:auto-output', order: -1100 } as const;
 
-const autoOutputInterceptor = defineInterceptor(autoOutputMeta, () => ({
-  execute(ctx, next) {
-    const handleResult = (e: InterceptorExecuteResult): InterceptorExecuteResult | Promise<InterceptorExecuteResult> => {
-      if (e.result instanceof Promise) {
-        return { result: e.result.then((value: unknown) => outputAndCollect(value, ctx.runtime.output)) };
-      }
+function createAutoOutputInterceptor(outputConfig?: OutputConfig) {
+  return defineInterceptor(autoOutputMeta, () => ({
+    execute(ctx: InterceptorExecuteContext, next) {
+      const outputCtx = resolveOutputFormat(ctx.runtime, ctx.caller);
+      const indicator = createOutputIndicator(ctx.runtime.output, outputCtx);
 
-      const collected = outputAndCollect(e.result, ctx.runtime.output);
-      if (collected instanceof Promise) return collected.then((v) => ({ result: v }));
-      return { result: collected };
-    };
+      const handleResult = (e: InterceptorExecuteResult): InterceptorExecuteResult | Promise<InterceptorExecuteResult> => {
+        // If the action already called output.*, skip auto-output
+        if (indicator.called) return e;
 
-    const executedOrPromise = next();
-    if (executedOrPromise instanceof Promise) return executedOrPromise.then(handleResult);
-    return handleResult(executedOrPromise);
-  },
-}));
+        const autoOutput = (value: unknown): unknown => {
+          if (value == null) return value;
+
+          // Declarative output config: format the return value through the primitive
+          if (outputConfig) {
+            const rendered = formatDeclarativeOutput(value, outputConfig, outputCtx);
+            if (rendered !== undefined) {
+              ctx.runtime.output(rendered);
+              return value;
+            }
+          }
+
+          return outputAndCollect(value, ctx.runtime.output);
+        };
+
+        if (e.result instanceof Promise) {
+          return { result: e.result.then(autoOutput) };
+        }
+
+        const collected = autoOutput(e.result);
+        if (collected instanceof Promise) return collected.then((v) => ({ result: v }));
+        return { result: collected };
+      };
+
+      const executedOrPromise = next({ context: { ...(ctx.context as any), output: indicator } });
+      if (executedOrPromise instanceof Promise) return executedOrPromise.then(handleResult);
+      return handleResult(executedOrPromise);
+    },
+  }));
+}
 
 // ── Extension ───────────────────────────────────────────────────────────
+
+export type PadroneAutoOutputOptions = {
+  /** Disable auto-output entirely. */
+  disabled?: boolean;
+  /**
+   * Declarative output format for the command's return value.
+   * When set, auto-output formats the return value through the specified primitive
+   * instead of passing it raw to `runtime.output`.
+   * Ignored when the action calls `ctx.context.output.*` explicitly.
+   *
+   * ```ts
+   * // Format return value as a table
+   * c.extend(padroneAutoOutput({ output: 'table' }))
+   *
+   * // Format with options
+   * c.extend(padroneAutoOutput({ output: { type: 'table', options: { border: false } } }))
+   * ```
+   */
+  output?: OutputConfig;
+};
 
 /**
  * Extension that automatically writes a command's return value to output after execution.
@@ -80,16 +126,21 @@ const autoOutputInterceptor = defineInterceptor(autoOutputMeta, () => ({
  *   The result is replaced with the collected array so `drain()` still works.
  * - `undefined` and `null` results produce no output.
  *
+ * Also injects `ctx.context.output` with format-aware output primitives (table, tree, list, kv).
+ * When action handlers use these methods, auto-output skips to avoid double output.
+ *
  * Included in the default extensions. Can also be applied per-command:
  * ```ts
  * createPadrone('my-cli')
- *   .command('greet', (c) =>
- *     c.extend(padroneAutoOutput())
- *       .action(() => 'hello')
+ *   .command('users', (c) =>
+ *     c.extend(padroneAutoOutput({ output: 'table' }))
+ *       .action(() => fetchUsers())
  *   )
  * ```
  */
-export function padroneAutoOutput(options?: { disabled?: boolean }): <T extends CommandTypesBase>(builder: T) => T {
-  const interceptor = options?.disabled ? defineInterceptor({ ...autoOutputMeta, disabled: true }, () => ({})) : autoOutputInterceptor;
+export function padroneAutoOutput(options?: PadroneAutoOutputOptions): <T extends CommandTypesBase>(builder: T) => T {
+  const interceptor = options?.disabled
+    ? defineInterceptor({ ...autoOutputMeta, disabled: true }, () => ({}))
+    : createAutoOutputInterceptor(options?.output);
   return ((builder: AnyPadroneBuilder) => builder.intercept(interceptor)) as any;
 }

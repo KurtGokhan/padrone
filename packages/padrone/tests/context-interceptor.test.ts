@@ -175,7 +175,7 @@ describe('context-providing interceptors — runtime', () => {
 
     const result = program.eval('profile');
     expect(result.result).toBe('ok');
-    expect(receivedContext).toEqual({ user: { id: '1', name: 'Alice' } });
+    expect(receivedContext).toMatchObject({ user: { id: '1', name: 'Alice' } });
   });
 
   it('multiple context interceptors compose at runtime', () => {
@@ -214,7 +214,7 @@ describe('context-providing interceptors — runtime', () => {
 
     const result = program.eval('profile', { context: { tenant: 'acme' } });
     expect(result.result).toBe('ok');
-    expect(receivedContext).toEqual({
+    expect(receivedContext).toMatchObject({
       tenant: 'acme',
       user: { id: '1', name: 'Alice' },
     });
@@ -243,7 +243,7 @@ describe('context-providing interceptors — runtime', () => {
 
     const result = program.eval('parent child');
     expect(result.result).toBe('ok');
-    expect(receivedContext).toEqual({ user: { id: '1', name: 'Alice' } });
+    expect(receivedContext).toMatchObject({ user: { id: '1', name: 'Alice' } });
   });
 });
 
