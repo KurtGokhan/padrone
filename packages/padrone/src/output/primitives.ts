@@ -24,7 +24,7 @@ function stringifyCell(value: unknown): string {
 
 function truncate(text: string, max: number): string {
   if (max <= 0 || text.length <= max) return text;
-  return max <= 1 ? '…' : text.slice(0, max - 1) + '…';
+  return max <= 1 ? '…' : `${text.slice(0, max - 1)}…`;
 }
 
 function padCell(text: string, width: number, alignment: 'left' | 'right' | 'center' = 'left'): string {
@@ -104,7 +104,7 @@ function renderTableMarkdown(
   colWidths: number[],
   getAlign: (i: number) => 'left' | 'right' | 'center',
 ): string {
-  const headerLine = '| ' + headers.map((h, i) => padCell(h, colWidths[i]!, 'left')).join(' | ') + ' |';
+  const headerLine = `| ${headers.map((h, i) => padCell(h, colWidths[i]!, 'left')).join(' | ')} |`;
   const separatorLine =
     '| ' +
     colWidths
@@ -117,7 +117,7 @@ function renderTableMarkdown(
       })
       .join(' | ') +
     ' |';
-  const dataLines = rows.map((r) => '| ' + r.map((c, i) => padCell(c, colWidths[i]!, 'left')).join(' | ') + ' |');
+  const dataLines = rows.map((r) => `| ${r.map((c, i) => padCell(c, colWidths[i]!, 'left')).join(' | ')} |`);
   return [headerLine, separatorLine, ...dataLines].join('\n');
 }
 
@@ -184,7 +184,7 @@ function renderTreeText(nodes: TreeNode[], prefix: string, guides: boolean, ctx:
       lines.push(prefix + ctx.styler.meta(connector) + ctx.styler.label(node.label));
       if (node.children?.length) lines.push(...renderTreeText(node.children, prefix + ctx.styler.meta(childPrefix), guides, ctx));
     } else {
-      const indent = prefix ? prefix + '  ' : '';
+      const indent = prefix ? `${prefix}  ` : '';
       lines.push(indent + ctx.styler.label(node.label));
       if (node.children?.length) lines.push(...renderTreeText(node.children, indent, guides, ctx));
     }
@@ -198,7 +198,7 @@ function renderTreeMarkdown(nodes: TreeNode[], depth: number): string {
       const indent = '  '.repeat(depth);
       const line = `${indent}- ${node.label}`;
       if (!node.children?.length) return line;
-      return line + '\n' + renderTreeMarkdown(node.children, depth + 1);
+      return `${line}\n${renderTreeMarkdown(node.children, depth + 1)}`;
     })
     .join('\n');
 }

@@ -52,6 +52,54 @@ const LEVEL_LABELS: Record<Exclude<PadroneLogLevel, 'silent'>, string> = {
 };
 const VALID_LEVELS = new Set<string>(Object.keys(LEVEL_ORDER));
 
+/** Format specifier pattern: matches %s, %d, %i, %f, %o, %O, %j, %% */
+const FORMAT_PATTERN = /%%|%[sdifjoO]/g;
+
+/**
+ * Applies printf-style format specifiers to args, following the WHATWG Console Standard
+ * and Node.js `util.format` conventions. Remaining args are appended space-separated.
+ */
+function formatArgs(args: unknown[]): string {
+  if (args.length === 0) return '';
+  if (typeof args[0] !== 'string' || !FORMAT_PATTERN.test(args[0])) {
+    return args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+  }
+
+  const template = args[0];
+  let argIndex = 1;
+  const result = template.replace(FORMAT_PATTERN, (token) => {
+    if (token === '%%') return '%';
+    if (argIndex >= args.length) return token;
+    const val = args[argIndex++];
+    switch (token) {
+      case '%s':
+        return String(val);
+      case '%d':
+      case '%i':
+        return String(Math.trunc(Number(val)));
+      case '%f':
+        return String(Number(val));
+      case '%j':
+        try {
+          return JSON.stringify(val);
+        } catch {
+          return '[Circular]';
+        }
+      case '%o':
+      case '%O':
+        return typeof val === 'string' ? val : JSON.stringify(val);
+      default:
+        return token;
+    }
+  });
+
+  // Append remaining args that weren't consumed by specifiers
+  const remaining = args.slice(argIndex);
+  if (remaining.length === 0) return result;
+  const tail = remaining.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+  return `${result} ${tail}`;
+}
+
 function resolveCliLevel(rawArgs: Record<string, unknown>): PadroneLogLevel | undefined {
   // --trace → trace level
   if ('trace' in rawArgs) {
@@ -103,7 +151,7 @@ function createLogger(
     if (config.timestamps) parts.push(new Date().toISOString());
     parts.push(`[${LEVEL_LABELS[lvl]}]`);
     if (prefix) parts.push(prefix);
-    parts.push(args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '));
+    parts.push(formatArgs(args));
     return parts.join(' ');
   }
 

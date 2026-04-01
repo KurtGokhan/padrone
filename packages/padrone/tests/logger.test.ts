@@ -331,6 +331,158 @@ describe('logger', () => {
     });
   });
 
+  describe('format specifiers', () => {
+    it('should substitute %s with string value', () => {
+      const { output, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .extend(padroneLogger())
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.info('hello %s', 'world');
+          }),
+        );
+
+      program.eval('test');
+      expect(output).toEqual(['[INFO] hello world']);
+    });
+
+    it('should substitute %d and %i with truncated integers', () => {
+      const { output, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .extend(padroneLogger())
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.info('count: %d, index: %i', 3.7, 2.1);
+          }),
+        );
+
+      program.eval('test');
+      expect(output).toEqual(['[INFO] count: 3, index: 2']);
+    });
+
+    it('should substitute %f with float value', () => {
+      const { output, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .extend(padroneLogger())
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.info('value: %f', 3.14);
+          }),
+        );
+
+      program.eval('test');
+      expect(output).toEqual(['[INFO] value: 3.14']);
+    });
+
+    it('should substitute %j with JSON', () => {
+      const { output, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .extend(padroneLogger())
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.info('data: %j', { a: 1 });
+          }),
+        );
+
+      program.eval('test');
+      expect(output).toEqual(['[INFO] data: {"a":1}']);
+    });
+
+    it('should substitute %o and %O with object representation', () => {
+      const { output, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .extend(padroneLogger())
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.info('%o %O', { x: 1 }, [2]);
+          }),
+        );
+
+      program.eval('test');
+      expect(output).toEqual(['[INFO] {"x":1} [2]']);
+    });
+
+    it('should escape %% as literal percent', () => {
+      const { output, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .extend(padroneLogger())
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.info('100%% complete');
+          }),
+        );
+
+      program.eval('test');
+      expect(output).toEqual(['[INFO] 100% complete']);
+    });
+
+    it('should append extra args after specifiers are consumed', () => {
+      const { output, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .extend(padroneLogger())
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.info('hello %s', 'world', 'extra', 42);
+          }),
+        );
+
+      program.eval('test');
+      expect(output).toEqual(['[INFO] hello world extra 42']);
+    });
+
+    it('should leave unconsumed specifiers as-is when args are exhausted', () => {
+      const { output, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .extend(padroneLogger())
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.info('%s and %s', 'one');
+          }),
+        );
+
+      program.eval('test');
+      expect(output).toEqual(['[INFO] one and %s']);
+    });
+
+    it('should not interpret specifiers when first arg is not a string', () => {
+      const { output, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .extend(padroneLogger())
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.info(42, '%s', 'hello');
+          }),
+        );
+
+      program.eval('test');
+      expect(output).toEqual(['[INFO] 42 %s hello']);
+    });
+
+    it('should work with multiple mixed specifiers', () => {
+      const { output, runtime } = createCapture();
+      const program = createPadrone('app')
+        .runtime(runtime)
+        .extend(padroneLogger())
+        .command('test', (c) =>
+          c.action((_args, ctx) => {
+            ctx.context.logger.info('user %s has %d items worth %f total', 'alice', 3, 29.99);
+          }),
+        );
+
+      program.eval('test');
+      expect(output).toEqual(['[INFO] user alice has 3 items worth 29.99 total']);
+    });
+  });
+
   describe('CLI flag overrides', () => {
     it('should set trace level with --trace', () => {
       const { output, runtime } = createCapture();
