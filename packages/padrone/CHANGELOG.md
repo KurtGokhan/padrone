@@ -1,5 +1,13 @@
 # padrone
 
+## 1.7.0
+
+### Minor Changes
+
+- [`3eecb40`](https://github.com/KurtGokhan/padrone/commit/3eecb40ad4f678bf745b70fb1f791ceff4dfb541) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add format-aware output primitives (table, tree, list, key-value) to auto-output. Actions can use `ctx.context.output.table()`, `.tree()`, `.list()`, `.kv()` for styled output that adapts to the runtime format (ANSI, text, JSON, markdown, HTML). Declarative formatting via `padroneAutoOutput({ output: 'table' })` per-command. Extract shared Styler/Layout infrastructure from help formatter into reusable `styling.ts` module.
+
+- [`0a27a69`](https://github.com/KurtGokhan/padrone/commit/0a27a6960622be5f053a9a49731de8d6adf65646) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add printf-style format specifiers (`%s`, `%d`, `%i`, `%f`, `%j`, `%o`, `%O`, `%%`) to the logger extension, following WHATWG Console Standard conventions.
+
 ## 1.6.0
 
 ### Minor Changes
