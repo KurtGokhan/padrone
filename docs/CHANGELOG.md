@@ -1,5 +1,13 @@
 # @padrone/docs
 
+## 1.7.0
+
+### Patch Changes
+
+- Updated dependencies [[`3eecb40`](https://github.com/KurtGokhan/padrone/commit/3eecb40ad4f678bf745b70fb1f791ceff4dfb541), [`0a27a69`](https://github.com/KurtGokhan/padrone/commit/0a27a6960622be5f053a9a49731de8d6adf65646)]:
+  - padrone@1.7.0
+  - @padrone/tasks-example@1.7.0
+
 ## 1.6.0
 
 ### Patch Changes
