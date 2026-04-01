@@ -109,7 +109,7 @@ type InitialCommandBuilder<
       >
     : PadroneBuilder<TProgramName, TNameNested, TParentPath, PadroneSchema<void>, void, [], TParentArgs, false, TParentContext>;
 
-export type AnyPadroneBuilder = InitialCommandBuilder<string, string, string, any, [...AnyPadroneCommand[]], any>;
+export type AnyPadroneBuilder = InitialCommandBuilder<string, string, string, PadroneSchema, [...AnyPadroneCommand[]], unknown>;
 
 /**
  * Like InitialCommandBuilder but uses `any` for args in the fresh case.
