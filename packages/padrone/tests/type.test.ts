@@ -1,8 +1,8 @@
 // biome-ignore-all lint/correctness/noUnusedVariables: This file is for testing TypeScript types, so unused variables are intentional.
 
 import { expectTypeOf, test } from 'bun:test';
-import type { PadroneBuilder, PadroneProgram } from 'padrone';
-import { asyncSchema, createPadrone } from 'padrone';
+import type { DefineCommand, PadroneBuilder, PadroneProgram, PadroneProgressIndicator } from 'padrone';
+import { asyncSchema, createPadrone, defineCommand, padroneProgress } from 'padrone';
 import * as z from 'zod/v4';
 import { createTasksProgram } from './common.ts';
 
@@ -370,4 +370,69 @@ test.skip('Types - Readonly arrays in configuration', () => {
       })
       .action((args) => args),
   );
+});
+
+/** This test verifies DefineCommand type and defineCommand helper for split-file command definitions */
+test.skip('Types - DefineCommand', () => {
+  const schema = z.object({ name: z.string(), verbose: z.boolean().default(false) });
+
+  // DefineCommand type: contextually types the builder, return type is widened to CommandTypesBase
+  const withType: DefineCommand = (c) => c.arguments(schema).action((args) => `hello ${args.name}`);
+
+  // Works with .command()
+  createPadrone('test').command('greet', withType);
+
+  // DefineCommand with context requires the parent to provide that context
+  type Ctx = { db: { find: (id: string) => string } };
+  const withContext: DefineCommand<Ctx> = (c) =>
+    c.arguments(z.object({ id: z.string() })).action((args, ctx) => ctx.context.db.find(args.id));
+
+  createPadrone('test').context<Ctx>().command('find', withContext);
+
+  // defineCommand helper: preserves full return type
+  const withHelper = defineCommand((c) => c.arguments(schema).action((args) => `hello ${args.name}`));
+
+  const program2 = createPadrone('test').command('greet', withHelper);
+
+  // Return type is preserved — parent knows the exact result
+  const result2 = program2.eval('greet --name World');
+  expectTypeOf(result2.result).toEqualTypeOf<string | undefined>();
+
+  // defineCommand with context
+  const withHelperCtx = defineCommand<Ctx>((c) =>
+    c.arguments(z.object({ id: z.string() })).action((args, ctx) => ctx.context.db.find(args.id)),
+  );
+
+  createPadrone('test').context<Ctx>().command('find', withHelperCtx);
+
+  // defineCommand preserves subcommand types
+  const withSubs = defineCommand((c) =>
+    c
+      .command('list', (s) => s.action(() => 'listed' as const))
+      .command('add', (s) => s.arguments(z.object({ item: z.string() })).action((args) => args.item)),
+  );
+
+  const program3 = createPadrone('test').command('items', withSubs);
+  const listResult = program3.eval('items list');
+  // Result is the union of all possible subcommand results under 'items'
+  expectTypeOf(listResult.result).toExtend<'listed' | string | void | undefined>();
+});
+
+/** This test verifies defineCommand works with extensions like padroneProgress */
+test.skip('Types - DefineCommand with extensions', () => {
+  // defineCommand + .extend(padroneProgress()) should provide progress in context
+  const withProgress = defineCommand((c) =>
+    c
+      .extend(padroneProgress('Loading...'))
+      .arguments(z.object({ id: z.string() }))
+      .action((args, ctx) => {
+        expectTypeOf(ctx.context.progress).toEqualTypeOf<PadroneProgressIndicator>();
+        ctx.context.progress.update('halfway');
+        return args.id;
+      }),
+  );
+
+  const program = createPadrone('test').command('load', withProgress);
+  const result = program.eval('load --id abc');
+  expectTypeOf(result.result).toEqualTypeOf<string | undefined>();
 });

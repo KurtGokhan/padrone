@@ -13,8 +13,10 @@ import { createWrapHandler } from '../feature/wrap.ts';
 import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
+  CommandTypesBase,
   InterceptorFactory,
   InterceptorMeta,
+  PadroneBuilder,
   PadroneCommand,
   PadroneInterceptorFn,
   PadroneProgram,
@@ -265,4 +267,35 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
   execCtx.builder = builder;
 
   return builder as TBuilder & { [commandSymbol]: AnyPadroneCommand };
+}
+
+/**
+ * Identity helper that contextually types a command builder callback while preserving its full return type.
+ * Use this when defining commands in separate files — the parent program retains exact type information
+ * about the subcommand's args, result, and nested commands.
+ *
+ * @example
+ * ```ts
+ * // my-command.ts
+ * export const myCommand = defineCommand((c) =>
+ *   c.arguments(z.object({ name: z.string() }))
+ *    .action((args) => console.log(args.name))
+ * );
+ *
+ * // cli.ts
+ * createPadrone('test').command('my-command', myCommand)
+ * ```
+ *
+ * @example With context
+ * ```ts
+ * export const myCommand = defineCommand<{ db: Database }>((c) =>
+ *   c.arguments(z.object({ id: z.string() }))
+ *    .action((args, ctx) => ctx.context.db.find(args.id))
+ * );
+ * ```
+ */
+export function defineCommand<TContext = unknown, TOut extends CommandTypesBase = CommandTypesBase>(
+  fn: (builder: PadroneBuilder<string, string, string, PadroneSchema<void>, void, [], any, false, TContext>) => TOut,
+): typeof fn {
+  return fn;
 }

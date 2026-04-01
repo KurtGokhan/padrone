@@ -694,4 +694,25 @@ export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any,
  */
 export type PadroneExtension<TIn extends CommandTypesBase = CommandTypesBase, TOut extends CommandTypesBase = TIn> = (builder: TIn) => TOut;
 
+/**
+ * Type for a command builder callback used with `.command()`.
+ * Use this when defining commands in separate files where full return type inference isn't needed.
+ *
+ * For full type preservation at the parent, use `defineCommand()` instead.
+ *
+ * @example
+ * ```ts
+ * // my-command.ts
+ * export const myCommand: DefineCommand = (c) =>
+ *   c.arguments(z.object({ name: z.string() }))
+ *    .action((args) => console.log(args.name));
+ *
+ * // cli.ts
+ * createPadrone('test').command('my-command', myCommand)
+ * ```
+ */
+export type DefineCommand<TContext = unknown, TParentArgs extends PadroneSchema = PadroneSchema> = (
+  builder: PadroneBuilder<string, string, string, PadroneSchema<void>, void, [], TParentArgs, false, TContext>,
+) => CommandTypesBase;
+
 type DefaultArgs = Record<string, unknown> | void;

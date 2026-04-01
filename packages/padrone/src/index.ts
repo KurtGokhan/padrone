@@ -1,6 +1,6 @@
 export { buildReplCompleter } from './core/commands.ts';
 export type { PadroneOptions } from './core/create.ts';
-export { createPadrone } from './core/create.ts';
+export { createPadrone, defineCommand } from './core/create.ts';
 export type { PadroneErrorOptions } from './core/errors.ts';
 export { ActionError, ConfigError, PadroneError, RoutingError, SignalError, ValidationError } from './core/errors.ts';
 export { defineInterceptor } from './core/interceptors.ts';
@@ -89,6 +89,7 @@ export type {
   AnyPadroneProgram,
   AsyncPadroneSchema,
   CommandTypesBase,
+  DefineCommand,
   ExtractInterceptorContext,
   ExtractInterceptorRequires,
   GetArgsMeta,

@@ -2,6 +2,7 @@ export type { PadroneArgsSchemaMeta, PadroneFieldMeta, SingleChar, StdinConfig }
 export type {
   AnyPadroneBuilder,
   AnyPadroneProgram,
+  DefineCommand,
   PadroneBuilder,
   PadroneBuilderMethods,
   PadroneExtension,
