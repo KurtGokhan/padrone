@@ -35,7 +35,7 @@ Padrone supports these Zod types:
 |----------|-------------------|
 | `z.string()` | `--name "John"` |
 | `z.number()` | `--port 3000` |
-| `z.boolean()` | `--verbose` or `--no-verbose` |
+| `z.boolean()` | `--verbose` or `--no-verbose` (customizable via `negative` meta) |
 | `z.enum(['a', 'b'])` | `--level high` |
 | `z.array(z.string())` | `--tags foo --tags bar` or `--tags=[foo,bar]` |
 
@@ -60,6 +60,7 @@ The `.meta()` method supports several properties:
 z.string().meta({
   flags: 'o',              // Short flag (-o)
   alias: 'out',            // Long alias (--out)
+  negative: 'remote',      // Custom negation keyword (booleans only)
   examples: ['file.txt'],  // Example values for help text
   deprecated: 'Use --out', // Deprecation warning
   hidden: true,            // Hide from help output
@@ -67,7 +68,7 @@ z.string().meta({
 })
 ```
 
-> **Note:** Single-character short flags use `flags`, not `alias`. The `alias` field is for multi-character long alternatives. By default, camelCase names automatically get kebab-case aliases (e.g., `dryRun` → `--dry-run`).
+> **Note:** Single-character short flags use `flags`, not `alias`. The `alias` field is for multi-character long alternatives. By default, camelCase names automatically get kebab-case aliases (e.g., `dryRun` → `--dry-run`). For booleans, `negative` defines custom keyword(s) that set the option to `false` and disables the default `--no-` prefix (see [Arguments Metadata reference](/padrone/reference/args-meta/#custom-negation)).
 
 ## Positional Arguments
 

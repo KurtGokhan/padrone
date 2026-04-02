@@ -35,6 +35,16 @@ export interface PadroneFieldMeta {
   flags?: readonly SingleChar[] | SingleChar;
   /** Multi-character alternative long names. Used with double dash (e.g. `--dry-run` for `--dryRun`). */
   alias?: readonly string[] | string;
+  /**
+   * Custom negative keyword(s) for boolean options. When provided, `--<keyword>` sets this option to `false`.
+   * Disables the default `--no-<option>` negation prefix. Set to `''` or `[]` to only disable the prefix.
+   * @example
+   * ```ts
+   * local: z.boolean().default(true).meta({ negative: 'remote' })
+   * // --remote sets local to false, --no-local is disabled
+   * ```
+   */
+  negative?: readonly string[] | string;
   deprecated?: boolean | string;
   hidden?: boolean;
   examples?: readonly unknown[];

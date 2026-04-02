@@ -99,7 +99,7 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 
 ## Features at a Glance
 
-**Arguments** — positional args, variadic args, short flags (`-v`), long aliases (`--dry-run`), auto kebab-case aliases, negatable booleans (`--no-verbose`).
+**Arguments** — positional args, variadic args, short flags (`-v`), long aliases (`--dry-run`), auto kebab-case aliases, negatable booleans (`--no-verbose`), custom negation keywords (`--remote` → sets `local` to `false`).
 
 **Env & Config** — load from environment variables with `.extend(padroneEnv(schema))` and config files with `.extend(padroneConfig({ files, schema }))`. Precedence: CLI > stdin > env > config > defaults.
 
@@ -161,6 +161,7 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 |-------|---------|---------|
 | `flags` | `'v'` | Single-char short flag (`-v`) |
 | `alias` | `'dry-run'` | Multi-char long alias (`--dry-run`) |
+| `negative` | `'remote'` | Custom negation keyword for booleans (disables `--no-`) |
 | `examples` | `['8080']` | Example values in help |
 | `deprecated` | `'Use --debug'` | Deprecation warning |
 | `hidden` | `true` | Hide from help |

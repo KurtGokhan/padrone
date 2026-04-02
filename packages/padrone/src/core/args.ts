@@ -63,6 +63,10 @@ interface SchemaMetadataResult {
   flags: Record<string, string>;
   /** Multi-char aliases: maps alias → full arg name (e.g. `{ 'dry-run': 'dryRun' }`) */
   aliases: Record<string, string>;
+  /** Negative keywords: maps keyword → target arg name (e.g. `{ remote: 'local' }`) */
+  negatives: Record<string, string>;
+  /** Args that have custom negation set (even if empty), disabling the `--no-` prefix */
+  customNegation: Set<string>;
 }
 
 function addEntries(target: Record<string, string>, key: string, items: string | readonly string[], filter?: (item: string) => boolean) {
@@ -86,6 +90,8 @@ export function extractSchemaMetadata(
 ): SchemaMetadataResult {
   const flags: Record<string, string> = {};
   const aliases: Record<string, string> = {};
+  const negatives: Record<string, string> = {};
+  const customNegation = new Set<string>();
 
   // Extract from meta object
   if (meta) {
@@ -97,6 +103,10 @@ export function extractSchemaMetadata(
       }
       if (value.alias) {
         addEntries(aliases, key, value.alias, (item) => item.length > 1);
+      }
+      if (value.negative !== undefined) {
+        customNegation.add(key);
+        addEntries(negatives, key, value.negative);
       }
     }
   }
@@ -123,6 +133,16 @@ export function extractSchemaMetadata(
           }
         }
 
+        // Extract negative keywords from schema `.meta({ negative: ... })`
+        const propNegative = propertySchema.negative;
+        if (propNegative !== undefined && !customNegation.has(propertyName)) {
+          customNegation.add(propertyName);
+          const list = typeof propNegative === 'string' ? [propNegative] : propNegative;
+          if (Array.isArray(list)) {
+            addEntries(negatives, propertyName, list);
+          }
+        }
+
         // Auto-generate kebab-case alias for camelCase property names
         if (autoAlias !== false) {
           const kebab = camelToKebab(propertyName);
@@ -136,7 +156,7 @@ export function extractSchemaMetadata(
     // Ignore errors from JSON schema generation
   }
 
-  return { flags, aliases };
+  return { flags, aliases, negatives, customNegation };
 }
 
 function preprocessMappings(data: Record<string, unknown>, mappings: Record<string, string>): Record<string, unknown> {
@@ -262,6 +282,7 @@ export function detectUnknownArgs(
   schema: StandardJSONSchemaV1,
   flags: Record<string, string>,
   aliases: Record<string, string>,
+  negatives?: Record<string, string>,
 ): { key: string }[] {
   let properties: Record<string, any>;
   let isLoose = false;
@@ -283,6 +304,8 @@ export function detectUnknownArgs(
     ...Object.values(flags),
     ...Object.keys(aliases),
     ...Object.values(aliases),
+    ...(negatives ? Object.keys(negatives) : []),
+    ...(negatives ? Object.values(negatives) : []),
   ]);
   const unknowns: { key: string }[] = [];
 

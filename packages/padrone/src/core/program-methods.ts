@@ -11,7 +11,7 @@ import type {
   PadroneAPI,
   PadroneReplPreferences,
 } from '../types/index.ts';
-import { parsePositionalConfig } from './args.ts';
+import { extractSchemaMetadata, parsePositionalConfig } from './args.ts';
 import { findCommandByName, getCommandRuntime, resolveAllCommands } from './commands.ts';
 import { RoutingError } from './errors.ts';
 import type { ExecContext } from './exec.ts';
@@ -37,6 +37,15 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
     const positionalConfig = commandObj.meta?.positional ? parsePositionalConfig(commandObj.meta.positional) : [];
     const positionalNames = new Set(positionalConfig.map((p) => p.name));
 
+    // Build reverse map: arg name → first negative keyword (for stringify)
+    const negativeKeyword: Record<string, string> = {};
+    if (commandObj.argsSchema) {
+      const { negatives } = extractSchemaMetadata(commandObj.argsSchema, commandObj.meta?.fields, commandObj.meta?.autoAlias);
+      for (const [keyword, argName] of Object.entries(negatives)) {
+        if (!(argName in negativeKeyword)) negativeKeyword[argName] = keyword;
+      }
+    }
+
     if (args && typeof args === 'object') {
       for (const { name, variadic } of positionalConfig) {
         const value = (args as Record<string, unknown>)[name];
@@ -60,6 +69,7 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
 
         if (typeof value === 'boolean') {
           if (value) parts.push(`--${key}`);
+          else if (negativeKeyword[key]) parts.push(`--${negativeKeyword[key]}`);
           else parts.push(`--no-${key}`);
         } else if (Array.isArray(value)) {
           for (const v of value) {

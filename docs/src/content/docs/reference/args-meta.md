@@ -27,6 +27,7 @@ z.object({
 |----------|------|-------------|
 | `flags` | `string \| string[]` | Single-character short flags (e.g., `'p'` for `-p`). Stackable: `-abc` = `-a -b -c` |
 | `alias` | `string \| string[]` | Multi-character long aliases (e.g., `'dry-run'` for `--dry-run`) |
+| `negative` | `string \| string[]` | Custom negative keyword(s) for booleans. Disables `--no-` prefix |
 | `examples` | `unknown[]` | Example values shown in help |
 | `deprecated` | `string \| boolean` | Mark as deprecated with optional message |
 | `hidden` | `boolean` | Hide from help output |
@@ -97,7 +98,7 @@ Per-argument configuration that supplements or overrides `.meta()`:
 }
 ```
 
-This is equivalent to using `.meta()` on the schema property but allows configuration to be kept separate from the schema definition. Fields accept the same properties as Zod `.meta()`: `flags`, `alias`, `description`, `examples`, `deprecated`, `hidden`, `group`.
+This is equivalent to using `.meta()` on the schema property but allows configuration to be kept separate from the schema definition. Fields accept the same properties as Zod `.meta()`: `flags`, `alias`, `negative`, `description`, `examples`, `deprecated`, `hidden`, `group`.
 
 ### autoAlias
 
@@ -341,6 +342,69 @@ app --dryRun   # (original name)
 :::note
 By default, camelCase argument names automatically get kebab-case aliases (e.g., `dryRun` → `--dry-run`). This can be disabled with `autoAlias: false` in the arguments meta.
 :::
+
+---
+
+## Custom Negation
+
+By default, boolean arguments can be negated with the `--no-` prefix (e.g., `--no-verbose`). The `negative` meta option lets you define custom keyword(s) that set a boolean to `false`, while disabling the default `--no-` prefix:
+
+```typescript
+z.object({
+  local: z.boolean().default(true).meta({ negative: 'remote' }),
+})
+```
+
+```bash
+app --remote
+# Equivalent to: local = false
+# --no-local is NOT recognized (disabled by custom negation)
+
+app --local
+# local = true (still works normally)
+```
+
+**Multiple negative keywords:**
+```typescript
+z.object({
+  local: z.boolean().default(true).meta({ negative: ['remote', 'cloud'] }),
+})
+```
+
+```bash
+app --remote   # local = false
+app --cloud    # local = false
+```
+
+**Disable `--no-` prefix only:**
+
+Set `negative` to an empty string or empty array to disable the `--no-` prefix without adding any alternative keywords:
+
+```typescript
+z.object({
+  verbose: z.boolean().default(true).meta({ negative: '' }),
+})
+```
+
+```bash
+app --verbose      # verbose = true
+app --no-verbose   # Error: unknown option
+```
+
+Custom negation can also be set via `fields` meta:
+
+```typescript
+.arguments(z.object({ local: z.boolean().default(true) }), {
+  fields: { local: { negative: 'remote' } },
+})
+```
+
+The `stringify()` method uses the first negative keyword when serializing `false` values:
+
+```typescript
+program.stringify('cmd', { local: false })
+// → "cmd --remote"  (instead of "cmd --no-local")
+```
 
 ---
 

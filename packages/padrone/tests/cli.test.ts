@@ -946,6 +946,160 @@ describe('CLI', () => {
     });
   });
 
+  describe('custom negative keywords', () => {
+    it('should parse --<negative> as false for the target arg', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .arguments(
+            z.object({
+              local: z.boolean().default(true).meta({ negative: 'remote' }),
+            }),
+          )
+          .action((args) => args),
+      );
+
+      const result = program.parse('test --remote');
+      expect(result.args?.local).toBe(false);
+    });
+
+    it('should disable --no- prefix when negative is set', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .arguments(
+            z.object({
+              local: z.boolean().default(true).meta({ negative: 'remote' }),
+            }),
+          )
+          .action((args) => args),
+      );
+
+      const result = program.parse('test --no-local');
+      expect(result.args).toBeUndefined();
+      expect(result.argsResult?.issues).toBeDefined();
+    });
+
+    it('should disable --no- prefix when negative is empty string', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .arguments(
+            z.object({
+              verbose: z.boolean().default(true).meta({ negative: '' }),
+            }),
+          )
+          .action((args) => args),
+      );
+
+      const result = program.parse('test --no-verbose');
+      expect(result.args).toBeUndefined();
+      expect(result.argsResult?.issues).toBeDefined();
+    });
+
+    it('should disable --no- prefix when negative is empty array', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .arguments(
+            z.object({
+              verbose: z.boolean().default(true).meta({ negative: [] }),
+            }),
+          )
+          .action((args) => args),
+      );
+
+      const result = program.parse('test --no-verbose');
+      expect(result.args).toBeUndefined();
+      expect(result.argsResult?.issues).toBeDefined();
+    });
+
+    it('should support array of negative keywords', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .arguments(
+            z.object({
+              local: z
+                .boolean()
+                .default(true)
+                .meta({ negative: ['remote', 'cloud'] }),
+            }),
+          )
+          .action((args) => args),
+      );
+
+      expect(program.parse('test --remote').args?.local).toBe(false);
+      expect(program.parse('test --cloud').args?.local).toBe(false);
+    });
+
+    it('should still allow --<arg> to set true', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .arguments(
+            z.object({
+              local: z.boolean().default(false).meta({ negative: 'remote' }),
+            }),
+          )
+          .action((args) => args),
+      );
+
+      expect(program.parse('test --local').args?.local).toBe(true);
+    });
+
+    it('should stringify false boolean using negative keyword', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .arguments(
+            z.object({
+              local: z.boolean().default(true).meta({ negative: 'remote' }),
+            }),
+          )
+          .action(),
+      );
+
+      expect(program.stringify('test', { local: false })).toBe('test --remote');
+    });
+
+    it('should stringify true boolean normally with negative keyword', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .arguments(
+            z.object({
+              local: z.boolean().default(true).meta({ negative: 'remote' }),
+            }),
+          )
+          .action(),
+      );
+
+      expect(program.stringify('test', { local: true })).toBe('test --local');
+    });
+
+    it('should show negative keywords in help', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .arguments(
+            z.object({
+              local: z.boolean().default(true).meta({ negative: 'remote' }),
+            }),
+          )
+          .action(),
+      );
+
+      const helpText = program.help('test');
+      expect(helpText).toContain('--remote');
+      expect(helpText).toContain('--local');
+    });
+
+    it('should support negative via fields meta', () => {
+      const program = createPadrone('padrone-test').command('test', (c) =>
+        c
+          .arguments(z.object({ local: z.boolean().default(true) }), {
+            fields: { local: { negative: 'remote' } },
+          })
+          .action((args) => args),
+      );
+
+      const result = program.parse('test --remote');
+      expect(result.args?.local).toBe(false);
+    });
+  });
+
   describe('environment variable binding', () => {
     it('should apply env var when arg is not provided', () => {
       const program = createPadrone('padrone-test').command('test', (c) =>

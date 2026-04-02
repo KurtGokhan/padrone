@@ -58,6 +58,8 @@ export type HelpArgumentInfo = {
   variadic?: boolean;
   /** Whether this arg is a boolean (shown as --[no-]arg) */
   negatable?: boolean;
+  /** Custom negative keyword(s) that set this arg to false (e.g. `['remote']` for `--remote`) */
+  negative?: string[];
   /** Config file key that maps to this arg */
   configKey?: string;
   /** Group name for organizing this option under a labeled section in help output */
@@ -316,7 +318,10 @@ function createGenericFormatter(styler: Styler, layout: LayoutConfig, showAllBui
       const remainingAliases = arg.aliases?.filter((a) => a !== primaryName);
 
       const flagsPlain = arg.flags?.length ? arg.flags.map((f) => `-${f}`).join(', ') : '';
-      const namesPlain = [`--${primaryName}`, ...(remainingAliases?.map((a) => `--${a}`) || [])].join(', ');
+      const negPlain = arg.negative?.length ? arg.negative.map((n) => `--${n}`).join(', ') : '';
+      const namesPlain = [`--${primaryName}`, ...(remainingAliases?.map((a) => `--${a}`) || []), ...(negPlain ? [negPlain] : [])].join(
+        ', ',
+      );
       const typePlain = arg.type && arg.type !== 'boolean' ? (arg.optional ? `[${arg.type}]` : `<${arg.type}>`) : '';
 
       const isDeprecated = !!arg.deprecated;

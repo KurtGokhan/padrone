@@ -128,9 +128,20 @@ function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaM
         const optMeta = argsMeta?.[key];
         const propType = prop.type as string;
 
-        // Booleans are negatable unless there's an explicit noArg property
-        // or this arg is itself a negation of another arg
-        const isNegatable = propType === 'boolean' && !hasExplicitNegation(key) && !isNegationOf(key);
+        // Resolve custom negative keywords from meta or schema
+        const rawNegative = optMeta?.negative ?? prop?.negative;
+        const hasCustomNegative = rawNegative !== undefined;
+        const negativeList = hasCustomNegative
+          ? typeof rawNegative === 'string'
+            ? rawNegative
+              ? [rawNegative]
+              : []
+            : Array.from(rawNegative as readonly string[]).filter(Boolean)
+          : undefined;
+
+        // Booleans are negatable unless there's an explicit noArg property,
+        // this arg is itself a negation of another arg, or custom negative keywords are set
+        const isNegatable = propType === 'boolean' && !hasCustomNegative && !hasExplicitNegation(key) && !isNegationOf(key);
 
         result.push({
           name: key,
@@ -144,6 +155,7 @@ function extractArgsInfo(schema: StandardJSONSchemaV1, meta?: PadroneArgsSchemaM
           examples: optMeta?.examples ?? prop?.examples,
           variadic: propType === 'array',
           negatable: isNegatable,
+          negative: negativeList?.length ? negativeList : undefined,
           group: optMeta?.group,
         });
       }

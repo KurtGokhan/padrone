@@ -51,8 +51,8 @@ export function parseCommand(input: string | undefined, rootCommand: AnyPadroneC
   const argsMeta = curCommand.meta?.fields;
   const schemaMetadata = curCommand.argsSchema
     ? extractSchemaMetadata(curCommand.argsSchema, argsMeta, curCommand.meta?.autoAlias)
-    : { flags: {}, aliases: {} };
-  const { flags, aliases } = schemaMetadata;
+    : { flags: {}, aliases: {}, negatives: {}, customNegation: new Set<string>() };
+  const { flags, aliases, negatives, customNegation } = schemaMetadata;
 
   const arrayArguments = new Set<string>();
   if (curCommand.argsSchema) {
@@ -77,6 +77,10 @@ export function parseCommand(input: string | undefined, rootCommand: AnyPadroneC
       key = [flags[arg.key[0]!]!];
     } else if (arg.type === 'named' && arg.key.length === 1 && aliases[arg.key[0]!]) {
       key = [aliases[arg.key[0]!]!];
+    } else if (arg.type === 'named' && arg.key.length === 1 && negatives[arg.key[0]!]) {
+      // Negative keyword: --remote sets local to false
+      setNestedValue(rawArgs, [negatives[arg.key[0]!]!], false);
+      continue;
     } else {
       key = arg.key;
     }
@@ -84,6 +88,12 @@ export function parseCommand(input: string | undefined, rootCommand: AnyPadroneC
     const rootKey = key[0]!;
 
     if (arg.type === 'named' && arg.negated) {
+      // Skip --no- prefix negation for args with custom negation
+      if (customNegation.has(rootKey)) {
+        // Treat as unknown: put it back as `no-<key>` so detectUnknownArgs catches it
+        setNestedValue(rawArgs, [`no-${key.join('.')}`], false);
+        continue;
+      }
       setNestedValue(rawArgs, key, false);
       continue;
     }
@@ -180,9 +190,9 @@ export function checkUnknownArgs(command: AnyPadroneCommand, preprocessedArgs: R
   }
 
   const argsMeta = command.meta?.fields;
-  const { flags, aliases } = extractSchemaMetadata(command.argsSchema, argsMeta, command.meta?.autoAlias);
+  const { flags, aliases, negatives } = extractSchemaMetadata(command.argsSchema, argsMeta, command.meta?.autoAlias);
 
-  return detectUnknownArgs(preprocessedArgs, command.argsSchema, flags, aliases);
+  return detectUnknownArgs(preprocessedArgs, command.argsSchema, flags, aliases, negatives);
 }
 
 /**

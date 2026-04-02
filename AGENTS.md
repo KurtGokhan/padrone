@@ -48,7 +48,7 @@ The core library lives in `packages/padrone/`:
 - `src/suggestions.ts` — "Did you mean?" formatting (`formatSuggestions`), issue enrichment with fuzzy suggestions.
 - `src/command-utils.ts` — Interceptor chain execution (`runInterceptorChain`, `wrapWithLifecycle`), command tree utilities, sync/async preservation helpers (`thenMaybe`).
 - `src/parse.ts` — CLI input tokenizer/parser. Handles flag stacking, `--key=value`, `--no-*` negation, positional args, nested keys.
-- `src/args.ts` — Schema metadata extraction (`extractSchemaMetadata`), option preprocessing (flags/aliases), positional config parsing, coercion.
+- `src/args.ts` — Schema metadata extraction (`extractSchemaMetadata`), option preprocessing (flags/aliases/negatives), positional config parsing, coercion.
 - `src/type-utils.ts` — Advanced type utilities (`MaybePromise`, `PickCommandByName`, `IsGeneric`, `OrAsync`, etc.).
 - `src/type-helpers.ts` — User-facing inference helpers (`InferArgsInput`, `InferArgsOutput`, `InferCommand`, `InferContext`).
 - `src/mcp.ts` — *(experimental)* Model Context Protocol server (2025-11-25 spec). Streamable HTTP and stdio transports.
@@ -85,7 +85,7 @@ When asked to commit with a changeset, create a concise changeset suitable for a
 
 **Extension system**: Build-time composition via `.extend(extension)`. A `PadroneExtension` is a function that receives the builder and returns a modified builder, enabling reusable command/config bundles. Unlike interceptors (which hook into runtime phases), extensions operate at definition time to compose commands, arguments, and configuration. Built-in extensions are included by default via `createPadrone()`: help (-1000), version (-1000), repl (-1000), color (-1001), suggestions (-500), signal (-2000), autoOutput (-1100), stdin (-1001), interactive (-999). Numbers are interceptor `order` values (lower = outermost). User-facing builtins (help, version, repl) can be individually disabled via `{ builtins: { help: false } }`. Advanced opt-in extensions: completion, logger, timing, progress, man, mcp, serve, update-check, tracing, ink, env, config.
 
-**Flags vs aliases**: `flags` = single-char short flags (`-v`), stackable. `alias` = multi-char alternative long names (`--dry-run`). `autoAlias` (default: true) auto-generates kebab-case aliases for camelCase option names.
+**Flags vs aliases vs negatives**: `flags` = single-char short flags (`-v`), stackable. `alias` = multi-char alternative long names (`--dry-run`). `autoAlias` (default: true) auto-generates kebab-case aliases for camelCase option names. `negative` = custom negation keyword(s) for booleans (`negative: 'remote'` makes `--remote` set the arg to `false` and disables `--no-` prefix). Set to `''` or `[]` to only disable the prefix.
 
 **Execution paths**: `eval()`/`cli()` runs all 6 interceptor phases; `parse()` runs parse + validate; `run()` runs execute only (no validation).
 

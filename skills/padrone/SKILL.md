@@ -106,6 +106,7 @@ The second parameter to `.arguments()` configures positional args, interactive p
     output: { flags: 'o', description: 'Output path', examples: ['./dist'] },
     verbose: { flags: 'v', hidden: true },
     dryRun: { alias: 'dry' },             // multi-char long alias (--dry)
+    local: { negative: 'remote' },        // --remote sets local to false, disables --no-local
     old: { deprecated: 'Use --new instead', group: 'Legacy' },
   },
 })
