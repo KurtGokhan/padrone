@@ -340,21 +340,11 @@ export type PadroneBuilderMethods<
   >;
 
   /** Add or override a subcommand. Pass a builder function to define its schema, action, and nested commands. @category Builder */
-  command: <
-    TNameNested extends string,
-    TAliases extends string[] = [],
-    TBuilder extends CommandTypesBase = DefaultCommandBuilder<
-      TProgramName,
-      TNameNested,
-      FullCommandName<TName, TParentName>,
-      TArgs,
-      TCommands,
-      TContext & TContextProvided
-    >,
-  >(
-    name: TNameNested | readonly [TNameNested, ...TAliases],
-    builderFn?: (
-      builder: InitialCommandBuilder<
+  command: {
+    <
+      TNameNested extends string,
+      TAliases extends string[] = [],
+      TBuilder extends CommandTypesBase = DefaultCommandBuilder<
         TProgramName,
         TNameNested,
         FullCommandName<TName, TParentName>,
@@ -362,28 +352,67 @@ export type PadroneBuilderMethods<
         TCommands,
         TContext & TContextProvided
       >,
-    ) => TBuilder,
-  ) => BuilderOrProgram<
-    TReturn,
-    TProgramName,
-    TName,
-    TParentName,
-    TArgs,
-    TRes,
-    TCommands extends []
-      ? [WithAliases<TBuilder['~types']['command'], TAliases>]
-      : AnyPadroneCommand[] extends TCommands
+    >(
+      name: TNameNested | readonly [TNameNested, ...TAliases],
+      builderFn?: (
+        builder: InitialCommandBuilder<
+          TProgramName,
+          TNameNested,
+          FullCommandName<TName, TParentName>,
+          TArgs,
+          TCommands,
+          TContext & TContextProvided
+        >,
+      ) => TBuilder,
+    ): BuilderOrProgram<
+      TReturn,
+      TProgramName,
+      TName,
+      TParentName,
+      TArgs,
+      TRes,
+      TCommands extends []
         ? [WithAliases<TBuilder['~types']['command'], TAliases>]
-        : ReplaceOrAppendCommand<
-            TCommands,
-            TNameNested,
-            WithAliases<TBuilder['~types']['command'], ResolvedAliases<TCommands, TNameNested, TAliases>>
-          >,
-    TParentArgs,
-    TAsync,
-    TContext,
-    TContextProvided
-  >;
+        : AnyPadroneCommand[] extends TCommands
+          ? [WithAliases<TBuilder['~types']['command'], TAliases>]
+          : ReplaceOrAppendCommand<
+              TCommands,
+              TNameNested,
+              WithAliases<TBuilder['~types']['command'], ResolvedAliases<TCommands, TNameNested, TAliases>>
+            >,
+      TParentArgs,
+      TAsync,
+      TContext,
+      TContextProvided
+    >;
+    // Fallback overload: accepts DefineCommand-typed callbacks where the builder type is not structurally compatible
+    // (e.g., DefineCommand with unknown context used in a parent with specific context)
+    <TNameNested extends string, TAliases extends string[] = [], TBuilder extends CommandTypesBase = CommandTypesBase>(
+      name: TNameNested | readonly [TNameNested, ...TAliases],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      builderFn?: (builder: any) => TBuilder,
+    ): BuilderOrProgram<
+      TReturn,
+      TProgramName,
+      TName,
+      TParentName,
+      TArgs,
+      TRes,
+      TCommands extends []
+        ? [WithAliases<TBuilder['~types']['command'], TAliases>]
+        : AnyPadroneCommand[] extends TCommands
+          ? [WithAliases<TBuilder['~types']['command'], TAliases>]
+          : ReplaceOrAppendCommand<
+              TCommands,
+              TNameNested,
+              WithAliases<TBuilder['~types']['command'], ResolvedAliases<TCommands, TNameNested, TAliases>>
+            >,
+      TParentArgs,
+      TAsync,
+      TContext,
+      TContextProvided
+    >;
+  };
 
   /** Mount an existing program as a subcommand, optionally transforming the context. @category Builder */
   mount: {

@@ -2,7 +2,7 @@
 
 import { expectTypeOf, test } from 'bun:test';
 import type { DefineCommand, PadroneBuilder, PadroneProgram, PadroneProgressIndicator } from 'padrone';
-import { asyncSchema, createPadrone, defineCommand, padroneProgress } from 'padrone';
+import { asyncSchema, createPadrone, defineCommand, defineInterceptor, padroneProgress } from 'padrone';
 import * as z from 'zod/v4';
 import { createTasksProgram } from './common.ts';
 
@@ -388,6 +388,35 @@ test.skip('Types - DefineCommand', () => {
     c.arguments(z.object({ id: z.string() })).action((args, ctx) => ctx.context.db.find(args.id));
 
   createPadrone('test').context<Ctx>().command('find', withContext);
+
+  // Check if builder if still strongly typed
+  createPadrone('test').command('find', (builder) => {
+    expectTypeOf(builder).not.toBeAny();
+    return builder;
+  });
+
+  // @ts-expect-error Check if builder fails on arbitrary return type
+  createPadrone('test').command('find', (_b) => 5);
+
+  const withContextAnon: DefineCommand = (c) => c.arguments(z.object({ id: z.string() })).action((args) => `hello ${args.id}`);
+
+  createPadrone('test').context<Ctx>().command('find', withContextAnon);
+
+  const withContextNotAny: DefineCommand = (c) =>
+    c.arguments(z.object({ id: z.string() })).action((_args, ctx) => expectTypeOf(ctx.context).not.toBeAny());
+
+  createPadrone('test').context<Ctx>().command('find', withContextNotAny);
+
+  const dbInterceptor = defineInterceptor({ name: '' })
+    .factory(() => ({}))
+    .provides<Ctx>();
+  const withContextInferred: DefineCommand = (c) =>
+    c
+      .intercept(dbInterceptor)
+      .arguments(z.object({ id: z.string() }))
+      .action((_args, ctx) => expectTypeOf(ctx.context.db).not.toBeAny());
+
+  createPadrone('test').context<Ctx>().command('find', withContextInferred);
 
   // defineCommand helper: preserves full return type
   const withHelper = defineCommand((c) => c.arguments(schema).action((args) => `hello ${args.name}`));
