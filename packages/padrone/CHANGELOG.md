@@ -1,5 +1,11 @@
 # padrone
 
+## 1.7.1
+
+### Patch Changes
+
+- [`e15d537`](https://github.com/KurtGokhan/padrone/commit/e15d537bf492eaac80ec9f26ff01cfc398e4fd3b) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Fix `DefineCommand` with default context being incompatible with parent programs that have a specific context type.
+
 ## 1.7.0
 
 ### Minor Changes
