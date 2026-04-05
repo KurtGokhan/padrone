@@ -56,6 +56,22 @@ const app = createPadrone('app')
 // app adm users list
 ```
 
+### Configuring at Mount Time
+
+Since builders are immutable, you can call `.configure()` on the program inline to set metadata like `group`, `title`, or `description` without mutating the original:
+
+```typescript
+const app = createPadrone('app')
+  .mount('users', users.configure({ group: 'Resources' }))
+  .mount('roles', roles.configure({ group: 'Resources' }));
+```
+
+This works with any builder method — you can also add interceptors or arguments at mount time:
+
+```typescript
+.mount('admin', admin.intercept(auditInterceptor))
+```
+
 ### Mount with Context Transform
 
 When your parent program uses a typed context, you can transform it for the mounted program:

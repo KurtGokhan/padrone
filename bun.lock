@@ -36,6 +36,15 @@
         "tailwindcss": "4.2.2",
       },
     },
+    "examples/deploy-example": {
+      "name": "@padrone/deploy-example",
+      "version": "1.0.0",
+      "bin": "src/cli.ts",
+      "dependencies": {
+        "padrone": "workspace:*",
+        "zod": "^4.3.6",
+      },
+    },
     "examples/padrone-example": {
       "name": "@padrone/tasks-example",
       "version": "1.7.1",
@@ -363,6 +372,8 @@
     "@oslojs/encoding": ["@oslojs/encoding@1.1.0", "", {}, "sha512-70wQhgYmndg4GCPxPPxPGevRKqTIJ2Nh4OkiMWmDAVYsTQ+Ta7Sq+rPevXyXGdzr30/qZBnyOalCszoMxlyldQ=="],
 
     "@oxc-project/types": ["@oxc-project/types@0.122.0", "", {}, "sha512-oLAl5kBpV4w69UtFZ9xqcmTi+GENWOcPF7FCrczTiBbmC0ibXxCwyvZGbO39rCVEuLGAZM84DH0pUIyyv/YJzA=="],
+
+    "@padrone/deploy-example": ["@padrone/deploy-example@workspace:examples/deploy-example"],
 
     "@padrone/docs": ["@padrone/docs@workspace:docs"],
 
