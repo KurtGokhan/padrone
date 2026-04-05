@@ -127,7 +127,7 @@ export function createProgramMethods(ctx: ExecContext, evalCommand: AnyPadronePr
         positionalArgs: [],
         args,
         signal: inertSignal,
-        context: resolvedCtx,
+        context: resolvedCtx as object,
         runtime: commandRuntime,
         program: ctx.builder as any,
         caller: 'run',

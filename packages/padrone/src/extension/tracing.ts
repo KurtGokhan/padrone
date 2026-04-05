@@ -109,7 +109,7 @@ function tracingInterceptor(config: ResolvedTracingConfig) {
           },
         };
 
-        return next({ context: { ...(ctx.context as any), tracing: padroneTracer } });
+        return next({ context: { tracing: padroneTracer } });
       },
 
       error(ctx, next) {

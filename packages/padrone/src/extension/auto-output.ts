@@ -88,7 +88,7 @@ function createAutoOutputInterceptor(outputConfig?: OutputConfig) {
         return { result: collected };
       };
 
-      const executedOrPromise = next({ context: { ...(ctx.context as any), output: indicator } });
+      const executedOrPromise = next({ context: { output: indicator } });
       if (executedOrPromise instanceof Promise) return executedOrPromise.then(handleResult);
       return handleResult(executedOrPromise);
     },

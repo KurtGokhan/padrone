@@ -209,7 +209,7 @@ function loggerInterceptor(rawConfig?: PadroneLoggerConfig) {
             timestamps: rawConfig?.timestamps ?? ctxCfg?.timestamps ?? false,
           };
           const logger = createLogger(ctx.runtime, resolved.level, resolved, ctx.context?.tracing);
-          return next({ context: { ...ctx.context, logger } });
+          return next({ context: { logger } });
         },
       };
     });

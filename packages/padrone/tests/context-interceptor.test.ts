@@ -21,14 +21,14 @@ type DbConnection = { query: (sql: string) => string[] };
 const withAuth = defineInterceptor({ name: 'auth', order: -500 }, () => ({
   start(ctx, next) {
     const user: User = { id: '1', name: 'Alice' };
-    return next({ context: { ...(ctx.context as any), user } });
+    return next({ context: { user } });
   },
 })).provides<{ user: User }>();
 
 const withDb = defineInterceptor({ name: 'db', order: -600 }, () => ({
   start(ctx, next) {
     const db: DbConnection = { query: () => ['row1'] };
-    return next({ context: { ...(ctx.context as any), db } });
+    return next({ context: { db } });
   },
 })).provides<{ db: DbConnection }>();
 
@@ -42,7 +42,7 @@ const plainInterceptor = defineInterceptor({ name: 'logger' }, () => ({
 const withAuthRequiresDb = defineInterceptor({ name: 'auth-requires-db', order: -500 }, () => ({
   start(ctx, next) {
     const user: User = { id: '1', name: 'Alice' };
-    return next({ context: { ...(ctx.context as any), user } });
+    return next({ context: { user } });
   },
 }))
   .provides<{ user: User }>()
@@ -61,7 +61,7 @@ type Logger = { log: (msg: string) => void };
 const withAuthOptionalLogger = defineInterceptor({ name: 'auth-opt-logger', order: -500 }, () => ({
   start(ctx, next) {
     const user: User = { id: '1', name: 'Alice' };
-    return next({ context: { ...(ctx.context as any), user } });
+    return next({ context: { user } });
   },
 }))
   .provides<{ user: User }>()

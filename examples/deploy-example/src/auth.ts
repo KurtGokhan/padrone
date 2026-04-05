@@ -6,10 +6,8 @@ import type { User } from './types.ts';
  * In a real app, this would read a token from the environment, keychain, or config file.
  */
 export const authInterceptor = defineInterceptor({ name: 'auth', order: -500 }, () => ({
-  start(ctx, next) {
+  start(_ctx, next) {
     const user: User = { name: 'alice', role: 'admin' };
-    // NOTE: See ISSUES.md — requires `as any` to spread existing context onto the new one.
-    // There is no type-safe way to extend context in an interceptor's start phase.
-    return next({ context: { ...(ctx.context as Record<string, unknown>), user } });
+    return next({ context: { user } });
   },
 })).provides<{ user: User }>();

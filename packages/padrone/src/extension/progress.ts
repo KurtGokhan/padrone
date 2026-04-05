@@ -201,7 +201,7 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
           return next();
         },
 
-        execute(ctx, next) {
+        execute(_ctx, next) {
           // Transition from validation message to progress message
           if (indicator && msgs!.validation) indicator.update(msgs!.progress);
 
@@ -221,7 +221,7 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
 
           let result: any;
           try {
-            result = next({ context: { ...(ctx.context as any), progress: effectiveIndicator } });
+            result = next({ context: { progress: effectiveIndicator } });
           } catch (err) {
             onError(err);
           }

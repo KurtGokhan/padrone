@@ -159,7 +159,7 @@ export function execCommand(
       input: resolvedInput,
       command: rootCommand,
       signal,
-      context: pipelineContext,
+      context: pipelineContext as object,
       runtime,
       program: ctx.builder,
       caller,
@@ -184,7 +184,7 @@ export function execCommand(
         command,
         rawArgs: parsed.rawArgs,
         positionalArgs: parsed.positionalArgs,
-        context,
+        context: context as object,
         evalInteractive: evalOptions?.interactive,
       };
 

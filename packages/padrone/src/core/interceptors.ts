@@ -173,9 +173,15 @@ export function runInterceptorChain<TCtx extends object, TResult>(
     ) => TResult | Promise<TResult>;
     const prevNext = next;
     next = (currentCtx: TCtx) =>
-      handler(currentCtx, (overrides?: Record<string, unknown>) =>
-        prevNext(overrides ? (Object.assign({}, currentCtx, overrides) as TCtx) : currentCtx),
-      );
+      handler(currentCtx, (overrides?: Record<string, unknown>) => {
+        if (!overrides) return prevNext(currentCtx);
+        // Auto-merge context: `next({ context: { user } })` merges into existing context
+        // instead of replacing it, so interceptors can't accidentally drop context.
+        if (overrides.context != null && typeof overrides.context === 'object') {
+          overrides = { ...overrides, context: Object.assign({}, (currentCtx as Record<string, unknown>).context, overrides.context) };
+        }
+        return prevNext(Object.assign({}, currentCtx, overrides) as TCtx);
+      });
   }
 
   return next(ctx);
@@ -220,7 +226,7 @@ export function wrapWithLifecycle<T>(
       error,
       result,
       signal: effectiveSignal,
-      context: effectiveContext,
+      context: effectiveContext as object,
       runtime: runtime!,
       program: program!,
       caller,
@@ -243,7 +249,7 @@ export function wrapWithLifecycle<T>(
       input,
       error,
       signal: effectiveSignal,
-      context: effectiveContext,
+      context: effectiveContext as object,
       runtime: runtime!,
       program: program!,
       caller,
@@ -272,7 +278,7 @@ export function wrapWithLifecycle<T>(
   const startCtx: InterceptorStartContext = {
     command,
     signal: effectiveSignal,
-    context: effectiveContext,
+    context: effectiveContext as object,
     runtime: runtime!,
     program: program!,
     input,
