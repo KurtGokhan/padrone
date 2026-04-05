@@ -142,8 +142,9 @@ export function buildCommandArgs(
   command: AnyPadroneCommand,
   rawArgs: Record<string, unknown>,
   positionalArgs: string[],
-): Record<string, unknown> {
+): { args: Record<string, unknown>; issues?: StandardSchemaV1.Issue[] } {
   let preprocessedArgs = preprocessArgs(rawArgs, { flags: {}, aliases: {} });
+  let issues: StandardSchemaV1.Issue[] | undefined;
 
   const positionalConfig = command.meta?.positional ? parsePositionalConfig(command.meta.positional) : [];
 
@@ -152,6 +153,13 @@ export function buildCommandArgs(
     for (let i = 0; i < positionalConfig.length; i++) {
       const { name, variadic } = positionalConfig[i]!;
       if (argIndex >= positionalArgs.length) break;
+
+      // Detect ambiguity: same arg provided both positionally and as a named option
+      if (name in preprocessedArgs) {
+        issues ??= [];
+        issues.push({ path: [name], message: `Ambiguous argument "${name}": provided both positionally and as a named option` });
+        continue;
+      }
 
       if (variadic) {
         const remainingPositionals = positionalConfig.slice(i + 1);
@@ -173,7 +181,7 @@ export function buildCommandArgs(
     preprocessedArgs = coerceArgs(preprocessedArgs, command.argsSchema);
   }
 
-  return preprocessedArgs;
+  return { args: preprocessedArgs, issues };
 }
 
 /**
@@ -251,7 +259,8 @@ export function coreValidateForParse(
   rawArgs: Record<string, unknown>,
   positionalArgs: string[],
 ): InterceptorValidateResult | Promise<InterceptorValidateResult> {
-  const preprocessedArgs = buildCommandArgs(command, rawArgs, positionalArgs);
+  const { args: preprocessedArgs, issues } = buildCommandArgs(command, rawArgs, positionalArgs);
+  if (issues) return { args: undefined, argsResult: { issues } as any };
   const validated = validateCommandArgs(command, preprocessedArgs);
   return thenMaybe(validated, (v) => v as InterceptorValidateResult);
 }

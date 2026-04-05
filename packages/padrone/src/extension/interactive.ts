@@ -37,7 +37,8 @@ const interactiveInterceptor = defineInterceptor({ id: 'padrone:interactive', na
     if (!willPrompt) return next();
 
     // Preprocess args to determine what's missing
-    const preprocessedArgs = buildCommandArgs(command, ctx.rawArgs, ctx.positionalArgs);
+    const { args: preprocessedArgs, issues: positionalIssues } = buildCommandArgs(command, ctx.rawArgs, ctx.positionalArgs);
+    if (positionalIssues) return { args: undefined, argsResult: { issues: positionalIssues } } as any;
 
     // Check for unknown args before prompting
     const unknowns = checkUnknownArgs(command, preprocessedArgs);

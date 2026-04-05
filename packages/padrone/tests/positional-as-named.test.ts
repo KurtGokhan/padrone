@@ -56,14 +56,26 @@ describe('Positional arguments passed as named options', () => {
       c.arguments(z.object({ pos1: z.string(), pos2: z.string() }), { positional: ['pos1', 'pos2'] }).action((args) => args),
     );
 
-    it('should not correctly resolve when first is named and second is positional', () => {
-      // `cmd val2 --pos1=val1` — val2 is assigned to pos1 positionally (overwriting --pos1=val1), pos2 is never set
+    it('should fail with ambiguity error when first is named and second is positional', () => {
+      // `cmd val2 --pos1=val1` — pos1 is provided both positionally and as --pos1
       const result = program.eval('cmd val2 --pos1=val1');
-      // The positional assignment overwrites the named value, so pos1 becomes val2
-      // and pos2 is missing, causing a validation error
       expect(result.args).toBeUndefined();
       expect(result.argsResult?.issues).toBeDefined();
-      expect(result.argsResult?.issues?.some((i: any) => i.path?.includes('pos2'))).toBe(true);
+      expect(result.argsResult?.issues?.some((i: any) => i.message?.includes('Ambiguous'))).toBe(true);
+    });
+  });
+
+  describe('two positionals with optional — ambiguity still detected', () => {
+    const program = createPadrone('app').command('cmd', (c) =>
+      c.arguments(z.object({ pos1: z.string(), pos2: z.string().optional() }), { positional: ['pos1', 'pos2'] }).action((args) => args),
+    );
+
+    it('should fail even when the trailing positional is optional', () => {
+      // `cmd val2 --pos1=val1` — pos1 is provided both positionally and as --pos1
+      const result = program.eval('cmd val2 --pos1=val1');
+      expect(result.args).toBeUndefined();
+      expect(result.argsResult?.issues).toBeDefined();
+      expect(result.argsResult?.issues?.some((i: any) => i.message?.includes('Ambiguous'))).toBe(true);
     });
   });
 
@@ -88,19 +100,35 @@ describe('Positional arguments passed as named options', () => {
     });
 
     it('should fail when naming a middle positional but passing the last by position', () => {
-      // `cmd val1 val3 --b=val2` — val1→a, val3→b (overwrites --b=val2), c is missing
+      // `cmd val1 val3 --b=val2` — b is provided both positionally and as --b
       const result = program.eval('cmd val1 val3 --b=val2');
       expect(result.args).toBeUndefined();
       expect(result.argsResult?.issues).toBeDefined();
-      expect(result.argsResult?.issues?.some((i: any) => i.path?.includes('c'))).toBe(true);
+      expect(result.argsResult?.issues?.some((i: any) => i.message?.includes('Ambiguous'))).toBe(true);
     });
 
     it('should fail when naming the first positional but passing later ones by position', () => {
-      // `cmd val2 val3 --a=val1` — val2→a (overwrites), val3→b, c is missing
+      // `cmd val2 val3 --a=val1` — a is provided both positionally and as --a
       const result = program.eval('cmd val2 val3 --a=val1');
       expect(result.args).toBeUndefined();
       expect(result.argsResult?.issues).toBeDefined();
-      expect(result.argsResult?.issues?.some((i: any) => i.path?.includes('c'))).toBe(true);
+      expect(result.argsResult?.issues?.some((i: any) => i.message?.includes('Ambiguous'))).toBe(true);
+    });
+  });
+
+  describe('three positionals with optional last — naming earlier still fails', () => {
+    const program = createPadrone('app').command('cmd', (c) =>
+      c
+        .arguments(z.object({ a: z.string(), b: z.string(), c: z.string().optional() }), { positional: ['a', 'b', 'c'] })
+        .action((args) => args),
+    );
+
+    it('should fail when naming first positional with positional values present, even if last is optional', () => {
+      // `cmd val1 val2 --a=val3` — a is provided both positionally and as --a
+      const result = program.eval('cmd val1 val2 --a=val3');
+      expect(result.args).toBeUndefined();
+      expect(result.argsResult?.issues).toBeDefined();
+      expect(result.argsResult?.issues?.some((i: any) => i.message?.includes('Ambiguous'))).toBe(true);
     });
   });
 });

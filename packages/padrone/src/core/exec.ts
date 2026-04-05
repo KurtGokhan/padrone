@@ -189,7 +189,8 @@ export function execCommand(
       };
 
       const coreValidate = (validateCtx: InterceptorValidateContext): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
-        const preprocessedArgs = buildCommandArgs(validateCtx.command, validateCtx.rawArgs, validateCtx.positionalArgs);
+        const { args: preprocessedArgs, issues } = buildCommandArgs(validateCtx.command, validateCtx.rawArgs, validateCtx.positionalArgs);
+        if (issues) return { args: undefined, argsResult: { issues } as any };
         const validated = validateCommandArgs(validateCtx.command, preprocessedArgs);
         return thenMaybe(validated, (v) => v as InterceptorValidateResult);
       };
