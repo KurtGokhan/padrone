@@ -1101,7 +1101,7 @@ describe('CLI', () => {
   });
 
   describe('environment variable binding', () => {
-    it('should apply env var when arg is not provided', () => {
+    it('should apply env var when arg is not provided', async () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -1113,12 +1113,12 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.runtime({ env: () => ({ API_KEY: 'secret123' }) }).eval('test');
+      const result = await program.runtime({ env: () => ({ API_KEY: 'secret123' }) }).eval('test');
 
       expect(result.args?.apiKey).toBe('secret123');
     });
 
-    it('should prefer CLI value over env var', () => {
+    it('should prefer CLI value over env var', async () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -1130,12 +1130,12 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.runtime({ env: () => ({ API_KEY: 'from-env' }) }).eval('test --apiKey=from-cli');
+      const result = await program.runtime({ env: () => ({ API_KEY: 'from-env' }) }).eval('test --apiKey=from-cli');
 
       expect(result.args?.apiKey).toBe('from-cli');
     });
 
-    it('should support multiple env var names (fallback)', () => {
+    it('should support multiple env var names (fallback)', async () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -1154,12 +1154,12 @@ describe('CLI', () => {
       );
 
       // First env var not set, second one is
-      const result = program.runtime({ env: () => ({ APP_PORT: '8080' }) }).eval('test');
+      const result = await program.runtime({ env: () => ({ APP_PORT: '8080' }) }).eval('test');
 
       expect(result.args?.port).toBe(8080);
     });
 
-    it('should parse boolean env vars correctly', () => {
+    it('should parse boolean env vars correctly', async () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(
@@ -1173,7 +1173,7 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.runtime({ env: () => ({ DEBUG: 'true' }) }).eval('test');
+      const result = await program.runtime({ env: () => ({ DEBUG: 'true' }) }).eval('test');
 
       expect(result.args?.debug).toBe(true);
     });
@@ -1219,7 +1219,7 @@ describe('CLI', () => {
   });
 
   describe('config file support', () => {
-    it('should apply config values when args are not provided', () => {
+    it('should apply config values when args are not provided', async () => {
       const configData = { server: { port: 3000, host: 'localhost' } };
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
@@ -1234,13 +1234,13 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.eval('test');
+      const result = await program.eval('test');
 
       expect(result.args?.port).toBe(3000);
       expect(result.args?.host).toBe('localhost');
     });
 
-    it('should prefer CLI value over config value', () => {
+    it('should prefer CLI value over config value', async () => {
       const configData = { server: { port: 3000 } };
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
@@ -1255,12 +1255,12 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.eval('test --port=8080');
+      const result = await program.eval('test --port=8080');
 
       expect(result.args?.port).toBe(8080);
     });
 
-    it('should prefer env value over config value', () => {
+    it('should prefer env value over config value', async () => {
       const configData = { server: { port: 3000 } };
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
@@ -1278,12 +1278,12 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.runtime({ env: () => ({ PORT: '9000' }) }).eval('test');
+      const result = await program.runtime({ env: () => ({ PORT: '9000' }) }).eval('test');
 
       expect(result.args?.port).toBe(9000);
     });
 
-    it('should handle deeply nested config with schema transforms', () => {
+    it('should handle deeply nested config with schema transforms', async () => {
       const configData = { services: { api: { connection: { timeout: 5000 } } } };
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
@@ -1300,14 +1300,14 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.eval('test');
+      const result = await program.eval('test');
 
       expect(result.args?.timeout).toBe(5000);
     });
   });
 
   describe('configFile method', () => {
-    it('should validate config data against schema', () => {
+    it('should validate config data against schema', async () => {
       const configData = { port: 3000, host: 'localhost' };
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
@@ -1322,13 +1322,13 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.eval('test');
+      const result = await program.eval('test');
 
       expect(result.args?.port).toBe(3000);
       expect(result.args?.host).toBe('localhost');
     });
 
-    it('should throw error when config data fails validation', () => {
+    it('should throw error when config data fails validation', async () => {
       const configData = { port: 'not-a-number' };
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
@@ -1337,12 +1337,12 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.eval('test');
+      const result = await program.eval('test');
       expect(result.error).toBeInstanceOf(Error);
       expect((result.error as Error).message).toMatch(/Invalid config file/);
     });
 
-    it('should transform config data using schema', () => {
+    it('should transform config data using schema', async () => {
       const configData = { serverPort: 8080 };
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
@@ -1357,12 +1357,12 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.eval('test');
+      const result = await program.eval('test');
 
       expect(result.args?.port).toBe(8080);
     });
 
-    it('should use schema that matches args shape', () => {
+    it('should use schema that matches args shape', async () => {
       const configData = { port: 3000 };
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
@@ -1377,12 +1377,12 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.eval('test');
+      const result = await program.eval('test');
 
       expect(result.args?.port).toBe(3000);
     });
 
-    it('should load config from single file name', () => {
+    it('should load config from single file name', async () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(z.object({ name: z.string().optional() }))
@@ -1390,11 +1390,11 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.eval('test');
+      const result = await program.eval('test');
       expect(result.args?.name).toBe('loaded');
     });
 
-    it('should load config from array of file names', () => {
+    it('should load config from array of file names', async () => {
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
           .arguments(z.object({ name: z.string().optional() }))
@@ -1402,22 +1402,22 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.eval('test');
+      const result = await program.eval('test');
       expect(result.args?.name).toBe('loaded');
     });
 
-    it('should inherit config extension from parent command', () => {
+    it('should inherit config extension from parent command', async () => {
       const configData = { port: 3000 };
       const program = createPadrone('padrone-test')
         .extend(padroneConfig({ files: ['config.json'], schema: z.object({ port: z.number() }), loadConfig: () => configData }))
         .command('sub', (c) => c.arguments(z.object({ port: z.number().optional() })).action((args) => args));
 
-      const result = program.eval('sub');
+      const result = await program.eval('sub');
 
       expect(result.args?.port).toBe(3000);
     });
 
-    it('should allow CLI args to override validated config values', () => {
+    it('should allow CLI args to override validated config values', async () => {
       const configData = { port: 3000 };
       const program = createPadrone('padrone-test').command('test', (c) =>
         c
@@ -1426,7 +1426,7 @@ describe('CLI', () => {
           .action((args) => args),
       );
 
-      const result = program.eval('test --port=8080');
+      const result = await program.eval('test --port=8080');
 
       expect(result.args?.port).toBe(8080);
     });
@@ -1820,7 +1820,7 @@ describe('CLI', () => {
       expect(result.result as unknown as string).toContain('test-cli');
     });
 
-    it('should load config from --config flag', () => {
+    it('should load config from --config flag', async () => {
       // Create a temp config file
       const fs = require('node:fs');
       const path = require('node:path');
@@ -1843,7 +1843,7 @@ describe('CLI', () => {
             .action((args) => args?.port),
         );
 
-        const result = program.eval(`serve --config=${configPath}`);
+        const result = await program.eval(`serve --config=${configPath}`);
 
         expect(result.result).toBe(9999);
       } finally {
@@ -1852,7 +1852,7 @@ describe('CLI', () => {
       }
     });
 
-    it('should load config from -c shorthand', () => {
+    it('should load config from -c shorthand', async () => {
       const fs = require('node:fs');
       const path = require('node:path');
       const os = require('node:os');
@@ -1869,7 +1869,7 @@ describe('CLI', () => {
             .action((args) => args?.host),
         );
 
-        const result = program.eval(`connect -c ${configPath}`);
+        const result = await program.eval(`connect -c ${configPath}`);
 
         expect(result.result).toBe('example.com');
       } finally {
@@ -1878,7 +1878,7 @@ describe('CLI', () => {
       }
     });
 
-    it('should allow CLI args to override config file values', () => {
+    it('should allow CLI args to override config file values', async () => {
       const fs = require('node:fs');
       const path = require('node:path');
       const os = require('node:os');
@@ -1900,7 +1900,7 @@ describe('CLI', () => {
             .action((args) => args?.port),
         );
 
-        const result = program.eval(`serve --config=${configPath} --port=8080`);
+        const result = await program.eval(`serve --config=${configPath} --port=8080`);
 
         // CLI arg should override config file
         expect(result.result).toBe(8080);
@@ -1912,7 +1912,7 @@ describe('CLI', () => {
   });
 
   describe('XDG config directory support', () => {
-    it('should load config from XDG directory when not found in cwd', () => {
+    it('should load config from XDG directory when not found in cwd', async () => {
       const fs = require('node:fs');
       const path = require('node:path');
       const os = require('node:os');
@@ -1934,7 +1934,7 @@ describe('CLI', () => {
             .action((args) => args?.port),
         );
 
-        const result = program.eval('serve');
+        const result = await program.eval('serve');
         expect(result.result).toBe(4000);
       } finally {
         process.env.XDG_CONFIG_HOME = origXdg;
@@ -1944,7 +1944,7 @@ describe('CLI', () => {
       }
     });
 
-    it('should not search XDG directory when xdg is false', () => {
+    it('should not search XDG directory when xdg is false', async () => {
       const program = createPadrone('myapp').command('serve', (c) =>
         c
           .arguments(z.object({ port: z.coerce.number().optional() }))
@@ -1952,7 +1952,7 @@ describe('CLI', () => {
           .action((args) => args?.port),
       );
 
-      const result = program.eval('serve');
+      const result = await program.eval('serve');
       expect(result.result).toBeUndefined();
     });
 
@@ -1979,7 +1979,7 @@ describe('CLI', () => {
       expect(receivedXdgName).toBe('my-cool-app');
     });
 
-    it('should derive app name from program name when xdg is true', () => {
+    it('should derive app name from program name when xdg is true', async () => {
       let receivedXdgName: string | undefined;
 
       const program = createPadrone('my-cli-tool').command('serve', (c) =>
@@ -1998,7 +1998,7 @@ describe('CLI', () => {
           .action((args) => args?.port),
       );
 
-      const result = program.eval('serve');
+      const result = await program.eval('serve');
       expect(receivedXdgName).toBe('my-cli-tool');
       expect(result.result).toBe(7000);
     });

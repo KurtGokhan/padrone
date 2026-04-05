@@ -38,6 +38,7 @@ export type {
   PadroneTracer,
   PadroneTracingConfig,
   VersionCommand,
+  WithAsync,
   WithCompletion,
   WithHelp,
   WithLogger,

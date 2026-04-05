@@ -1,3 +1,4 @@
+export type { WithAsync } from '../util/type-utils.ts';
 export type { PadroneAutoOutputOptions } from './auto-output.ts';
 export { padroneAutoOutput } from './auto-output.ts';
 export { padroneColor } from './color.ts';

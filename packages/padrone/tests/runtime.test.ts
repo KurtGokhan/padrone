@@ -92,7 +92,7 @@ describe('runtime', () => {
       expect(mockLoadConfig).toHaveBeenCalledWith('my.json', undefined);
     });
 
-    it('should use custom loadConfig with auto-detection', () => {
+    it('should use custom loadConfig with auto-detection', async () => {
       const mockLoadConfig = mock(() => ({ port: 9090 }));
       const program = createPadrone('app').command('serve', (c) =>
         c
@@ -101,7 +101,7 @@ describe('runtime', () => {
           .action((args) => args.port),
       );
 
-      const result = program.eval('serve');
+      const result = await program.eval('serve');
       expect(mockLoadConfig).toHaveBeenCalledWith(['config.json', 'config.yaml'], undefined);
       expect(result.result).toBe(9090);
     });

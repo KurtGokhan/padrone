@@ -4,6 +4,7 @@ import { ConfigError } from '../core/errors.ts';
 import { defineInterceptor } from '../core/interceptors.ts';
 import { thenMaybe } from '../core/results.ts';
 import type { AnyPadroneBuilder, CommandTypesBase, InterceptorValidateContext } from '../types/index.ts';
+import type { WithAsync } from '../util/type-utils.ts';
 import { getRootCommand } from '../util/utils.ts';
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -189,7 +190,7 @@ function loadConfig(
  *   }))
  * ```
  */
-export function padroneConfig(options?: PadroneConfigOptions): <T extends CommandTypesBase>(builder: T) => T {
+export function padroneConfig(options?: PadroneConfigOptions): <T extends CommandTypesBase>(builder: T) => WithAsync<T> {
   if (options?.disabled) {
     const disabled = defineInterceptor({ id: 'padrone:config', name: 'padrone:config', order: -999, disabled: true }, () => ({}));
     return ((builder: AnyPadroneBuilder) => builder.intercept(disabled)) as any;

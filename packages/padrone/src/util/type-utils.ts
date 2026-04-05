@@ -210,6 +210,28 @@ export type WithInterceptor<T, TProvides> = T extends {
     : PadroneBuilder<PN, N, PaN, A, R, C, any, AS, CTX, CTXP & TProvides>
   : T;
 
+/**
+ * Utility type for extensions that force the builder/program into async mode.
+ * Sets `TAsync` to `true` while preserving all other type params.
+ */
+export type WithAsync<T> = T extends {
+  '~types': {
+    programName: infer PN extends string;
+    name: infer N extends string;
+    parentName: infer PaN extends string;
+    argsSchema: infer A extends PadroneSchema;
+    result: infer R;
+    commands: infer C extends [...AnyPadroneCommand[]];
+    async: any;
+    context: infer CTX;
+    contextProvided: infer CTXP;
+  };
+}
+  ? T extends { run: any }
+    ? PadroneProgram<PN, N, PaN, A, R, C, any, true, CTX, CTXP>
+    : PadroneBuilder<PN, N, PaN, A, R, C, any, true, CTX, CTXP>
+  : T;
+
 export type PickCommandByName<
   TCommands extends AnyPadroneCommand[],
   TName extends string | AnyPadroneCommand,

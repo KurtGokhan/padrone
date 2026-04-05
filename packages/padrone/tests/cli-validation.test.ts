@@ -194,7 +194,7 @@ describe('CLI validation improvements', () => {
       expect(result.error).toBeInstanceOf(ValidationError);
     });
 
-    it('should not flag framework keys like --config when config extension is used', () => {
+    it('should not flag framework keys like --config when config extension is used', async () => {
       const program = createPadrone('app').command('connect', (c) =>
         c
           .arguments(z.object({ host: z.string().optional() }))
@@ -203,7 +203,7 @@ describe('CLI validation improvements', () => {
       );
 
       // --config is consumed by the config extension, should not be flagged as unknown
-      const result = program.eval('connect --config some-config.json --host localhost');
+      const result = await program.eval('connect --config some-config.json --host localhost');
       expect(result.argsResult?.issues).toBeUndefined();
       expect(result.args?.host).toBe('localhost');
     });

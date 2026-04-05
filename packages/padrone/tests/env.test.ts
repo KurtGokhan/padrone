@@ -192,7 +192,7 @@ describe('padroneEnv with .env files', () => {
     fs.writeFileSync(path.join(tempDir, name), content);
   }
 
-  it('should load .env file values into args', () => {
+  it('should load .env file values into args', async () => {
     writeEnv('.env', 'PORT=3000\nHOST=localhost');
 
     const program = createPadrone('test-cli').command('serve', (c) =>
@@ -209,12 +209,12 @@ describe('padroneEnv with .env files', () => {
         .action((args) => args),
     );
 
-    const result = program.eval('serve');
+    const result = await program.eval('serve');
     expect(result.args?.port).toBe(3000);
     expect(result.args?.host).toBe('localhost');
   });
 
-  it('should respect file loading order (later overrides earlier)', () => {
+  it('should respect file loading order (later overrides earlier)', async () => {
     writeEnv('.env', 'PORT=3000');
     writeEnv('.env.production', 'PORT=8080');
 
@@ -230,11 +230,11 @@ describe('padroneEnv with .env files', () => {
         .action((args) => args),
     );
 
-    const result = program.eval('serve');
+    const result = await program.eval('serve');
     expect(result.args?.port).toBe(8080);
   });
 
-  it('should load .env.local files', () => {
+  it('should load .env.local files', async () => {
     writeEnv('.env', 'SECRET=base');
     writeEnv('.env.local', 'SECRET=local-override');
 
@@ -250,11 +250,11 @@ describe('padroneEnv with .env files', () => {
         .action((args) => args),
     );
 
-    const result = program.eval('run');
+    const result = await program.eval('run');
     expect(result.args?.secret).toBe('local-override');
   });
 
-  it('should skip .local files when local=false', () => {
+  it('should skip .local files when local=false', async () => {
     writeEnv('.env', 'VAL=base');
     writeEnv('.env.local', 'VAL=local');
 
@@ -270,11 +270,11 @@ describe('padroneEnv with .env files', () => {
         .action((args) => args),
     );
 
-    const result = program.eval('run');
+    const result = await program.eval('run');
     expect(result.args?.val).toBe('base');
   });
 
-  it('should skip base .env file when base=false', () => {
+  it('should skip base .env file when base=false', async () => {
     writeEnv('.env', 'PORT=3000');
     writeEnv('.env.production', 'HOST=prod.example.com');
 
@@ -292,12 +292,12 @@ describe('padroneEnv with .env files', () => {
         .action((args) => args),
     );
 
-    const result = program.eval('serve');
+    const result = await program.eval('serve');
     expect(result.args?.port).toBeUndefined();
     expect(result.args?.host).toBe('prod.example.com');
   });
 
-  it('should prefer process.env over file values by default', () => {
+  it('should prefer process.env over file values by default', async () => {
     writeEnv('.env', 'API_KEY=from-file');
 
     const program = createPadrone('test-cli').command('run', (c) =>
@@ -312,11 +312,11 @@ describe('padroneEnv with .env files', () => {
         .action((args) => args),
     );
 
-    const result = program.runtime({ env: () => ({ API_KEY: 'from-process' }) }).eval('run');
+    const result = await program.runtime({ env: () => ({ API_KEY: 'from-process' }) }).eval('run');
     expect(result.args?.apiKey).toBe('from-process');
   });
 
-  it('should allow file values to override process.env with override=true', () => {
+  it('should allow file values to override process.env with override=true', async () => {
     writeEnv('.env', 'API_KEY=from-file');
 
     const program = createPadrone('test-cli').command('run', (c) =>
@@ -331,11 +331,11 @@ describe('padroneEnv with .env files', () => {
         .action((args) => args),
     );
 
-    const result = program.runtime({ env: () => ({ API_KEY: 'from-process' }) }).eval('run');
+    const result = await program.runtime({ env: () => ({ API_KEY: 'from-process' }) }).eval('run');
     expect(result.args?.apiKey).toBe('from-file');
   });
 
-  it('should prefer CLI args over env file values', () => {
+  it('should prefer CLI args over env file values', async () => {
     writeEnv('.env', 'PORT=3000');
 
     const program = createPadrone('test-cli').command('serve', (c) =>
@@ -350,11 +350,11 @@ describe('padroneEnv with .env files', () => {
         .action((args) => args),
     );
 
-    const result = program.eval('serve --port=9999');
+    const result = await program.eval('serve --port=9999');
     expect(result.args?.port).toBe(9999);
   });
 
-  it('should expand variables in env files', () => {
+  it('should expand variables in env files', async () => {
     writeEnv('.env', 'BASE=/app\nPATH_FULL=$BASE/bin');
 
     const program = createPadrone('test-cli').command('run', (c) =>
@@ -369,11 +369,11 @@ describe('padroneEnv with .env files', () => {
         .action((args) => args),
     );
 
-    const result = program.eval('run');
+    const result = await program.eval('run');
     expect(result.args?.pathFull).toBe('/app/bin');
   });
 
-  it('should work without schema (options only)', () => {
+  it('should work without schema (options only)', async () => {
     writeEnv('.env', 'port=3000\nhost=localhost');
 
     const program = createPadrone('test-cli').command('serve', (c) =>
@@ -383,12 +383,12 @@ describe('padroneEnv with .env files', () => {
         .action((args) => args),
     );
 
-    const result = program.eval('serve');
+    const result = await program.eval('serve');
     expect(result.args?.port).toBe(3000);
     expect(result.args?.host).toBe('localhost');
   });
 
-  it('should handle missing .env files gracefully', () => {
+  it('should handle missing .env files gracefully', async () => {
     const program = createPadrone('test-cli').command('run', (c) =>
       c
         .arguments(z.object({ val: z.string().optional() }))
@@ -396,7 +396,7 @@ describe('padroneEnv with .env files', () => {
         .action((args) => args),
     );
 
-    const result = program.eval('run');
+    const result = await program.eval('run');
     expect(result.args?.val).toBeUndefined();
   });
 });

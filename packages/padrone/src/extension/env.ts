@@ -5,6 +5,7 @@ import { thenMaybe } from '../core/results.ts';
 import type { AnyPadroneBuilder, CommandTypesBase, InterceptorValidateContext } from '../types/index.ts';
 import type { LoadEnvFilesOptions } from '../util/dotenv.ts';
 import { loadEnvFiles } from '../util/dotenv.ts';
+import type { WithAsync } from '../util/type-utils.ts';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -53,13 +54,13 @@ function isSchema(value: unknown): value is StandardSchemaV1 {
  *
  * Env values have lower precedence than CLI args and stdin, but higher than config files.
  */
-export function padroneEnv(schema: StandardSchemaV1): <T extends CommandTypesBase>(builder: T) => T;
-export function padroneEnv(schema: StandardSchemaV1, options: PadroneEnvOptions): <T extends CommandTypesBase>(builder: T) => T;
-export function padroneEnv(options: PadroneEnvOptions): <T extends CommandTypesBase>(builder: T) => T;
+export function padroneEnv(schema: StandardSchemaV1): <T extends CommandTypesBase>(builder: T) => WithAsync<T>;
+export function padroneEnv(schema: StandardSchemaV1, options: PadroneEnvOptions): <T extends CommandTypesBase>(builder: T) => WithAsync<T>;
+export function padroneEnv(options: PadroneEnvOptions): <T extends CommandTypesBase>(builder: T) => WithAsync<T>;
 export function padroneEnv(
   schemaOrOptions: StandardSchemaV1 | PadroneEnvOptions,
   maybeOptions?: PadroneEnvOptions,
-): <T extends CommandTypesBase>(builder: T) => T {
+): <T extends CommandTypesBase>(builder: T) => WithAsync<T> {
   const schema = isSchema(schemaOrOptions) ? schemaOrOptions : undefined;
   const options = isSchema(schemaOrOptions) ? maybeOptions : schemaOrOptions;
   const hasFiles = options?.modes !== undefined;
