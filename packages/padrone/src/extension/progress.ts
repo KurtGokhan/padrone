@@ -198,7 +198,32 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
             ctx.runtime.error = originalError;
           };
 
-          return next();
+          const onValidationFailure = (error: unknown) => {
+            if (indicator) {
+              cleanup(indicator, msgs!.success, msgs!.error, error, undefined, true);
+              teardown();
+            }
+          };
+
+          const checkResult = (result: any) => {
+            if (result.argsResult?.issues) onValidationFailure(new Error('Validation failed'));
+            return result;
+          };
+
+          let result: any;
+          try {
+            result = next();
+          } catch (err) {
+            onValidationFailure(err);
+            throw err;
+          }
+          if (result instanceof Promise) {
+            return result.then(checkResult, (err: unknown) => {
+              onValidationFailure(err);
+              throw err;
+            });
+          }
+          return checkResult(result);
         },
 
         execute(_ctx, next) {

@@ -272,6 +272,7 @@ export const tasksProgram = createPadrone('tasks')
       .async()
       .arguments(
         z.object({
+          num: z.number().optional().describe('Number of tasks to sync').meta({ flags: 'n' }),
           test: z
             .string()
             .optional()

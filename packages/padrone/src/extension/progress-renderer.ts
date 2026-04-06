@@ -265,6 +265,9 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
       }, tickInterval)
     : undefined;
 
+  // Prevent the spinner timer from keeping the process alive on uncaught errors
+  if (timer && typeof timer === 'object' && 'unref' in timer) (timer as NodeJS.Timeout).unref();
+
   render();
 
   const clear = () => {

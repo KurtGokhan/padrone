@@ -7,6 +7,7 @@ import {
   type PadroneProgressUpdate,
   padroneProgress,
 } from 'padrone';
+import * as z from 'zod/v4';
 
 function createMockProgress() {
   const indicators: { message: string; indicator: PadroneProgressIndicator & { calls: string[] } }[] = [];
@@ -198,12 +199,125 @@ describe('progress', () => {
 
       const result = program.eval('cmd');
       expect(result.error).toBeDefined();
-      // Indicator was created in validate (which succeeded), but execute's cleanup didn't run
-      // because the outer interceptor threw before reaching the progress interceptor's execute.
-      // The indicator is created but not finalized — this is expected since there's no shutdown
-      // phase for command-level interceptors.
       expect(indicators).toHaveLength(1);
+      // Outer interceptor threw before reaching progress interceptor's execute phase,
+      // and error phase only runs for root interceptors — indicator is not finalized.
       expect(indicators[0]!.indicator.calls).toEqual([]);
+    });
+  });
+
+  describe('validation failure cleanup', () => {
+    it('should clean up indicator when validation fails', () => {
+      const { factory, indicators } = createMockProgress();
+      const program = createPadrone('app').command('cmd', (c) =>
+        c
+          .arguments(z.object({ url: z.url() }))
+          .extend(padroneProgress({ message: 'Working...', renderer: factory }))
+          .action(() => 'done'),
+      );
+
+      const result = program.eval('cmd --url invalid');
+      expect(result.argsResult?.issues).toBeDefined();
+      expect(indicators).toHaveLength(1);
+      expect(indicators[0]!.indicator.calls).toEqual(['fail:Validation failed']);
+    });
+
+    it('should clean up indicator when required arg is missing', () => {
+      const { factory, indicators } = createMockProgress();
+      const program = createPadrone('app').command('cmd', (c) =>
+        c
+          .arguments(z.object({ name: z.string() }))
+          .extend(padroneProgress({ message: 'Working...', renderer: factory }))
+          .action(() => 'done'),
+      );
+
+      const result = program.eval('cmd');
+      expect(result.argsResult?.issues).toBeDefined();
+      expect(indicators).toHaveLength(1);
+      expect(indicators[0]!.indicator.calls).toEqual(['fail:Validation failed']);
+    });
+
+    it('should use custom error message config on validation failure', () => {
+      const { factory, indicators } = createMockProgress();
+      const program = createPadrone('app').command('cmd', (c) =>
+        c
+          .arguments(z.object({ url: z.url() }))
+          .extend(padroneProgress({ message: { progress: 'Working...', error: 'Something went wrong' }, renderer: factory }))
+          .action(() => 'done'),
+      );
+
+      const result = program.eval('cmd --url invalid');
+      expect(result.argsResult?.issues).toBeDefined();
+      expect(indicators).toHaveLength(1);
+      expect(indicators[0]!.indicator.calls).toEqual(['fail:Something went wrong']);
+    });
+
+    it('should use dynamic error callback on validation failure', () => {
+      const { factory, indicators } = createMockProgress();
+      const program = createPadrone('app').command('cmd', (c) =>
+        c
+          .arguments(z.object({ url: z.url() }))
+          .extend(
+            padroneProgress({
+              message: { progress: 'Working...', error: (err) => `Failed: ${(err as Error).message}` },
+              renderer: factory,
+            }),
+          )
+          .action(() => 'done'),
+      );
+
+      const result = program.eval('cmd --url invalid');
+      expect(result.argsResult?.issues).toBeDefined();
+      expect(indicators).toHaveLength(1);
+      expect(indicators[0]!.indicator.calls[0]).toStartWith('fail:Failed:');
+    });
+
+    it('should not fail indicator twice when execute already handled the error', () => {
+      const { factory, indicators } = createMockProgress();
+      const program = createPadrone('app').command('cmd', (c) =>
+        c.extend(padroneProgress({ message: 'Working...', renderer: factory })).action(() => {
+          throw new Error('action error');
+        }),
+      );
+
+      const result = program.eval('cmd');
+      expect(result.error).toBeDefined();
+      // Execute's onError cleans up and sets indicator to undefined via teardown
+      expect(indicators).toHaveLength(1);
+      expect(indicators[0]!.indicator.calls).toEqual(['fail:action error']);
+    });
+
+    it('should clean up indicator on async validation failure', async () => {
+      const { factory, indicators } = createMockProgress();
+      const program = createPadrone('app').command('cmd', (c) =>
+        c
+          .arguments(z.object({ url: z.url() }))
+          .extend(padroneProgress({ message: 'Working...', renderer: factory }))
+          .async()
+          .action(async () => 'done'),
+      );
+
+      const result = await program.eval('cmd --url invalid');
+      expect(result.argsResult?.issues).toBeDefined();
+      expect(indicators).toHaveLength(1);
+      expect(indicators[0]!.indicator.calls).toEqual(['fail:Validation failed']);
+    });
+
+    it('should clean up indicator when cli() validation throws', () => {
+      const { factory, indicators } = createMockProgress();
+      const errors: string[] = [];
+      const program = createPadrone('app')
+        .runtime({ argv: () => ['cmd', '--url', 'invalid'], error: (msg) => errors.push(msg), output: () => {} })
+        .command('cmd', (c) =>
+          c
+            .arguments(z.object({ url: z.url() }))
+            .extend(padroneProgress({ message: 'Working...', renderer: factory }))
+            .action(() => 'done'),
+        );
+
+      program.cli();
+      expect(indicators).toHaveLength(1);
+      expect(indicators[0]!.indicator.calls).toEqual(['fail:Validation failed']);
     });
   });
 
