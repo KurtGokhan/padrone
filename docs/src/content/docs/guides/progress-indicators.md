@@ -422,6 +422,7 @@ Manual calls to `ctx.context.progress.pause()` and `ctx.context.progress.resume(
 1. **Registers an interceptor** that wraps the validate and execute phases with progress indicator management
 2. **Provides typed context** via `.provides<{ progress: PadroneProgressIndicator }>()` so `ctx.context.progress` is fully typed
 3. **Creates the indicator** using the configured renderer (defaults to the built-in terminal renderer)
+4. **Uses a shutdown handler** as a safety net — if the indicator is not cleaned up by validate/execute (e.g., an outer interceptor threw), the command-level shutdown phase stops it
 
 This means progress indicators interact naturally with other interceptors. The indicator starts before validation interceptors run and is cleaned up after execution. Interceptor errors are caught and reflected in the progress indicator:
 

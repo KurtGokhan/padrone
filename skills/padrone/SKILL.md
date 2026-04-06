@@ -114,14 +114,15 @@ The second parameter to `.arguments()` configures positional args, interactive p
 
 ## Interceptor System
 
-Six phases in onion/middleware pattern with `next()`:
+Seven phases in onion/middleware pattern with `next()`:
 
 1. **start** — before pipeline (root only, not called by `parse()`/`run()`)
 2. **parse** — command routing (root only)
-3. **validate** — schema validation (parent chain)
-4. **execute** — handler execution (parent chain)
-5. **error** — error handling (return `{ error: undefined, result }` to suppress)
-6. **shutdown** — cleanup, always runs
+3. **route** — after command resolved, before validation (root + command chain)
+4. **validate** — schema validation (root + command chain)
+5. **execute** — handler execution (root + command chain)
+6. **error** — error handling, two layers: command-level first, then root-level (return `{ error: undefined, result }` to suppress)
+7. **shutdown** — cleanup, always runs, two layers: command-level first, then root-level
 
 All phase contexts include `context` (user-provided context), `signal` (AbortSignal for cancellation), `caller` (invocation method: `'cli'`, `'eval'`, `'run'`, etc.), and `runtime`.
 

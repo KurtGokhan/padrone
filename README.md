@@ -109,7 +109,7 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 
 **Extension-first architecture** — most built-in features (help, version, REPL, color, signal handling, auto-output, stdin, config, interactive, suggestions) are implemented as extensions composed via `.extend()`. Any built-in can be disabled or replaced.
 
-**Interceptors** — middleware hooks for 6 phases (start, parse, validate, execute, error, shutdown). Onion model with `next()`. Extensions register interceptors under the hood. Create your own with `defineInterceptor()`.
+**Interceptors** — middleware hooks for 7 phases (start, parse, route, validate, execute, error, shutdown). Onion model with `next()`. Extensions register interceptors under the hood. Create your own with `defineInterceptor()`.
 
 **Composition** — mount programs as subcommands with `.mount()`, override commands with merge semantics.
 

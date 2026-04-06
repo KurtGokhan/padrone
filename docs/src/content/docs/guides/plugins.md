@@ -123,7 +123,7 @@ function myFeature(options?: MyOptions) {
 
 Interceptors let you intercept the command lifecycle using a middleware pattern. They wrap each phase with an onion model, giving you full control to modify inputs, short-circuit execution, add logging, or implement cross-cutting concerns.
 
-The full lifecycle is: **start → parse → validate → execute → shutdown** (with **error** on failure).
+The full lifecycle is: **start → parse → route → validate → execute → shutdown** (with **error** on failure).
 
 ### Defining Interceptors with `defineInterceptor()`
 
@@ -198,7 +198,7 @@ const program = createPadrone('myapp')
 
 ### Execution Phases
 
-Interceptors can hook into six phases — three core phases (parse, validate, execute) and three lifecycle phases (start, error, shutdown):
+Interceptors can hook into seven phases — four core phases (parse, route, validate, execute) and three lifecycle phases (start, error, shutdown):
 
 #### Start Phase
 
@@ -259,9 +259,36 @@ const parseLogger = defineInterceptor({ name: 'parse-logger' }, () => ({
 | `rawArgs` | `Record<string, unknown>` | Parsed raw arguments |
 | `positionalArgs` | `string[]` | Positional argument values |
 
+#### Route Phase
+
+Runs after the target command is resolved (post-parse), before validation. Both root and command-level interceptors participate. Use for per-command setup like authorization checks, resource loading, or logging.
+
+```typescript
+const auth = defineInterceptor({ name: 'auth' }, () => ({
+  route: (ctx, next) => {
+    if (ctx.command.meta?.requiresAuth && !isAuthenticated()) {
+      throw new Error('Not authenticated');
+    }
+    return next();
+  },
+}));
+```
+
+**Context:**
+| Property | Type | Description |
+|----------|------|-------------|
+| `command` | `PadroneCommand` | Resolved target command |
+| `rawArgs` | `Record<string, unknown>` | Parsed raw arguments |
+| `positionalArgs` | `string[]` | Positional argument values |
+| `signal` | `AbortSignal` | Cancellation signal |
+| `context` | `unknown` | User-provided context |
+| `caller` | `string` | Invocation method |
+
+**Result:** `void`
+
 #### Validate Phase
 
-Runs after parsing, when raw arguments are being validated against the schema.
+Runs after routing, when raw arguments are being validated against the schema.
 
 ```typescript
 const defaults = defineInterceptor({ name: 'inject-defaults' }, () => ({
@@ -321,7 +348,7 @@ const timer = defineInterceptor({ name: 'timer' }, () => ({
 
 #### Error Phase
 
-Called when the pipeline throws an error. Error handlers can log, transform, or suppress errors. Only runs for `eval()` and `cli()`.
+Called when the pipeline throws an error. Error handlers can log, transform, or suppress errors. Only runs for `eval()` and `cli()`. Runs in two layers: command-level error handlers run first (for route/validate/execute failures), then root-level error handlers (for all failures including parse).
 
 ```typescript
 const errorReporter = defineInterceptor({ name: 'error-reporter' }, () => ({
@@ -347,7 +374,7 @@ const errorRecovery = defineInterceptor({ name: 'error-recovery' }, () => ({
 **Context:**
 | Property | Type | Description |
 |----------|------|-------------|
-| `command` | `PadroneCommand` | The root command |
+| `command` | `PadroneCommand` | The resolved command (target command for command-level, root for root-level) |
 | `error` | `unknown` | The error that was thrown |
 | `signal` | `AbortSignal` | Cancellation signal |
 | `context` | `unknown` | User-provided context |
@@ -359,11 +386,11 @@ const errorRecovery = defineInterceptor({ name: 'error-recovery' }, () => ({
 | `error` | `unknown \| undefined` | The error to throw. Set to `undefined` to suppress. |
 | `result` | `unknown` | Replacement result when suppressing the error. |
 
-Calling `next()` passes to the next error handler. The innermost core returns `{ error }` unchanged, which re-throws after shutdown runs.
+Calling `next()` passes to the next error handler. The innermost core returns `{ error }` unchanged, which re-throws after shutdown runs. Command-level error handlers can suppress errors before they reach root-level handlers.
 
 #### Shutdown Phase
 
-Always runs after the pipeline completes — whether it succeeded or failed. Use for cleanup like closing connections or flushing logs. Only runs for `eval()` and `cli()`.
+Always runs after the pipeline completes — whether it succeeded or failed. Use for cleanup like closing connections or flushing logs. Only runs for `eval()` and `cli()`. Runs in two layers: command-level shutdown handlers run first (for the route/validate/execute scope), then root-level shutdown handlers (for the full pipeline scope).
 
 ```typescript
 const cleanup = defineInterceptor({ name: 'cleanup' }, () => ({
@@ -380,7 +407,7 @@ const cleanup = defineInterceptor({ name: 'cleanup' }, () => ({
 **Context:**
 | Property | Type | Description |
 |----------|------|-------------|
-| `command` | `PadroneCommand` | The root command |
+| `command` | `PadroneCommand` | The resolved command (target command for command-level, root for root-level) |
 | `error` | `unknown \| undefined` | The error, if the pipeline failed |
 | `result` | `unknown \| undefined` | The pipeline result, if it succeeded |
 | `signal` | `AbortSignal` | Cancellation signal |
@@ -555,11 +582,11 @@ const asyncInterceptor = defineInterceptor({ name: 'async' }, () => ({
 
 ### Which Methods Run Which Phases
 
-| Method | Start | Parse | Validate | Execute | Error | Shutdown |
-|--------|-------|-------|----------|---------|-------|----------|
-| `eval()` / `cli()` | Yes | Yes | Yes | Yes | Yes | Yes |
-| `parse()` | No | Yes | Yes | No | No | No |
-| `run()` | No | No | No | Yes | No | No |
+| Method | Start | Parse | Route | Validate | Execute | Error | Shutdown |
+|--------|-------|-------|-------|----------|---------|-------|----------|
+| `eval()` / `cli()` | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| `parse()` | No | Yes | No | Yes | No | No | No |
+| `run()` | No | No | No | No | Yes | No | No |
 
 ### How Built-in Extensions Use Interceptors
 

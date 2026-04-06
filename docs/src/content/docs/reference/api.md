@@ -467,7 +467,7 @@ program.intercept(logger);
 ```
 
 **Parameters:**
-- `interceptor`: A `PadroneInterceptor` — either created with `defineInterceptor()` or a plain object with `name`, optional `order`/`id`/`disabled`, and phase handlers (`start`, `parse`, `validate`, `execute`, `error`, `shutdown`)
+- `interceptor`: A `PadroneInterceptor` — either created with `defineInterceptor()` or a plain object with `name`, optional `order`/`id`/`disabled`, and phase handlers (`start`, `parse`, `route`, `validate`, `execute`, `error`, `shutdown`)
 
 **Returns:** New builder with the interceptor added (immutable)
 

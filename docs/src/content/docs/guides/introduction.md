@@ -79,7 +79,7 @@ createPadrone('myapp')
 
 ### Interceptor System
 
-Under the hood, extensions register **interceptors** — middleware that wraps the command lifecycle with an onion model. Six phases (start, parse, validate, execute, error, shutdown) give you full control:
+Under the hood, extensions register **interceptors** — middleware that wraps the command lifecycle with an onion model. Seven phases (start, parse, route, validate, execute, error, shutdown) give you full control:
 
 ```typescript
 program.intercept(defineInterceptor({ name: 'auth' }, () => ({

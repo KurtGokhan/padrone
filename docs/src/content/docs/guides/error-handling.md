@@ -142,7 +142,7 @@ const errorRecovery = defineInterceptor({ name: 'error-recovery' }, () => ({
 }));
 ```
 
-The error phase only runs during `eval()` and `cli()`. See the [Interceptors & Extensions guide](/padrone/guides/plugins/#error-phase) for full details.
+The error phase only runs during `eval()` and `cli()`. Error handlers run in two layers: command-level handlers first (for route/validate/execute failures), then root-level handlers (for all failures including parse). Command-level error handlers can suppress errors before they reach root-level handlers. See the [Interceptors & Extensions guide](/padrone/guides/plugins/#error-phase) for full details.
 
 ## Serialization
 

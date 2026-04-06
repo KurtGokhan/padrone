@@ -536,6 +536,7 @@ All handlers can return Promises for async behavior.
 |---|---|---|
 | start | `input`, `program` | Pipeline result |
 | parse | `input` | `{ command, rawArgs, positionalArgs }` |
+| route | `rawArgs`, `positionalArgs` | `void` |
 | validate | `rawArgs` (mutable), `positionalArgs` | `{ args, argsResult }` |
 | execute | `args` (mutable) | `{ result }` |
 | error | `error` | `{ error?, result? }` |
@@ -547,12 +548,13 @@ All handlers can return Promises for async behavior.
 
 | Entry point | Phases run |
 |---|---|
-| `eval()` / `cli()` | start, parse, validate, execute, [error], shutdown |
+| `eval()` / `cli()` | start, parse, route, validate, execute, [error], shutdown |
 | `parse()` | parse, validate |
 | `run()` | execute only |
 
-- Parse, start, error, shutdown use **root interceptors only**
-- Validate, execute use **collected parent chain** (root outermost, subcommand innermost)
+- Start, parse use **root interceptors only**
+- Route, validate, execute use **collected parent chain** (root outermost, subcommand innermost)
+- Error, shutdown run in **two layers**: command-level interceptors first (for route/validate/execute failures), then root-level (for all failures)
 - Subcommand interceptors registered via `.intercept()` inside `.command()` apply only to that command
 
 ### Ordering
