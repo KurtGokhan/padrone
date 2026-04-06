@@ -1,5 +1,21 @@
 # padrone
 
+## 1.8.0
+
+### Minor Changes
+
+- [`7b58742`](https://github.com/KurtGokhan/padrone/commit/7b5874220f829fbbbc770a850093ce45430a8094) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add `negative` meta option for boolean arguments. Custom keyword(s) set the option to `false` and disable the default `--no-` prefix. Supports string, array, and empty values to only disable the prefix.
+
+- [`07b49ae`](https://github.com/KurtGokhan/padrone/commit/07b49aec2bdef4192c514b2ef3dc1a6ef65efce7) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add `DefineCommandContext` interface and `defineCommand().requires()` for typed interceptor context in modular commands. Commands defined with `defineCommand()` now have optional `logger`, `tracing`, and `progress` context by default. Use `defineCommand().requires<T>().define(fn)` for additional context requirements with compile-time validation at `.command()` registration.
+
+- [`e8bc2df`](https://github.com/KurtGokhan/padrone/commit/e8bc2dfd6f74f828f5cafb7dc2c0835974e24fc4) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Mark `padroneEnv` and `padroneConfig` as async at the type level. Extensions now return `WithAsync<T>` so `eval()` and `cli()` correctly return `Promise` when used.
+
+- [`46cf13f`](https://github.com/KurtGokhan/padrone/commit/46cf13f96d2f376eb7ab7c6557c9ef45085535e5) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Auto-merge interceptor context in `next()`. Passing `next({ context: { user } })` now shallow-merges into existing context instead of replacing it. Default `TContext` changed from `unknown` to `object` so `ctx.context` is spreadable without type assertions.
+
+### Patch Changes
+
+- [`735ffb4`](https://github.com/KurtGokhan/padrone/commit/735ffb4a7d165c35feb050c4d6c6a5e136f1b173) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Detect ambiguous positional arguments provided both positionally and as named options. For example, `cmd val --pos1=val` with `positional: ['pos1', 'pos2']` now reports a validation error instead of silently overwriting.
+
 ## 1.7.1
 
 ### Patch Changes
