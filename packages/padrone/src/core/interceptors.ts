@@ -306,3 +306,97 @@ export function wrapWithLifecycle<T>(
 
   return handleSuccess(result);
 }
+
+/**
+ * Wraps a command-level pipeline (validate + execute) with error → shutdown lifecycle hooks.
+ * Unlike `wrapWithLifecycle`, this has no `start` phase and uses the resolved command context.
+ * Only interceptors exclusive to the command chain (not in root) should be passed here.
+ */
+export function wrapWithCommandLifecycle<T>(
+  interceptors: ResolvedInterceptor[],
+  command: AnyPadroneCommand,
+  input: string | undefined,
+  pipeline: () => T | Promise<T>,
+  wrapErrorResult: ((result: unknown) => T) | undefined,
+  signal: AbortSignal,
+  context: unknown,
+  runtime: ResolvedPadroneRuntime,
+  program: AnyPadroneProgram,
+  caller: 'cli' | 'eval' | 'run' | 'repl' | 'serve' | 'mcp' | 'tool',
+  pipelineState: { rawArgs?: Record<string, unknown>; positionalArgs?: string[]; args?: unknown },
+): T | Promise<T> {
+  const hasError = interceptors.some((p) => p.error);
+  const hasShutdown = interceptors.some((p) => p.shutdown);
+
+  if (!hasError && !hasShutdown) return pipeline();
+
+  const runShutdown = (error?: unknown, result?: unknown) => {
+    if (!hasShutdown) return;
+    const ctx: InterceptorShutdownContext = {
+      command,
+      input,
+      error,
+      result,
+      signal,
+      context: context as object,
+      runtime,
+      program,
+      caller,
+      ...pipelineState,
+    };
+    return runInterceptorChain('shutdown', interceptors, ctx, () => {});
+  };
+
+  const runError = (error: unknown): T | Promise<T> => {
+    if (!hasError) {
+      const s = runShutdown(error);
+      if (s instanceof Promise)
+        return s.then(() => {
+          throw error;
+        });
+      throw error;
+    }
+    const ctx: InterceptorErrorContext = {
+      command,
+      input,
+      error,
+      signal,
+      context: context as object,
+      runtime,
+      program,
+      caller,
+      ...pipelineState,
+    };
+    const errorResult = runInterceptorChain('error', interceptors, ctx, (): InterceptorErrorResult => ({ error }));
+    return thenMaybe(errorResult, (er) => {
+      if (er.error !== undefined) {
+        const s = runShutdown(er.error);
+        return thenMaybe(s as void | Promise<void>, () => {
+          throw er.error;
+        });
+      }
+      const wrapped = wrapErrorResult ? wrapErrorResult(er.result) : (er.result as T);
+      const s = runShutdown(undefined, wrapped);
+      return thenMaybe(s as void | Promise<void>, () => wrapped);
+    });
+  };
+
+  const handleSuccess = (result: T): T | Promise<T> => {
+    const s = runShutdown(undefined, result);
+    if (s instanceof Promise) return s.then(() => result);
+    return result;
+  };
+
+  let result: T | Promise<T>;
+  try {
+    result = pipeline();
+  } catch (e) {
+    return runError(e);
+  }
+
+  if (result instanceof Promise) {
+    return result.then(handleSuccess, runError);
+  }
+
+  return handleSuccess(result);
+}

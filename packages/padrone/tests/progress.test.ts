@@ -201,8 +201,8 @@ describe('progress', () => {
       expect(result.error).toBeDefined();
       expect(indicators).toHaveLength(1);
       // Outer interceptor threw before reaching progress interceptor's execute phase,
-      // and error phase only runs for root interceptors — indicator is not finalized.
-      expect(indicators[0]!.indicator.calls).toEqual([]);
+      // but command-level shutdown cleans up the indicator.
+      expect(indicators[0]!.indicator.calls).toEqual(['fail:interceptor error']);
     });
   });
 

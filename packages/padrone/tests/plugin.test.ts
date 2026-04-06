@@ -1249,4 +1249,187 @@ describe('interceptors', () => {
       expect(duration).toBeGreaterThanOrEqual(0);
     });
   });
+
+  describe('command-level error/shutdown', () => {
+    it('should run command-level shutdown on success', () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test').command('cmd', (c) =>
+        c
+          .action(() => 'ok')
+          .intercept({ name: 'cmd-shutdown' }, () => ({
+            shutdown: (ctx, next) => {
+              log.push(`cmd-shutdown:result=${(ctx.result as any)?.result}`);
+              return next();
+            },
+          })),
+      );
+
+      program.eval('cmd');
+      expect(log).toEqual(['cmd-shutdown:result=ok']);
+    });
+
+    it('should run command-level shutdown on error', () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test').command('cmd', (c) =>
+        c
+          .action(() => {
+            throw new Error('boom');
+          })
+          .intercept({ name: 'cmd-shutdown' }, () => ({
+            shutdown: (ctx, next) => {
+              log.push(`cmd-shutdown:error=${(ctx.error as Error)?.message}`);
+              return next();
+            },
+          })),
+      );
+
+      const result = program.eval('cmd');
+      expect(result.error).toBeInstanceOf(Error);
+      expect(log).toEqual(['cmd-shutdown:error=boom']);
+    });
+
+    it('should run command-level error handler that can suppress errors', () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test').command('cmd', (c) =>
+        c
+          .action(() => {
+            throw new Error('boom');
+          })
+          .intercept({ name: 'cmd-error' }, () => ({
+            error: (ctx, _next) => {
+              log.push(`cmd-error:${(ctx.error as Error).message}`);
+              return { error: undefined, result: 'recovered' };
+            },
+            shutdown: (ctx, next) => {
+              log.push(`cmd-shutdown:error=${ctx.error}:result=${(ctx.result as any)?.result}`);
+              return next();
+            },
+          })),
+      );
+
+      const result = program.eval('cmd');
+      expect(result.result! as string).toBe('recovered');
+      expect(log).toEqual(['cmd-error:boom', 'cmd-shutdown:error=undefined:result=recovered']);
+    });
+
+    it('should run command-level shutdown before root-level shutdown', () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test')
+        .command('cmd', (c) =>
+          c
+            .action(() => 'ok')
+            .intercept({ name: 'cmd-lifecycle' }, () => ({
+              shutdown: (_ctx, next) => {
+                log.push('cmd-shutdown');
+                return next();
+              },
+            })),
+        )
+        .intercept({ name: 'root-lifecycle' }, () => ({
+          shutdown: (_ctx, next) => {
+            log.push('root-shutdown');
+            return next();
+          },
+        }));
+
+      program.eval('cmd');
+      expect(log).toEqual(['cmd-shutdown', 'root-shutdown']);
+    });
+
+    it('should not double-run root interceptor shutdown', () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test')
+        .command('cmd', (c) => c.action(() => 'ok'))
+        .intercept({ name: 'root-lifecycle' }, () => ({
+          shutdown: (_ctx, next) => {
+            log.push('root-shutdown');
+            return next();
+          },
+        }));
+
+      program.eval('cmd');
+      // Root shutdown runs once (via root lifecycle), not twice
+      expect(log).toEqual(['root-shutdown']);
+    });
+
+    it('should not run command-level error/shutdown on parse failure', () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test')
+        .command('cmd', (c) =>
+          c
+            .action(() => 'ok')
+            .intercept({ name: 'cmd-lifecycle' }, () => ({
+              error: (ctx, next) => {
+                log.push(`cmd-error:${(ctx.error as Error).message}`);
+                return next();
+              },
+              shutdown: (_ctx, next) => {
+                log.push('cmd-shutdown');
+                return next();
+              },
+            })),
+        )
+        .intercept({ name: 'root-lifecycle' }, () => ({
+          shutdown: (_ctx, next) => {
+            log.push('root-shutdown');
+            return next();
+          },
+        }));
+
+      const result = program.eval('unknown-command');
+      expect(result.error).toBeDefined();
+      // Only root shutdown runs; command-level handlers are never reached
+      expect(log).toEqual(['root-shutdown']);
+    });
+
+    it('should run command-level shutdown when outer interceptor throws in execute', () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test')
+        .intercept({ name: 'failing-outer' }, () => ({
+          execute: () => {
+            throw new Error('outer boom');
+          },
+        }))
+        .command('cmd', (c) =>
+          c
+            .action(() => 'ok')
+            .intercept({ name: 'cmd-lifecycle' }, () => ({
+              shutdown: (ctx, next) => {
+                log.push(`cmd-shutdown:error=${(ctx.error as Error)?.message}`);
+                return next();
+              },
+            })),
+        );
+
+      const result = program.eval('cmd');
+      expect(result.error).toBeInstanceOf(Error);
+      expect(log).toEqual(['cmd-shutdown:error=outer boom']);
+    });
+
+    it('should support async command-level shutdown', async () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test').command('cmd', (c) =>
+        c
+          .action(() => 'ok')
+          .intercept({ name: 'async-cmd-shutdown' }, () => ({
+            shutdown: async (_ctx, next) => {
+              log.push('cmd-shutdown');
+              await next();
+            },
+          })),
+      );
+
+      const result = await program.eval('cmd');
+      expect(result.result).toBe('ok');
+      expect(log).toEqual(['cmd-shutdown']);
+    });
+  });
 });

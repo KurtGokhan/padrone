@@ -284,6 +284,15 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
           onSuccess(result!.result);
           return result;
         },
+
+        shutdown(ctx) {
+          // Safety net: if validate/execute cleanup paths were bypassed (e.g., outer interceptor
+          // threw during execute before reaching this interceptor's execute handler), stop the indicator.
+          if (indicator) {
+            cleanup(indicator, msgs!.success, msgs!.error, ctx.error, ctx.result, !!ctx.error);
+            teardown();
+          }
+        },
       };
     })
     .provides<{ progress: PadroneProgressIndicator }>();
