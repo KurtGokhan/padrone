@@ -1,6 +1,8 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Tool } from 'ai';
-import type { PadroneRuntime } from '../core/runtime.ts';
+import type { PadroneProgressIndicator, PadroneRuntime } from '../core/runtime.ts';
+import type { PadroneLogger } from '../extension/logger.ts';
+import type { PadroneTracer } from '../extension/tracing.ts';
 import type { PadroneMcpPreferences } from '../feature/mcp.ts';
 import type { PadroneServePreferences } from '../feature/serve.ts';
 import type { WrapConfig, WrapResult } from '../feature/wrap.ts';
@@ -385,6 +387,33 @@ export type PadroneBuilderMethods<
       TContext,
       TContextProvided
     >;
+    // Overload for defineCommand.requires() branded callbacks — validates context requirements
+    <TNameNested extends string, TAliases extends string[] = [], TBuilder extends CommandTypesBase = CommandTypesBase, TReq = unknown>(
+      name: TNameNested | readonly [TNameNested, ...TAliases],
+      builderFn: ((builder: any) => TBuilder) & { '~contextRequires': (ctx: TReq) => void },
+    ): TContext & TContextProvided extends TReq
+      ? BuilderOrProgram<
+          TReturn,
+          TProgramName,
+          TName,
+          TParentName,
+          TArgs,
+          TRes,
+          TCommands extends []
+            ? [WithAliases<TBuilder['~types']['command'], TAliases>]
+            : AnyPadroneCommand[] extends TCommands
+              ? [WithAliases<TBuilder['~types']['command'], TAliases>]
+              : ReplaceOrAppendCommand<
+                  TCommands,
+                  TNameNested,
+                  WithAliases<TBuilder['~types']['command'], ResolvedAliases<TCommands, TNameNested, TAliases>>
+                >,
+          TParentArgs,
+          TAsync,
+          TContext,
+          TContextProvided
+        >
+      : DefineCommandRequiresError;
     // Fallback overload: accepts DefineCommand-typed callbacks where the builder type is not structurally compatible
     // (e.g., DefineCommand with unknown context used in a parent with specific context)
     <TNameNested extends string, TAliases extends string[] = [], TBuilder extends CommandTypesBase = CommandTypesBase>(
@@ -724,6 +753,30 @@ export type AnyPadroneProgram = PadroneProgram<string, string, string, any, any,
 export type PadroneExtension<TIn extends CommandTypesBase = CommandTypesBase, TOut extends CommandTypesBase = TIn> = (builder: TIn) => TOut;
 
 /**
+ * Default context type for commands defined with `defineCommand()`.
+ * Includes optional context properties provided by common extensions (logger, tracing, progress).
+ *
+ * Override globally via module augmentation to add your application's context:
+ * ```ts
+ * declare module 'padrone' {
+ *   interface DefineCommandContext {
+ *     db: Database;
+ *   }
+ * }
+ * ```
+ */
+export interface DefineCommandContext {
+  logger?: PadroneLogger;
+  tracing?: PadroneTracer;
+  progress?: PadroneProgressIndicator;
+}
+
+/** Error brand returned by `.command()` when a `defineCommand.requires()` context requirement is not satisfied. */
+export type DefineCommandRequiresError = {
+  readonly '~error': 'Required context not satisfied. Ensure required interceptors are registered on the program.';
+};
+
+/**
  * Type for a command builder callback used with `.command()`.
  * Use this when defining commands in separate files where full return type inference isn't needed.
  *
@@ -741,7 +794,27 @@ export type PadroneExtension<TIn extends CommandTypesBase = CommandTypesBase, TO
  * ```
  */
 export type DefineCommand<TContext = unknown, TParentArgs extends PadroneSchema = PadroneSchema> = (
-  builder: PadroneBuilder<string, string, string, PadroneSchema<void>, void, [], TParentArgs, false, TContext>,
+  builder: PadroneBuilder<string, string, string, PadroneSchema<void>, void, [], TParentArgs, false, TContext, DefineCommandContext>,
 ) => CommandTypesBase;
+
+/**
+ * Builder returned by `defineCommand()` (no-arg form).
+ * Call `.requires<T>()` to declare context dependencies, then `.command()` to provide the builder callback.
+ *
+ * @example
+ * ```ts
+ * const adminCommand = defineCommand()
+ *   .requires<{ adminDb: AdminDB }>()
+ *   .define((c) => c.action((_args, ctx) => ctx.context.adminDb.query(...)));
+ * ```
+ */
+export type DefineCommandBuilder<TContextProvided = DefineCommandContext, TBrand = unknown> = {
+  /** Declare context types this command requires. Purely type-level — no runtime effect. */
+  requires: <TRequires>() => DefineCommandBuilder<DefineCommandContext & TRequires, { '~contextRequires': (ctx: TRequires) => void }>;
+  /** Provide the command builder callback. */
+  define: <TContext = unknown, TOut extends CommandTypesBase = CommandTypesBase>(
+    fn: (builder: PadroneBuilder<string, string, string, PadroneSchema<void>, void, [], any, false, TContext, TContextProvided>) => TOut,
+  ) => typeof fn & TBrand;
+};
 
 type DefaultArgs = Record<string, unknown> | void;

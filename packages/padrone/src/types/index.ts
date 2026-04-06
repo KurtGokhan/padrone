@@ -3,6 +3,8 @@ export type {
   AnyPadroneBuilder,
   AnyPadroneProgram,
   DefineCommand,
+  DefineCommandBuilder,
+  DefineCommandContext,
   PadroneBuilder,
   PadroneBuilderMethods,
   PadroneExtension,

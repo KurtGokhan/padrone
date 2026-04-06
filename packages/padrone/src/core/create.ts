@@ -14,6 +14,8 @@ import type {
   AnyPadroneCommand,
   AnyPadroneProgram,
   CommandTypesBase,
+  DefineCommandBuilder,
+  DefineCommandContext,
   InterceptorFactory,
   InterceptorMeta,
   PadroneBuilder,
@@ -158,7 +160,7 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
       const handler = createWrapHandler(config, existingCommand.argsSchema as any, existingCommand.meta?.positional);
       return createPadroneBuilder({ ...existingCommand, action: handler }) as any;
     },
-    command(nameOrNames, builderFn) {
+    command(nameOrNames: string | readonly string[], builderFn?: (builder: any) => any) {
       const name = Array.isArray(nameOrNames) ? nameOrNames[0] : nameOrNames;
       const aliases = Array.isArray(nameOrNames) && nameOrNames.length > 1 ? (nameOrNames.slice(1) as string[]) : undefined;
 
@@ -274,28 +276,33 @@ export function createPadroneBuilder<TBuilder extends PadroneProgram = PadronePr
  * Use this when defining commands in separate files — the parent program retains exact type information
  * about the subcommand's args, result, and nested commands.
  *
- * @example
+ * The builder's context includes `DefineCommandContext` by default (optional `logger`, `tracing`, `progress`).
+ * Override globally via module augmentation on `DefineCommandContext`, or per-command via `.requires()`.
+ *
+ * @example Direct form (most common)
  * ```ts
- * // my-command.ts
  * export const myCommand = defineCommand((c) =>
  *   c.arguments(z.object({ name: z.string() }))
  *    .action((args) => console.log(args.name))
  * );
- *
- * // cli.ts
- * createPadrone('test').command('my-command', myCommand)
  * ```
  *
- * @example With context
+ * @example With required interceptor context
  * ```ts
- * export const myCommand = defineCommand<{ db: Database }>((c) =>
- *   c.arguments(z.object({ id: z.string() }))
- *    .action((args, ctx) => ctx.context.db.find(args.id))
- * );
+ * export const adminCommand = defineCommand()
+ *   .requires<{ adminDb: AdminDB }>()
+ *   .define((c) => c.action((_args, ctx) => ctx.context.adminDb.query(...)));
  * ```
  */
 export function defineCommand<TContext = unknown, TOut extends CommandTypesBase = CommandTypesBase>(
-  fn: (builder: PadroneBuilder<string, string, string, PadroneSchema<void>, void, [], any, false, TContext>) => TOut,
-): typeof fn {
-  return fn;
+  fn: (builder: PadroneBuilder<string, string, string, PadroneSchema<void>, void, [], any, false, TContext, DefineCommandContext>) => TOut,
+): typeof fn;
+export function defineCommand(): DefineCommandBuilder;
+export function defineCommand(fn?: any): any {
+  if (fn) return fn;
+  const builder: DefineCommandBuilder = {
+    requires: () => builder as any,
+    define: (f: any) => f,
+  };
+  return builder;
 }

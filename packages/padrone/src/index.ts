@@ -91,6 +91,8 @@ export type {
   AsyncPadroneSchema,
   CommandTypesBase,
   DefineCommand,
+  DefineCommandBuilder,
+  DefineCommandContext,
   ExtractInterceptorContext,
   ExtractInterceptorRequires,
   GetArgsMeta,

@@ -1,7 +1,15 @@
 // biome-ignore-all lint/correctness/noUnusedVariables: This file is for testing TypeScript types, so unused variables are intentional.
 
 import { expectTypeOf, test } from 'bun:test';
-import type { DefineCommand, PadroneBuilder, PadroneProgram, PadroneProgressIndicator } from 'padrone';
+import type {
+  DefineCommand,
+  DefineCommandContext,
+  PadroneBuilder,
+  PadroneLogger,
+  PadroneProgram,
+  PadroneProgressIndicator,
+  PadroneTracer,
+} from 'padrone';
 import { asyncSchema, createPadrone, defineCommand, defineInterceptor, padroneProgress } from 'padrone';
 import * as z from 'zod/v4';
 import { createTasksProgram } from './common.ts';
@@ -464,4 +472,63 @@ test.skip('Types - DefineCommand with extensions', () => {
   const program = createPadrone('test').command('load', withProgress);
   const result = program.eval('load --id abc');
   expectTypeOf(result.result).toEqualTypeOf<string | undefined>();
+});
+
+/** This test verifies DefineCommandContext provides optional logger, tracing, progress by default */
+test.skip('Types - DefineCommandContext default context', () => {
+  // DefineCommandContext interface has optional logger, tracing, progress
+  expectTypeOf<DefineCommandContext>().toHaveProperty('logger');
+  expectTypeOf<DefineCommandContext['logger']>().toEqualTypeOf<PadroneLogger | undefined>();
+  expectTypeOf<DefineCommandContext['tracing']>().toEqualTypeOf<PadroneTracer | undefined>();
+  expectTypeOf<DefineCommandContext['progress']>().toEqualTypeOf<PadroneProgressIndicator | undefined>();
+
+  // defineCommand action handler has access to optional logger, tracing, progress
+  defineCommand((c) =>
+    c.action((_args, ctx) => {
+      expectTypeOf(ctx.context.logger).toEqualTypeOf<PadroneLogger | undefined>();
+      expectTypeOf(ctx.context.tracing).toEqualTypeOf<PadroneTracer | undefined>();
+      expectTypeOf(ctx.context.progress).toEqualTypeOf<PadroneProgressIndicator | undefined>();
+    }),
+  );
+
+  // DefineCommand type alias also gets DefineCommandContext
+  const cmd: DefineCommand = (c) =>
+    c.action((_args, ctx) => {
+      expectTypeOf(ctx.context.logger).toEqualTypeOf<PadroneLogger | undefined>();
+    });
+});
+
+/** This test verifies defineCommand().requires().define() brands callbacks and validates at .command() */
+test.skip('Types - defineCommand().requires()', () => {
+  type AdminDB = { query: (sql: string) => string[] };
+
+  // .requires() adds the required type to context and brands the callback
+  const adminCommand = defineCommand()
+    .requires<{ adminDb: AdminDB }>()
+    .define((c) =>
+      c.action((_args, ctx) => {
+        // adminDb is required (not optional)
+        expectTypeOf(ctx.context.adminDb).toEqualTypeOf<AdminDB>();
+        // DefineCommandContext optionals are still available
+        expectTypeOf(ctx.context.logger).toEqualTypeOf<PadroneLogger | undefined>();
+        return { test: 5 };
+      }),
+    );
+
+  // Branded callback has '~contextRequires' phantom property
+  expectTypeOf(adminCommand).toHaveProperty('~contextRequires');
+
+  // Registering on a program that provides the context: no error
+  const adminInterceptor = defineInterceptor({ name: 'admin' }, () => ({
+    execute(_ctx, next) {
+      return next({ context: { adminDb: { query: (sql: string) => [sql] } } });
+    },
+  })).provides<{ adminDb: AdminDB }>();
+
+  const program = createPadrone('test').intercept(adminInterceptor).command('admin', adminCommand);
+  expectTypeOf(program.eval).toBeFunction();
+
+  // Registering on a program WITHOUT the context: returns DefineCommandRequiresError
+  const badProgram = createPadrone('test').command('admin', adminCommand);
+  expectTypeOf(badProgram).toHaveProperty('~error');
 });
