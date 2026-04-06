@@ -780,8 +780,147 @@ describe('interceptors', () => {
     });
   });
 
+  describe('route phase', () => {
+    it('should run after parse and before validate', () => {
+      const log: string[] = [];
+
+      const program = makeProgram().intercept({ name: 'spy' }, () => ({
+        parse: (_ctx, next) => {
+          log.push('parse');
+          return next();
+        },
+        route: (_ctx, next) => {
+          log.push('route');
+          return next();
+        },
+        validate: (_ctx, next) => {
+          log.push('validate');
+          return next();
+        },
+      }));
+
+      program.eval('greet World');
+      expect(log).toEqual(['parse', 'route', 'validate']);
+    });
+
+    it('should receive the resolved command', () => {
+      let routedCommand: string | undefined;
+
+      const program = createPadrone('test')
+        .command('deploy', (c) => c.action(() => 'deployed'))
+        .command('build', (c) => c.action(() => 'built'))
+        .intercept({ name: 'route-spy' }, () => ({
+          route: (ctx, next) => {
+            routedCommand = ctx.command.name;
+            return next();
+          },
+        }));
+
+      program.eval('deploy');
+      expect(routedCommand).toBe('deploy');
+
+      program.eval('build');
+      expect(routedCommand).toBe('build');
+    });
+
+    it('should receive rawArgs and positionalArgs', () => {
+      let capturedRawArgs: Record<string, unknown> | undefined;
+      let capturedPositionalArgs: string[] | undefined;
+
+      const program = makeProgram().intercept({ name: 'route-spy' }, () => ({
+        route: (ctx, next) => {
+          capturedRawArgs = ctx.rawArgs;
+          capturedPositionalArgs = ctx.positionalArgs;
+          return next();
+        },
+      }));
+
+      program.eval('greet World');
+      expect(capturedRawArgs).toBeDefined();
+      expect(capturedPositionalArgs).toContain('World');
+    });
+
+    it('should run for both root and command-level interceptors', () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test')
+        .command('cmd', (c) =>
+          c
+            .action(() => 'ok')
+            .intercept({ name: 'cmd-route' }, () => ({
+              route: (_ctx, next) => {
+                log.push('cmd-route');
+                return next();
+              },
+            })),
+        )
+        .intercept({ name: 'root-route' }, () => ({
+          route: (_ctx, next) => {
+            log.push('root-route');
+            return next();
+          },
+        }));
+
+      program.eval('cmd');
+      // Root is outermost, command is innermost
+      expect(log).toEqual(['root-route', 'cmd-route']);
+    });
+
+    it('should not run on parse failure', () => {
+      const log: string[] = [];
+
+      const program = createPadrone('test')
+        .command('cmd', (c) => c.action(() => 'ok'))
+        .intercept({ name: 'spy' }, () => ({
+          route: (_ctx, next) => {
+            log.push('route');
+            return next();
+          },
+        }));
+
+      program.eval('unknown-command');
+      expect(log).toEqual([]);
+    });
+
+    it('should abort pipeline when route handler throws', () => {
+      const log: string[] = [];
+
+      const program = makeProgram().intercept({ name: 'auth' }, () => ({
+        route: () => {
+          log.push('route:throw');
+          throw new Error('unauthorized');
+        },
+        validate: (_ctx, next) => {
+          log.push('validate');
+          return next();
+        },
+      }));
+
+      const result = program.eval('greet World');
+      expect(result.error).toBeInstanceOf(Error);
+      expect((result.error as Error).message).toBe('unauthorized');
+      expect(log).toEqual(['route:throw']);
+    });
+
+    it('should support async route handlers', async () => {
+      const log: string[] = [];
+
+      const program = makeProgram().intercept({ name: 'async-route' }, () => ({
+        route: async (_ctx, next) => {
+          log.push('route:start');
+          await next();
+          log.push('route:end');
+        },
+      }));
+
+      const result = await program.eval('greet World');
+      expect(result.result).toBe('Hello, World!');
+      expect(log).toEqual(['route:start', 'route:end']);
+    });
+  });
+
   describe('full lifecycle', () => {
-    it('should run all phases in order: start -> parse -> validate -> execute -> shutdown', () => {
+    it('should run all phases in order: start -> parse -> route -> validate -> execute -> shutdown', () => {
       const log: string[] = [];
 
       const interceptor = defineInterceptor({ name: 'full' }, () => ({
@@ -791,6 +930,10 @@ describe('interceptors', () => {
         },
         parse: (_ctx, next) => {
           log.push('parse');
+          return next();
+        },
+        route: (_ctx, next) => {
+          log.push('route');
           return next();
         },
         validate: (_ctx, next) => {
@@ -810,7 +953,7 @@ describe('interceptors', () => {
       const program = makeProgram().intercept(interceptor);
       program.eval('greet World');
 
-      expect(log).toEqual(['start', 'parse', 'validate', 'execute', 'shutdown']);
+      expect(log).toEqual(['start', 'parse', 'route', 'validate', 'execute', 'shutdown']);
     });
 
     it('should run start -> error -> shutdown on pipeline failure', () => {

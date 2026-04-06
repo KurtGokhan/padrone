@@ -35,6 +35,14 @@ export type InterceptorParseResult = {
   positionalArgs: string[];
 };
 
+/** Context for the route phase. Runs after the target command is resolved, before validation. */
+export type InterceptorRouteContext<TContext = object> = InterceptorBaseContext<TContext> & {
+  /** Raw named arguments extracted by the parser. */
+  rawArgs: Record<string, unknown>;
+  /** Positional argument strings extracted by the parser. */
+  positionalArgs: string[];
+};
+
 /** Context for the validate phase. */
 export type InterceptorValidateContext<TContext = object> = InterceptorBaseContext<TContext> & {
   /** Raw named arguments extracted by the parser. Mutable — modify before `next()` to inject/override values. */
@@ -164,6 +172,12 @@ export type InterceptorPhases<TArgs = unknown, TResult = unknown, TContext = obj
   start?: InterceptorPhaseHandler<InterceptorStartContext<TContext>, unknown>;
   /** Intercepts command routing and raw argument extraction. */
   parse?: InterceptorPhaseHandler<InterceptorParseContext<TContext>, InterceptorParseResult>;
+  /**
+   * Runs after the target command is resolved (post-parse), before validation.
+   * Use for per-command setup: authorization, resource loading, logging, etc.
+   * Root and command-level interceptors both participate.
+   */
+  route?: InterceptorPhaseHandler<InterceptorRouteContext<TContext>, void>;
   /** Intercepts argument preprocessing and schema validation. Interactive prompting is handled by the interactive extension. */
   validate?: InterceptorPhaseHandler<InterceptorValidateContext<TContext>, InterceptorValidateResult<TArgs>, InterceptorValidateResult>;
   /** Intercepts handler execution. */

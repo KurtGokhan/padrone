@@ -151,7 +151,7 @@ function deduplicateInterceptors(interceptors: ResolvedInterceptor[]): ResolvedI
  * into the context before passing to the next interceptor or core function.
  */
 export function runInterceptorChain<TCtx extends object, TResult>(
-  phase: 'start' | 'parse' | 'validate' | 'execute' | 'error' | 'shutdown',
+  phase: 'start' | 'parse' | 'route' | 'validate' | 'execute' | 'error' | 'shutdown',
   interceptors: ResolvedInterceptor[],
   ctx: TCtx,
   core: (ctx: TCtx) => TResult | Promise<TResult>,

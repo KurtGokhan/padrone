@@ -107,6 +107,7 @@ export type {
   InterceptorParseContext,
   InterceptorParseResult,
   InterceptorPhases,
+  InterceptorRouteContext,
   InterceptorShutdownContext,
   InterceptorStartContext,
   InterceptorValidateContext,

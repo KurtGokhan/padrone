@@ -6,6 +6,7 @@ import type {
   InterceptorExecuteResult,
   InterceptorParseContext,
   InterceptorParseResult,
+  InterceptorRouteContext,
   InterceptorValidateContext,
   InterceptorValidateResult,
   PadroneActionContext,
@@ -180,83 +181,104 @@ export function execCommand(
       const commandOnlyInterceptors = commandInterceptors.filter((i) => !rootInterceptorSet.has(i));
       const context = resolveContext(command, pipelineContext);
 
-      const runValidateAndExecute = () => {
-        // ── Phase 2: Validate ───────────────────────────────────────────
-        const validateCtx: InterceptorValidateContext = {
-          ...parseCtx,
-          command,
-          rawArgs: parsed.rawArgs,
-          positionalArgs: parsed.positionalArgs,
-          context: context as object,
-          evalInteractive: evalOptions?.interactive,
-        };
-
-        const coreValidate = (validateCtx: InterceptorValidateContext): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
-          const { args: preprocessedArgs, issues } = buildCommandArgs(validateCtx.command, validateCtx.rawArgs, validateCtx.positionalArgs);
-          if (issues) return { args: undefined, argsResult: { issues } as any };
-          const validated = validateCommandArgs(validateCtx.command, preprocessedArgs);
-          return thenMaybe(validated, (v) => v as InterceptorValidateResult);
-        };
-
-        const validatedOrPromise = runInterceptorChain('validate', commandInterceptors, validateCtx, coreValidate);
-
-        // ── Phase 3: Execute (or handle validation errors) ──────────────
-        const continueAfterValidate = (v: InterceptorValidateResult) => {
-          pipelineState.args = v.args;
-          if (v.argsResult?.issues) return handleValidationIssues(v.argsResult as StandardSchemaV1.FailureResult, command, errorMode);
-
-          const executeCtx: InterceptorExecuteContext = {
-            ...validateCtx,
-            args: v.args,
-          };
-
-          const coreExecute = (executeCtx: InterceptorExecuteContext): InterceptorExecuteResult => {
-            const handler = command.action ?? noop;
-            const effectiveRuntime = executeCtx.runtime;
-            const actionCtx: PadroneActionContext = {
-              runtime: effectiveRuntime,
-              command: executeCtx.command,
-              program: ctx.builder as any,
-              signal: executeCtx.signal,
-              context: executeCtx.context,
-              caller,
-            };
-            const result = handler(executeCtx.args as any, actionCtx);
-            return { result };
-          };
-
-          const executedOrPromise = runInterceptorChain('execute', commandInterceptors, executeCtx, coreExecute);
-
-          return thenMaybe(executedOrPromise, (e) => {
-            const finalize = (result: unknown) =>
-              withDrain({
-                command: command as any,
-                args: v.args,
-                argsResult: v.argsResult,
-                result,
-              });
-
-            if (e.result instanceof Promise) return e.result.then(finalize);
-            return finalize(e.result);
-          });
-        };
-
-        return thenMaybe(warnIfUnexpectedAsync(validatedOrPromise, command), continueAfterValidate) as any;
+      // ── Phase 2: Route ──────────────────────────────────────────────
+      const routeCtx: InterceptorRouteContext = {
+        ...parseCtx,
+        command,
+        rawArgs: parsed.rawArgs,
+        positionalArgs: parsed.positionalArgs,
+        context: context as object,
       };
 
-      return wrapWithCommandLifecycle(
-        commandOnlyInterceptors,
-        command,
-        resolvedInput,
-        runValidateAndExecute,
-        (result) => withDrain({ command: command as any, args: undefined, argsResult: undefined, result }),
-        signal,
-        context,
-        runtime,
-        ctx.builder,
-        caller,
-        pipelineState,
-      );
+      const routedOrPromise = runInterceptorChain('route', commandInterceptors, routeCtx, () => {});
+
+      const continueAfterRoute = () => {
+        const runValidateAndExecute = () => {
+          // ── Phase 3: Validate ───────────────────────────────────────────
+          const validateCtx: InterceptorValidateContext = {
+            ...parseCtx,
+            command,
+            rawArgs: parsed.rawArgs,
+            positionalArgs: parsed.positionalArgs,
+            context: context as object,
+            evalInteractive: evalOptions?.interactive,
+          };
+
+          const coreValidate = (
+            validateCtx: InterceptorValidateContext,
+          ): InterceptorValidateResult | Promise<InterceptorValidateResult> => {
+            const { args: preprocessedArgs, issues } = buildCommandArgs(
+              validateCtx.command,
+              validateCtx.rawArgs,
+              validateCtx.positionalArgs,
+            );
+            if (issues) return { args: undefined, argsResult: { issues } as any };
+            const validated = validateCommandArgs(validateCtx.command, preprocessedArgs);
+            return thenMaybe(validated, (v) => v as InterceptorValidateResult);
+          };
+
+          const validatedOrPromise = runInterceptorChain('validate', commandInterceptors, validateCtx, coreValidate);
+
+          // ── Phase 3: Execute (or handle validation errors) ──────────────
+          const continueAfterValidate = (v: InterceptorValidateResult) => {
+            pipelineState.args = v.args;
+            if (v.argsResult?.issues) return handleValidationIssues(v.argsResult as StandardSchemaV1.FailureResult, command, errorMode);
+
+            const executeCtx: InterceptorExecuteContext = {
+              ...validateCtx,
+              args: v.args,
+            };
+
+            const coreExecute = (executeCtx: InterceptorExecuteContext): InterceptorExecuteResult => {
+              const handler = command.action ?? noop;
+              const effectiveRuntime = executeCtx.runtime;
+              const actionCtx: PadroneActionContext = {
+                runtime: effectiveRuntime,
+                command: executeCtx.command,
+                program: ctx.builder as any,
+                signal: executeCtx.signal,
+                context: executeCtx.context,
+                caller,
+              };
+              const result = handler(executeCtx.args as any, actionCtx);
+              return { result };
+            };
+
+            const executedOrPromise = runInterceptorChain('execute', commandInterceptors, executeCtx, coreExecute);
+
+            return thenMaybe(executedOrPromise, (e) => {
+              const finalize = (result: unknown) =>
+                withDrain({
+                  command: command as any,
+                  args: v.args,
+                  argsResult: v.argsResult,
+                  result,
+                });
+
+              if (e.result instanceof Promise) return e.result.then(finalize);
+              return finalize(e.result);
+            });
+          };
+
+          return thenMaybe(warnIfUnexpectedAsync(validatedOrPromise, command), continueAfterValidate) as any;
+        };
+
+        return wrapWithCommandLifecycle(
+          commandOnlyInterceptors,
+          command,
+          resolvedInput,
+          runValidateAndExecute,
+          (result) => withDrain({ command: command as any, args: undefined, argsResult: undefined, result }),
+          signal,
+          context,
+          runtime,
+          ctx.builder,
+          caller,
+          pipelineState,
+        );
+      };
+
+      return thenMaybe(routedOrPromise, continueAfterRoute) as any;
     };
 
     return thenMaybe(parsedOrPromise, continueAfterParse) as any;
