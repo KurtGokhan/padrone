@@ -6,6 +6,7 @@ import type {
   InterceptorExecuteResult,
   InterceptorParseContext,
   InterceptorParseResult,
+  InterceptorPipelinePhase,
   InterceptorRouteContext,
   InterceptorValidateContext,
   InterceptorValidateResult,
@@ -144,7 +145,9 @@ export function execCommand(
   const inertSignal = new AbortController().signal;
 
   // Pipeline state accumulated as phases complete — propagated to error/shutdown contexts.
-  const pipelineState: { rawArgs?: Record<string, unknown>; positionalArgs?: string[]; args?: unknown } = {};
+  const pipelineState: { phase: InterceptorPipelinePhase; rawArgs?: Record<string, unknown>; positionalArgs?: string[]; args?: unknown } = {
+    phase: 'start',
+  };
 
   const initialContext = evalOptions?.context;
 
@@ -175,6 +178,7 @@ export function execCommand(
     // ── Phases 2 & 3 chained after parse ────────────────────────────────
     const continueAfterParse = (parsed: InterceptorParseResult) => {
       const { command } = parsed;
+      pipelineState.phase = 'parse';
       pipelineState.rawArgs = parsed.rawArgs;
       pipelineState.positionalArgs = parsed.positionalArgs;
       const commandInterceptors = resolveRegisteredInterceptors(collectInterceptorsFn(command), factoryCache);
@@ -193,6 +197,7 @@ export function execCommand(
       const routedOrPromise = runInterceptorChain('route', commandInterceptors, routeCtx, () => {});
 
       const continueAfterRoute = () => {
+        pipelineState.phase = 'route';
         const runValidateAndExecute = () => {
           // ── Phase 3: Validate ───────────────────────────────────────────
           const validateCtx: InterceptorValidateContext = {
@@ -221,6 +226,7 @@ export function execCommand(
 
           // ── Phase 3: Execute (or handle validation errors) ──────────────
           const continueAfterValidate = (v: InterceptorValidateResult) => {
+            pipelineState.phase = 'validate';
             pipelineState.args = v.args;
             if (v.argsResult?.issues) return handleValidationIssues(v.argsResult as StandardSchemaV1.FailureResult, command, errorMode);
 
@@ -244,6 +250,7 @@ export function execCommand(
               return { result };
             };
 
+            pipelineState.phase = 'execute';
             const executedOrPromise = runInterceptorChain('execute', commandInterceptors, executeCtx, coreExecute);
 
             return thenMaybe(executedOrPromise, (e) => {

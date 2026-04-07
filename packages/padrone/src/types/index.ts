@@ -34,6 +34,7 @@ export type {
   InterceptorParseContext,
   InterceptorParseResult,
   InterceptorPhases,
+  InterceptorPipelinePhase,
   InterceptorRouteContext,
   InterceptorShutdownContext,
   InterceptorStartContext,

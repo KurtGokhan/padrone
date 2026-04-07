@@ -75,10 +75,15 @@ export type InterceptorExecuteResult<TResult = unknown> = {
 /** Context for the start phase. Runs before parsing, wraps the entire pipeline. */
 export type InterceptorStartContext<TContext = object> = InterceptorBaseContext<TContext>;
 
+/** The pipeline phase that was executing when an error was thrown or the pipeline completed. */
+export type InterceptorPipelinePhase = 'start' | 'parse' | 'route' | 'validate' | 'execute';
+
 /** Context for the error phase. Called when the pipeline throws. Includes pipeline state accumulated before the error. */
 export type InterceptorErrorContext<TContext = object> = InterceptorBaseContext<TContext> & {
   /** The error that was thrown. */
   error: unknown;
+  /** The pipeline phase that was executing when the error was thrown. */
+  phase: InterceptorPipelinePhase;
   /** Raw named arguments (available if parse completed). */
   rawArgs?: Record<string, unknown>;
   /** Positional argument strings (available if parse completed). */
@@ -101,6 +106,8 @@ export type InterceptorShutdownContext<TResult = unknown, TContext = object> = I
   error?: unknown;
   /** The pipeline result, if it succeeded. */
   result?: TResult;
+  /** The last pipeline phase that was reached before completion or failure. */
+  phase: InterceptorPipelinePhase;
   /** Raw named arguments (available if parse completed). */
   rawArgs?: Record<string, unknown>;
   /** Positional argument strings (available if parse completed). */

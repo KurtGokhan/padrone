@@ -6,6 +6,7 @@ import type {
   InterceptorErrorResult,
   InterceptorFactory,
   InterceptorMeta,
+  InterceptorPipelinePhase,
   InterceptorShutdownContext,
   InterceptorStartContext,
   PadroneInterceptorFn,
@@ -204,12 +205,14 @@ export function wrapWithLifecycle<T>(
   runtime?: ResolvedPadroneRuntime,
   program?: AnyPadroneProgram,
   caller: 'cli' | 'eval' | 'run' | 'repl' | 'serve' | 'mcp' | 'tool' = 'eval',
-  pipelineState?: { rawArgs?: Record<string, unknown>; positionalArgs?: string[]; args?: unknown },
+  pipelineState?: { phase: InterceptorPipelinePhase; rawArgs?: Record<string, unknown>; positionalArgs?: string[]; args?: unknown },
 ): T | Promise<T> {
   const defaultSignal = typeof AbortSignal !== 'undefined' ? AbortSignal.abort() : (undefined as unknown as AbortSignal);
   const hasStart = interceptors.some((p) => p.start);
   const hasError = interceptors.some((p) => p.error);
   const hasShutdown = interceptors.some((p) => p.shutdown);
+
+  const effectivePipelineState = pipelineState ?? { phase: 'start' as const };
 
   // Fast path: no lifecycle interceptors
   if (!hasStart && !hasError && !hasShutdown) return pipeline(signal ?? defaultSignal, context);
@@ -230,7 +233,7 @@ export function wrapWithLifecycle<T>(
       runtime: runtime!,
       program: program!,
       caller,
-      ...pipelineState,
+      ...effectivePipelineState,
     };
     return runInterceptorChain('shutdown', interceptors, ctx, () => {});
   };
@@ -253,7 +256,7 @@ export function wrapWithLifecycle<T>(
       runtime: runtime!,
       program: program!,
       caller,
-      ...pipelineState,
+      ...effectivePipelineState,
     };
     const errorResult = runInterceptorChain('error', interceptors, ctx, (): InterceptorErrorResult => ({ error }));
     return thenMaybe(errorResult, (er) => {
@@ -323,7 +326,7 @@ export function wrapWithCommandLifecycle<T>(
   runtime: ResolvedPadroneRuntime,
   program: AnyPadroneProgram,
   caller: 'cli' | 'eval' | 'run' | 'repl' | 'serve' | 'mcp' | 'tool',
-  pipelineState: { rawArgs?: Record<string, unknown>; positionalArgs?: string[]; args?: unknown },
+  pipelineState: { phase: InterceptorPipelinePhase; rawArgs?: Record<string, unknown>; positionalArgs?: string[]; args?: unknown },
 ): T | Promise<T> {
   const hasError = interceptors.some((p) => p.error);
   const hasShutdown = interceptors.some((p) => p.shutdown);

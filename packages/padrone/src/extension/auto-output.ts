@@ -65,8 +65,7 @@ function createAutoOutputInterceptor(outputConfig?: OutputConfig, errorOutput?: 
   return defineInterceptor(autoOutputMeta, () => ({
     error(ctx: InterceptorErrorContext, next: () => InterceptorErrorResult | Promise<InterceptorErrorResult>) {
       const handleResult = (er: InterceptorErrorResult): InterceptorErrorResult => {
-        // Only print errors from the execute phase (args present = validation completed)
-        if (!er.error || errorOutput === false || ctx.caller !== 'cli' || ctx.args === undefined) return er;
+        if (!er.error || errorOutput === false || ctx.caller !== 'cli' || ctx.phase !== 'execute') return er;
         const message = er.error instanceof Error ? er.error.message : String(er.error);
         ctx.runtime.error(message);
         return er;
