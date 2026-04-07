@@ -8,6 +8,8 @@ import { detectShell, getRcFile, type ShellType, writeToRcFile } from '../util/s
 export const linkSchema = z.object({
   entry: z.string().optional().describe('Entry file (auto-detected from package.json bin field)'),
   name: z.string().optional().describe('Command name (auto-detected from package.json)'),
+  script: z.string().optional().describe('Use a package.json script instead of bin entry (e.g. "start", "dev")'),
+  pm: z.enum(['bun', 'npm', 'pnpm', 'yarn']).optional().describe('Package manager to use (auto-detected from lockfile)'),
   list: z.boolean().optional().default(false).describe('List all linked programs'),
   setup: z.boolean().optional().default(false).describe('Add ~/.padrone/bin to PATH in shell config'),
 });
@@ -58,6 +60,8 @@ export interface DetectedEntry {
   name: string;
   /** Full run command prefix parsed from scripts (e.g. "bun --conditions=padrone@dev") */
   runPrefix?: string;
+  /** When set, the shim should run this script via the package manager instead of the entry directly */
+  scriptCommand?: string;
 }
 
 function parseRunPrefix(script: string, entryRelative: string, dir: string): string | undefined {
@@ -74,12 +78,21 @@ function parseRunPrefix(script: string, entryRelative: string, dir: string): str
   return undefined;
 }
 
-export function detectEntry(dir: string): DetectedEntry | undefined {
+export function detectEntry(dir: string, options?: { script?: string }): DetectedEntry | undefined {
   const pkgPath = resolve(dir, 'package.json');
   if (!existsSync(pkgPath)) return undefined;
 
   try {
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+    const scripts = pkg.scripts as Record<string, string> | undefined;
+
+    // When --script is specified, use the package.json script directly
+    if (options?.script) {
+      const scriptName = options.script;
+      if (!scripts?.[scriptName]) return undefined;
+      const name = pkg.name || basename(dir);
+      return { entry: resolve(dir, 'package.json'), name, scriptCommand: scriptName };
+    }
 
     let entryRelative: string | undefined;
     let name: string | undefined;
@@ -110,7 +123,6 @@ export function detectEntry(dir: string): DetectedEntry | undefined {
 
     // Check start/dev scripts for runtime flags
     let runPrefix: string | undefined;
-    const scripts = pkg.scripts as Record<string, string> | undefined;
     if (scripts) {
       for (const key of ['start', 'dev']) {
         if (scripts[key]) {
@@ -157,30 +169,40 @@ async function setupPath(shell: ShellType): Promise<{ file: string; updated: boo
   return writeToRcFile(rcFile, snippet, PATH_BEGIN_MARKER, PATH_END_MARKER);
 }
 
-function detectRuntime(dir: string): string {
+function detectPackageManager(dir: string): string {
   let current = dir;
   while (true) {
     if (existsSync(resolve(current, 'bun.lock')) || existsSync(resolve(current, 'bun.lockb'))) return 'bun';
-    if (
-      existsSync(resolve(current, 'package-lock.json')) ||
-      existsSync(resolve(current, 'yarn.lock')) ||
-      existsSync(resolve(current, 'pnpm-lock.yaml'))
-    )
-      return 'node';
+    if (existsSync(resolve(current, 'pnpm-lock.yaml'))) return 'pnpm';
+    if (existsSync(resolve(current, 'yarn.lock'))) return 'yarn';
+    if (existsSync(resolve(current, 'package-lock.json'))) return 'npm';
     const parent = dirname(current);
     if (parent === current) break;
     current = parent;
   }
-  return 'node';
+  return 'npm';
 }
 
-function createShim(name: string, entry: string, dir: string, runPrefix?: string) {
+function detectRuntime(dir: string): string {
+  const pm = detectPackageManager(dir);
+  return pm === 'bun' ? 'bun' : 'node';
+}
+
+function createShim(name: string, entry: string, dir: string, runPrefix?: string, scriptCommand?: string, pm?: string) {
   mkdirSync(BIN_DIR, { recursive: true });
   const shimPath = resolve(BIN_DIR, sanitizeBinName(name));
 
-  const prefix = runPrefix ?? detectRuntime(dir);
-
-  const shim = ['#!/usr/bin/env sh', `# Linked by padrone — do not edit`, `${prefix} "${entry}" "$@"`, ''].join('\n');
+  let shim: string;
+  if (scriptCommand) {
+    const resolvedPm = pm ?? detectPackageManager(dir);
+    const cwdFlag = resolvedPm === 'npm' ? `--prefix="${dir}"` : resolvedPm === 'pnpm' ? `--dir="${dir}"` : `--cwd="${dir}"`;
+    shim = ['#!/usr/bin/env sh', `# Linked by padrone — do not edit`, `${resolvedPm} ${cwdFlag} run ${scriptCommand} -- "$@"`, ''].join(
+      '\n',
+    );
+  } else {
+    const prefix = runPrefix ?? detectRuntime(dir);
+    shim = ['#!/usr/bin/env sh', `# Linked by padrone — do not edit`, `${prefix} "${entry}" "$@"`, ''].join('\n');
+  }
 
   writeFileSync(shimPath, shim);
   chmodSync(shimPath, 0o755);
@@ -215,6 +237,7 @@ export async function runLink(args: LinkArgs, ctx: PadroneActionContext) {
   let entry: string;
   let name: string;
   let runPrefix: string | undefined;
+  let scriptCommand: string | undefined;
 
   const resolvedArg = args.entry ? resolve(dir, args.entry) : undefined;
 
@@ -230,15 +253,24 @@ export async function runLink(args: LinkArgs, ctx: PadroneActionContext) {
 
   if (targetDir || !resolvedArg) {
     // Detect entry from the target directory's package.json
-    const detected = detectEntry(targetDir ?? dir);
+    const detected = detectEntry(targetDir ?? dir, { script: args.script });
     if (!detected) {
-      error('Could not detect entry point. Provide an entry file or add a "bin" field to package.json.');
+      if (args.script) {
+        error(`Script "${args.script}" not found in package.json.`);
+      } else {
+        error('Could not detect entry point. Provide an entry file or add a "bin" field to package.json.');
+      }
       process.exit(1);
     }
     entry = detected.entry;
     name = sanitizeBinName(args.name || detected.name);
     runPrefix = detected.runPrefix;
+    scriptCommand = detected.scriptCommand;
   } else {
+    if (args.script) {
+      error('--script cannot be used with an explicit entry file.');
+      process.exit(1);
+    }
     // Explicit file path
     entry = resolvedArg;
     name = sanitizeBinName(args.name || basename(entry).replace(/\.[cm]?[jt]sx?$/, ''));
@@ -250,14 +282,14 @@ export async function runLink(args: LinkArgs, ctx: PadroneActionContext) {
     process.exit(1);
   }
 
-  if (!existsSync(entry)) {
+  if (!scriptCommand && !existsSync(entry)) {
     error(`Entry file not found: ${entry}`);
     process.exit(1);
   }
 
   const entryDir = targetDir ?? (existsSync(resolve(dirname(entry), 'package.json')) ? dirname(entry) : dir);
 
-  createShim(name, entry, entryDir, runPrefix);
+  createShim(name, entry, entryDir, runPrefix, scriptCommand, args.pm);
 
   const links = readLinks();
   links[name] = {
@@ -268,7 +300,7 @@ export async function runLink(args: LinkArgs, ctx: PadroneActionContext) {
   };
   writeLinks(links);
 
-  output(`Linked ${name} → ${entry}`);
+  output(`Linked ${name} → ${scriptCommand ? `${scriptCommand} (script)` : entry}`);
 
   if (!isInPath(BIN_DIR)) {
     if (args.setup) {
