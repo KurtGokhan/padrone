@@ -1,5 +1,15 @@
 # padrone
 
+## 1.8.1
+
+### Patch Changes
+
+- [`e7c180c`](https://github.com/KurtGokhan/padrone/commit/e7c180c949709240838a7c95c4e74cd90d657352) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add `route` phase to interceptors which will run when a command is routed to. This means it will run between parse and execute
+
+- [`9d91f3f`](https://github.com/KurtGokhan/padrone/commit/9d91f3fee7bb07b501d61bbe202892be88fe7792) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - shutdown/error in interceptors can now run for command level interceptors
+
+- [`e4ae6f5`](https://github.com/KurtGokhan/padrone/commit/e4ae6f58efb7e54452bf116e90f3ba9a24a3d7fb) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - fix progress not getting destroyed after an error
+
 ## 1.8.0
 
 ### Minor Changes

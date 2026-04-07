@@ -1,5 +1,12 @@
 # @padrone/tasks-example
 
+## 1.8.1
+
+### Patch Changes
+
+- Updated dependencies [[`e7c180c`](https://github.com/KurtGokhan/padrone/commit/e7c180c949709240838a7c95c4e74cd90d657352), [`9d91f3f`](https://github.com/KurtGokhan/padrone/commit/9d91f3fee7bb07b501d61bbe202892be88fe7792), [`e4ae6f5`](https://github.com/KurtGokhan/padrone/commit/e4ae6f58efb7e54452bf116e90f3ba9a24a3d7fb)]:
+  - padrone@1.8.1
+
 ## 1.8.0
 
 ### Patch Changes
