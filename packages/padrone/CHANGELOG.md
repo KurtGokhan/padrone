@@ -1,5 +1,11 @@
 # padrone
 
+## 1.8.2
+
+### Patch Changes
+
+- [`42b87eb`](https://github.com/KurtGokhan/padrone/commit/42b87eb008a1265bdc353a86d470debcfe42afb8) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Auto-output extension now automatically prints errors hapened in execution phase. Interceptor context now has a `phase` field to understand in which phase an error happened during error/shutdown phases.
+
 ## 1.8.1
 
 ### Patch Changes
