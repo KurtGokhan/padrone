@@ -3,7 +3,14 @@ import { isAsyncIterator, isIterator } from '../core/results.ts';
 import type { OutputConfig } from '../output/output-indicator.ts';
 import { createOutputIndicator, formatDeclarativeOutput } from '../output/output-indicator.ts';
 import { resolveOutputFormat } from '../output/styling.ts';
-import type { AnyPadroneBuilder, CommandTypesBase, InterceptorExecuteContext, InterceptorExecuteResult } from '../types/index.ts';
+import type {
+  AnyPadroneBuilder,
+  CommandTypesBase,
+  InterceptorErrorContext,
+  InterceptorErrorResult,
+  InterceptorExecuteContext,
+  InterceptorExecuteResult,
+} from '../types/index.ts';
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -54,8 +61,21 @@ function outputAndCollect(value: unknown, output: (...args: unknown[]) => void):
 
 const autoOutputMeta = { id: 'padrone:auto-output', name: 'padrone:auto-output', order: -1100 } as const;
 
-function createAutoOutputInterceptor(outputConfig?: OutputConfig) {
+function createAutoOutputInterceptor(outputConfig?: OutputConfig, errorOutput?: boolean) {
   return defineInterceptor(autoOutputMeta, () => ({
+    error(ctx: InterceptorErrorContext, next: () => InterceptorErrorResult | Promise<InterceptorErrorResult>) {
+      const handleResult = (er: InterceptorErrorResult): InterceptorErrorResult => {
+        // Only print errors from the execute phase (args present = validation completed)
+        if (!er.error || errorOutput === false || ctx.caller !== 'cli' || ctx.args === undefined) return er;
+        const message = er.error instanceof Error ? er.error.message : String(er.error);
+        ctx.runtime.error(message);
+        return er;
+      };
+
+      const result = next();
+      if (result instanceof Promise) return result.then(handleResult);
+      return handleResult(result);
+    },
     execute(ctx: InterceptorExecuteContext, next) {
       const outputCtx = resolveOutputFormat(ctx.runtime, ctx.caller);
       const indicator = createOutputIndicator(ctx.runtime.output, outputCtx);
@@ -115,6 +135,12 @@ export type PadroneAutoOutputOptions = {
    * ```
    */
   output?: OutputConfig;
+  /**
+   * Automatically print unhandled errors to stderr in CLI mode.
+   * Skips errors already handled by other extensions (routing, validation, signal).
+   * @default true
+   */
+  errorOutput?: boolean;
 };
 
 /**
@@ -141,6 +167,6 @@ export type PadroneAutoOutputOptions = {
 export function padroneAutoOutput(options?: PadroneAutoOutputOptions): <T extends CommandTypesBase>(builder: T) => T {
   const interceptor = options?.disabled
     ? defineInterceptor({ ...autoOutputMeta, disabled: true }, () => ({}))
-    : createAutoOutputInterceptor(options?.output);
+    : createAutoOutputInterceptor(options?.output, options?.errorOutput);
   return ((builder: AnyPadroneBuilder) => builder.intercept(interceptor)) as any;
 }
