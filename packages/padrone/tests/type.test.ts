@@ -7,7 +7,7 @@ import type {
   PadroneBuilder,
   PadroneLogger,
   PadroneProgram,
-  PadroneProgressIndicator,
+  PadroneProgress,
   PadroneTracer,
 } from 'padrone';
 import { asyncSchema, createPadrone, defineCommand, defineInterceptor, padroneProgress } from 'padrone';
@@ -463,7 +463,7 @@ test.skip('Types - DefineCommand with extensions', () => {
       .extend(padroneProgress('Loading...'))
       .arguments(z.object({ id: z.string() }))
       .action((args, ctx) => {
-        expectTypeOf(ctx.context.progress).toEqualTypeOf<PadroneProgressIndicator>();
+        expectTypeOf(ctx.context.progress).toEqualTypeOf<PadroneProgress>();
         ctx.context.progress.update('halfway');
         return args.id;
       }),
@@ -480,14 +480,14 @@ test.skip('Types - DefineCommandContext default context', () => {
   expectTypeOf<DefineCommandContext>().toHaveProperty('logger');
   expectTypeOf<DefineCommandContext['logger']>().toEqualTypeOf<PadroneLogger | undefined>();
   expectTypeOf<DefineCommandContext['tracing']>().toEqualTypeOf<PadroneTracer | undefined>();
-  expectTypeOf<DefineCommandContext['progress']>().toEqualTypeOf<PadroneProgressIndicator | undefined>();
+  expectTypeOf<DefineCommandContext['progress']>().toEqualTypeOf<PadroneProgress | undefined>();
 
   // defineCommand action handler has access to optional logger, tracing, progress
   defineCommand((c) =>
     c.action((_args, ctx) => {
       expectTypeOf(ctx.context.logger).toEqualTypeOf<PadroneLogger | undefined>();
       expectTypeOf(ctx.context.tracing).toEqualTypeOf<PadroneTracer | undefined>();
-      expectTypeOf(ctx.context.progress).toEqualTypeOf<PadroneProgressIndicator | undefined>();
+      expectTypeOf(ctx.context.progress).toEqualTypeOf<PadroneProgress | undefined>();
     }),
   );
 

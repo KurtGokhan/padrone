@@ -1,6 +1,6 @@
 import type {
   PadroneBarConfig,
-  PadroneProgressIndicator,
+  PadroneProgress,
   PadroneProgressOptions,
   PadroneProgressShow,
   PadroneProgressUpdate,
@@ -134,8 +134,8 @@ function estimateEta(samples: { time: number; progress: number }[]): number | un
 // Factory type
 // ---------------------------------------------------------------------------
 
-/** Factory function that creates a `PadroneProgressIndicator`. */
-export type PadroneProgressRenderer = (message: string, options?: PadroneProgressOptions) => PadroneProgressIndicator;
+/** Factory function that creates a `PadroneProgress`. */
+export type PadroneProgressRenderer = (message: string, options?: PadroneProgressOptions) => PadroneProgress;
 
 // ---------------------------------------------------------------------------
 // Default terminal renderer
@@ -145,7 +145,7 @@ export type PadroneProgressRenderer = (message: string, options?: PadroneProgres
  * Creates a terminal progress indicator (spinner, bar, or both).
  * Returns a no-op indicator in non-TTY/CI environments.
  */
-export function createTerminalProgress(message: string, options?: PadroneProgressOptions): PadroneProgressIndicator {
+export function createTerminalProgress(message: string, options?: PadroneProgressOptions): PadroneProgress {
   const spinnerCfg = resolveSpinnerConfig(options?.spinner);
   const successIcon = options?.successIndicator ?? '✔';
   const errorIcon = options?.errorIndicator ?? '✖';

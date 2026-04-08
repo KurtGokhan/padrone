@@ -11,7 +11,7 @@ export type {
   PadroneBarAnimation,
   PadroneBarChar,
   PadroneBarConfig,
-  PadroneProgressIndicator,
+  PadroneProgress,
   PadroneProgressOptions,
   PadroneProgressShow,
   PadroneProgressUpdate,

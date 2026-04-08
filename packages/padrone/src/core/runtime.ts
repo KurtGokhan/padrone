@@ -4,14 +4,14 @@ import type { HelpFormat } from '../output/formatter.ts';
 /** Process signals that Padrone can handle for graceful shutdown. */
 export type PadroneSignal = 'SIGINT' | 'SIGTERM' | 'SIGHUP';
 
-/** Value accepted by `PadroneProgressIndicator.update()`. */
+/** Value accepted by `PadroneProgress.update()`. */
 export type PadroneProgressUpdate = string | number | { message?: string; progress?: number; indeterminate?: boolean; time?: boolean };
 
 /**
  * A progress indicator instance (spinner, progress bar, etc).
  * Created by the runtime's `progress` factory and used to show loading state during command execution.
  */
-export type PadroneProgressIndicator = {
+export type PadroneProgress = {
   /**
    * Update the indicator.
    * - `string` — update the displayed message.

@@ -71,7 +71,7 @@ program.runtime({
 | `format` | `string` | `'auto'` | Default help output format |
 | `interactive` | `boolean` | `false` | Whether the runtime supports interactive prompts |
 | `prompt` | `(config: InteractivePromptConfig) => Promise<unknown>` | Enquirer (when `interactive: true`) | Custom prompt implementation |
-| `progress` | `(message: string, options?: PadroneProgressOptions) => PadroneProgressIndicator` | Built-in terminal spinner | Progress indicator factory. See [Progress Indicators](/padrone/guides/progress-indicators/) |
+| `progress` | `(message: string, options?: PadroneProgressOptions) => PadroneProgress` | Built-in terminal spinner | Progress indicator factory. See [Progress Indicators](/padrone/guides/progress-indicators/) |
 
 Successive `.runtime()` calls merge with previous configuration.
 
@@ -157,7 +157,7 @@ program.action((args, ctx) => {
 | `runtime` | `ResolvedPadroneRuntime` | The resolved runtime for this command |
 | `command` | `PadroneCommand` | The command being executed |
 | `program` | `PadroneProgram` | The root program instance |
-| `progress` | `PadroneProgressIndicator` | Auto-managed progress indicator, or lazy indicator for manual use. See [Progress Indicators](/padrone/guides/progress-indicators/) |
+| `progress` | `PadroneProgress` | Auto-managed progress indicator, or lazy indicator for manual use. See [Progress Indicators](/padrone/guides/progress-indicators/) |
 | `context` | `TContext` | User-defined context, resolved through the command parent chain |
 
 **Returns:** The program builder (chainable)
@@ -1255,7 +1255,7 @@ import type {
   PadroneServePreferences,
 
   // Progress types
-  PadroneProgressIndicator,
+  PadroneProgress,
   PadroneProgressConfig,
   PadroneProgressMessage,
   PadroneProgressOptions,

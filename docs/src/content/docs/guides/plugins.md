@@ -554,7 +554,7 @@ const withDb = defineInterceptor({ name: 'with-db' })
 // When this interceptor is registered, ctx.context.db is typed
 ```
 
-The `padroneProgress()` extension uses this pattern — it declares `.provides<{ progress: PadroneProgressIndicator }>()` so `ctx.context.progress` is fully typed when the extension is applied.
+The `padroneProgress()` extension uses this pattern — it declares `.provides<{ progress: PadroneProgress }>()` so `ctx.context.progress` is fully typed when the extension is applied.
 
 ### Sync Preservation
 

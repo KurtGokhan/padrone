@@ -2148,17 +2148,24 @@ describe('CLI', () => {
 
     it('should throw and print error when called without arguments and validation fails', () => {
       const originalArgv = process.argv;
+      const errorSpy = mock();
+      const originalError = console.error;
+      console.error = errorSpy;
       process.argv = ['node', 'test-cli', 'fetch', '--url', 'not-a-valid-url'];
 
-      const program = createPadrone('test-cli').command('fetch', (c) =>
-        c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((args) => args),
-      );
+      try {
+        const program = createPadrone('test-cli').command('fetch', (c) =>
+          c.arguments(z.object({ url: z.url().describe('URL to fetch') })).action((args) => args),
+        );
 
-      const result = program.cli();
-      expect(result.error).toBeInstanceOf(Error);
-      expect((result.error as Error).message).toContain('Validation error:');
-      expect(console.error).toHaveBeenCalledTimes(2);
-      process.argv = originalArgv;
+        const result = program.cli();
+        expect(result.error).toBeInstanceOf(Error);
+        expect((result.error as Error).message).toContain('Validation error:');
+        expect(errorSpy).toHaveBeenCalledTimes(2);
+      } finally {
+        console.error = originalError;
+        process.argv = originalArgv;
+      }
     });
 
     it('should not throw when validation passes', () => {

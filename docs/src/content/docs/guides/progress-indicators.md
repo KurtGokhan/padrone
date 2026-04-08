@@ -183,9 +183,9 @@ c.extend(padroneProgress('Importing...'))
   })
 ```
 
-`padroneProgress()` uses the [context-providing interceptor](/guides/interceptors#context-providing-interceptors) mechanism — it declares `.provides<{ progress: PadroneProgressIndicator }>()`, so `ctx.context.progress` is fully typed when the interceptor is registered on the command.
+`padroneProgress()` uses the [context-providing interceptor](/guides/interceptors#context-providing-interceptors) mechanism — it declares `.provides<{ progress: PadroneProgress }>()`, so `ctx.context.progress` is fully typed when the interceptor is registered on the command.
 
-### `PadroneProgressIndicator` Methods
+### `PadroneProgress` Methods
 
 | Method | Description |
 |--------|-------------|
@@ -420,7 +420,7 @@ Manual calls to `ctx.context.progress.pause()` and `ctx.context.progress.resume(
 `padroneProgress()` is an extension that registers a context-providing interceptor. It:
 
 1. **Registers an interceptor** that wraps the validate and execute phases with progress indicator management
-2. **Provides typed context** via `.provides<{ progress: PadroneProgressIndicator }>()` so `ctx.context.progress` is fully typed
+2. **Provides typed context** via `.provides<{ progress: PadroneProgress }>()` so `ctx.context.progress` is fully typed
 3. **Creates the indicator** using the configured renderer (defaults to the built-in terminal renderer)
 4. **Uses a shutdown handler** as a safety net — if the indicator is not cleaned up by validate/execute (e.g., an outer interceptor threw), the command-level shutdown phase stops it
 

@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import type { Tool } from 'ai';
-import type { PadroneProgressIndicator, PadroneRuntime } from '../core/runtime.ts';
+import type { PadroneProgress, PadroneRuntime } from '../core/runtime.ts';
 import type { PadroneLogger } from '../extension/logger.ts';
 import type { PadroneTracer } from '../extension/tracing.ts';
 import type { PadroneMcpPreferences } from '../feature/mcp.ts';
@@ -768,7 +768,7 @@ export type PadroneExtension<TIn extends CommandTypesBase = CommandTypesBase, TO
 export interface DefineCommandContext {
   logger?: PadroneLogger;
   tracing?: PadroneTracer;
-  progress?: PadroneProgressIndicator;
+  progress?: PadroneProgress;
 }
 
 /** Error brand returned by `.command()` when a `defineCommand.requires()` context requirement is not satisfied. */

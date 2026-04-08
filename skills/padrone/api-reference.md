@@ -635,7 +635,7 @@ type PadroneActionContext<TContext = unknown> = {
   runtime: ResolvedPadroneRuntime;
   command: AnyPadroneCommand;
   program: AnyPadroneProgram;
-  progress: PadroneProgressIndicator;
+  progress: PadroneProgress;
   context: TContext;
 };
 

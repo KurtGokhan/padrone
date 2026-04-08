@@ -140,7 +140,7 @@
   - Empty string indicators hide the icon prefix entirely
   - Graceful fallback in non-TTY/CI environments
 
-  **New types**: `PadroneProgressIndicator`, `PadroneProgressConfig`, `PadroneProgressMessage`, `PadroneProgressOptions`, `PadroneSpinnerConfig`, `PadroneSpinnerPreset`
+  **New types**: `PadroneProgress`, `PadroneProgressConfig`, `PadroneProgressMessage`, `PadroneProgressOptions`, `PadroneSpinnerConfig`, `PadroneSpinnerPreset`
 
 - [`6851b48`](https://github.com/KurtGokhan/padrone/commit/6851b4878ab0fc8d48f40e93c2f8924236a40165) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Add REST server (`program.serve()`) and `mutation` command config.
 

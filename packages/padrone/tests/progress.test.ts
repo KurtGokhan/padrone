@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 import {
   createPadrone,
+  type PadroneProgress,
   type PadroneProgressDefaults,
-  type PadroneProgressIndicator,
   type PadroneProgressRenderer,
   type PadroneProgressUpdate,
   padroneProgress,
@@ -10,11 +10,11 @@ import {
 import * as z from 'zod/v4';
 
 function createMockProgress() {
-  const indicators: { message: string; indicator: PadroneProgressIndicator & { calls: string[] } }[] = [];
+  const indicators: { message: string; indicator: PadroneProgress & { calls: string[] } }[] = [];
 
   const factory: PadroneProgressRenderer = (message) => {
     const calls: string[] = [];
-    const indicator: PadroneProgressIndicator & { calls: string[] } = {
+    const indicator: PadroneProgress & { calls: string[] } = {
       calls,
       update: (value: PadroneProgressUpdate) => {
         if (typeof value === 'string') calls.push(`update:${value}`);
