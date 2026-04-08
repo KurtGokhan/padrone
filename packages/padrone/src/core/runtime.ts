@@ -31,6 +31,15 @@ export type PadroneProgress = {
   succeed: (message?: string | null, options?: { indicator?: string }) => void;
   /** Mark as failed and stop. Pass `null` to stop without rendering a final message. */
   fail: (message?: string | null, options?: { indicator?: string }) => void;
+  /** Control ETA (estimated time remaining) display at runtime. */
+  eta: {
+    /** Enable ETA tracking. Starts collecting samples from subsequent `update()` calls. */
+    start: () => void;
+    /** Disable ETA display. */
+    stop: () => void;
+    /** Clear collected samples and restart estimation. Useful between operation phases. */
+    reset: () => void;
+  };
   /** Stop without success/fail status. */
   stop: () => void;
   /** Temporarily hide the indicator so other output can be written cleanly. */

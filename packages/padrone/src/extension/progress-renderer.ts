@@ -154,8 +154,10 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
   const formatFinal = (icon: string, msg: string) => (icon ? `${icon} ${msg}\n` : `${msg}\n`);
 
   if (typeof process === 'undefined' || !process.stderr?.isTTY) {
+    const noopEta = { start() {}, stop() {}, reset() {} };
     return {
       update() {},
+      eta: noopEta,
       succeed(msg, opts) {
         if (msg === null) return;
         const icon = opts?.indicator ?? successIcon;
@@ -176,11 +178,11 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
   const ansiPattern = /\x1b\[[0-9;]*m/g;
 
   if (spinnerCfg.show === 'never' && (!barCfg || barCfg.show === 'never') && !message) {
-    return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+    return { update() {}, eta: { start() {}, stop() {}, reset() {} }, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
   }
 
   const showTime = options?.time ?? false;
-  const showEta = options?.eta ?? false;
+  let etaEnabled = options?.eta ?? false;
 
   let spinnerFrame = 0;
   let barFrame = 0;
@@ -224,7 +226,7 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
 
     let line = '';
     if (barVisible) line += formatBar(progress, barCfg!, barFrame);
-    const hasEta = showEta && progress !== undefined && progress < 1 && etaMs !== undefined;
+    const hasEta = etaEnabled && progress !== undefined && progress < 1 && etaMs !== undefined;
     if (timeEnabled || hasEta) {
       const parts: string[] = [];
       if (timeEnabled) parts.push(`⏱ ${formatDuration(Date.now() - startTime)}`);
@@ -278,6 +280,27 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
     clearLines();
   };
 
+  const eta = {
+    start() {
+      if (stopped) return;
+      etaEnabled = true;
+      render();
+    },
+    stop() {
+      if (stopped) return;
+      etaEnabled = false;
+      etaMs = undefined;
+      render();
+    },
+    reset() {
+      if (stopped) return;
+      etaSamples.length = 0;
+      etaMs = undefined;
+      etaCalculatedAt = 0;
+      render();
+    },
+  };
+
   return {
     update(value) {
       if (stopped) return;
@@ -285,7 +308,7 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
       if (parsed.message !== undefined) text = parsed.message;
       if (parsed.progress !== undefined) {
         progress = parsed.progress;
-        if (showEta) {
+        if (etaEnabled) {
           const now = Date.now();
           etaSamples.push({ time: now, progress: parsed.progress });
           const estimated = estimateEta(etaSamples);
@@ -309,6 +332,7 @@ export function createTerminalProgress(message: string, options?: PadroneProgres
       }
       render();
     },
+    eta,
     succeed(msg, opts) {
       clear();
       if (msg === null) return;

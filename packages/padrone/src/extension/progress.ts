@@ -43,6 +43,8 @@ export type PadroneProgressConfig<TRes = unknown> = {
    * Defaults to the built-in terminal renderer (`createTerminalProgress`).
    */
   renderer?: PadroneProgressRenderer;
+  /** Suppress all progress output. The `progress` interface is still provided on the context as a no-op. */
+  silent?: boolean;
 };
 
 /**
@@ -52,7 +54,7 @@ export type PadroneProgressConfig<TRes = unknown> = {
  *
  * Provide via context as `{ progressConfig: PadroneProgressDefaults }`.
  */
-export type PadroneProgressDefaults = Pick<PadroneProgressConfig, 'message' | 'spinner' | 'bar' | 'time' | 'eta' | 'renderer'>;
+export type PadroneProgressDefaults = Pick<PadroneProgressConfig, 'message' | 'spinner' | 'bar' | 'time' | 'eta' | 'renderer' | 'silent'>;
 
 /** Builder/program type after applying `padroneProgress()`. Adds `{ progress: PadroneProgress }` to the command context. */
 export type WithProgress<T> = WithInterceptor<T, { progress: PadroneProgress }>;
@@ -61,8 +63,10 @@ export type WithProgress<T> = WithInterceptor<T, { progress: PadroneProgress }>;
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+const noopEta = { start() {}, stop() {}, reset() {} };
 const noopIndicator: PadroneProgress = {
   update() {},
+  eta: noopEta,
   succeed() {},
   fail() {},
   stop() {},
@@ -146,6 +150,7 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
   const rawRenderer = isObj ? config.renderer : undefined;
   const rawTime = isObj ? config.time : undefined;
   const rawEta = isObj ? config.eta : undefined;
+  const rawSilent = isObj ? config.silent : undefined;
 
   return defineInterceptor({ id: 'padrone:progress', name: 'padrone:progress' })
     .requires<{ progressConfig?: PadroneProgressDefaults }>()
@@ -155,11 +160,13 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
       // Lazily resolved from context + constructor args
       let resolvedRenderer: PadroneProgressRenderer | undefined;
       let resolvedOptions: PadroneProgressOptions | undefined;
+      let resolvedSilent = false;
       let msgs: ReturnType<typeof resolveMessages> | undefined;
 
       function resolve(ctx: { context?: { progressConfig?: PadroneProgressDefaults } }) {
         if (resolvedRenderer) return;
         const ctxCfg = (ctx.context as Record<string, unknown> | undefined)?.progressConfig as PadroneProgressDefaults | undefined;
+        resolvedSilent = rawSilent ?? ctxCfg?.silent ?? false;
         const spinner = rawSpinner ?? ctxCfg?.spinner;
         const bar = rawBar ?? ctxCfg?.bar;
         const time = rawTime ?? ctxCfg?.time;
@@ -179,6 +186,7 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
       return {
         validate(ctx, next) {
           resolve(ctx);
+          if (resolvedSilent) return next();
           indicator = resolvedRenderer!(msgs!.validation || msgs!.progress, resolvedOptions);
 
           const originalOutput = ctx.runtime.output;
@@ -227,6 +235,8 @@ function progressInterceptor(config: string | PadroneProgressConfig) {
         },
 
         execute(_ctx, next) {
+          if (resolvedSilent) return next({ context: { progress: noopIndicator } });
+
           // Transition from validation message to progress message
           if (indicator && msgs!.validation) indicator.update(msgs!.progress);
 

@@ -35,6 +35,7 @@ function createMockProgress() {
       stop: () => {
         calls.push('stop');
       },
+      eta: { start() {}, stop() {}, reset() {} },
       pause: () => {
         calls.push('pause');
       },
@@ -571,7 +572,7 @@ describe('progress', () => {
       let receivedOptions: any;
       const renderer: PadroneProgressRenderer = (_message, options) => {
         receivedOptions = options;
-        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+        return { update() {}, eta: { start() {}, stop() {}, reset() {} }, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
       };
 
       const program = createPadrone('app')
@@ -637,7 +638,7 @@ describe('progress', () => {
       let receivedOptions: any;
       const renderer: PadroneProgressRenderer = (_message, options) => {
         receivedOptions = options;
-        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+        return { update() {}, eta: { start() {}, stop() {}, reset() {} }, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
       };
 
       const program = createPadrone('app').command('cmd', (c) =>
@@ -652,7 +653,7 @@ describe('progress', () => {
       let receivedOptions: any = 'NOT_CALLED';
       const renderer: PadroneProgressRenderer = (_message, options) => {
         receivedOptions = options;
-        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+        return { update() {}, eta: { start() {}, stop() {}, reset() {} }, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
       };
 
       const program = createPadrone('app').command('cmd', (c) =>
@@ -667,7 +668,7 @@ describe('progress', () => {
       let receivedOptions: any;
       const renderer: PadroneProgressRenderer = (_message, options) => {
         receivedOptions = options;
-        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+        return { update() {}, eta: { start() {}, stop() {}, reset() {} }, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
       };
 
       const program = createPadrone('app').command('cmd', (c) =>
@@ -684,7 +685,7 @@ describe('progress', () => {
       let receivedOptions: any;
       const renderer: PadroneProgressRenderer = (_message, options) => {
         receivedOptions = options;
-        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+        return { update() {}, eta: { start() {}, stop() {}, reset() {} }, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
       };
 
       const program = createPadrone('app').command('cmd', (c) =>
@@ -699,7 +700,7 @@ describe('progress', () => {
       let receivedOptions: any;
       const renderer: PadroneProgressRenderer = (_message, options) => {
         receivedOptions = options;
-        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+        return { update() {}, eta: { start() {}, stop() {}, reset() {} }, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
       };
 
       const program = createPadrone('app').command('cmd', (c) =>
@@ -757,7 +758,7 @@ describe('progress', () => {
       let receivedOptions: any;
       const renderer: PadroneProgressRenderer = (_message, options) => {
         receivedOptions = options;
-        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+        return { update() {}, eta: { start() {}, stop() {}, reset() {} }, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
       };
 
       const program = createPadrone('app').command('cmd', (c) =>
@@ -772,7 +773,7 @@ describe('progress', () => {
       let receivedOptions: any;
       const renderer: PadroneProgressRenderer = (_message, options) => {
         receivedOptions = options;
-        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+        return { update() {}, eta: { start() {}, stop() {}, reset() {} }, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
       };
 
       const program = createPadrone('app').command('cmd', (c) =>
@@ -787,7 +788,7 @@ describe('progress', () => {
       let receivedOptions: any;
       const renderer: PadroneProgressRenderer = (_message, options) => {
         receivedOptions = options;
-        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+        return { update() {}, eta: { start() {}, stop() {}, reset() {} }, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
       };
 
       const program = createPadrone('app').command('cmd', (c) =>
@@ -802,7 +803,7 @@ describe('progress', () => {
       let receivedOptions: any;
       const renderer: PadroneProgressRenderer = (_message, options) => {
         receivedOptions = options;
-        return { update() {}, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
+        return { update() {}, eta: { start() {}, stop() {}, reset() {} }, succeed() {}, fail() {}, stop() {}, pause() {}, resume() {} };
       };
 
       const program = createPadrone('app')
