@@ -1,5 +1,11 @@
 # padrone
 
+## 1.9.0
+
+### Minor Changes
+
+- [`8114f98`](https://github.com/KurtGokhan/padrone/commit/8114f98ce3ae46cb6cdfa152d39e78e35d6ebe7d) Thanks [@KurtGokhan](https://github.com/KurtGokhan)! - Auto-coerce CLI string values for union types (e.g. `z.union([z.boolean(), z.string()])`) — `--flag true` now correctly passes boolean `true` instead of the string `"true"`
+
 ## 1.8.2
 
 ### Patch Changes
