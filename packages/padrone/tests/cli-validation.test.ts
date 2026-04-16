@@ -114,6 +114,51 @@ describe('CLI validation improvements', () => {
       const result = program.eval('test --count 42');
       expect(result.args?.count).toBe(42);
     });
+
+    it('should coerce string to boolean for z.union([z.boolean(), z.string()])', () => {
+      const program = createPadrone('app').command('run', (c) =>
+        c.arguments(z.object({ test: z.union([z.boolean(), z.string()]) })).action((args) => args),
+      );
+
+      expect(program.eval('run --test true').args?.test).toBe(true);
+      expect(program.eval('run --test false').args?.test).toBe(false);
+    });
+
+    it('should coerce string to literal boolean for z.union([z.literal(true), z.string()])', () => {
+      const program = createPadrone('app').command('run', (c) =>
+        c.arguments(z.object({ test: z.union([z.literal(true), z.string()]) })).action((args) => args),
+      );
+
+      const result = program.eval('run --test true');
+      expect(result.args?.test).toBe(true);
+    });
+
+    it('should leave non-boolean strings as string in boolean|string union', () => {
+      const program = createPadrone('app').command('run', (c) =>
+        c.arguments(z.object({ test: z.union([z.boolean(), z.string()]) })).action((args) => args),
+      );
+
+      const result = program.eval('run --test hello');
+      expect(result.args?.test).toBe('hello');
+    });
+
+    it('should coerce string to number for z.union([z.number(), z.string()])', () => {
+      const program = createPadrone('app').command('run', (c) =>
+        c.arguments(z.object({ test: z.union([z.number(), z.string()]) })).action((args) => args),
+      );
+
+      expect(program.eval('run --test 42').args?.test).toBe(42);
+      expect(program.eval('run --test hello').args?.test).toBe('hello');
+    });
+
+    it('should prefer boolean coercion over number when both are allowed', () => {
+      const program = createPadrone('app').command('run', (c) =>
+        c.arguments(z.object({ test: z.union([z.boolean(), z.number()]) })).action((args) => args),
+      );
+
+      expect(program.eval('run --test true').args?.test).toBe(true);
+      expect(program.eval('run --test 42').args?.test).toBe(42);
+    });
   });
 
   // ====================================================================

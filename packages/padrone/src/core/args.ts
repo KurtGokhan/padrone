@@ -209,9 +209,57 @@ export function preprocessArgs(
 }
 
 /**
+ * Walk a JSON schema fragment and collect the set of allowed primitive types,
+ * descending into `anyOf` / `oneOf` (used for unions). For variants whose type
+ * is `array`, item types are collected separately into `itemTypes`.
+ */
+function collectAllowedTypes(prop: Record<string, any> | undefined, types: Set<string>, itemTypes: Set<string>): void {
+  if (!prop) return;
+
+  if (prop.type !== undefined) {
+    const list = Array.isArray(prop.type) ? prop.type : [prop.type];
+    for (const t of list) {
+      if (typeof t === 'string') types.add(t);
+    }
+    if (list.includes('array') && prop.items) {
+      collectAllowedTypes(prop.items, itemTypes, new Set());
+    }
+  }
+
+  const variants = prop.anyOf ?? prop.oneOf;
+  if (Array.isArray(variants)) {
+    for (const variant of variants) collectAllowedTypes(variant, types, itemTypes);
+  }
+}
+
+/** Coerce a single CLI string to a primitive based on the set of allowed types. */
+function coerceScalar(value: unknown, allowedTypes: Set<string>): unknown {
+  if (typeof value !== 'string') return value;
+
+  if (allowedTypes.has('boolean')) {
+    const lower = value.toLowerCase();
+    if (lower === 'true' || lower === '1' || lower === 'yes' || lower === 'on') return true;
+    if (lower === 'false' || lower === '0' || lower === 'no' || lower === 'off') return false;
+  }
+
+  if (allowedTypes.has('number') || allowedTypes.has('integer')) {
+    const trimmed = value.trim();
+    if (trimmed !== '') {
+      const num = Number(trimmed);
+      if (!Number.isNaN(num)) return num;
+    }
+  }
+
+  return value;
+}
+
+/**
  * Auto-coerce CLI string values to match the expected schema types.
  * Handles: string → number, string → boolean for primitive schema fields.
  * Arrays of primitives are also coerced element-wise.
+ * Union types (`anyOf` / `oneOf`) are coerced to the most specific matching
+ * primitive — e.g. `--test true` for `z.union([z.boolean(), z.string()])`
+ * becomes the boolean `true` rather than the string "true".
  */
 export function coerceArgs(data: Record<string, unknown>, schema: StandardJSONSchemaV1): Record<string, unknown> {
   let properties: Record<string, any>;
@@ -229,43 +277,21 @@ export function coerceArgs(data: Record<string, unknown>, schema: StandardJSONSc
     const prop = properties[key];
     if (!prop) continue;
 
-    const targetType = prop.type as string | undefined;
+    const types = new Set<string>();
+    const itemTypes = new Set<string>();
+    collectAllowedTypes(prop, types, itemTypes);
 
-    if (targetType === 'number' || targetType === 'integer') {
-      if (typeof value === 'string') {
-        const num = Number(value);
-        if (!Number.isNaN(num)) result[key] = num;
-      }
-    } else if (targetType === 'boolean') {
-      if (typeof value === 'string') {
-        const lower = value.toLowerCase();
-        if (lower === 'true' || lower === '1' || lower === 'yes' || lower === 'on') result[key] = true;
-        else if (lower === 'false' || lower === '0' || lower === 'no' || lower === 'off') result[key] = false;
-      }
-    } else if (targetType === 'array') {
-      // Coerce single items to array
-      const arr = Array.isArray(value) ? value : [value];
-      const itemType = prop.items?.type as string | undefined;
-      if (itemType === 'number' || itemType === 'integer') {
-        result[key] = arr.map((v) => {
-          if (typeof v === 'string') {
-            const num = Number(v);
-            return Number.isNaN(num) ? v : num;
-          }
-          return v;
-        });
-      } else if (itemType === 'boolean') {
-        result[key] = arr.map((v) => {
-          if (typeof v === 'string') {
-            const lower = v.toLowerCase();
-            if (lower === 'true' || lower === '1' || lower === 'yes' || lower === 'on') return true;
-            if (lower === 'false' || lower === '0' || lower === 'no' || lower === 'off') return false;
-          }
-          return v;
-        });
-      } else if (!Array.isArray(value)) {
-        result[key] = arr;
-      }
+    const isArrayValue = Array.isArray(value);
+    const allowsArray = types.has('array');
+    const allowsScalar = types.has('string') || types.has('boolean') || types.has('number') || types.has('integer');
+
+    if (isArrayValue && allowsArray) {
+      result[key] = value.map((v) => coerceScalar(v, itemTypes));
+    } else if (!isArrayValue && allowsArray && !allowsScalar) {
+      // Wrap single value into an array when only array shapes are allowed
+      result[key] = [coerceScalar(value, itemTypes)];
+    } else if (!isArrayValue) {
+      result[key] = coerceScalar(value, types);
     }
   }
 
