@@ -23,7 +23,6 @@ export type {
 export { REPL_SIGINT } from './core/runtime.ts';
 export type {
   HelpCommand,
-  InkOptions,
   OtelSpan,
   OtelTracer,
   OtelTracerProvider,
@@ -52,14 +51,12 @@ export type {
 } from './extension/index.ts';
 export {
   createTerminalProgress,
-  isReactElement,
   padroneAutoOutput,
   padroneColor,
   padroneCompletion,
   padroneConfig,
   padroneEnv,
   padroneHelp,
-  padroneInk,
   padroneInteractive,
   padroneLogger,
   padroneMan,

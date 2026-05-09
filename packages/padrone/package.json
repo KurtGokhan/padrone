@@ -89,10 +89,18 @@
       },
       "source": "./src/zod.ts"
     },
+    "./ink": {
+      "padrone@dev": "./src/ink.ts",
+      "import": {
+        "types": "./dist/ink.d.mts",
+        "default": "./dist/ink.mjs"
+      },
+      "source": "./src/ink.ts"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsdown src/index.ts src/test.ts src/zod.ts src/codegen/index.ts src/docs/index.ts --dts --sourcemap",
+    "build": "tsdown src/index.ts src/test.ts src/zod.ts src/ink.ts src/codegen/index.ts src/docs/index.ts --dts --sourcemap",
     "start": "bun --conditions=padrone@dev src/cli/index.ts",
     "dev": "bun --conditions=padrone@dev --watch src/cli/index.ts",
     "test": "bun test --conditions=padrone@dev",

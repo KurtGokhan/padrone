@@ -1,4 +1,5 @@
-import { createPadrone, defineInterceptor, padroneInk, padroneLogger, padroneProgress, padroneTiming } from 'padrone';
+import { createPadrone, defineInterceptor, padroneLogger, padroneProgress, padroneTiming } from 'padrone';
+import { padroneInk } from 'padrone/ink';
 import { zodAsyncStream } from 'padrone/zod';
 import * as z from 'zod/v4';
 import { addTask, getTask, getTasks, removeTask, setTaskStatus, updateTask } from './tasks-store.ts';

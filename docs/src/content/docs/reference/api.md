@@ -1195,7 +1195,12 @@ These extensions are available as named exports from `'padrone'`:
 | `padroneMcp()` | MCP server integration |
 | `padroneServe()` | REST server integration |
 | `padroneTracing(config)` | OpenTelemetry tracing |
-| `padroneInk()` | React (Ink) rendering support |
+
+The following extension lives in its own subpath import to avoid pulling React/Ink into the main bundle:
+
+| Export | Import from | Purpose |
+|--------|-------------|---------|
+| `padroneInk()` | `'padrone/ink'` | React (Ink) rendering support |
 
 The following extensions are applied automatically by `createPadrone()` and can be disabled via `builtins`:
 

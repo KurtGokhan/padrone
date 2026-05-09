@@ -78,7 +78,8 @@ function createInkInterceptor(rawOptions?: InkOptions) {
  * Requires `ink` and `react` as peer dependencies.
  *
  * ```ts
- * import { createPadrone, padroneInk } from 'padrone';
+ * import { createPadrone } from 'padrone';
+ * import { padroneInk } from 'padrone/ink';
  *
  * const program = createPadrone('my-tui')
  *   .extend(padroneInk())

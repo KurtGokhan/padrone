@@ -49,7 +49,7 @@ Additional opt-in extensions are available for advanced features:
 | `padroneMcp()` | `'padrone'` | MCP server integration |
 | `padroneServe()` | `'padrone'` | REST server integration |
 | `padroneTracing(config)` | `'padrone'` | OpenTelemetry tracing |
-| `padroneInk()` | `'padrone'` | React (Ink) rendering support |
+| `padroneInk()` | `'padrone/ink'` | React (Ink) rendering support |
 
 ## Extensions
 

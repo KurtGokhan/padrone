@@ -10,8 +10,6 @@ export type { PadroneEnvOptions } from './env.ts';
 export { padroneEnv } from './env.ts';
 export type { HelpCommand, WithHelp } from './help.ts';
 export { padroneHelp } from './help.ts';
-export type { InkOptions } from './ink.ts';
-export { isReactElement, padroneInk } from './ink.ts';
 export { padroneInteractive } from './interactive.ts';
 export type { PadroneLogger, PadroneLoggerConfig, PadroneLogLevel, WithLogger } from './logger.ts';
 export { padroneLogger } from './logger.ts';

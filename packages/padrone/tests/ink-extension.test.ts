@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { Text } from 'ink';
-import { createPadrone, padroneInk } from 'padrone';
+import { createPadrone } from 'padrone';
+import { padroneInk } from 'padrone/ink';
 import React from 'react';
 
 describe('padroneInk extension', () => {
