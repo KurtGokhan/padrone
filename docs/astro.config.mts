@@ -51,7 +51,16 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     resolve: {
-      external: ['padrone', 'padrone/zod'],
+      external: [
+        'padrone',
+        'padrone/zod',
+        'padrone/ink',
+        'padrone/mcp',
+        'padrone/serve',
+        'padrone/tracing',
+        'padrone/completion',
+        'padrone/man',
+      ],
       conditions: ['padrone@dev'],
       externalConditions: ['padrone@dev'],
     },
