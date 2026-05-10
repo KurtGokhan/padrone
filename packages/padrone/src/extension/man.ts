@@ -20,6 +20,9 @@ export type WithMan<T> = WithCommand<T, 'man', ManCommand>;
  *
  * Usage:
  * ```ts
+ * import { createPadrone } from 'padrone';
+ * import { padroneMan } from 'padrone/man';
+ *
  * createPadrone('my-cli').extend(padroneMan())
  * ```
  */

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { isReactElement } from 'padrone';
+import { isReactElement } from 'padrone/ink';
 import React from 'react';
 
 describe('isReactElement', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
-import type { OtelSpan, OtelTracer, OtelTracerProvider } from 'padrone';
-import { createPadrone, padroneLogger, padroneTracing } from 'padrone';
+import { createPadrone, padroneLogger } from 'padrone';
+import type { OtelSpan, OtelTracer, OtelTracerProvider } from 'padrone/tracing';
+import { padroneTracing } from 'padrone/tracing';
 
 // ---------------------------------------------------------------------------
 // Mock OTEL primitives

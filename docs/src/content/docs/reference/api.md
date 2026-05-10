@@ -1187,15 +1187,20 @@ These extensions are available as named exports from `'padrone'`:
 | `padroneEnv(schema)` | Parse environment variables into args |
 | `padroneConfig(options)` | Load args from config files |
 | `padroneProgress(config)` | Auto-managed progress indicators |
-| `padroneCompletion()` | Shell completion generation |
 | `padroneLogger(options)` | Structured logging with levels |
 | `padroneTiming()` | Execution timing |
-| `padroneMan()` | Man page generation |
 | `padroneUpdateCheck(config)` | Background version checking |
-| `padroneMcp()` | MCP server integration |
-| `padroneServe()` | REST server integration |
-| `padroneTracing(config)` | OpenTelemetry tracing |
-| `padroneInk()` | React (Ink) rendering support |
+
+The following extensions live in their own subpath imports to keep optional dependencies and large transitive surfaces out of the main bundle:
+
+| Export | Import from | Purpose |
+|--------|-------------|---------|
+| `padroneInk()` | `'padrone/ink'` | React (Ink) rendering support |
+| `padroneMcp()` | `'padrone/mcp'` | MCP server integration |
+| `padroneServe()` | `'padrone/serve'` | REST server integration |
+| `padroneTracing(config)` | `'padrone/tracing'` | OpenTelemetry tracing |
+| `padroneCompletion()` | `'padrone/completion'` | Shell completion generation |
+| `padroneMan()` | `'padrone/man'` | Man page generation |
 
 The following extensions are applied automatically by `createPadrone()` and can be disabled via `builtins`:
 

@@ -1,16 +1,9 @@
 // biome-ignore-all lint/correctness/noUnusedVariables: This file is for testing TypeScript types, so unused variables are intentional.
 
 import { expectTypeOf, test } from 'bun:test';
-import type {
-  DefineCommand,
-  DefineCommandContext,
-  PadroneBuilder,
-  PadroneLogger,
-  PadroneProgram,
-  PadroneProgress,
-  PadroneTracer,
-} from 'padrone';
+import type { DefineCommand, DefineCommandContext, PadroneBuilder, PadroneLogger, PadroneProgram, PadroneProgress } from 'padrone';
 import { asyncSchema, createPadrone, defineCommand, defineInterceptor, padroneProgress } from 'padrone';
+import type { PadroneTracer } from 'padrone/tracing';
 import * as z from 'zod/v4';
 import { createTasksProgram } from './common.ts';
 

@@ -21,6 +21,9 @@ export type WithMcp<T> = WithCommand<T, 'mcp', McpCommand>;
  *
  * Usage:
  * ```ts
+ * import { createPadrone } from 'padrone';
+ * import { padroneMcp } from 'padrone/mcp';
+ *
  * createPadrone('my-cli').extend(padroneMcp())
  * ```
  */
