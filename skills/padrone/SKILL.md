@@ -166,7 +166,7 @@ Padrone's core is minimal — most features are implemented as extensions compos
 
 Each can be disabled: `createPadrone('myapp', { builtins: { help: false } })`.
 
-Advanced opt-in extensions: `padroneCompletion()`, `padroneLogger()`, `padroneTiming()`, `padroneProgress()`, `padroneMan()`, `padroneUpdateCheck()`, `padroneMcp()`, `padroneServe()`, `padroneTracing()`, `padroneConfig()`. The Ink integration is exposed from a separate entry point: `import { padroneInk } from 'padrone/ink'`.
+Advanced opt-in extensions imported from `'padrone'`: `padroneLogger()`, `padroneTiming()`, `padroneProgress()`, `padroneUpdateCheck()`, `padroneEnv()`, `padroneConfig()`. Optional integrations live behind subpath imports to keep their dependencies out of the main bundle: `padroneInk` from `'padrone/ink'`, `padroneMcp` from `'padrone/mcp'`, `padroneServe` from `'padrone/serve'`, `padroneTracing` from `'padrone/tracing'`, `padroneCompletion` from `'padrone/completion'`, `padroneMan` from `'padrone/man'`.
 
 ## Testing
 

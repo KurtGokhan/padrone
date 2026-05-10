@@ -41,15 +41,15 @@ Additional opt-in extensions are available for advanced features:
 | `padroneEnv(schema)` | `'padrone'` | Parse environment variables into args |
 | `padroneConfig(options)` | `'padrone'` | Load args from config files |
 | `padroneProgress(config)` | `'padrone'` | Auto-managed progress indicators |
-| `padroneCompletion()` | `'padrone'` | Shell completion generation |
 | `padroneLogger(options)` | `'padrone'` | Structured logging with levels |
 | `padroneTiming()` | `'padrone'` | Execution timing |
-| `padroneMan()` | `'padrone'` | Man page generation |
 | `padroneUpdateCheck(config)` | `'padrone'` | Background version checking |
-| `padroneMcp()` | `'padrone'` | MCP server integration |
-| `padroneServe()` | `'padrone'` | REST server integration |
-| `padroneTracing(config)` | `'padrone'` | OpenTelemetry tracing |
 | `padroneInk()` | `'padrone/ink'` | React (Ink) rendering support |
+| `padroneMcp()` | `'padrone/mcp'` | MCP server integration |
+| `padroneServe()` | `'padrone/serve'` | REST server integration |
+| `padroneTracing(config)` | `'padrone/tracing'` | OpenTelemetry tracing |
+| `padroneCompletion()` | `'padrone/completion'` | Shell completion generation |
+| `padroneMan()` | `'padrone/man'` | Man page generation |
 
 ## Extensions
 

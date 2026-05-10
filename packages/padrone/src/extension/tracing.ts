@@ -152,6 +152,8 @@ function tracingInterceptor(config: ResolvedTracingConfig) {
  * Usage:
  * ```ts
  * import { trace } from '@opentelemetry/api';
+ * import { createPadrone, padroneLogger } from 'padrone';
+ * import { padroneTracing } from 'padrone/tracing';
  *
  * createPadrone('my-cli')
  *   .extend(padroneTracing({ provider: trace.getTracerProvider() }))

@@ -68,16 +68,16 @@
     "./codegen": {
       "padrone@dev": "./src/codegen/index.ts",
       "import": {
-        "types": "./dist/codegen.d.mts",
-        "default": "./dist/codegen.mjs"
+        "types": "./dist/codegen/index.d.mts",
+        "default": "./dist/codegen/index.mjs"
       },
       "source": "./src/codegen/index.ts"
     },
     "./docs": {
       "padrone@dev": "./src/docs/index.ts",
       "import": {
-        "types": "./dist/docs.d.mts",
-        "default": "./dist/docs.mjs"
+        "types": "./dist/docs/index.d.mts",
+        "default": "./dist/docs/index.mjs"
       },
       "source": "./src/docs/index.ts"
     },
@@ -97,10 +97,50 @@
       },
       "source": "./src/ink.ts"
     },
+    "./mcp": {
+      "padrone@dev": "./src/mcp.ts",
+      "import": {
+        "types": "./dist/mcp.d.mts",
+        "default": "./dist/mcp.mjs"
+      },
+      "source": "./src/mcp.ts"
+    },
+    "./serve": {
+      "padrone@dev": "./src/serve.ts",
+      "import": {
+        "types": "./dist/serve.d.mts",
+        "default": "./dist/serve.mjs"
+      },
+      "source": "./src/serve.ts"
+    },
+    "./tracing": {
+      "padrone@dev": "./src/tracing.ts",
+      "import": {
+        "types": "./dist/tracing.d.mts",
+        "default": "./dist/tracing.mjs"
+      },
+      "source": "./src/tracing.ts"
+    },
+    "./completion": {
+      "padrone@dev": "./src/completion.ts",
+      "import": {
+        "types": "./dist/completion.d.mts",
+        "default": "./dist/completion.mjs"
+      },
+      "source": "./src/completion.ts"
+    },
+    "./man": {
+      "padrone@dev": "./src/man.ts",
+      "import": {
+        "types": "./dist/man.d.mts",
+        "default": "./dist/man.mjs"
+      },
+      "source": "./src/man.ts"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "tsdown src/index.ts src/test.ts src/zod.ts src/ink.ts src/codegen/index.ts src/docs/index.ts --dts --sourcemap",
+    "build": "tsdown src/index.ts src/test.ts src/zod.ts src/ink.ts src/mcp.ts src/serve.ts src/tracing.ts src/completion.ts src/man.ts src/codegen/index.ts src/docs/index.ts --dts --sourcemap --unbundle",
     "start": "bun --conditions=padrone@dev src/cli/index.ts",
     "dev": "bun --conditions=padrone@dev --watch src/cli/index.ts",
     "test": "bun test --conditions=padrone@dev",

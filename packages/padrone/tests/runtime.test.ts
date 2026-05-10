@@ -1,5 +1,6 @@
 import { describe, expect, it, mock } from 'bun:test';
-import { createPadrone, padroneCompletion, padroneConfig, padroneEnv } from 'padrone';
+import { createPadrone, padroneConfig, padroneEnv } from 'padrone';
+import { padroneCompletion } from 'padrone/completion';
 import * as z from 'zod/v4';
 
 describe('runtime', () => {

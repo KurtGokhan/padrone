@@ -21,6 +21,9 @@ export type WithServe<T> = WithCommand<T, 'serve', ServeCommand>;
  *
  * Usage:
  * ```ts
+ * import { createPadrone } from 'padrone';
+ * import { padroneServe } from 'padrone/serve';
+ *
  * createPadrone('my-cli').extend(padroneServe())
  * ```
  */

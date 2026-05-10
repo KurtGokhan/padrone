@@ -23,9 +23,6 @@ export type {
 export { REPL_SIGINT } from './core/runtime.ts';
 export type {
   HelpCommand,
-  OtelSpan,
-  OtelTracer,
-  OtelTracerProvider,
   PadroneLogger,
   PadroneLoggerConfig,
   PadroneLogLevel,
@@ -34,45 +31,32 @@ export type {
   PadroneProgressMessage,
   PadroneProgressMessages,
   PadroneProgressRenderer,
-  PadroneTracer,
-  PadroneTracingConfig,
   VersionCommand,
   WithAsync,
-  WithCompletion,
   WithHelp,
   WithLogger,
-  WithMan,
-  WithMcp,
   WithProgress,
   WithRepl,
-  WithServe,
-  WithTracing,
   WithVersion,
 } from './extension/index.ts';
 export {
   createTerminalProgress,
   padroneAutoOutput,
   padroneColor,
-  padroneCompletion,
   padroneConfig,
   padroneEnv,
   padroneHelp,
   padroneInteractive,
   padroneLogger,
-  padroneMan,
-  padroneMcp,
   padroneProgress,
   padroneRepl,
-  padroneServe,
   padroneSignalHandling,
   padroneStdin,
   padroneSuggestions,
   padroneTiming,
-  padroneTracing,
   padroneUpdateCheck,
   padroneVersion,
 } from './extension/index.ts';
-export type { PadroneMcpPreferences } from './feature/mcp.ts';
 export type { UpdateCheckConfig } from './feature/update-check.ts';
 export type { WrapConfig, WrapResult } from './feature/wrap.ts';
 export type { AnsiStyle, ColorConfig, ColorTheme } from './output/colorizer.ts';

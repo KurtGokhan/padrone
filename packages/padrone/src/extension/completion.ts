@@ -21,6 +21,9 @@ export type WithCompletion<T> = WithCommand<T, 'completion', CompletionCommand>;
  *
  * Usage:
  * ```ts
+ * import { createPadrone } from 'padrone';
+ * import { padroneCompletion } from 'padrone/completion';
+ *
  * createPadrone('my-cli').extend(padroneCompletion())
  * ```
  */
