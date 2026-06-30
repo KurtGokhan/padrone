@@ -1,0 +1,23 @@
+core:changelogs:
+  - content: "---\npackages:\n  padrone:\n    type: major\n---\n\n## Externalize optional integrations to dedicated subpath entry points\n\nOptional integrations are now exported from dedicated subpath entry points so bundlers that don't tree-shake re-exports keep their dependencies out of the main bundle. Update imports as follows:\n\n- `padroneInk`, `isReactElement`, `InkOptions` → `'padrone/ink'`\n- `padroneMcp`, `WithMcp`, `PadroneMcpPreferences` → `'padrone/mcp'`\n- `padroneServe`, `WithServe` → `'padrone/serve'`\n- `padroneTracing`, `WithTracing`, `PadroneTracer`, `PadroneTracingConfig`, `OtelSpan`, `OtelTracer`, `OtelTracerProvider` → `'padrone/tracing'`\n- `padroneCompletion`, `WithCompletion` → `'padrone/completion'`\n- `padroneMan`, `WithMan` → `'padrone/man'`\n"
+    filename: split-optional-entry-points.md
+    v: 0.0.0
+core:packages:
+  - id: npm:@padrone/root
+    updated: true
+  - id: npm:@padrone/docs
+    updated: true
+  - changelogIds:
+      - split-optional-entry-points.md
+    id: npm:padrone
+    updated: true
+  - id: npm:@padrone/tasks-example
+    updated: true
+  - id: npm:@padrone/deploy-example
+    updated: true
+npm:packages:
+  - id: npm:@padrone/root
+  - id: npm:@padrone/docs
+  - id: npm:padrone
+  - id: npm:@padrone/tasks-example
+  - id: npm:@padrone/deploy-example
