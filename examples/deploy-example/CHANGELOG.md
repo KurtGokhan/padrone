@@ -1,5 +1,12 @@
 # @padrone/deploy-example
 
+## 2.0.0
+
+### Patch Changes
+
+- Updated dependencies [1472f95]
+  - padrone@2.0.0
+
 ## 1.9.0
 
 ### Patch Changes
