@@ -1,3 +1,16 @@
+## padrone@2.0.0
+
+### Externalize optional integrations to dedicated subpath entry points
+
+Optional integrations are now exported from dedicated subpath entry points so bundlers that don't tree-shake re-exports keep their dependencies out of the main bundle. Update imports as follows:
+
+- `padroneInk`, `isReactElement`, `InkOptions` → `'padrone/ink'`
+- `padroneMcp`, `WithMcp`, `PadroneMcpPreferences` → `'padrone/mcp'`
+- `padroneServe`, `WithServe` → `'padrone/serve'`
+- `padroneTracing`, `WithTracing`, `PadroneTracer`, `PadroneTracingConfig`, `OtelSpan`, `OtelTracer`, `OtelTracerProvider` → `'padrone/tracing'`
+- `padroneCompletion`, `WithCompletion` → `'padrone/completion'`
+- `padroneMan`, `WithMan` → `'padrone/man'`
+
 # padrone
 
 ## 1.9.0
