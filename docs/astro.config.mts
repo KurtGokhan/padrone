@@ -12,7 +12,7 @@ export default defineConfig({
       title: 'Padrone',
       description: 'Create type-safe, interactive CLI apps with Zod schemas',
       social: [
-        { icon: 'github', label: 'GitHub', href: 'https://github.com/KurtGokhan/padrone' },
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/gkurt/padrone' },
         { icon: 'twitter', label: 'Twitter', href: 'https://twitter.com/gkurttech' },
         { icon: 'npm', label: 'npm', href: 'https://www.npmjs.com/package/padrone' },
       ],

@@ -21,13 +21,13 @@
     "vercel-ai",
     "standard-schema"
   ],
-  "homepage": "https://github.com/KurtGokhan/padrone",
+  "homepage": "https://github.com/gkurt/padrone",
   "bugs": {
-    "url": "https://github.com/KurtGokhan/padrone/issues"
+    "url": "https://github.com/gkurt/padrone/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/KurtGokhan/padrone.git"
+    "url": "git+https://github.com/gkurt/padrone.git"
   },
   "author": {
     "name": "Gokhan Kurt",

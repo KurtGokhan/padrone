@@ -157,7 +157,7 @@ To release a new version, merge the release PR created by the Changesets. This w
 
 ## Questions?
 
-- Open a [Discussion](https://github.com/KurtGokhan/padrone/discussions) for questions
+- Open a [Discussion](https://github.com/gkurt/padrone/discussions) for questions
 - Check the [documentation](https://gkurt.com/padrone/)
 
 ## License

@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/padrone"><img src="https://img.shields.io/npm/v/padrone.svg" alt="npm version"></a>
   <a href="https://www.npmjs.com/package/padrone"><img src="https://img.shields.io/npm/dm/padrone.svg" alt="npm downloads"></a>
-  <a href="https://github.com/KurtGokhan/padrone/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/padrone.svg" alt="license"></a>
+  <a href="https://github.com/gkurt/padrone/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/padrone.svg" alt="license"></a>
 </p>
 
 ---
@@ -185,7 +185,7 @@ program.help('greet', { format: 'json' });   // json, markdown, html, ansi
 Give your AI coding agent knowledge of the Padrone API:
 
 ```bash
-npx skills add KurtGokhan/padrone
+npx skills add gkurt/padrone
 ```
 
 ## Requirements

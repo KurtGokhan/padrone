@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
-  "changelog": ["@changesets/changelog-github", { "repo": "KurtGokhan/padrone" }],
+  "changelog": ["@changesets/changelog-github", { "repo": "gkurt/padrone" }],
   "commit": false,
   "fixed": [["padrone", "@padrone/root", "@padrone/docs", "@padrone/tasks-example", "@padrone/deploy-example"]],
   "access": "public",

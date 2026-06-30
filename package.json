@@ -7,7 +7,7 @@
   "homepage": "https://gkurt.com/padrone/",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/KurtGokhan/padrone.git"
+    "url": "git+ssh://git@github.com/gkurt/padrone.git"
   },
   "license": "MIT",
   "author": {
