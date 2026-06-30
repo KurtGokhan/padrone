@@ -1,6 +1,9 @@
 ---
-'padrone': major
+packages:
+  padrone: major
 ---
+
+## Externalize optional integrations to dedicated subpath entry points
 
 Optional integrations are now exported from dedicated subpath entry points so bundlers that don't tree-shake re-exports keep their dependencies out of the main bundle. Update imports as follows:
 

@@ -93,12 +93,12 @@ git checkout -b feature/your-feature-name
 - Add tests for new functionality
 - Update documentation if needed
 
-### 3. Add a Changeset
+### 3. Add a Changelog Entry
 
-When your change should be noted in the changelog, create a changeset:
+When your change should be noted in the changelog, create one with [Tegami](https://tegami.fuma-nama.dev):
 
 ```bash
-bun changeset
+bun run tegami
 ```
 
 Follow the prompts to:
@@ -109,9 +109,9 @@ Follow the prompts to:
    - **major**: Breaking changes
 3. Write a brief summary of your change
 
-This creates a file in `.changeset/` that will be included in the next release's changelog.
+This creates a file in `.tegami/` that will be included in the next release's changelog. All packages share one version, so the bump applies across the workspace.
 
-**When to skip changesets:**
+**When to skip a changelog entry:**
 - CI/tooling changes only
 - Test-only changes
 - Documentation typos
@@ -142,9 +142,9 @@ The pre-commit hook will automatically run Biome on staged files.
 
 ## Releasing a New Version
 
-To release a new version, merge the release PR created by the Changesets. This will trigger the release process, which includes:
+To release a new version, merge the "Version Packages" PR opened by Tegami. This will trigger the release process, which includes:
 
-1. Bumping the version based on changesets
+1. Bumping the version based on the pending changelog entries
 2. Generating a changelog
 3. Publishing to npm
 

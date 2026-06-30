@@ -73,9 +73,20 @@ The core library lives in `packages/padrone/`:
 
 When changing user-facing APIs, update all relevant documentation: docs pages, README.md, SKILL.md, AGENTS.md, llms.txt, and any other references. Documentation must not go stale.
 
-## Changesets
+## Changelogs
 
-When asked to commit with a changeset, create a concise changeset suitable for a changelog. Use short sentences covering only user-facing changes — no implementation details or verbose descriptions.
+Releases are managed by [Tegami](https://tegami.fuma-nama.dev) (config in `scripts/tegami.mts`). When asked to commit with a changelog entry, run `bun run tegami` or add a `.tegami/*.md` file directly. Each entry has `packages:` frontmatter (the package and bump type) and a body with at least one `#`/`##`/`###` heading:
+
+```md
+---
+packages:
+  padrone: patch
+---
+
+## Short summary of the change
+```
+
+Keep entries concise — short sentences covering only user-facing changes, no implementation details. All packages share one version via the `all` group (`syncBump`), so the bump applies across the workspace; only `padrone` is published (the rest are private).
 
 ## Architecture Notes
 
