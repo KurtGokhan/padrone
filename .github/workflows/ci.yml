@@ -17,3 +17,4 @@ jobs:
       - run: bun check
       - run: bun run test
       - run: bun typecheck
+      - run: bun --filter=padrone build
